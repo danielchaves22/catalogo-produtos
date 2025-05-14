@@ -15,8 +15,9 @@ services:
     env_file:
       - ./backend/.env.docker
     environment:
-      # Configuração para acessar MySQL externo
       - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - LEGACY_PASSWORD_SALT=${LEGACY_PASSWORD_SALT}
     networks:
       - app-network
 

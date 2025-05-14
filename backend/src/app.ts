@@ -6,7 +6,6 @@ import { json, urlencoded } from 'body-parser';
 import authRoutes from './routes/auth.routes';
 import { authMiddleware } from './middlewares/auth.middleware';
 import { setupSwagger } from './swagger';
-import { metricsMiddleware, metricsEndpoint } from './metrics';
 
 const app = express();
 
@@ -14,13 +13,9 @@ const app = express();
 app.use(cors());
 app.use(json());
 app.use(urlencoded({ extended: true }));
-app.use(metricsMiddleware);
 
 // Swagger para documentação da API
 setupSwagger(app);
-
-// Endpoint de métricas
-app.get('/metrics', metricsEndpoint);
 
 // Rotas de autenticação (públicas)
 app.use('/api/auth', authRoutes);

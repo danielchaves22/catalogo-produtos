@@ -49,7 +49,6 @@ export async function login(req: Request, res: Response) {
       
       // Compara o hash gerado com o hash completo
       isValid = calculatedHash === fullHash;
-      console.log("Verificação: " + isValid);
     } catch (e) {
       logger.error('Erro ao verificar senha:', e);
     }
@@ -87,8 +86,6 @@ export async function getAuthUser(req: Request, res: Response) {
     if (!req.user) {
       return res.status(401).json({ error: 'Não autenticado' });
     }
-
-    console.log(req.user)
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
