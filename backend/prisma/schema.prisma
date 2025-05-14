@@ -1,0 +1,33 @@
+// Modificar a configuração do datasource para MySQL
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+// Modelo de usuário adaptado à tabela existente
+// Substituir com os campos corretos conforme sua tabela
+model User {
+  id        Int      @id @map("idv32") // Ajuste para o nome real da coluna de ID
+  email     String   @unique @map("username")
+  password  String   @map("senha") // Campo onde está armazenada a senha MD5
+  name      String   @map("nomecompleto") // Se existir campo de perfil
+  
+  // Mapeamento para o nome real da tabela no banco legado
+  @@map("comex")
+}
+
+// Mantenha esta enum, mas você pode precisar ajustar os valores para corresponder 
+// ao que está no banco de dados
+enum Role {
+  ADMIN
+  SUPERUSER
+  USER
+}
+
+// Removidos outros modelos que não são necessários inicialmente
+// Você pode adicioná-los conforme necessário posteriormente

@@ -1,0 +1,12 @@
+{
+  "name": "catalogo-produtos-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start:backend": "cd backend && npm run start",
+    "start:frontend": "cd frontend && npm run dev",
+    "dev": "echo \"Execute 'npm run dev' em cada módulo separadamente\"",
+    "install:all": "npm i && cd backend && npm i && cd ../frontend && npm i",
+    "build:all": "cd backend && npm run build && cd ../frontend && npm run build"
+  }
+}
