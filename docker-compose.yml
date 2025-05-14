@@ -1,7 +1,7 @@
 version: '3.8'
 
 networks:
-  monitoring:
+  app-network:
     driver: bridge
 
 services:
@@ -9,49 +9,29 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: catalogo-produtos-backend
+    container_name: catalogo-backend
     ports:
       - '3000:3000'
     env_file:
       - ./backend/.env.docker
-    # depends_on:
-    #   - db
+    environment:
+      # Configuração para acessar MySQL externo
+      - DATABASE_URL=${DATABASE_URL}
     networks:
-      - monitoring
-
-  # === Banco de Dados MySQL (para testes, usar variáveis conforme banco legado) ===
-  # db:
-  #   image: mysql:5.7
-  #   container_name: legicex-db
-  #   restart: always
-  #   ports:
-  #     - '3306:3306'
-  #   env_file:
-  #     - ./.env
-  #   environment:
-  #     - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
-  #     - MYSQL_USER=${DB_USER}
-  #     - MYSQL_PASSWORD=${DB_PASSWORD}
-  #     - MYSQL_DATABASE=legicex_2
-  #   volumes:
-  #     - mysql-data:/var/lib/mysql
-  #   command: --default-authentication-plugin=mysql_native_password
-  #   networks:
-  #     - monitoring
+      - app-network
 
   # === Frontend Next.js ===
   frontend:
     build:
       context: ./frontend
-    container_name: catalogo-produtos-frontend
+    container_name: catalogo-frontend
     ports:
       - '3001:3000'
     env_file:
       - ./frontend/.env.local
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     depends_on:
       - backend
     networks:
-      - monitoring
-
-# volumes:
-#   mysql-data:
+      - app-network
