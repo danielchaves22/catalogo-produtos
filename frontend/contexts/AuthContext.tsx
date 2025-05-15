@@ -25,33 +25,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User|null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carrega token do localStorage
+  // Carrega token e busca perfil apenas uma vez durante inicialização
   useEffect(() => {
-    const t = localStorage.getItem('token');
-    if (t) {
-      setToken(t);
-      fetchUserProfile(t);
-    } else {
-      setIsLoading(false);
-    }
+    const loadAuth = async () => {
+      try {
+        const storedToken = localStorage.getItem('token');
+        
+        if (!storedToken) {
+          setIsLoading(false);
+          return;
+        }
+        
+        setToken(storedToken);
+        
+        const response = await api.get('/auth/me', {
+          headers: { Authorization: `Bearer ${storedToken}` }
+        });
+        
+        setUser(response.data);
+      } catch (error) {
+        console.error('Erro ao carregar perfil:', error);
+        // Se houver erro, limpa o token
+        localStorage.removeItem('token');
+        document.cookie = 'token=; Max-Age=0; path=/';
+        setToken(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadAuth();
   }, []);
-
-  // Busca perfil do usuário quando o token é carregado
-  async function fetchUserProfile(authToken: string) {
-    try {
-      const response = await api.get('/auth/me', {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-      setUser(response.data);
-    } catch (error) {
-      console.error('Erro ao carregar perfil:', error);
-      // Se houver erro, limpa o token
-      localStorage.removeItem('token');
-      setToken(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
   async function login(email: string, password: string) {
     const res = await api.post('/auth/login', { email, password });
@@ -59,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Armazena token
     localStorage.setItem('token', newToken);
-    document.cookie = `token=${newToken}; path=/`;
+    document.cookie = `token=${newToken}; path=/; max-age=${60*60}`; // 1 hora
 
     setToken(newToken);
     setUser(userData);

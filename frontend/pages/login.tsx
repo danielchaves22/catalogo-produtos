@@ -1,22 +1,26 @@
 // frontend/pages/login.tsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card } from '@/components/ui/Card'
-import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
-import Link from 'next/link'
+import { useProtectedRoute } from '@/hooks/useProtectedRoute'
+import { PageLoader } from '@/components/ui/PageLoader'
 
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
   const { redirect } = router.query as { redirect?: string };
+  const { isLoading } = useProtectedRoute();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  if (isLoading) {
+    return <PageLoader message="Verificando autenticação..." />;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -103,9 +107,9 @@ export default function LoginPage() {
         </form>
         
         <div className="mt-4 text-center">
-          <Link href="/esqueci-senha" className="text-[#0B3A5C] text-sm hover:underline">
+          <a href="#" className="text-[#0B3A5C] text-sm hover:underline">
             Esqueceu sua senha?
-          </Link>
+          </a>
         </div>
       </Card>
     </div>

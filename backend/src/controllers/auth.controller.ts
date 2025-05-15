@@ -49,6 +49,7 @@ export async function login(req: Request, res: Response) {
       
       // Compara o hash gerado com o hash completo
       isValid = calculatedHash === fullHash;
+      console.log("Verificação: " + isValid);
     } catch (e) {
       logger.error('Erro ao verificar senha:', e);
     }
@@ -57,9 +58,11 @@ export async function login(req: Request, res: Response) {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
-    // Gera o token JWT
+    // Gera o token JWT - IMPORTANTE: mudamos a estrutura para incluir "id" diretamente
     const token = generateToken({ 
-      userId: user.id
+      id: user.id,
+      name: user.name,
+      email: user.email 
     });
 
     return res.status(200).json({ 
@@ -85,6 +88,13 @@ export async function getAuthUser(req: Request, res: Response) {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Não autenticado' });
+    }
+
+    // O payload do token agora é o próprio usuário
+    // Certifique-se de que req.user.id existe
+    if (!req.user.id) {
+      logger.error('Token não contém ID do usuário:', req.user);
+      return res.status(401).json({ error: 'Token inválido - ID do usuário não encontrado' });
     }
 
     const user = await prisma.user.findUnique({
