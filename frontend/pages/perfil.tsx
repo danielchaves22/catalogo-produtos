@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/ToastContext';
-import api from '@/lib/api';
 
 export default function PerfilPage() {
   const { user } = useAuth();
@@ -74,19 +73,7 @@ export default function PerfilPage() {
     
     try {
       // Simular uma chamada à API para atualização de perfil
-      // Na implementação real, substituir por uma chamada real
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Se tiver senha nova, enviar atualização de senha
-      if (formData.newPassword) {
-        // Implementar chamada de API para atualizar senha
-      }
-      
-      // Atualizar dados do perfil
-      // await api.put('/users/profile', {
-      //   name: formData.name,
-      //   email: formData.email
-      // });
       
       addToast('Perfil atualizado com sucesso!', 'success');
     } catch (error) {
@@ -100,13 +87,12 @@ export default function PerfilPage() {
   return (
     <DashboardLayout title="Meu Perfil">
       <div className="max-w-3xl mx-auto">
-        <Card className="mb-6 overflow-hidden">
-          <div className="bg-gray-50 px-6 py-4 border-b">
-            <h2 className="text-lg font-medium text-gray-800">Informações do Perfil</h2>
-            <p className="text-sm text-gray-500">Atualize suas informações pessoais</p>
-          </div>
-          
-          <form onSubmit={handleSubmit} className="p-6">
+        <Card 
+          className="mb-6" 
+          headerTitle="Informações do Perfil" 
+          headerSubtitle="Atualize suas informações pessoais"
+        >
+          <form onSubmit={handleSubmit}>
             <Input
               label="Nome Completo"
               name="name"
@@ -126,19 +112,21 @@ export default function PerfilPage() {
               className="mb-6"
             />
             
-            <Button type="submit" disabled={loading}>
+            <button 
+              type="submit" 
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors" 
+              disabled={loading}
+            >
               {loading ? 'Salvando...' : 'Salvar Alterações'}
-            </Button>
+            </button>
           </form>
         </Card>
         
-        <Card>
-          <div className="bg-gray-50 px-6 py-4 border-b">
-            <h2 className="text-lg font-medium text-gray-800">Alterar Senha</h2>
-            <p className="text-sm text-gray-500">Atualizar sua senha de acesso</p>
-          </div>
-          
-          <form onSubmit={handleSubmit} className="p-6">
+        <Card 
+          headerTitle="Alterar Senha" 
+          headerSubtitle="Atualizar sua senha de acesso"
+        >
+          <form onSubmit={handleSubmit}>
             <Input
               label="Senha Atual"
               type="password"
@@ -169,9 +157,13 @@ export default function PerfilPage() {
               className="mb-6"
             />
             
-            <Button type="submit" disabled={loading}>
+            <button 
+              type="submit" 
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors" 
+              disabled={loading}
+            >
               {loading ? 'Atualizando...' : 'Atualizar Senha'}
-            </Button>
+            </button>
           </form>
         </Card>
       </div>

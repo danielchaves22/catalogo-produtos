@@ -11,7 +11,8 @@ import {
 type SubMenuItem = {
   label: string;
   href?: string;
-  isHeader?: boolean; // Para identificar itens que atuam como cabeçalhos/separadores
+  isHeader?: boolean; // Para identificar itens que atuam como categorias
+  showWhenExpanded?: boolean; // Controla visibilidade no modo expandido
 };
 
 // Tipo para item de menu
@@ -50,10 +51,10 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
   
   const router = useRouter();
   
-  // Estado para controlar qual submenu está aberto
+  // Estado para controlar qual submenu está aberto (para flutuante)
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
-  // Coordenadas do submenu
-  const [submenuPosition, setSubmenuPosition] = useState({ top: 0 });
+  // Coordenadas do submenu flutuante
+  const [submenuPosition, setSubmenuPosition] = useState({ top: 0, left: 0 });
 
   // Salva o estado atual no localStorage sempre que mudar
   useEffect(() => {
@@ -61,88 +62,82 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
   }, [collapsed]);
 
   const menuItems: SidebarItem[] = [
-    {
-      title: 'ANALISANDO',
-      type: 'title',
-    },
+    // Removido o separador "ANALISANDO"
     {
       icon: <FileText size={20} />,
       label: 'Planilha',
       subItems: [
-        { label: 'Planilha', href: '/planilha' },
+        { label: 'Planilha', href: '/planilha', showWhenExpanded: true },
       ],
     },
     {
       icon: <Activity size={20} />,
       label: 'Rastreador',
       subItems: [
-        { label: 'Rastreador', href: '/rastreador' },
+        { label: 'Rastreador', href: '/rastreador', showWhenExpanded: true },
       ],
     },
     {
       icon: <Calendar size={20} />,
       label: 'Calendário',
       subItems: [
-        { label: 'Calendário', href: '/calendario' },
+        { label: 'Calendário', href: '/calendario', showWhenExpanded: true },
       ],
     },
     {
       icon: <PieChart size={20} />,
       label: 'Painel',
       subItems: [
-        { label: 'Painel', href: '/painel' },
+        { label: 'Painel', href: '/painel', showWhenExpanded: true },
       ],
     },
     {
       icon: <BarChart2 size={20} />,
       label: 'Relatórios',
       subItems: [
-        { label: 'Relatórios', isHeader: true }, // Item de cabeçalho sem link
-        { label: 'Resumido', href: '/relatorios/resumido' },
-        { label: 'Detalhado', href: '/relatorios/detalhado' },
-        { label: 'Semanal', href: '/relatorios/semanal' },
-        { label: 'Compartilhado', href: '/relatorios/compartilhado' },
+        { label: 'Relatórios', isHeader: true, showWhenExpanded: false }, // Item categoria, não mostrar quando expandido
+        { label: 'Resumido', href: '/relatorios/resumido', showWhenExpanded: true },
+        { label: 'Detalhado', href: '/relatorios/detalhado', showWhenExpanded: true },
+        { label: 'Semanal', href: '/relatorios/semanal', showWhenExpanded: true },
+        { label: 'Compartilhado', href: '/relatorios/compartilhado', showWhenExpanded: true },
       ]
     },
-    {
-      title: 'GERENCIANDO',
-      type: 'title',
-    },
+    // Removido o separador "GERENCIANDO"
     {
       icon: <Briefcase size={20} />,
       label: 'Produtos',
       subItems: [
-        { label: 'Produtos', href: '/produtos' },
+        { label: 'Produtos', href: '/produtos', showWhenExpanded: true },
       ],
     },
     {
       icon: <Users size={20} />,
       label: 'Equipe',
       subItems: [
-        { label: 'Equipe', isHeader: true }, // Item de cabeçalho sem link
-        { label: 'Presença', href: '/equipe/presenca' },
-        { label: 'Atribuições', href: '/equipe/atribuicoes' },
+        { label: 'Equipe', isHeader: true, showWhenExpanded: false }, // Item categoria, não mostrar quando expandido
+        { label: 'Presença', href: '/equipe/presenca', showWhenExpanded: true },
+        { label: 'Atribuições', href: '/equipe/atribuicoes', showWhenExpanded: true },
       ]
     },
     {
       icon: <Users size={20} />,
       label: 'Clientes',
       subItems: [
-        { label: 'Clientes', href: '/clientes' },
+        { label: 'Clientes', href: '/clientes', showWhenExpanded: true },
       ],
     },
     {
       icon: <Tag size={20} />,
       label: 'Etiquetas',
       subItems: [
-        { label: 'Etiquetas', href: '/etiquetas' },
+        { label: 'Etiquetas', href: '/etiquetas', showWhenExpanded: true },
       ],
     },
     {
       icon: <User size={20} />,
       label: 'Perfil',
       subItems: [
-        { label: 'Perfil', href: '/perfil' },
+        { label: 'Perfil', href: '/perfil', showWhenExpanded: true },
       ],
     },
   ];
@@ -165,10 +160,17 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
   };
 
   const handleMouseEnter = (item: MenuItem, event: React.MouseEvent) => {
-    if (collapsed) {
-      // Pega a posição do elemento para posicionar o submenu
+    // No modo colapsado, sempre mostrar o submenu flutuante
+    // No modo expandido, mostrar apenas para itens com mais de um subitem
+    if (collapsed || hasMultipleClickableSubItems(item)) {
       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-      setSubmenuPosition({ top: rect.top });
+      
+      // Posição diferente dependendo do modo
+      setSubmenuPosition({ 
+        top: rect.top, 
+        left: collapsed ? 64 : 208 // 16px ou 52px + um espaço
+      });
+      
       setActiveSubmenu(item.label);
     }
   };
@@ -201,7 +203,7 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
   return (
     <>
       <div
-        className={`h-[calc(100vh-60px)] bg-[#1e2126] text-gray-300 flex flex-col transition-all duration-300 fixed z-30 top-[60px] left-0 ${
+        className={`h-[calc(100vh-60px)] bg-[#151921] text-gray-300 flex flex-col transition-all duration-300 fixed z-30 top-[60px] left-0 ${
           collapsed ? 'w-16' : 'w-52'
         }`}
         style={{ marginTop: "-1px" }}
@@ -209,7 +211,7 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
         {/* Botão de toggle no centro da borda direita */}
         <button
           onClick={toggleSidebar}
-          className="absolute -right-3 top-1/2 transform -translate-y-1/2 bg-[#1e2126] rounded-full p-1 text-gray-300 z-10"
+          className="absolute -right-3 top-1/2 transform -translate-y-1/2 bg-[#151921] rounded-full p-1 text-gray-300 z-10"
           aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
         >
           {collapsed ? (
@@ -222,11 +224,8 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
         <div className="flex-1 overflow-y-auto">
           {menuItems.map((item, index) => {
             if ('type' in item && item.type === 'title') {
-              return (
-                <div key={index} className={`px-4 py-2 text-xs text-gray-500 ${collapsed ? 'hidden' : ''}`}>
-                  {item.title}
-                </div>
-              );
+              // Não renderizar separadores - removido completamente
+              return null;
             }
 
             const menuItem = item as MenuItem;
@@ -244,9 +243,10 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
                 {collapsed ? (
                   <div 
                     className={`cursor-pointer px-4 py-3 ${
-                      isActive ? 'bg-[#f59e0b] text-white' : 'text-gray-300 hover:bg-gray-700'
+                      isActive ? 'bg-[#f59e0b] text-white' : 'text-gray-300 hover:bg-[#1e2126]'
                     } flex justify-center items-center`}
                     onMouseEnter={(e) => handleMouseEnter(menuItem, e)}
+                    onMouseLeave={handleMouseLeave}
                     onClick={() => {
                       if (href && href !== '#') {
                         router.push(href);
@@ -260,8 +260,10 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
                     <Link
                       href={href}
                       className={`flex items-center justify-between px-4 py-3 ${
-                        isActive ? 'bg-[#f59e0b] text-white font-medium' : 'hover:bg-gray-700'
+                        isActive ? 'bg-[#f59e0b] text-white font-medium' : 'hover:bg-[#1e2126]'
                       }`}
+                      onMouseEnter={(e) => handleMouseEnter(menuItem, e)}
+                      onMouseLeave={handleMouseLeave}
                     >
                       <div className="flex items-center">
                         <span className="mr-3">{menuItem.icon}</span>
@@ -271,31 +273,44 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
                       {hasMultipleSubItems && <ChevronRight size={16} className="ml-2" />}
                     </Link>
 
-                    {/* Submenu para modo expandido - apenas para itens com múltiplos subitens */}
+                    {/* Submenu normais para modo expandido - apenas visíveis quando o item está ativo */}
                     {hasMultipleSubItems && (
-                      <div className={`pl-10 bg-[#181c24] overflow-hidden transition-all duration-200 ${
-                        isActive ? 'max-h-64' : 'max-h-0'
+                      <div className={`pl-10 bg-[#111419] overflow-hidden transition-all duration-300 ease-in-out ${
+                        isActive ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'
                       }`}>
-                        {menuItem.subItems.map((subItem, subIndex) => (
-                          subItem.href ? (
-                            <Link
-                              key={subIndex}
-                              href={subItem.href}
-                              className={`block py-2 pl-2 pr-4 hover:bg-gray-700 text-sm ${
-                                router.pathname === subItem.href ? 'text-[#f59e0b]' : 'text-gray-400'
-                              }`}
-                            >
-                              {subItem.label}
-                            </Link>
-                          ) : (
-                            <div 
-                              key={subIndex}
-                              className="block py-2 pl-2 pr-4 text-sm text-gray-600 font-medium"
-                            >
-                              {subItem.label}
-                            </div>
-                          )
-                        ))}
+                        {menuItem.subItems
+                          // Filtra apenas os que devem ser mostrados quando expandido
+                          .filter(subItem => subItem.showWhenExpanded !== false)
+                          .map((subItem, subIndex) => {
+                            // Determina se deve renderizar como categoria de destaque
+                            const isSingleItem = menuItem.subItems.length === 1;
+                            const renderAsCategory = !subItem.href || isSingleItem;
+                            
+                            return renderAsCategory ? (
+                              <div 
+                                key={subIndex}
+                                className="block py-2 pl-2 pr-4 text-gray-300"
+                                onClick={() => {
+                                  if (subItem.href) {
+                                    router.push(subItem.href);
+                                  }
+                                }}
+                                style={{ cursor: subItem.href ? 'pointer' : 'default' }}
+                              >
+                                {subItem.label}
+                              </div>
+                            ) : (
+                              <Link
+                                key={subIndex}
+                                href={subItem.href || '#'}
+                                className={`block py-2 pl-2 pr-4 hover:bg-[#1e2126] text-sm ${
+                                  router.pathname === subItem.href ? 'text-[#f59e0b]' : 'text-gray-400'
+                                }`}
+                              >
+                                {subItem.label}
+                              </Link>
+                            );
+                          })}
                       </div>
                     )}
                   </div>
@@ -306,12 +321,12 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
         </div>
       </div>
 
-      {/* Submenu flutuante para modo colapsado */}
-      {collapsed && activeMenu && (
+      {/* Submenu flutuante - para todos os itens no modo colapsado ou apenas múltiplos subitens no expandido */}
+      {activeMenu && (
         <div 
-          className="fixed bg-[#262b36] border border-gray-700 rounded shadow-lg z-50"
+          className="fixed bg-[#1e2126] border border-gray-700 rounded shadow-lg z-50 transition-opacity duration-200 ease-in-out opacity-100"
           style={{ 
-            left: '64px', // 16px (largura do sidebar) + pequeno espaço
+            left: `${submenuPosition.left}px`,
             top: submenuPosition.top, 
             minWidth: '200px',
             display: 'block'
@@ -319,28 +334,36 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
           onMouseEnter={() => setActiveSubmenu(activeMenu.label)}
           onMouseLeave={handleMouseLeave}
         >
-          <div className="py-2 px-3 border-b border-gray-700 text-white font-medium">
-            {activeMenu.label}
-          </div>
           <div className="py-1">
-            {activeMenu.subItems.map((subItem, index) => (
-              subItem.href ? (
-                <Link
-                  key={index}
-                  href={subItem.href}
-                  className="block px-4 py-2 hover:bg-gray-700 text-gray-300 text-sm whitespace-nowrap"
-                >
-                  {subItem.label}
-                </Link>
-              ) : (
-                <div 
-                  key={index}
-                  className="block px-4 py-2 text-gray-600 text-sm font-medium whitespace-nowrap"
-                >
-                  {subItem.label}
-                </div>
-              )
-            ))}
+            {activeMenu.subItems
+              .map((subItem, index) => {
+                // Determina se deve renderizar como categoria de destaque
+                const isSingleItem = activeMenu.subItems.length === 1;
+                const renderAsCategory = !subItem.href || isSingleItem;
+                
+                return renderAsCategory ? (
+                  <div 
+                    key={index}
+                    className="block px-4 py-2 text-gray-300 whitespace-nowrap"
+                    onClick={() => {
+                      if (subItem.href) {
+                        router.push(subItem.href);
+                      }
+                    }}
+                    style={{ cursor: subItem.href ? 'pointer' : 'default' }}
+                  >
+                    {subItem.label}
+                  </div>
+                ) : (
+                  <Link
+                    key={index}
+                    href={subItem.href || '#'}
+                    className="block px-4 py-2 hover:bg-[#262b36] text-gray-300 text-sm whitespace-nowrap"
+                  >
+                    {subItem.label}
+                  </Link>
+                );
+              })}
           </div>
         </div>
       )}

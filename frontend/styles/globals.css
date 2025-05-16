@@ -24,3 +24,44 @@
 .animate-fadeIn {
   animation: fadeIn 0.5s ease-in-out;
 }
+/* Cores para tema dark */
+.text-dark-heading {
+    color: #ffffff;
+  }
+  
+  .text-dark-body {
+    color: #d1d5db;
+  }
+  
+  .text-dark-muted {
+    color: #9ca3af;
+  }
+  
+  /* Ajustes para inputs e botões em tema dark */
+  .dark-theme input, 
+  .dark-theme select, 
+  .dark-theme textarea {
+    background-color: #262b36;
+    border-color: #4b5563;
+    color: #e5e7eb;
+  }
+  
+  .dark-theme button.primary {
+    background-color: #f59e0b;
+    color: #ffffff;
+  }
+  
+  /* Ajustes para gráficos em tema dark */
+  .recharts-text {
+    fill: #9ca3af;
+  }
+  
+  .recharts-cartesian-grid-horizontal line,
+  .recharts-cartesian-grid-vertical line {
+    stroke: #374151;
+  }
+  
+  .recharts-tooltip-wrapper {
+    background-color: #262b36;
+    border-color: #4b5563;
+  }
