@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
 import { useAuth } from '@/contexts/AuthContext'
-import { Card } from '@/components/ui/Card'
 import { useProtectedRoute } from '@/hooks/useProtectedRoute'
 import { PageLoader } from '@/components/ui/PageLoader'
 
@@ -46,7 +45,7 @@ export default function LoginPage() {
         backgroundPosition: 'center'
       }}
     >
-      <Card className="w-full max-w-md rounded-3xl p-8">
+      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-md">
         <div className="flex flex-col items-center mb-8">
           <Image
             src="/assets/images/logo_login.png"
@@ -102,7 +101,7 @@ export default function LoginPage() {
           </button>
 
           {error && (
-            <p className="mt-4 text-center text-danger text-sm">{error}</p>
+            <p className="mt-4 text-center text-red-500 text-sm">{error}</p>
           )}
         </form>
         
@@ -111,7 +110,7 @@ export default function LoginPage() {
             Esqueceu sua senha?
           </a>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

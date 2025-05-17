@@ -1,5 +1,4 @@
-// backend/src/swagger.ts
-
+// src/swagger.ts (atualizado com definições de catálogos)
 import { Express } from 'express';
 import swaggerJsdoc, { Options } from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
@@ -17,6 +16,7 @@ const swaggerOptions: Options = {
     ],
     components: {
       schemas: {
+        // Schemas existentes
         AuthRequest: {
           type: 'object',
           required: ['email', 'password'],
@@ -43,38 +43,58 @@ const swaggerOptions: Options = {
             updatedAt: { type: 'string', format: 'date-time' }
           }
         },
-        NewUser: {
-          type: 'object',
-          required: ['email', 'password', 'name', 'companyId'],
-          properties: {
-            email: { type: 'string', format: 'email' },
-            password: { type: 'string' },
-            name: { type: 'string' },
-            companyId: { type: 'integer' },
-            newRole: { type: 'string', enum: ['ADMIN', 'SUPERUSER', 'USER'] }
-          }
+        
+        // Novos schemas para catálogos
+        CatalogoStatus: {
+          type: 'string',
+          enum: ['ATIVO', 'INATIVO']
         },
-        Company: {
+        
+        Catalogo: {
           type: 'object',
           properties: {
             id: { type: 'integer' },
-            name: { type: 'string' },
-            address: { type: 'string' },
-            code: { type: 'integer' },
-            createdAt: { type: 'string', format: 'date-time' },
-            updatedAt: { type: 'string', format: 'date-time' }
+            nome: { type: 'string' },
+            cpf_cnpj: { type: 'string', nullable: true },
+            numero: { type: 'integer' },
+            status: { $ref: '#/components/schemas/CatalogoStatus' },
+            ultima_alteracao: { type: 'string', format: 'date-time' }
           }
         },
-        NewCompany: {
+        
+        CreateCatalogoRequest: {
           type: 'object',
-          required: ['name'],
+          required: ['nome', 'status'],
           properties: {
-            name: { type: 'string' },
-            address: { type: 'string' }
+            nome: { type: 'string' },
+            cpf_cnpj: { type: 'string' },
+            status: { $ref: '#/components/schemas/CatalogoStatus' }
+          }
+        },
+        
+        UpdateCatalogoRequest: {
+          type: 'object',
+          required: ['nome', 'status'],
+          properties: {
+            nome: { type: 'string' },
+            cpf_cnpj: { type: 'string' },
+            status: { $ref: '#/components/schemas/CatalogoStatus' }
           }
         }
+      },
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT'
+        }
       }
-    }
+    },
+    security: [
+      {
+        bearerAuth: []
+      }
+    ]
   },
   apis: ['./src/routes/*.ts']
 };

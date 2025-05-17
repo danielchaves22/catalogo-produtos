@@ -11,7 +11,7 @@ export function useProtectedRoute() {
   const router = useRouter();
   
   useEffect(() => {
-    // Não fazer nada se ainda estiver carregando
+    // Só executa o redirecionamento após confirmar que o carregamento inicial terminou
     if (isLoading) return;
     
     // Verificar se é uma rota pública
@@ -25,13 +25,16 @@ export function useProtectedRoute() {
     
     // Se não for uma rota pública e o usuário não estiver logado, redirecionar para login
     if (!isPublicRoute && !user) {
-      router.replace({
-        pathname: '/login',
-        query: { redirect: router.asPath },
-      });
+      // IMPORTANTE: Evita o loop - verifica se já está sendo redirecionado
+      if (router.pathname !== '/login') {
+        router.replace({
+          pathname: '/login',
+          query: { redirect: router.asPath },
+        });
+      }
       return;
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router.pathname]); // Dependências reduzidas para evitar re-execuções desnecessárias
   
   return { isLoading, isAuthenticated: !!user };
 }

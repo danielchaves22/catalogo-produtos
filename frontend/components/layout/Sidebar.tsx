@@ -62,12 +62,18 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
   }, [collapsed]);
 
   const menuItems: SidebarItem[] = [
-    // Removido o separador "ANALISANDO"
+    {
+      icon: <PieChart size={20} />,
+      label: 'Painel',
+      subItems: [
+        { label: 'Painel', href: '/painel', showWhenExpanded: true },
+      ],
+    },
     {
       icon: <FileText size={20} />,
-      label: 'Planilha',
+      label: 'Catálogos',
       subItems: [
-        { label: 'Planilha', href: '/planilha', showWhenExpanded: true },
+        { label: 'Catálogos', href: '/catalogos', showWhenExpanded: true },
       ],
     },
     {
@@ -82,13 +88,6 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       label: 'Calendário',
       subItems: [
         { label: 'Calendário', href: '/calendario', showWhenExpanded: true },
-      ],
-    },
-    {
-      icon: <PieChart size={20} />,
-      label: 'Painel',
-      subItems: [
-        { label: 'Painel', href: '/painel', showWhenExpanded: true },
       ],
     },
     {

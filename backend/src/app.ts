@@ -1,9 +1,10 @@
-// src/app.ts - Versão simplificada
+// src/app.ts
 import express from 'express';
 import cors from 'cors';
 import { json, urlencoded } from 'body-parser';
 
 import authRoutes from './routes/auth.routes';
+import catalogoRoutes from './routes/catalogo.routes';
 import { authMiddleware } from './middlewares/auth.middleware';
 import { setupSwagger } from './swagger';
 
@@ -19,6 +20,9 @@ setupSwagger(app);
 
 // Rotas de autenticação (públicas)
 app.use('/api/auth', authRoutes);
+
+// Rotas de catálogos (protegidas)
+app.use('/api/catalogos', catalogoRoutes);
 
 // Middleware de autenticação para rotas protegidas
 app.use('/api/protected', authMiddleware, (req, res) => {

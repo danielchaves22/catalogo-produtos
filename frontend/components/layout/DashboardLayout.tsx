@@ -1,4 +1,4 @@
-// frontend/components/layout/DashboardLayout.tsx
+// frontend/components/layout/DashboardLayout.tsx (atualizado para suportar breadcrumb)
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
@@ -97,8 +97,8 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
         <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
           sidebarCollapsed ? 'ml-16' : 'ml-52'
         }`}>
-          {/* Page Header */}
-          <div className="bg-[#1e2126] border-b border-gray-700 px-6 py-4">
+          {/* Page Header - Escondido, substituído por breadcrumb */}
+          <div className="bg-[#1e2126] px-6 py-4 hidden">
             <h1 className="text-xl font-medium text-gray-100">{title}</h1>
           </div>
 

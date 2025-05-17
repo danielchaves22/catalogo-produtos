@@ -1,4 +1,6 @@
-// Modificar a configuração do datasource para MySQL
+// backend/prisma/schema.prisma
+// Schema simplificado sem referências a schemas específicos
+
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
@@ -9,25 +11,35 @@ generator client {
   output   = "../node_modules/.prisma/client"
 }
 
-// Modelo de usuário adaptado à tabela existente
-// Substituir com os campos corretos conforme sua tabela
+// Modelos simplificados sem referências a schemas
+
 model User {
-  id        Int      @id @map("idv32") // Ajuste para o nome real da coluna de ID
+  id        Int      @id @map("idv32")
   email     String   @unique @map("username")
-  password  String   @map("senha") // Campo onde está armazenada a senha MD5
-  name      String   @map("nomecompleto") // Se existir campo de perfil
+  password  String   @map("senha")
+  name      String   @map("nomecompleto")
   
-  // Mapeamento para o nome real da tabela no banco legado
   @@map("comex")
 }
 
-// Mantenha esta enum, mas você pode precisar ajustar os valores para corresponder 
-// ao que está no banco de dados
 enum Role {
   ADMIN
   SUPERUSER
   USER
 }
 
-// Removidos outros modelos que não são necessários inicialmente
-// Você pode adicioná-los conforme necessário posteriormente
+enum CatalogoStatus {
+  ATIVO
+  INATIVO
+}
+
+model Catalogo {
+  id               Int            @id @default(autoincrement()) @map("id")
+  nome             String         @map("nome")
+  cpf_cnpj         String?        @map("cpf_cnpj")
+  ultima_alteracao DateTime       @map("ultima_alteracao") 
+  numero           Int            @map("numero")
+  status           CatalogoStatus @map("status")
+  
+  @@map("catalogo")
+}
