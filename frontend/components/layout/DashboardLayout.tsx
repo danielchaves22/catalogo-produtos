@@ -1,5 +1,5 @@
-// frontend/components/layout/DashboardLayout.tsx (atualizado para suportar breadcrumb)
-import React, { useState, useEffect } from 'react';
+// frontend/components/layout/DashboardLayout.tsx
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -15,6 +15,10 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
+  
+  // Estado para controlar a visibilidade do menu do usuário
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   
   // Obtém o estado salvo no localStorage ou usa o padrão
   const getSavedCollapsedState = () => {
@@ -33,6 +37,36 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
     if (typeof window !== 'undefined') {
       localStorage.setItem('sidebarCollapsed', JSON.stringify(collapsed));
     }
+  };
+
+  // Efeito para detectar cliques fora do menu do usuário
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    // Adiciona o listener quando o menu está aberto
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [userMenuOpen]);
+
+  // Função para alternar o menu do usuário
+  const toggleUserMenu = () => {
+    setUserMenuOpen(!userMenuOpen);
+  };
+
+  // Função para fechar o menu e executar ação
+  const handleMenuAction = (action: () => void) => {
+    setUserMenuOpen(false);
+    action();
   };
 
   return (
@@ -59,32 +93,38 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
             <Home size={20} />
           </Link>
           
-          <div className="relative group">
-            <button className="flex items-center space-x-1">
+          <div className="relative" ref={userMenuRef}>
+            <button 
+              onClick={toggleUserMenu}
+              className="flex items-center space-x-1 focus:outline-none"
+            >
               <div className="bg-[#f59e0b] rounded-full p-1">
                 <User size={18} className="text-white" />
               </div>
             </button>
-            <div className="absolute right-0 mt-2 w-48 bg-[#1e2126] shadow-lg rounded-md invisible group-hover:visible z-10 border border-gray-700">
-              <div className="p-3 border-b border-gray-700">
-                <p className="font-medium text-white">{user?.name}</p>
-                <p className="text-sm text-gray-400">{user?.email}</p>
+            
+            {userMenuOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-[#1e2126] shadow-lg rounded-md z-10 border border-gray-700 animate-fadeIn">
+                <div className="p-3 border-b border-gray-700">
+                  <p className="font-medium text-white">{user?.name}</p>
+                  <p className="text-sm text-gray-400">{user?.email}</p>
+                </div>
+                <div className="p-2">
+                  <button 
+                    onClick={() => handleMenuAction(() => router.push('/perfil'))}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-[#262b36] rounded text-gray-300"
+                  >
+                    Meu Perfil
+                  </button>
+                  <button 
+                    onClick={() => handleMenuAction(logout)}
+                    className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-[#262b36] rounded"
+                  >
+                    Sair
+                  </button>
+                </div>
               </div>
-              <div className="p-2">
-                <button 
-                  onClick={() => router.push('/perfil')}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-[#262b36] rounded text-gray-300"
-                >
-                  Meu Perfil
-                </button>
-                <button 
-                  onClick={logout}
-                  className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-[#262b36] rounded"
-                >
-                  Sair
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </header>
@@ -97,8 +137,8 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
         <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
           sidebarCollapsed ? 'ml-16' : 'ml-52'
         }`}>
-          {/* Page Header - Escondido, substituído por breadcrumb */}
-          <div className="bg-[#1e2126] px-6 py-4 hidden">
+          {/* Page Header */}
+          <div className="bg-[#1e2126] border-b border-gray-700 px-6 py-4">
             <h1 className="text-xl font-medium text-gray-100">{title}</h1>
           </div>
 

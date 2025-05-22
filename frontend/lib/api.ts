@@ -13,4 +13,12 @@ api.interceptors.request.use(config => {
   return config
 })
 
+// Interceptor para debug em desenvolvimento
+if (process.env.NODE_ENV === 'development') {
+  api.interceptors.request.use(config => {
+    console.log('API Request:', config.method?.toUpperCase(), config.url, config.baseURL);
+    return config;
+  });
+}
+
 export default api
