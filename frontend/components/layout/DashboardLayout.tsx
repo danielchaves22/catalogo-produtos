@@ -1,4 +1,4 @@
-// frontend/components/layout/DashboardLayout.tsx
+// frontend/components/layout/DashboardLayout.tsx - CORREÇÃO
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
@@ -136,10 +136,12 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
         <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
           sidebarCollapsed ? 'ml-16' : 'ml-52'
         }`}>
-          {/* Page Header */}
+          {/* REMOVIDO: Page Header que exibia o título redundante */}
+          {/* 
           <div className="bg-[#1e2126] border-b border-gray-700 px-6 py-4">
             <h1 className="text-xl font-medium text-gray-100">{title}</h1>
           </div>
+          */}
 
           {/* Page Content */}
           <main className="flex-1 overflow-y-auto p-6 bg-[#1e2126] text-gray-300">

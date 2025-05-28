@@ -1,6 +1,7 @@
-// frontend/hooks/useOperadorEstrangeiro.ts (ATUALIZADO com codigoPostal)
+// frontend/hooks/useOperadorEstrangeiro.ts - CORRIGIDO
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
+import { formatCPFOrCNPJ } from '@/lib/validation';
 
 export interface Pais {
   codigo: string;
@@ -24,7 +25,7 @@ export interface AgenciaEmissora {
 
 export interface OperadorEstrangeiro {
   id: number;
-  cnpjRaizResponsavel: string;
+  cnpjRaizResponsavel: string; // Agora armazena CNPJ completo (14 dígitos)
   tin?: string;
   nome: string;
   email?: string;
@@ -35,7 +36,7 @@ export interface OperadorEstrangeiro {
   dataInclusao: string;
   dataUltimaAlteracao: string;
   
-  // CORRIGIDO: Adicionados campos de endereço
+  // Campos de endereço
   codigoPostal?: string;
   logradouro?: string;
   cidade?: string;
@@ -50,7 +51,7 @@ export interface OperadorEstrangeiro {
 }
 
 export interface CnpjCatalogo {
-  cnpjRaiz: string;
+  cnpjCompleto: string; // CNPJ com 14 dígitos
   nome: string;
 }
 
@@ -78,7 +79,6 @@ export function useOperadorEstrangeiro() {
       setPaises(paisesRes.data);
       setAgenciasEmissoras(agenciasRes.data);
       setCnpjsCatalogos(cnpjsRes.data);
-      // Subdivisões serão carregadas conforme país selecionado
       setSubdivisoes([]);
       setError(null);
     } catch (err) {
@@ -163,13 +163,13 @@ export function useOperadorEstrangeiro() {
     }
   }
 
-  // Funções utilitárias
+  // CORRIGIDO: Função atualizada para trabalhar com CNPJ completo
   function getCnpjCatalogoOptions() {
     return [
       { value: '', label: 'Selecione uma empresa' },
       ...cnpjsCatalogos.map(cnpj => ({ 
-        value: cnpj.cnpjRaiz, 
-        label: `${cnpj.cnpjRaiz} - ${cnpj.nome}` 
+        value: cnpj.cnpjCompleto, // CNPJ completo como valor
+        label: `${formatCPFOrCNPJ(cnpj.cnpjCompleto)} - ${cnpj.nome}` // CNPJ formatado + nome
       }))
     ];
   }
@@ -223,9 +223,16 @@ export function useOperadorEstrangeiro() {
     return agencia ? agencia.nome : codigo;
   }
 
-  function getCnpjCatalogoNome(cnpjRaiz: string) {
-    const cnpj = cnpjsCatalogos.find(c => c.cnpjRaiz === cnpjRaiz);
-    return cnpj ? cnpj.nome : cnpjRaiz;
+  // CORRIGIDO: Função atualizada para buscar por CNPJ completo
+  function getCnpjCatalogoNome(cnpjCompleto: string) {
+    const cnpj = cnpjsCatalogos.find(c => c.cnpjCompleto === cnpjCompleto);
+    return cnpj ? cnpj.nome : cnpjCompleto;
+  }
+
+  // NOVA FUNÇÃO: Extrai CNPJ raiz do CNPJ completo
+  function extrairCnpjRaiz(cnpjCompleto: string): string {
+    const cnpjLimpo = cnpjCompleto.replace(/\D/g, '');
+    return cnpjLimpo.substring(0, 8);
   }
 
   return {
@@ -255,6 +262,7 @@ export function useOperadorEstrangeiro() {
     getPaisNome,
     getSubdivisaoNome,
     getAgenciaEmissoraNome,
+    extrairCnpjRaiz,
     
     // Recarregar dados
     recarregarDados: carregarDadosAuxiliares

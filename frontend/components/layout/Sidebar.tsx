@@ -191,9 +191,19 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
             const href = firstClickableSubItem?.href || '#';
             
             // Verificar se algum dos subitens corresponde à rota atual
-            const isActive = menuItem.subItems.some(
-              subItem => subItem.href && router.pathname === subItem.href
-            );
+            const isActive = menuItem.subItems.some(subItem => {
+              if (!subItem.href) return false;
+              
+              // Verifica rota exata
+              if (router.pathname === subItem.href) return true;
+              
+              // Verifica se é uma sub-rota (ex: /operadores-estrangeiros/novo)
+              if (subItem.href !== '/' && router.pathname.startsWith(subItem.href + '/')) {
+                return true;
+              }
+              
+              return false;
+            });
 
             return (
               <div key={index}>

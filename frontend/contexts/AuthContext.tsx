@@ -1,4 +1,4 @@
-// frontend/contexts/AuthContext.tsx
+// frontend/contexts/AuthContext.tsx - VERSÃO MELHORADA
 import {
   createContext, useContext, useEffect, useState, ReactNode,
 } from 'react'
@@ -43,8 +43,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       setUser(response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao carregar perfil:', error);
+      
+      // NOVO: Se o erro foi um redirecionamento para login, não processar
+      if (error.message === 'REDIRECT_TO_LOGIN') {
+        return;
+      }
+      
       // Se houver erro, limpa o token
       localStorage.removeItem('token');
       setToken(null);
@@ -54,15 +60,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function login(email: string, password: string) {
-    const res = await api.post('/auth/login', { email, password });
-    const { token: newToken, user: userData } = res.data;
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      const { token: newToken, user: userData } = res.data;
 
-    // Armazena token
-    localStorage.setItem('token', newToken);
-    document.cookie = `token=${newToken}; path=/`;
+      // Armazena token
+      localStorage.setItem('token', newToken);
+      document.cookie = `token=${newToken}; path=/`;
 
-    setToken(newToken);
-    setUser(userData);
+      setToken(newToken);
+      setUser(userData);
+    } catch (error: any) {
+      // NOVO: Se o erro foi um redirecionamento, não processar
+      if (error.message === 'REDIRECT_TO_LOGIN') {
+        return;
+      }
+      
+      // Propagar outros erros para o componente de login
+      throw error;
+    }
   }
 
   function logout() {
@@ -70,7 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     document.cookie = 'token=; Max-Age=0; path=/';
     setToken(null);
     setUser(null);
-    window.location.href = '/login';
+    
+    // NOVO: Usar replace para não adicionar à história
+    window.location.replace('/login');
   }
 
   return (

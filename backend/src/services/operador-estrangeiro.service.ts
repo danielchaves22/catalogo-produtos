@@ -1,11 +1,11 @@
-// backend/src/services/operador-estrangeiro.service.ts
+// backend/src/services/operador-estrangeiro.service.ts - CORRIGIDO
 import { OperadorEstrangeiro, OperadorEstrangeiroStatus, Pais, Subdivisao, AgenciaEmissora } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { PrismaError } from '../types/prisma-error';
 
 export interface CreateOperadorEstrangeiroDTO {
-  cnpjRaizResponsavel: string;
+  cnpjRaizResponsavel: string; // AGORA SERÁ O CNPJ COMPLETO (14 dígitos)
   paisCodigo: string;
   tin?: string;
   nome: string;
@@ -36,12 +36,49 @@ export interface OperadorEstrangeiroCompleto extends OperadorEstrangeiro {
 }
 
 export class OperadorEstrangeiroService {
+  
+  // NOVA FUNÇÃO: Extrai CNPJ raiz (8 dígitos) do CNPJ completo
+  private extrairCnpjRaiz(cnpjCompleto: string): string {
+    const cnpjLimpo = cnpjCompleto.replace(/\D/g, '');
+    return cnpjLimpo.substring(0, 8);
+  }
+
+  // NOVA FUNÇÃO: Busca CNPJ completo a partir do CNPJ raiz
+  private async buscarCnpjCompletoPorRaiz(cnpjRaiz: string): Promise<string | null> {
+    try {
+      const catalogo = await catalogoPrisma.catalogo.findFirst({
+        where: {
+          cpf_cnpj: {
+            startsWith: cnpjRaiz
+          }
+        },
+        select: {
+          cpf_cnpj: true
+        }
+      });
+      
+      return catalogo?.cpf_cnpj || null;
+    } catch (error) {
+      logger.error(`Erro ao buscar CNPJ completo para raiz ${cnpjRaiz}:`, error);
+      return null;
+    }
+  }
+
   /**
    * Lista todos os operadores estrangeiros
    */
   async listarTodos(cnpjRaiz?: string): Promise<OperadorEstrangeiroCompleto[]> {
     try {
-      const whereClause = cnpjRaiz ? { cnpjRaizResponsavel: cnpjRaiz } : {};
+      let whereClause = {};
+      
+      if (cnpjRaiz) {
+        // Se foi passado um CNPJ raiz (8 dígitos), buscar operadores que começam com esse raiz
+        whereClause = {
+          cnpjRaizResponsavel: {
+            startsWith: cnpjRaiz
+          }
+        };
+      }
       
       return await catalogoPrisma.operadorEstrangeiro.findMany({
         where: whereClause,
@@ -94,7 +131,6 @@ export class OperadorEstrangeiroService {
         where: { 
           tin: {
             contains: tin
-            // Removido mode: 'insensitive' pois não é suportado no MySQL
           }
         },
         include: {
@@ -115,12 +151,13 @@ export class OperadorEstrangeiroService {
 
   /**
    * Cria um novo operador estrangeiro
+   * CORRIGIDO: Agora aceita CNPJ completo
    */
   async criar(data: CreateOperadorEstrangeiroDTO): Promise<OperadorEstrangeiroCompleto> {
     try {
       const operador = await catalogoPrisma.operadorEstrangeiro.create({
         data: {
-          cnpjRaizResponsavel: data.cnpjRaizResponsavel,
+          cnpjRaizResponsavel: data.cnpjRaizResponsavel, // Armazena CNPJ completo
           paisCodigo: data.paisCodigo,
           tin: data.tin,
           nome: data.nome,
@@ -129,7 +166,7 @@ export class OperadorEstrangeiroService {
           codigoPostal: data.codigoPostal,
           logradouro: data.logradouro,
           cidade: data.cidade,
-          subdivisaoCodigo: data.subdivisaoCodigo || null, // Converter string vazia para null
+          subdivisaoCodigo: data.subdivisaoCodigo || null,
           situacao: data.situacao,
           dataReferencia: data.dataReferencia,
           identificacoesAdicionais: data.identificacoesAdicionais ? {
@@ -159,7 +196,6 @@ export class OperadorEstrangeiroService {
    */
   async atualizar(id: number, data: UpdateOperadorEstrangeiroDTO): Promise<OperadorEstrangeiroCompleto> {
     try {
-      // Primeiro busca o operador atual
       const operadorAtual = await this.buscarPorId(id);
       if (!operadorAtual) {
         throw new Error(`Operador estrangeiro ID ${id} não encontrado`);
@@ -288,51 +324,53 @@ export class OperadorEstrangeiroService {
 
   /**
    * Lista CNPJs disponíveis dos catálogos para seleção
+   * CORRIGIDO: Retorna CNPJ completo, não apenas a raiz
    */
-  async listarCnpjsCatalogos(): Promise<Array<{ cnpjRaiz: string; nome: string }>> {
-    try {
-      // Busca catálogos únicos por CNPJ raiz (primeiros 8 dígitos)
-      const catalogos = await catalogoPrisma.catalogo.findMany({
-        select: {
-          cpf_cnpj: true,
-          nome: true
-        },
-        where: {
-          cpf_cnpj: {
-            not: null
-          }
-        },
-        orderBy: {
-          nome: 'asc'
+  async listarCnpjsCatalogos(): Promise<Array<{ cnpjCompleto: string; nome: string }>> {
+  try {
+    const catalogos = await catalogoPrisma.catalogo.findMany({
+      select: {
+        cpf_cnpj: true,
+        nome: true
+      },
+      where: {
+        cpf_cnpj: {
+          not: null
         }
-      });
+      },
+      orderBy: {
+        nome: 'asc'
+      }
+    });
 
-      // Processa os dados para extrair CNPJ raiz e agrupar por empresa
-      const cnpjsUnicos = new Map<string, string>();
-      
-      catalogos.forEach(catalogo => {
-        if (catalogo.cpf_cnpj) {
-          // Remove caracteres especiais e pega os primeiros 8 dígitos (CNPJ raiz)
-          const cnpjLimpo = catalogo.cpf_cnpj.replace(/\D/g, '');
+    // Processa os dados e remove duplicatas por CNPJ raiz
+    const cnpjsUnicos = new Map<string, { cnpjCompleto: string; nome: string }>();
+    
+    catalogos.forEach(catalogo => {
+      if (catalogo.cpf_cnpj) {
+        const cnpjLimpo = catalogo.cpf_cnpj.replace(/\D/g, '');
+        
+        if (cnpjLimpo.length === 14) {
           const cnpjRaiz = cnpjLimpo.substring(0, 8);
           
-          // Se for um CNPJ válido (14 dígitos), adiciona ao mapa
-          if (cnpjLimpo.length === 14 && !cnpjsUnicos.has(cnpjRaiz)) {
-            cnpjsUnicos.set(cnpjRaiz, catalogo.nome);
+          // Evita duplicatas baseado no CNPJ raiz
+          if (!cnpjsUnicos.has(cnpjRaiz)) {
+            cnpjsUnicos.set(cnpjRaiz, {
+              cnpjCompleto: cnpjLimpo,
+              nome: catalogo.nome
+            });
           }
         }
-      });
-
-      // Converte o Map para array
-      return Array.from(cnpjsUnicos, ([cnpjRaiz, nome]) => ({
-        cnpjRaiz,
-        nome
-      }));
+      }
+    });
+      // Retorna apenas cnpjCompleto e nome
+      return Array.from(cnpjsUnicos.values());
     } catch (error: unknown) {
       logger.error('Erro ao listar CNPJs dos catálogos:', error);
       throw new Error('Falha ao listar CNPJs dos catálogos');
     }
   }
+
 
   /**
    * Lista agências emissoras
@@ -346,5 +384,12 @@ export class OperadorEstrangeiroService {
       logger.error('Erro ao listar agências emissoras:', error);
       throw new Error('Falha ao listar agências emissoras');
     }
+  }
+
+  /**
+   * NOVA FUNÇÃO: Obtém CNPJ raiz para API SISCOMEX
+   */
+  getCnpjRaizParaSiscomex(cnpjCompleto: string): string {
+    return this.extrairCnpjRaiz(cnpjCompleto);
   }
 }

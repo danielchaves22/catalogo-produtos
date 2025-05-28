@@ -32,7 +32,7 @@ interface AgenciaEmissora {
 }
 
 interface CnpjCatalogo {
-  cnpjRaiz: string;
+  cnpjCompleto: string;    // CNPJ raiz com 8 dígitos  
   nome: string;
 }
 
@@ -195,7 +195,7 @@ export default function OperadorEstrangeiroFormPage() {
       
       setOperador(data);
       setFormData({
-        cnpjRaizResponsavel: data.cnpjRaizResponsavel,
+        cnpjRaizResponsavel: data.cnpjRaizResponsavel, // Já vem com 14 dígitos do backend
         paisCodigo: data.paisCodigo,
         tin: data.tin || '',
         nome: data.nome,
@@ -353,6 +353,8 @@ export default function OperadorEstrangeiroFormPage() {
         )
       };
       
+      console.log('Payload sendo enviado:', payload); // Debug
+      
       if (isNew) {
         await api.post('/operadores-estrangeiros', payload);
         addToast('Operador estrangeiro criado com sucesso!', 'success');
@@ -363,10 +365,31 @@ export default function OperadorEstrangeiroFormPage() {
       
       router.push('/operadores-estrangeiros');
     } catch (error) {
-      console.error('Erro ao salvar operador estrangeiro:', error);
-      addToast('Erro ao salvar operador estrangeiro', 'error');
+      handleApiError(error); // USAR NOVO TRATAMENTO
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function handleApiError(error: any) {
+    console.error('Erro na API:', error);
+    
+    if (error.response?.status === 400 && error.response?.data?.details) {
+      // Erro de validação - mostrar campos específicos
+      const validationErrors: Record<string, string> = {};
+      
+      error.response.data.details.forEach((detail: any) => {
+        validationErrors[detail.field] = detail.message;
+      });
+      
+      setErrors(validationErrors);
+      addToast('Verifique os campos destacados', 'error');
+    } else if (error.response?.data?.error) {
+      // Erro genérico da API
+      addToast(error.response.data.error, 'error');
+    } else {
+      // Erro desconhecido
+      addToast('Erro ao salvar operador estrangeiro', 'error');
     }
   }
 
@@ -375,14 +398,16 @@ export default function OperadorEstrangeiroFormPage() {
   }
 
   // OPÇÕES PARA OS DROPDOWNS - CORRIGIDAS
-  const cnpjOptions = [
-    { value: '', label: 'Selecione uma empresa' },
-    ...cnpjsCatalogos.map(cnpj => ({ 
-      value: cnpj.cnpjRaiz, 
-      // MOSTRAR CNPJ FORMATADO + NOME
-      label: `${formatCPFOrCNPJ(cnpj.cnpjRaiz)} - ${cnpj.nome}` 
-    }))
-  ];
+const cnpjOptions = [
+  { value: '', label: 'Selecione uma empresa' },
+  ...cnpjsCatalogos.map(cnpj => {
+    console.log('🔍 Debug CNPJ:', cnpj); // Debug temporário
+    return {
+      value: cnpj.cnpjCompleto,
+      label: `${formatCPFOrCNPJ(cnpj.cnpjCompleto)} - ${cnpj.nome}`
+    };
+  })
+];
 
   const paisOptions = [
     { value: '', label: 'Selecione um país' },
@@ -487,7 +512,7 @@ export default function OperadorEstrangeiroFormPage() {
                 </label>
                 <Input
                   value={`${formatCPFOrCNPJ(formData.cnpjRaizResponsavel)} - ${
-                    cnpjsCatalogos.find(c => c.cnpjRaiz === formData.cnpjRaizResponsavel)?.nome || 'Empresa não encontrada'
+                    cnpjsCatalogos.find(c => c.cnpjCompleto === formData.cnpjRaizResponsavel)?.nome || 'Empresa não encontrada'
                   }`}
                   readOnly
                   disabled

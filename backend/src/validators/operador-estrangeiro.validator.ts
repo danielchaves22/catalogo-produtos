@@ -1,4 +1,4 @@
-// backend/src/validators/operador-estrangeiro.validator.ts
+// backend/src/validators/operador-estrangeiro.validator.ts - CORRIGIDO
 import { z } from 'zod';
 import { customValidations } from '../utils/validation';
 
@@ -8,9 +8,11 @@ const identificacaoAdicionalSchema = z.object({
 });
 
 export const createOperadorEstrangeiroSchema = z.object({
+  // CORRIGIDO: Agora aceita CNPJ completo (14 dígitos)
   cnpjRaizResponsavel: z.string()
-    .min(8, { message: 'CNPJ Raiz deve ter pelo menos 8 caracteres' })
-    .refine(customValidations.cnpj, { message: 'CNPJ Raiz inválido' }),
+    .min(14, { message: 'CNPJ deve ter 14 dígitos' })
+    .max(14, { message: 'CNPJ deve ter 14 dígitos' })
+    .refine(customValidations.cnpj, { message: 'CNPJ inválido' }),
   paisCodigo: z.string().min(1, { message: 'País é obrigatório' }),
   tin: z.string().optional(),
   nome: z.string().min(1, { message: 'Nome é obrigatório' }),
@@ -28,9 +30,11 @@ export const createOperadorEstrangeiroSchema = z.object({
 });
 
 export const updateOperadorEstrangeiroSchema = z.object({
+  // CORRIGIDO: Também aceita CNPJ completo na atualização
   cnpjRaizResponsavel: z.string()
-    .min(8)
-    .refine(customValidations.cnpj, { message: 'CNPJ Raiz inválido' })
+    .min(14, { message: 'CNPJ deve ter 14 dígitos' })
+    .max(14, { message: 'CNPJ deve ter 14 dígitos' })
+    .refine(customValidations.cnpj, { message: 'CNPJ inválido' })
     .optional(),
   paisCodigo: z.string().min(1).optional(),
   tin: z.string().optional(),

@@ -1,4 +1,4 @@
-// frontend/middleware.ts
+// frontend/middleware.ts - VERSÃO MELHORADA
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
@@ -10,6 +10,7 @@ const excludedPaths = [
   '/_next', 
   '/favicon.ico', 
   '/assets',
+  '/api/auth/login', // Permitir login
 ]
 
 export function middleware(request: NextRequest) {
@@ -26,16 +27,29 @@ export function middleware(request: NextRequest) {
   // Se cookie de token existe
   const token = request.cookies.get('token')?.value
   
-  // Rota protegida e sem autenticação
+  // MELHORIA: Rota protegida e sem autenticação
   if (!isPublicRoute && !token) {
     const url = new URL('/login', request.url)
-    url.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(url)
+    
+    // Preservar rota de destino, exceto se já estiver no login
+    if (pathname !== '/login') {
+      url.searchParams.set('redirect', pathname)
+    }
+    
+    // Adicionar header para indicar redirecionamento por token inválido
+    const response = NextResponse.redirect(url)
+    response.headers.set('X-Redirect-Reason', 'no-token')
+    
+    return response
   }
   
-  // Rota de login com autenticação
+  // MELHORIA: Rota de login com autenticação válida
   if (pathname === '/login' && token) {
-    return NextResponse.redirect(new URL('/', request.url))
+    // Se tem redirect, ir para lá; senão, ir para home
+    const redirect = request.nextUrl.searchParams.get('redirect')
+    const destination = redirect && redirect !== '/login' ? redirect : '/'
+    
+    return NextResponse.redirect(new URL(destination, request.url))
   }
   
   return NextResponse.next()
@@ -50,7 +64,8 @@ export const config = {
      * 2. /_next/image (image optimization files)
      * 3. /favicon.ico (favicon file)
      * 4. /assets (public assets)
+     * 5. /api/auth/login (login endpoint)
      */
-    '/((?!_next/static|_next/image|favicon.ico|assets/).*)',
+    '/((?!_next/static|_next/image|favicon.ico|assets/|api/auth/login).*)',
   ],
 }
