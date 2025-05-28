@@ -1,4 +1,4 @@
-// frontend/pages/operadores-estrangeiros/[id].tsx
+// frontend/pages/operadores-estrangeiros/[id].tsx - VERSÃO CORRIGIDA
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -6,14 +6,12 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { MaskedInput } from '@/components/ui/MaskedInput';
 import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
 import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
-import { isValidCEP, onlyNumbers, validationMessages } from '@/lib/validation';
-import { CustomSelect } from '@/components/ui/CustomSelect';
+import { isValidCEP, onlyNumbers, validationMessages, formatCPFOrCNPJ } from '@/lib/validation';
 
 interface Pais {
   codigo: string;
@@ -66,6 +64,54 @@ interface OperadorEstrangeiroCompleto extends OperadorEstrangeiroFormData {
   dataUltimaAlteracao: string;
 }
 
+// COMPONENTE SELECT CUSTOMIZADO PARA RESOLVER O Z-INDEX
+interface CustomSelectProps {
+  label?: string;
+  name?: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  options: Array<{ value: string; label: string }>;
+  disabled?: boolean;
+  className?: string;
+  error?: string;
+  required?: boolean;
+}
+
+function CustomSelect({ label, name, value, onChange, options, disabled, className = '', error, required }: CustomSelectProps) {
+  return (
+    <div className={`mb-4 ${className}`}>
+      {label && (
+        <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor={name}>
+          {label}
+          {required && <span className="text-red-400 ml-1">*</span>}
+        </label>
+      )}
+      <select
+        id={name}
+        name={name}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        className={`w-full px-3 py-2 bg-[#1e2126] border rounded-lg focus:outline-none focus:ring focus:border-blue-500 text-white ${
+          error ? 'border-red-500' : 'border-gray-700'
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        style={{ zIndex: 10 }} // Garantir que fique acima dos cards
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value} className="bg-[#1e2126] text-white">
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {error && (
+        <p className="mt-1 text-sm text-red-400">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function OperadorEstrangeiroFormPage() {
   const [formData, setFormData] = useState<OperadorEstrangeiroFormData>({
     cnpjRaizResponsavel: '',
@@ -104,12 +150,12 @@ export default function OperadorEstrangeiroFormPage() {
     carregarDadosAuxiliares();
   }, []);
 
-  // Debug: Log para verificar mudanças no país
+  // Carregar subdivisões quando país mudar
   useEffect(() => {
-    console.log('País selecionado:', formData.paisCodigo);
     if (formData.paisCodigo) {
-      console.log('Carregando subdivisões para:', formData.paisCodigo);
       carregarSubdivisoesPorPais(formData.paisCodigo);
+    } else {
+      setSubdivisoes([]);
     }
   }, [formData.paisCodigo]);
 
@@ -134,8 +180,7 @@ export default function OperadorEstrangeiroFormPage() {
       setAgenciasEmissoras(agenciasRes.data);
       setCnpjsCatalogos(cnpjsRes.data);
       
-      // Não carrega todas as subdivisões inicialmente
-      // Elas serão carregadas quando um país for selecionado
+      console.log('CNPJs carregados:', cnpjsRes.data); // Debug
     } catch (error) {
       console.error('Erro ao carregar dados auxiliares:', error);
       addToast('Erro ao carregar dados auxiliares', 'error');
@@ -156,7 +201,7 @@ export default function OperadorEstrangeiroFormPage() {
         nome: data.nome,
         email: data.email || '',
         codigoInterno: data.codigoInterno || '',
-        codigoPostal: onlyNumbers(data.codigoPostal || ''), // Armazena apenas números
+        codigoPostal: onlyNumbers(data.codigoPostal || ''),
         logradouro: data.logradouro || '',
         cidade: data.cidade || '',
         subdivisaoCodigo: data.subdivisaoCodigo || '',
@@ -187,7 +232,7 @@ export default function OperadorEstrangeiroFormPage() {
     }
 
     try {
-      console.log(`Fazendo requisição para: /operadores-estrangeiros/aux/subdivisoes/${paisCodigo}`);
+      console.log(`Carregando subdivisões para país: ${paisCodigo}`);
       setLoadingSubdivisoes(true);
       const response = await api.get(`/operadores-estrangeiros/aux/subdivisoes/${paisCodigo}`);
       console.log('Subdivisões recebidas:', response.data);
@@ -205,10 +250,9 @@ export default function OperadorEstrangeiroFormPage() {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
-    // Se mudou o país, carregar subdivisões e limpar subdivisão selecionada
+    // Se mudou o país, limpar subdivisão selecionada
     if (name === 'paisCodigo') {
       setFormData(prev => ({ ...prev, subdivisaoCodigo: '' }));
-      carregarSubdivisoesPorPais(value);
     }
     
     // Limpa o erro do campo quando o valor muda
@@ -226,7 +270,6 @@ export default function OperadorEstrangeiroFormPage() {
     return (cleanValue: string, formattedValue: string) => {
       setFormData(prev => ({ ...prev, [name]: cleanValue }));
       
-      // Limpa erro quando valor muda
       if (errors[name]) {
         setErrors(prev => {
           const newErrors = { ...prev };
@@ -287,7 +330,6 @@ export default function OperadorEstrangeiroFormPage() {
       newErrors.email = 'Email inválido';
     }
 
-    // Validação de CEP se preenchido
     if (formData.codigoPostal && !isValidCEP(formData.codigoPostal)) {
       newErrors.codigoPostal = validationMessages.cep.invalid;
     }
@@ -331,6 +373,47 @@ export default function OperadorEstrangeiroFormPage() {
   function voltar() {
     router.push('/operadores-estrangeiros');
   }
+
+  // OPÇÕES PARA OS DROPDOWNS - CORRIGIDAS
+  const cnpjOptions = [
+    { value: '', label: 'Selecione uma empresa' },
+    ...cnpjsCatalogos.map(cnpj => ({ 
+      value: cnpj.cnpjRaiz, 
+      // MOSTRAR CNPJ FORMATADO + NOME
+      label: `${formatCPFOrCNPJ(cnpj.cnpjRaiz)} - ${cnpj.nome}` 
+    }))
+  ];
+
+  const paisOptions = [
+    { value: '', label: 'Selecione um país' },
+    ...paises.map(pais => ({ 
+      value: pais.codigo, 
+      label: `${pais.sigla} - ${pais.nome}` 
+    }))
+  ];
+
+  const subdivisaoOptions = [
+    { 
+      value: '', 
+      label: !formData.paisCodigo 
+        ? 'Selecione um país primeiro' 
+        : loadingSubdivisoes 
+          ? 'Carregando...' 
+          : 'Selecione uma subdivisão' 
+    },
+    ...subdivisoes.map(sub => ({ 
+      value: sub.codigo, 
+      label: `${sub.sigla} - ${sub.nome}` 
+    }))
+  ];
+
+  const agenciaOptions = [
+    { value: '', label: 'Selecione uma agência' },
+    ...agenciasEmissoras.map(agencia => ({ 
+      value: agencia.codigo, 
+      label: `${agencia.sigla} - ${agencia.nome}` 
+    }))
+  ];
 
   if (loading) {
     return (
@@ -386,62 +469,47 @@ export default function OperadorEstrangeiroFormPage() {
               </>
             )}
             
-            {/* Campos editáveis */}
+            {/* DROPDOWN DE CNPJ - CORRIGIDO */}
             {isNew ? (
               <CustomSelect
-                label="CNPJ Raiz da Empresa Responsável"
+                label="CNPJ da Empresa Responsável"
                 name="cnpjRaizResponsavel"
                 value={formData.cnpjRaizResponsavel}
-                onChange={(value) => setFormData(prev => ({ ...prev, cnpjRaizResponsável: value }))}
-                options={[
-                  { value: '', label: 'Selecione uma empresa' },
-                  ...cnpjsCatalogos.map(cnpj => ({ 
-                    value: cnpj.cnpjRaiz, 
-                    label: `${cnpj.cnpjRaiz} - ${cnpj.nome}` 
-                  }))
-                ]}
-                className={errors.cnpjRaizResponsavel ? 'border-red-500' : ''}
-                error={errors.cnpjRaizResponsável}
+                onChange={handleChange}
+                options={cnpjOptions}
+                error={errors.cnpjRaizResponsavel}
                 required
-                placeholder="Selecione uma empresa"
               />
             ) : (
-              <Input
-                label="CNPJ Raiz da Empresa Responsável"
-                value={formData.cnpjRaizResponsavel}
-                readOnly
-                disabled
-                className="bg-[#262b36] cursor-not-allowed"
-              />
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1 text-gray-300">
+                  CNPJ da Empresa Responsável
+                </label>
+                <Input
+                  value={`${formatCPFOrCNPJ(formData.cnpjRaizResponsavel)} - ${
+                    cnpjsCatalogos.find(c => c.cnpjRaiz === formData.cnpjRaizResponsavel)?.nome || 'Empresa não encontrada'
+                  }`}
+                  readOnly
+                  disabled
+                  className="bg-[#262b36] cursor-not-allowed"
+                />
+              </div>
             )}
-            {errors.cnpjRaizResponsavel && <p className="text-red-400 text-sm mt-1">{errors.cnpjRaizResponsavel}</p>}
             
             <CustomSelect
               label="País do Fabricante/Produtor"
               name="paisCodigo"
               value={formData.paisCodigo}
-              onChange={(value) => {
-                setFormData(prev => ({ ...prev, paisCodigo: value, subdivisaoCodigo: '' }));
-                carregarSubdivisoesPorPais(value);
-              }}
-              options={[
-                { value: '', label: 'Selecione um país' },
-                ...paises.map(pais => ({ 
-                  value: pais.codigo, 
-                  label: `${pais.sigla} - ${pais.nome}` 
-                }))
-              ]}
-              className={errors.paisCodigo ? 'border-red-500' : ''}
+              onChange={handleChange}
+              options={paisOptions}
               error={errors.paisCodigo}
               required
-              placeholder="Selecione um país"
             />
-            {errors.paisCodigo && <p className="text-red-400 text-sm mt-1">{errors.paisCodigo}</p>}
             
             <Input
               label="Número de Identificação (TIN)"
               name="tin"
-              value={formData.tin}
+              value={formData.tin || ''}
               onChange={handleChange}
               error={errors.tin}
               placeholder="Ex: BR12345678000101"
@@ -460,7 +528,7 @@ export default function OperadorEstrangeiroFormPage() {
               label="E-mail"
               type="email"
               name="email"
-              value={formData.email}
+              value={formData.email || ''}
               onChange={handleChange}
               error={errors.email}
             />
@@ -468,7 +536,7 @@ export default function OperadorEstrangeiroFormPage() {
             <Input
               label="Código Interno"
               name="codigoInterno"
-              value={formData.codigoInterno}
+              value={formData.codigoInterno || ''}
               onChange={handleChange}
               error={errors.codigoInterno}
             />
@@ -481,7 +549,7 @@ export default function OperadorEstrangeiroFormPage() {
             <MaskedInput
               label="Código Postal"
               mask="cep"
-              value={formData.codigoPostal}
+              value={formData.codigoPostal || ''}
               onChange={handleMaskedChange('codigoPostal')}
               error={errors.codigoPostal}
               placeholder="00000-000"
@@ -490,7 +558,7 @@ export default function OperadorEstrangeiroFormPage() {
             <Input
               label="Cidade"
               name="cidade"
-              value={formData.cidade}
+              value={formData.cidade || ''}
               onChange={handleChange}
               error={errors.cidade}
             />
@@ -498,42 +566,25 @@ export default function OperadorEstrangeiroFormPage() {
             <Input
               label="Logradouro"
               name="logradouro"
-              value={formData.logradouro}
+              value={formData.logradouro || ''}
               onChange={handleChange}
               error={errors.logradouro}
               className="md:col-span-2"
             />
             
-            <CustomSelect
-              label="Subdivisão (Estado, província)"
-              name="subdivisaoCodigo"
-              value={formData.subdivisaoCodigo}
-              onChange={(value) => setFormData(prev => ({ ...prev, subdivisaoCodigo: value }))}
-              disabled={!formData.paisCodigo || loadingSubdivisoes}
-              options={[
-                { 
-                  value: '', 
-                  label: !formData.paisCodigo 
-                    ? 'Selecione um país primeiro' 
-                    : loadingSubdivisoes 
-                      ? 'Carregando...' 
-                      : 'Selecione uma subdivisão' 
-                },
-                ...subdivisoes.map(sub => ({ 
-                  value: sub.codigo, 
-                  label: `${sub.sigla} - ${sub.nome}` 
-                }))
-              ]}
-              placeholder={
-                !formData.paisCodigo 
-                  ? 'Selecione um país primeiro'
-                  : loadingSubdivisoes 
-                    ? 'Carregando subdivisões...'
-                    : 'Selecione uma subdivisão'
-              }
-            />
+            {/* DROPDOWN DE SUBDIVISÕES - CORRIGIDO COM Z-INDEX */}
+            <div style={{ position: 'relative', zIndex: 20 }}>
+              <CustomSelect
+                label="Subdivisão (Estado, província)"
+                name="subdivisaoCodigo"
+                value={formData.subdivisaoCodigo || ''}
+                onChange={handleChange}
+                disabled={!formData.paisCodigo || loadingSubdivisoes}
+                options={subdivisaoOptions}
+              />
+            </div>
             
-            <Select
+            <CustomSelect
               label="Situação"
               name="situacao"
               value={formData.situacao}
@@ -576,17 +627,11 @@ export default function OperadorEstrangeiroFormPage() {
                     placeholder="Ex: 123456789"
                   />
                   
-                  <Select
+                  <CustomSelect
                     label="Agência Emissora"
-                    value={identificacao.agenciaEmissoraCodigo}
+                    value={identificacao.agenciaEmissoraCodigo || ''}
                     onChange={(e) => handleIdentificacaoChange(index, 'agenciaEmissoraCodigo', e.target.value)}
-                    options={[
-                      { value: '', label: 'Selecione uma agência' },
-                      ...agenciasEmissoras.map(agencia => ({ 
-                        value: agencia.codigo, 
-                        label: `${agencia.sigla} - ${agencia.nome}` 
-                      }))
-                    ]}
+                    options={agenciaOptions}
                   />
                   
                   <div className="flex items-end">
