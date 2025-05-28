@@ -43,3 +43,93 @@ model Catalogo {
   
   @@map("catalogo")
 }
+
+model Pais {
+  codigo String @id @map("codigo")
+  sigla  String @map("sigla")
+  nome   String @map("nome")
+  
+  // Relacionamentos
+  operadoresEstrangeiros OperadorEstrangeiro[]
+  subdivisoes Subdivisao[] // Adicionado relacionamento com subdivisões
+  
+  @@map("pais")
+}
+
+model AgenciaEmissora {
+  codigo String @id @map("codigo")
+  sigla  String @map("sigla")
+  nome   String @map("nome")
+  
+  // Relacionamentos
+  identificacoesAdicionais IdentificacaoAdicional[]
+  
+  @@map("agencia_emissora")
+}
+
+model Subdivisao {
+  codigo String @id @map("codigo")
+  sigla  String @map("sigla")
+  nome   String @map("nome")
+  paisCodigo String @map("pais_codigo") // Adicionado vínculo com país
+  
+  // Relacionamentos
+  pais Pais @relation(fields: [paisCodigo], references: [codigo])
+  operadoresEstrangeiros OperadorEstrangeiro[]
+  
+  @@map("subdivisao")
+}
+
+// Tabela principal do Operador Estrangeiro
+model OperadorEstrangeiro {
+  id                     Int      @id @default(autoincrement()) @map("id")
+  cnpjRaizResponsavel    String   @map("cnpj_raiz_responsavel")
+  
+  // Dados básicos
+  paisCodigo             String   @map("pais_codigo")
+  tin                    String?  @map("tin") // Número de identificação (TIN)
+  nome                   String   @map("nome")
+  email                  String?  @map("email")
+  codigoInterno          String?  @map("codigo_interno")
+  
+  // Endereço
+  codigoPostal           String?  @map("codigo_postal")
+  logradouro             String?  @map("logradouro")
+  cidade                 String?  @map("cidade")
+  subdivisaoCodigo       String?  @map("subdivisao_codigo")
+  
+  // Controle do sistema
+  codigo                 String?  @map("codigo") // Código gerado pelo SISCOMEX
+  versao                 Int      @default(1) @map("versao")
+  situacao               OperadorEstrangeiroStatus @default(ATIVO) @map("situacao")
+  dataInclusao           DateTime @default(now()) @map("data_inclusao")
+  dataUltimaAlteracao    DateTime @updatedAt @map("data_ultima_alteracao")
+  dataReferencia         DateTime? @map("data_referencia") // Para inclusão retroativa
+  
+  // Relacionamentos
+  pais                   Pais     @relation(fields: [paisCodigo], references: [codigo])
+  subdivisao             Subdivisao? @relation(fields: [subdivisaoCodigo], references: [codigo])
+  identificacoesAdicionais IdentificacaoAdicional[]
+  
+  @@map("operador_estrangeiro")
+}
+
+// Tabela para identificações adicionais (DUNS, LEI, etc.)
+model IdentificacaoAdicional {
+  id                     Int      @id @default(autoincrement()) @map("id")
+  operadorEstrangeiroId  Int      @map("operador_estrangeiro_id")
+  numero                 String   @map("numero")
+  agenciaEmissoraCodigo  String   @map("agencia_emissora_codigo")
+  
+  // Relacionamentos
+  operadorEstrangeiro    OperadorEstrangeiro @relation(fields: [operadorEstrangeiroId], references: [id], onDelete: Cascade)
+  agenciaEmissora        AgenciaEmissora @relation(fields: [agenciaEmissoraCodigo], references: [codigo])
+  
+  @@map("identificacao_adicional")
+}
+
+enum OperadorEstrangeiroStatus {
+  ATIVO
+  INATIVO
+  DESATIVADO
+}

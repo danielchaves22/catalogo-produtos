@@ -7,6 +7,8 @@ import authRoutes from './routes/auth.routes';
 import catalogoRoutes from './routes/catalogo.routes';
 import { authMiddleware } from './middlewares/auth.middleware';
 import { setupSwagger } from './swagger';
+import siscomexRoutes from './routes/siscomex.routes';
+import operadorEstrangeiroRoutes from './routes/operador-estrangeiro.routes';
 
 const app = express();
 
@@ -23,6 +25,12 @@ app.use('/api/auth', authRoutes);
 
 // Rotas de catálogos (protegidas)
 app.use('/api/catalogos', catalogoRoutes);
+
+// Rotas SISCOMEX (protegidas)
+app.use('/api/siscomex', siscomexRoutes);
+
+// Rotas de operadores estrangeiros (protegidas)
+app.use('/api/operadores-estrangeiros', operadorEstrangeiroRoutes);
 
 // Middleware de autenticação para rotas protegidas
 app.use('/api/protected', authMiddleware, (req, res) => {

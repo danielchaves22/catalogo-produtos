@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { 
-  FileText, Calendar, Activity, PieChart, BarChart2, 
-  Briefcase, Users, Tag, ChevronLeft, ChevronRight, User
+  FileText, PieChart, Briefcase, Users,
+  ChevronLeft, ChevronRight, User
 } from 'lucide-react';
 
 // Tipo para submenu - href é opcional para itens não clicáveis
@@ -61,12 +61,13 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
     localStorage.setItem('sidebarCollapsed', JSON.stringify(collapsed));
   }, [collapsed]);
 
+  // Menu com páginas existentes - Dashboard aponta para /
   const menuItems: SidebarItem[] = [
     {
       icon: <PieChart size={20} />,
       label: 'Painel',
       subItems: [
-        { label: 'Painel', href: '/painel', showWhenExpanded: true },
+        { label: 'Painel', href: '/', showWhenExpanded: true },
       ],
     },
     {
@@ -77,59 +78,17 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       ],
     },
     {
-      icon: <Activity size={20} />,
-      label: 'Rastreador',
+      icon: <Users size={20} />,
+      label: 'Operadores Estrangeiros',
       subItems: [
-        { label: 'Rastreador', href: '/rastreador', showWhenExpanded: true },
+        { label: 'Operadores Estrangeiros', href: '/operadores-estrangeiros', showWhenExpanded: true },
       ],
     },
-    {
-      icon: <Calendar size={20} />,
-      label: 'Calendário',
-      subItems: [
-        { label: 'Calendário', href: '/calendario', showWhenExpanded: true },
-      ],
-    },
-    {
-      icon: <BarChart2 size={20} />,
-      label: 'Relatórios',
-      subItems: [
-        { label: 'Relatórios', isHeader: true, showWhenExpanded: false }, // Item categoria, não mostrar quando expandido
-        { label: 'Resumido', href: '/relatorios/resumido', showWhenExpanded: true },
-        { label: 'Detalhado', href: '/relatorios/detalhado', showWhenExpanded: true },
-        { label: 'Semanal', href: '/relatorios/semanal', showWhenExpanded: true },
-        { label: 'Compartilhado', href: '/relatorios/compartilhado', showWhenExpanded: true },
-      ]
-    },
-    // Removido o separador "GERENCIANDO"
     {
       icon: <Briefcase size={20} />,
       label: 'Produtos',
       subItems: [
         { label: 'Produtos', href: '/produtos', showWhenExpanded: true },
-      ],
-    },
-    {
-      icon: <Users size={20} />,
-      label: 'Equipe',
-      subItems: [
-        { label: 'Equipe', isHeader: true, showWhenExpanded: false }, // Item categoria, não mostrar quando expandido
-        { label: 'Presença', href: '/equipe/presenca', showWhenExpanded: true },
-        { label: 'Atribuições', href: '/equipe/atribuicoes', showWhenExpanded: true },
-      ]
-    },
-    {
-      icon: <Users size={20} />,
-      label: 'Clientes',
-      subItems: [
-        { label: 'Clientes', href: '/clientes', showWhenExpanded: true },
-      ],
-    },
-    {
-      icon: <Tag size={20} />,
-      label: 'Etiquetas',
-      subItems: [
-        { label: 'Etiquetas', href: '/etiquetas', showWhenExpanded: true },
       ],
     },
     {
@@ -223,7 +182,6 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
         <div className="flex-1 overflow-y-auto">
           {menuItems.map((item, index) => {
             if ('type' in item && item.type === 'title') {
-              // Não renderizar separadores - removido completamente
               return null;
             }
 

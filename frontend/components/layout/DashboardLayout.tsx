@@ -81,7 +81,6 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
               width={100}
               height={50}
               priority
-              className="h-6 w-auto"
             />
             <span className="text-white text-lg font-bold font-heading">Catálogo de Produtos</span>
           </Link>
