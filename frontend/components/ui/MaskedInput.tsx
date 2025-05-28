@@ -1,4 +1,4 @@
-// frontend/components/ui/MaskedInput.tsx
+// frontend/components/ui/MaskedInput.tsx (CORRIGIDO)
 import React, { useState, useEffect } from 'react';
 
 interface MaskedInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
@@ -73,6 +73,9 @@ function applyCPFOrCNPJMask(value: string): string {
  * Aplica a máscara apropriada
  */
 function applyMask(value: string, mask: MaskedInputProps['mask']): string {
+  // Se value for falsy, retorna string vazia
+  if (!value) return '';
+  
   switch (mask) {
     case 'cpf':
       return applyCPFMask(value);
@@ -135,9 +138,11 @@ export function MaskedInput({
 }: MaskedInputProps) {
   const [displayValue, setDisplayValue] = useState('');
 
-  // Sincroniza valor inicial e mudanças externas
+  // CORRIGIDO: Sincroniza valor inicial e mudanças externas
   useEffect(() => {
-    const masked: string | undefined = applyMask(value, mask);
+    // Garantir que value seja uma string antes de aplicar a máscara
+    const safeValue = value || '';
+    const masked = applyMask(safeValue, mask);
     setDisplayValue(masked);
   }, [value, mask]);
 

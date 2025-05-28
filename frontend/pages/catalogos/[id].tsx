@@ -1,16 +1,18 @@
-// frontend/pages/catalogos/[id].tsx (atualizado com breadcrumb)
+// frontend/pages/catalogos/[id].tsx (CORRIGIDO com MaskedInput)
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { MaskedInput } from '@/components/ui/MaskedInput';
 import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
 import { ArrowLeft, Save } from 'lucide-react';
 import api from '@/lib/api';
+import { onlyNumbers, isValidCPFOrCNPJ } from '@/lib/validation';
 
 interface CatalogoFormData {
   nome: string;
@@ -57,7 +59,7 @@ export default function CatalogoFormPage() {
       setCatalogo(response.data);
       setFormData({
         nome: response.data.nome,
-        cpf_cnpj: response.data.cpf_cnpj || '',
+        cpf_cnpj: onlyNumbers(response.data.cpf_cnpj || ''), // Armazena apenas números
         status: response.data.status
       });
     } catch (error) {
@@ -83,6 +85,22 @@ export default function CatalogoFormPage() {
     }
   }
 
+  // Handler específico para MaskedInput
+  function handleMaskedChange(name: string) {
+    return (cleanValue: string, formattedValue: string) => {
+      setFormData(prev => ({ ...prev, [name]: cleanValue }));
+      
+      // Limpa erro quando valor muda
+      if (errors[name]) {
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[name];
+          return newErrors;
+        });
+      }
+    };
+  }
+
   function formatarData(dataString: string) {
     const data = new Date(dataString);
     return data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR');
@@ -93,6 +111,14 @@ export default function CatalogoFormPage() {
     
     if (!formData.nome.trim()) {
       newErrors.nome = 'O nome é obrigatório';
+    }
+    
+    // Validação de CPF/CNPJ se preenchido
+    if (formData.cpf_cnpj) {
+      const validacao = isValidCPFOrCNPJ(formData.cpf_cnpj);
+      if (!validacao.valid) {
+        newErrors.cpf_cnpj = validacao.message || 'CPF ou CNPJ inválido';
+      }
     }
     
     setErrors(newErrors);
@@ -140,7 +166,6 @@ export default function CatalogoFormPage() {
 
   return (
     <DashboardLayout title={isNew ? 'Novo Catálogo' : 'Editar Catálogo'}>
-      {/* Breadcrumb substituindo os cabeçalhos anteriores */}
       <Breadcrumb 
         items={[
           { label: 'Início', href: '/' },
@@ -195,24 +220,28 @@ export default function CatalogoFormPage() {
               className="col-span-2"
             />
             
-            <Input
+            {/* CORRIGIDO: Usando MaskedInput para CPF/CNPJ */}
+            <MaskedInput
               label="CPF/CNPJ"
-              name="cpf_cnpj"
+              mask="cpf-cnpj"
               value={formData.cpf_cnpj}
-              onChange={handleChange}
+              onChange={handleMaskedChange('cpf_cnpj')}
               error={errors.cpf_cnpj}
+              placeholder="CPF: 000.000.000-00 ou CNPJ: 00.000.000/0000-00"
             />
             
-            <Select
+            <CustomSelect
               label="Status"
               name="status"
               value={formData.status}
-              onChange={handleChange}
+              onChange={(value) => setFormData(prev => ({ ...prev, status: value as 'ATIVO' | 'INATIVO' }))}
               options={[
                 { value: 'ATIVO', label: 'Ativo' },
                 { value: 'INATIVO', label: 'Inativo' }
               ]}
-            />
+              required
+              placeholder="Selecione o status"
+            />            
           </div>
           
           <div className="mt-6 flex justify-end gap-3">

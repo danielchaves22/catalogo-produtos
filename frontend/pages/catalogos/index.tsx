@@ -1,4 +1,4 @@
-// frontend/pages/catalogos/index.tsx (atualizado com breadcrumb)
+// frontend/pages/catalogos/index.tsx (CORRIGIDO com formatação)
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/ToastContext';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/router';
 import api from '@/lib/api';
+import { formatCPFOrCNPJ } from '@/lib/validation';
 
 interface Catalogo {
   id: number;
@@ -48,6 +49,12 @@ export default function CatalogosPage() {
   function formatarData(dataString: string) {
     const data = new Date(dataString);
     return data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR');
+  }
+
+  // NOVA FUNÇÃO: Formatar CPF/CNPJ para exibição
+  function formatarCpfCnpj(valor: string | null) {
+    if (!valor) return '-';
+    return formatCPFOrCNPJ(valor);
   }
 
   function confirmarExclusao(id: number) {
@@ -91,7 +98,6 @@ export default function CatalogosPage() {
 
   return (
     <DashboardLayout title="Catálogos">
-      {/* Breadcrumb substituindo os cabeçalhos anteriores */}
       <Breadcrumb 
         items={[
           { label: 'Início', href: '/' },
@@ -161,7 +167,10 @@ export default function CatalogosPage() {
                     </td>
                     <td className="px-4 py-3 font-mono text-[#f59e0b]">{catalogo.numero}</td>
                     <td className="px-4 py-3 font-medium text-white">{catalogo.nome}</td>
-                    <td className="px-4 py-3">{catalogo.cpf_cnpj || '-'}</td>
+                    {/* CORRIGIDO: CPF/CNPJ formatado */}
+                    <td className="px-4 py-3 font-mono">
+                      {formatarCpfCnpj(catalogo.cpf_cnpj)}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         catalogo.status === 'ATIVO' 

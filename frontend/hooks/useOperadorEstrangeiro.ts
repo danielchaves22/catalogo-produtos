@@ -1,4 +1,4 @@
-// frontend/hooks/useOperadorEstrangeiro.ts
+// frontend/hooks/useOperadorEstrangeiro.ts (ATUALIZADO com codigoPostal)
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 
@@ -34,10 +34,14 @@ export interface OperadorEstrangeiro {
   situacao: 'ATIVO' | 'INATIVO' | 'DESATIVADO';
   dataInclusao: string;
   dataUltimaAlteracao: string;
+  
+  // CORRIGIDO: Adicionados campos de endereço
+  codigoPostal?: string;
+  logradouro?: string;
+  cidade?: string;
+  
   pais: Pais;
   subdivisao?: Subdivisao;
-  cidade?: string;
-  logradouro?: string;
   identificacoesAdicionais?: Array<{
     id: number;
     numero: string;

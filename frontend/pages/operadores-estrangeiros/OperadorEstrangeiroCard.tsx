@@ -1,9 +1,10 @@
-// frontend/components/operador-estrangeiro/OperadorEstrangeiroCard.tsx
+// frontend/pages/operadores-estrangeiros/OperadorEstrangeiroCard.tsx (CORRIGIDO)
 import React from 'react';
 import { Globe, Mail, MapPin, Hash, Calendar, Edit, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
+import { formatCEP } from '@/lib/validation';
 
 interface OperadorEstrangeiroCardProps {
   operador: OperadorEstrangeiro;
@@ -38,6 +39,20 @@ export function OperadorEstrangeiroCard({
     }
   }
 
+  // NOVA FUNÇÃO: Formatar endereço completo
+  function formatarEndereco(operador: OperadorEstrangeiro) {
+    const partes = [];
+    
+    if (operador.logradouro) partes.push(operador.logradouro);
+    if (operador.cidade) partes.push(operador.cidade);
+    if (operador.subdivisao) partes.push(operador.subdivisao.nome);
+    
+    const endereco = partes.join(', ');
+    const cep = operador.codigoPostal ? formatCEP(operador.codigoPostal) : null;
+    
+    return { endereco, cep };
+  }
+
   if (compact) {
     return (
       <div className="p-3 bg-[#1a1f2b] rounded-lg border border-gray-700">
@@ -65,12 +80,20 @@ export function OperadorEstrangeiroCard({
             <div className="flex items-center gap-2">
               <MapPin size={14} />
               <span>{operador.cidade}</span>
+              {/* CORRIGIDO: Mostrar CEP formatado */}
+              {operador.codigoPostal && (
+                <span className="text-xs bg-gray-700 px-2 py-1 rounded font-mono">
+                  {formatCEP(operador.codigoPostal)}
+                </span>
+              )}
             </div>
           )}
         </div>
       </div>
     );
   }
+
+  const { endereco, cep } = formatarEndereco(operador);
 
   return (
     <Card className="hover:border-gray-600 transition-colors">
@@ -156,22 +179,20 @@ export function OperadorEstrangeiroCard({
 
         {/* Endereço */}
         <div className="space-y-3">
-          {(operador.cidade || operador.logradouro) && (
+          {endereco && (
             <div className="flex items-start gap-2 text-gray-300">
               <MapPin size={16} className="text-[#f59e0b] mt-0.5" />
               <div>
                 <span className="font-medium">Endereço:</span>
                 <div className="text-sm">
-                  {operador.logradouro && <div>{operador.logradouro}</div>}
-                  <div className="flex items-center gap-2">
-                    {operador.cidade && <span>{operador.cidade}</span>}
-                    {operador.subdivisao && (
-                      <>
-                        <span>•</span>
-                        <span>{operador.subdivisao.nome}</span>
-                      </>
-                    )}
-                  </div>
+                  <div>{endereco}</div>
+                  {/* CORRIGIDO: CEP formatado */}
+                  {cep && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="font-medium">CEP:</span>
+                      <span className="font-mono bg-gray-700 px-2 py-1 rounded text-xs">{cep}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

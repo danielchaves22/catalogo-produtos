@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/ToastContext';
 import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { isValidCEP, onlyNumbers, validationMessages } from '@/lib/validation';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 
 interface Pais {
   codigo: string;
@@ -387,11 +388,11 @@ export default function OperadorEstrangeiroFormPage() {
             
             {/* Campos editáveis */}
             {isNew ? (
-              <Select
+              <CustomSelect
                 label="CNPJ Raiz da Empresa Responsável"
                 name="cnpjRaizResponsavel"
                 value={formData.cnpjRaizResponsavel}
-                onChange={handleChange}
+                onChange={(value) => setFormData(prev => ({ ...prev, cnpjRaizResponsável: value }))}
                 options={[
                   { value: '', label: 'Selecione uma empresa' },
                   ...cnpjsCatalogos.map(cnpj => ({ 
@@ -400,6 +401,9 @@ export default function OperadorEstrangeiroFormPage() {
                   }))
                 ]}
                 className={errors.cnpjRaizResponsavel ? 'border-red-500' : ''}
+                error={errors.cnpjRaizResponsável}
+                required
+                placeholder="Selecione uma empresa"
               />
             ) : (
               <Input
@@ -412,11 +416,14 @@ export default function OperadorEstrangeiroFormPage() {
             )}
             {errors.cnpjRaizResponsavel && <p className="text-red-400 text-sm mt-1">{errors.cnpjRaizResponsavel}</p>}
             
-            <Select
+            <CustomSelect
               label="País do Fabricante/Produtor"
               name="paisCodigo"
               value={formData.paisCodigo}
-              onChange={handleChange}
+              onChange={(value) => {
+                setFormData(prev => ({ ...prev, paisCodigo: value, subdivisaoCodigo: '' }));
+                carregarSubdivisoesPorPais(value);
+              }}
               options={[
                 { value: '', label: 'Selecione um país' },
                 ...paises.map(pais => ({ 
@@ -425,6 +432,9 @@ export default function OperadorEstrangeiroFormPage() {
                 }))
               ]}
               className={errors.paisCodigo ? 'border-red-500' : ''}
+              error={errors.paisCodigo}
+              required
+              placeholder="Selecione um país"
             />
             {errors.paisCodigo && <p className="text-red-400 text-sm mt-1">{errors.paisCodigo}</p>}
             
@@ -494,11 +504,11 @@ export default function OperadorEstrangeiroFormPage() {
               className="md:col-span-2"
             />
             
-            <Select
+            <CustomSelect
               label="Subdivisão (Estado, província)"
               name="subdivisaoCodigo"
               value={formData.subdivisaoCodigo}
-              onChange={handleChange}
+              onChange={(value) => setFormData(prev => ({ ...prev, subdivisaoCodigo: value }))}
               disabled={!formData.paisCodigo || loadingSubdivisoes}
               options={[
                 { 
@@ -514,6 +524,13 @@ export default function OperadorEstrangeiroFormPage() {
                   label: `${sub.sigla} - ${sub.nome}` 
                 }))
               ]}
+              placeholder={
+                !formData.paisCodigo 
+                  ? 'Selecione um país primeiro'
+                  : loadingSubdivisoes 
+                    ? 'Carregando subdivisões...'
+                    : 'Selecione uma subdivisão'
+              }
             />
             
             <Select

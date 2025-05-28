@@ -1,4 +1,4 @@
-// frontend/lib/validation.ts
+// frontend/lib/validation.ts (CORRIGIDO)
 /**
  * Utilitários de validação para frontend (espelha o backend)
  */
@@ -6,14 +6,17 @@
 /**
  * Remove caracteres não numéricos
  */
-export function onlyNumbers(value: string): string {
+export function onlyNumbers(value: string | null | undefined): string {
+  if (!value) return '';
   return value.replace(/\D/g, '');
 }
 
 /**
  * Valida CPF
  */
-export function isValidCPF(cpf: string): boolean {
+export function isValidCPF(cpf: string | null | undefined): boolean {
+  if (!cpf) return false;
+  
   const cleanCPF = onlyNumbers(cpf);
   
   if (cleanCPF.length !== 11) return false;
@@ -41,7 +44,9 @@ export function isValidCPF(cpf: string): boolean {
 /**
  * Valida CNPJ
  */
-export function isValidCNPJ(cnpj: string): boolean {
+export function isValidCNPJ(cnpj: string | null | undefined): boolean {
+  if (!cnpj) return false;
+  
   const cleanCNPJ = onlyNumbers(cnpj);
   
   if (cleanCNPJ.length !== 14) return false;
@@ -77,7 +82,9 @@ export function isValidCNPJ(cnpj: string): boolean {
 /**
  * Valida CEP
  */
-export function isValidCEP(cep: string): boolean {
+export function isValidCEP(cep: string | null | undefined): boolean {
+  if (!cep) return false;
+  
   const cleanCEP = onlyNumbers(cep);
   return cleanCEP.length === 8 && cleanCEP !== '00000000';
 }
@@ -85,7 +92,15 @@ export function isValidCEP(cep: string): boolean {
 /**
  * Valida CPF ou CNPJ automaticamente
  */
-export function isValidCPFOrCNPJ(value: string): { valid: boolean; type: 'CPF' | 'CNPJ' | null; message?: string } {
+export function isValidCPFOrCNPJ(value: string | null | undefined): { valid: boolean; type: 'CPF' | 'CNPJ' | null; message?: string } {
+  if (!value) {
+    return { 
+      valid: false, 
+      type: null, 
+      message: 'Campo obrigatório' 
+    };
+  }
+  
   const cleanValue = onlyNumbers(value);
   
   if (cleanValue.length === 11) {
@@ -114,7 +129,9 @@ export function isValidCPFOrCNPJ(value: string): { valid: boolean; type: 'CPF' |
 /**
  * Formata CPF
  */
-export function formatCPF(cpf: string): string {
+export function formatCPF(cpf: string | null | undefined): string {
+  if (!cpf) return '';
+  
   const cleanCPF = onlyNumbers(cpf);
   if (cleanCPF.length !== 11) return cpf;
   
@@ -124,7 +141,9 @@ export function formatCPF(cpf: string): string {
 /**
  * Formata CNPJ
  */
-export function formatCNPJ(cnpj: string): string {
+export function formatCNPJ(cnpj: string | null | undefined): string {
+  if (!cnpj) return '';
+  
   const cleanCNPJ = onlyNumbers(cnpj);
   if (cleanCNPJ.length !== 14) return cnpj;
   
@@ -134,7 +153,9 @@ export function formatCNPJ(cnpj: string): string {
 /**
  * Formata CEP
  */
-export function formatCEP(cep: string): string {
+export function formatCEP(cep: string | null | undefined): string {
+  if (!cep) return '';
+  
   const cleanCEP = onlyNumbers(cep);
   if (cleanCEP.length !== 8) return cep;
   
@@ -144,7 +165,9 @@ export function formatCEP(cep: string): string {
 /**
  * Formata CPF ou CNPJ automaticamente
  */
-export function formatCPFOrCNPJ(value: string): string {
+export function formatCPFOrCNPJ(value: string | null | undefined): string {
+  if (!value) return '';
+  
   const cleanValue = onlyNumbers(value);
   
   if (cleanValue.length === 11) {
