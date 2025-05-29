@@ -1,4 +1,4 @@
-// frontend/pages/operadores-estrangeiros/index.tsx
+// frontend/pages/operadores-estrangeiros/index.tsx - CORRIGIDO
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/ToastContext';
 import { useOperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { Plus, Trash2, AlertCircle, Search, Globe } from 'lucide-react';
 import { useRouter } from 'next/router';
+import { formatCPFOrCNPJ } from '@/lib/validation';
 
 interface OperadorEstrangeiro {
   id: number;
@@ -243,7 +244,7 @@ export default function OperadoresEstrangeirosPage() {
                     <td className="px-4 py-3">
                       <div className="text-sm">
                         <div className="font-medium text-white">{getCnpjCatalogoNome(operador.cnpjRaizResponsavel)}</div>
-                        <div className="text-gray-400 font-mono">{operador.cnpjRaizResponsavel}</div>
+                        <div className="text-gray-400 font-mono">{formatCPFOrCNPJ(operador.cnpjRaizResponsavel)}</div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
