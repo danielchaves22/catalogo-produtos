@@ -1,6 +1,9 @@
-// frontend/middleware.ts - VERSÃO MELHORADA
+// frontend/middleware.ts - VERSÃO SEGURA
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+
+// CONSTANTE DE SEGURANÇA - deve coincidir com AuthContext
+const COOKIE_NAME = 'catalogo_produtos_auth';
 
 // Rotas que não precisam de autenticação
 const publicRoutes = ['/login', '/api/auth/login']
@@ -24,10 +27,10 @@ export function middleware(request: NextRequest) {
   // Verifica se é uma rota pública
   const isPublicRoute = publicRoutes.some(route => pathname === route)
   
-  // Se cookie de token existe
-  const token = request.cookies.get('token')?.value
+  // SEGURANÇA: Verifica apenas NOSSO cookie específico
+  const token = request.cookies.get(COOKIE_NAME)?.value
   
-  // MELHORIA: Rota protegida e sem autenticação
+  // Rota protegida e sem autenticação
   if (!isPublicRoute && !token) {
     const url = new URL('/login', request.url)
     
@@ -39,11 +42,12 @@ export function middleware(request: NextRequest) {
     // Adicionar header para indicar redirecionamento por token inválido
     const response = NextResponse.redirect(url)
     response.headers.set('X-Redirect-Reason', 'no-token')
+    response.headers.set('X-App-Name', 'catalogo-produtos') // Identificar nossa app
     
     return response
   }
   
-  // MELHORIA: Rota de login com autenticação válida
+  // Rota de login com autenticação válida
   if (pathname === '/login' && token) {
     // Se tem redirect, ir para lá; senão, ir para home
     const redirect = request.nextUrl.searchParams.get('redirect')
