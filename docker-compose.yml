@@ -7,8 +7,6 @@ services:
   backend:
     build:
       context: ./backend
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api}
     container_name: catalogo-backend
     ports:
       - '3000:3000'
@@ -21,6 +19,8 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api}
     container_name: catalogo-frontend
     ports:
       - '3001:3000'
