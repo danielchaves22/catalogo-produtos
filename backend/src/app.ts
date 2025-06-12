@@ -9,6 +9,8 @@ import { authMiddleware } from './middlewares/auth.middleware';
 import { setupSwagger } from './swagger';
 import siscomexRoutes from './routes/siscomex.routes';
 import operadorEstrangeiroRoutes from './routes/operador-estrangeiro.routes';
+import { Router } from 'express';
+import { API_PREFIX } from './config';
 
 const app = express();
 
@@ -20,29 +22,33 @@ app.use(urlencoded({ extended: true }));
 // Swagger para documentação da API
 setupSwagger(app);
 
+const apiRouter = Router();
+
 // Rotas de autenticação (públicas)
-app.use('/api/auth', authRoutes);
+apiRouter.use('/auth', authRoutes);
 
 // Rotas de catálogos (protegidas)
-app.use('/api/catalogos', catalogoRoutes);
+apiRouter.use('/catalogos', catalogoRoutes);
 
 // Rotas SISCOMEX (protegidas)
-app.use('/api/siscomex', siscomexRoutes);
+apiRouter.use('/siscomex', siscomexRoutes);
 
 // Rotas de operadores estrangeiros (protegidas)
-app.use('/api/operadores-estrangeiros', operadorEstrangeiroRoutes);
+apiRouter.use('/operadores-estrangeiros', operadorEstrangeiroRoutes);
 
 // Middleware de autenticação para rotas protegidas
-app.use('/api/protected', authMiddleware, (req, res) => {
+apiRouter.use('/protected', authMiddleware, (req, res) => {
   // Esta rota é apenas para testar a autenticação
-  res.json({ 
-    message: 'Você está autenticado!', 
-    user: { 
+  res.json({
+    message: 'Você está autenticado!',
+    user: {
       id: req.user?.id,
       name: req.user?.name,
       email: req.user?.email
-    } 
+    }
   });
 });
+
+app.use(API_PREFIX, apiRouter);
 
 export default app;

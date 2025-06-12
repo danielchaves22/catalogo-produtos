@@ -2,6 +2,7 @@
 import { Express } from 'express';
 import swaggerJsdoc, { Options } from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
+import { API_PREFIX } from './config';
 
 const swaggerOptions: Options = {
   definition: {
@@ -12,7 +13,7 @@ const swaggerOptions: Options = {
       description: 'Documentação da API do Backend do Catálogo de Produtos'
     },
     servers: [
-      { url: 'http://localhost:3000', description: 'Servidor local' }
+      { url: `http://localhost:3000${API_PREFIX}`, description: 'Servidor local' }
     ],
     components: {
       schemas: {

@@ -18,7 +18,7 @@ router.use(authMiddleware);
 
 /**
  * @swagger
- * /api/siscomex/status:
+ * /api/v1/siscomex/status:
  *   get:
  *     summary: Verifica status da conexão com SISCOMEX
  *     tags: [SISCOMEX]
@@ -36,7 +36,7 @@ router.get('/status', verificarStatus);
 
 /**
  * @swagger
- * /api/siscomex/produtos:
+ * /api/v1/siscomex/produtos:
  *   get:
  *     summary: Consulta produtos no SISCOMEX
  *     tags: [SISCOMEX]
@@ -73,7 +73,7 @@ router.get('/produtos', consultarProdutos);
 
 /**
  * @swagger
- * /api/siscomex/produtos:
+ * /api/v1/siscomex/produtos:
  *   post:
  *     summary: Inclui novo produto no SISCOMEX
  *     tags: [SISCOMEX]
@@ -93,7 +93,7 @@ router.post('/produtos', incluirProduto);
 
 /**
  * @swagger
- * /api/siscomex/produtos/{codigo}:
+ * /api/v1/siscomex/produtos/{codigo}:
  *   put:
  *     summary: Atualiza produto no SISCOMEX
  *     tags: [SISCOMEX]
@@ -113,7 +113,7 @@ router.put('/produtos/:codigo', atualizarProduto);
 
 /**
  * @swagger
- * /api/siscomex/produtos/{codigo}/versoes/{versao}:
+ * /api/v1/siscomex/produtos/{codigo}/versoes/{versao}:
  *   get:
  *     summary: Detalha versão específica do produto
  *     tags: [SISCOMEX]
@@ -138,7 +138,7 @@ router.get('/produtos/:codigo/versoes/:versao', detalharVersaoProduto);
 
 /**
  * @swagger
- * /api/siscomex/produtos/exportar:
+ * /api/v1/siscomex/produtos/exportar:
  *   get:
  *     summary: Exporta catálogo completo do SISCOMEX
  *     tags: [SISCOMEX]
@@ -162,7 +162,7 @@ router.get('/produtos/exportar', exportarCatalogo);
 
 /**
  * @swagger
- * /api/siscomex/atributos/ncm/{ncm}:
+ * /api/v1/siscomex/atributos/ncm/{ncm}:
  *   get:
  *     summary: Consulta atributos por NCM
  *     tags: [SISCOMEX]
