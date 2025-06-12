@@ -73,20 +73,20 @@ O módulo **Operador Estrangeiro** permite o cadastro e gerenciamento de fabrica
 ### Operadores Estrangeiros
 
 ```
-GET    /api/operadores-estrangeiros              # Listar todos
-GET    /api/operadores-estrangeiros/:id          # Buscar por ID
-GET    /api/operadores-estrangeiros/buscar-por-tin/:tin  # Buscar por TIN
-POST   /api/operadores-estrangeiros              # Criar novo
-PUT    /api/operadores-estrangeiros/:id          # Atualizar (nova versão)
-DELETE /api/operadores-estrangeiros/:id          # Desativar
+GET    /api/v1/operadores-estrangeiros              # Listar todos
+GET    /api/v1/operadores-estrangeiros/:id          # Buscar por ID
+GET    /api/v1/operadores-estrangeiros/buscar-por-tin/:tin  # Buscar por TIN
+POST   /api/v1/operadores-estrangeiros              # Criar novo
+PUT    /api/v1/operadores-estrangeiros/:id          # Atualizar (nova versão)
+DELETE /api/v1/operadores-estrangeiros/:id          # Desativar
 ```
 
 ### Dados Auxiliares
 
 ```
-GET    /api/operadores-estrangeiros/aux/paises            # Lista de países
-GET    /api/operadores-estrangeiros/aux/subdivisoes       # Lista de subdivisões
-GET    /api/operadores-estrangeiros/aux/agencias-emissoras # Lista de agências
+GET    /api/v1/operadores-estrangeiros/aux/paises            # Lista de países
+GET    /api/v1/operadores-estrangeiros/aux/subdivisoes       # Lista de subdivisões
+GET    /api/v1/operadores-estrangeiros/aux/agencias-emissoras # Lista de agências
 ```
 
 ## Componentes Frontend

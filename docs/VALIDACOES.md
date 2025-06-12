@@ -192,13 +192,13 @@ Execute o script de teste no console do navegador (arquivo disponível em `valid
 ### 3. Teste de API
 ```bash
 # Teste com CNPJ válido
-curl -X POST http://localhost:3000/api/catalogos \
+curl -X POST http://localhost:3000/api/v1/catalogos \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"nome":"Teste","cpf_cnpj":"11222333000181","status":"ATIVO"}'
 
 # Teste com CNPJ inválido (deve retornar erro)
-curl -X POST http://localhost:3000/api/catalogos \
+curl -X POST http://localhost:3000/api/v1/catalogos \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"nome":"Teste","cpf_cnpj":"11111111111111","status":"ATIVO"}'
