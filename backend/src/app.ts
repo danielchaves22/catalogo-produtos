@@ -9,6 +9,7 @@ import { authMiddleware } from './middlewares/auth.middleware';
 import { setupSwagger } from './swagger';
 import siscomexRoutes from './routes/siscomex.routes';
 import operadorEstrangeiroRoutes from './routes/operador-estrangeiro.routes';
+import produtoRoutes from './routes/produto.routes';
 import { Router } from 'express';
 import { API_PREFIX } from './config';
 
@@ -35,6 +36,9 @@ apiRouter.use('/siscomex', siscomexRoutes);
 
 // Rotas de operadores estrangeiros (protegidas)
 apiRouter.use('/operadores-estrangeiros', operadorEstrangeiroRoutes);
+
+// Rotas de produtos (protegidas)
+apiRouter.use('/produtos', produtoRoutes);
 
 // Middleware de autenticação para rotas protegidas
 apiRouter.use('/protected', authMiddleware, (req, res) => {

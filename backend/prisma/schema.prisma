@@ -133,3 +133,20 @@ enum OperadorEstrangeiroStatus {
   INATIVO
   DESATIVADO
 }
+model Ncm {
+  codigo String @id @map("codigo")
+  descricao String? @map("descricao")
+  estrutura Json @default("{}") @map("estrutura")
+  produtos Produto[]
+  @@map("ncm")
+}
+
+model Produto {
+  id Int @id @default(autoincrement()) @map("id")
+  nome String @map("nome")
+  ncmCodigo String @map("ncm_codigo")
+  estruturaAtributos Json @map("estrutura_atributos")
+  valoresAtributos Json? @map("valores_atributos")
+  ncm Ncm @relation(fields: [ncmCodigo], references: [codigo])
+  @@map("produto")
+}
