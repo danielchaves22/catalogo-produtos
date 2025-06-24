@@ -145,6 +145,63 @@ DELIMITER ;
         INDEX idx_numero (numero)
     );
 
+    CREATE TABLE ncm_cache (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        codigo VARCHAR(8) UNIQUE NOT NULL,
+        descricao VARCHAR(255),
+        -- Metadados de sincronização
+        data_ultima_sincronizacao TIMESTAMP,
+        hash_estrutura VARCHAR(64), -- MD5/SHA da estrutura
+        versao_estrutura INT,
+        -- Dados para UI
+        unidade_medida VARCHAR(10),
+        aliquota_ii DECIMAL(5,2)
+    );
+
+    CREATE TABLE atributos_cache (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        ncm_codigo VARCHAR(8),
+        modalidade VARCHAR(50),
+        estrutura_json JSON NOT NULL,
+        -- Versionamento
+        data_sincronizacao TIMESTAMP,
+        versao INT,
+        hash_estrutura VARCHAR(64),
+        vigencia_inicio DATE,
+        vigencia_fim DATE,
+        -- Índice único para evitar duplicatas
+        UNIQUE KEY uk_ncm_modalidade_versao (ncm_codigo, modalidade, versao)
+    );
+
+    CREATE TABLE produto (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        codigo VARCHAR(50) UNIQUE NOT NULL,
+        versao INT NOT NULL DEFAULT 1,
+        status ENUM('RASCUNHO', 'ATIVO', 'INATIVO') DEFAULT 'RASCUNHO',
+        ncm_codigo VARCHAR(8) NOT NULL,
+        modalidade VARCHAR(50),
+        -- Rastreabilidade
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        atualizado_em TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        criado_por VARCHAR(100),
+        -- Versionamento de estrutura
+        versao_estrutura_atributos INT,
+        INDEX idx_ncm (ncm_codigo),
+        UNIQUE KEY uk_codigo_versao (codigo, versao)
+    );
+
+    CREATE TABLE produto_atributos (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        produto_id INT NOT NULL,
+        valores_json JSON NOT NULL,
+        -- Snapshot da estrutura no momento do preenchimento
+        estrutura_snapshot_json JSON,
+        -- Validação
+        validado_em TIMESTAMP NULL,
+        erros_validacao JSON NULL,
+        FOREIGN KEY (produto_id) REFERENCES produto(id)
+    );
+
 
     -- Scripts de dados iniciais para Operador Estrangeiro
     -- Execute após criar as tabelas
