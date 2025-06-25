@@ -10,7 +10,7 @@ interface CardProps {
 
 export function Card({ children, className = '', headerTitle, headerSubtitle }: CardProps) {
   return (
-    <div className={`bg-[#151921] shadow-md rounded-xl overflow-hidden border border-gray-700 ${className}`}>
+    <div className={`bg-[#151921] shadow-md rounded-lg overflow-hidden border border-gray-700 ${className}`}>
       {(headerTitle || headerSubtitle) && (
         <div className="bg-[#151921] px-6 py-4 border-b border-gray-700">
           {headerTitle && <h2 className="text-lg font-medium text-white">{headerTitle}</h2>}

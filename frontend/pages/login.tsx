@@ -67,7 +67,7 @@ export default function LoginPage() {
             <input
               type="text"
               id="email"
-              className="bg-gray-100 border border-gray-200 text-gray-700 py-2 px-4 pl-10 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 block w-full"
+              className="bg-gray-100 border border-gray-200 text-gray-700 py-1.5 px-3 pl-9 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 block w-full"
               placeholder="Usuário"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -84,7 +84,7 @@ export default function LoginPage() {
             <input
               type="password"
               id="password"
-              className="bg-gray-100 border border-gray-200 text-gray-700 py-2 px-4 pl-10 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 block w-full"
+              className="bg-gray-100 border border-gray-200 text-gray-700 py-1.5 px-3 pl-9 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 block w-full"
               placeholder="Senha"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -94,7 +94,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full bg-[#0B3A5C] text-white font-medium py-2 px-4 rounded-lg hover:bg-[#0a3351] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-150 ease-in-out"
+            className="w-full bg-[#0B3A5C] text-white font-medium py-2 px-3 rounded-md hover:bg-[#0a3351] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-150 ease-in-out"
             disabled={loading}
           >
             {loading ? 'ACESSANDO...' : 'ACESSAR'}
