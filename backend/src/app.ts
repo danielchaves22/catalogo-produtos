@@ -9,6 +9,8 @@ import { authMiddleware } from './middlewares/auth.middleware';
 import { setupSwagger } from './swagger';
 import siscomexRoutes from './routes/siscomex.routes';
 import operadorEstrangeiroRoutes from './routes/operador-estrangeiro.routes';
+import produtoRoutes from './routes/produto.routes';
+import atributoRoutes from './routes/atributo.routes';
 import { Router } from 'express';
 import { API_PREFIX } from './config';
 
@@ -32,6 +34,10 @@ apiRouter.use('/catalogos', catalogoRoutes);
 
 // Rotas SISCOMEX (protegidas)
 apiRouter.use('/siscomex', siscomexRoutes);
+
+// Rotas de produtos e atributos (protegidas)
+apiRouter.use('/produtos', produtoRoutes);
+apiRouter.use('/estruturas', atributoRoutes);
 
 // Rotas de operadores estrangeiros (protegidas)
 apiRouter.use('/operadores-estrangeiros', operadorEstrangeiroRoutes);

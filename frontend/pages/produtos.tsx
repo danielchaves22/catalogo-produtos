@@ -3,6 +3,7 @@ import React from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Search, Plus } from 'lucide-react';
+import Link from 'next/link';
 
 export default function ProdutosPage() {
   return (
@@ -31,12 +32,13 @@ export default function ProdutosPage() {
           <h3 className="text-xl font-medium text-white mb-2">Nenhum produto encontrado</h3>
           <p className="text-gray-400 mb-8">Adicione seus primeiros produtos ao catálogo</p>
           
-          <button 
+          <Link
+            href="/produtos/novo"
             className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
           >
             <Plus size={18} />
             <span>Adicionar Produto</span>
-          </button>
+          </Link>
         </div>
       </div>
     </DashboardLayout>
