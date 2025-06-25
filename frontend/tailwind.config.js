@@ -26,8 +26,8 @@ module.exports = {
           96: '24rem',
         },
         borderRadius: {
-          lg: '1rem',
-          xl: '1.5rem',
+          lg: '0.25rem',
+          xl: '0.5rem',
         },
         boxShadow: {
           md: '0 4px 8px rgba(0,0,0,0.04)',

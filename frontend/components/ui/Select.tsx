@@ -18,7 +18,7 @@ export function Select({ label, options, className = '', error, ...props }: Sele
       )}
       <select
         {...props}
-        className={`w-full px-3 py-2 bg-[#1e2126] border rounded-lg focus:outline-none focus:ring focus:border-blue-500 text-white appearance-none ${
+        className={`w-full px-2 py-1.5 bg-[#1e2126] border rounded-md focus:outline-none focus:ring focus:border-blue-500 text-white appearance-none ${
           error ? 'border-red-500' : 'border-gray-700'
         }`}
         style={{

@@ -12,12 +12,12 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function Button({
   variant = 'primary',
-  size = 'md',
+  size = 'sm',
   children,
   className = '',
   ...props
 }: ButtonProps) {
-  const base = 'rounded-lg font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const base = 'rounded-md font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2';
   
   const variants: Record<ButtonVariant, string> = {
     primary: `${base} bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500`,

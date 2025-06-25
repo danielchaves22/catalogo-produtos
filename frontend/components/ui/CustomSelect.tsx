@@ -92,7 +92,7 @@ export function CustomSelect({
           disabled={disabled}
           onClick={() => !disabled && setIsOpen(!isOpen)}
           onKeyDown={handleKeyDown}
-          className={`w-full px-3 py-2 bg-[#1e2126] border rounded-lg focus:outline-none focus:ring focus:border-blue-500 text-white text-left flex items-center justify-between transition-colors ${
+        className={`w-full px-2 py-1.5 bg-[#1e2126] border rounded-md focus:outline-none focus:ring focus:border-blue-500 text-white text-left flex items-center justify-between transition-colors ${
             error ? 'border-red-500' : 'border-gray-700'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-600'}`}
         >
@@ -107,7 +107,7 @@ export function CustomSelect({
 
         {/* Dropdown */}
         {isOpen && !disabled && (
-          <div className="absolute z-50 w-full mt-1 bg-[#1e2126] border border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          <div className="absolute z-50 w-full mt-1 bg-[#1e2126] border border-gray-700 rounded-md shadow-lg max-h-60 overflow-y-auto">
             {options.map((option) => (
               <button
                 key={option.value}

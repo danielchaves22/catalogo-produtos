@@ -112,9 +112,9 @@ export default function PerfilPage() {
               className="mb-6"
             />
             
-            <button 
-              type="submit" 
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors" 
+            <button
+              type="submit"
+              className="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors"
               disabled={loading}
             >
               {loading ? 'Salvando...' : 'Salvar Alterações'}
@@ -157,9 +157,9 @@ export default function PerfilPage() {
               className="mb-6"
             />
             
-            <button 
-              type="submit" 
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors" 
+            <button
+              type="submit"
+              className="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors"
               disabled={loading}
             >
               {loading ? 'Atualizando...' : 'Atualizar Senha'}
