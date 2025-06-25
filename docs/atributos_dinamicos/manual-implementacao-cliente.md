@@ -1,1925 +1,731 @@
-# Manual de Implementação - Cliente de Atributos Dinâmicos
+# Manual de Integração - Sistema de Atributos Dinâmicos
 
 ## Sumário
 
 1. [Visão Geral](#1-visão-geral)
-2. [Arquitetura da Aplicação](#2-arquitetura-da-aplicação)
-3. [Configuração Inicial](#3-configuração-inicial)
-4. [Implementação do Backend](#4-implementação-do-backend)
-5. [Sincronização com Servidor](#5-sincronização-com-servidor)
-6. [Interface de Usuário](#6-interface-de-usuário)
-7. [Fluxo de Cadastro de Produtos](#7-fluxo-de-cadastro-de-produtos)
-8. [Validações e Regras de Negócio](#8-validações-e-regras-de-negócio)
-9. [Tratamento de Erros](#9-tratamento-de-erros)
-10. [Testes](#10-testes)
-11. [Deploy e Monitoramento](#11-deploy-e-monitoramento)
-12. [Troubleshooting](#12-troubleshooting)
+2. [Arquitetura de Integração](#2-arquitetura-de-integração)
+3. [Estrutura do Banco de Dados](#3-estrutura-do-banco-de-dados)
+4. [Fluxo de Sincronização](#4-fluxo-de-sincronização)
+5. [Renderização de Formulários Dinâmicos](#5-renderização-de-formulários-dinâmicos)
+6. [Gestão de Produtos](#6-gestão-de-produtos)
+7. [Validações e Regras de Negócio](#7-validações-e-regras-de-negócio)
+8. [Tratamento de Mudanças de Estrutura](#8-tratamento-de-mudanças-de-estrutura)
+9. [Estratégias de Cache](#9-estratégias-de-cache)
+10. [Monitoramento e Manutenção](#10-monitoramento-e-manutenção)
+11. [Migração e Rollout](#11-migração-e-rollout)
+12. [Considerações de Performance](#12-considerações-de-performance)
 
 ---
 
 ## 1. Visão Geral
 
-### 1.1 Objetivo
-Implementar uma aplicação cliente que consome estruturas de atributos dinâmicos de um servidor, permitindo o cadastro e edição de produtos com características configuráveis baseadas em NCM.
+### 1.1 Objetivo da Integração
 
-### 1.2 Principais Funcionalidades
-- Cache local de NCMs e estruturas de atributos
-- Renderização dinâmica de formulários
-- Validação client-side e server-side
-- Gestão de mudanças de estrutura
-- Sincronização inteligente
+Este manual descreve como integrar um sistema de atributos dinâmicos a uma aplicação existente de gestão de produtos. O sistema permite que características de produtos sejam definidas dinamicamente baseadas em seu código NCM (Nomenclatura Comum do Mercosul), sem necessidade de alterações no schema do banco de dados.
 
-### 1.3 Stack Tecnológica Recomendada
-- **Backend**: Node.js + Express / Java Spring Boot / Python FastAPI
-- **Frontend**: React + TypeScript / Vue.js / Angular
-- **Banco de Dados**: MySQL 5.7+ / PostgreSQL
-- **Cache**: Redis (opcional)
-- **Comunicação**: REST API / GraphQL
+### 1.2 Benefícios da Integração
 
----
+- **Flexibilidade**: Novos atributos sem mudanças estruturais
+- **Conformidade**: Atende requisitos regulatórios que mudam frequentemente
+- **Reutilização**: Integra com dados existentes do servidor de atributos
+- **Manutenibilidade**: Centraliza regras de negócio complexas
+- **Escalabilidade**: Suporta milhares de combinações NCM/atributo
 
-## 2. Arquitetura da Aplicação
+### 1.3 Componentes Principais
 
-### 2.1 Diagrama de Arquitetura
-
-```mermaid
-graph TB
-    subgraph "Cliente"
-        UI[Interface de Usuário]
-        CTRL[Controllers/Services]
-        CACHE[Cache Service]
-        DB[(Banco Local)]
-        SYNC[Sync Service]
-        VAL[Validation Service]
-    end
-    
-    subgraph "Servidor"
-        API[API de Atributos]
-        SERV_DB[(Banco Servidor)]
-    end
-    
-    UI --> CTRL
-    CTRL --> CACHE
-    CTRL --> VAL
-    CACHE --> DB
-    SYNC --> API
-    SYNC --> CACHE
-    API --> SERV_DB
-```
-
-### 2.2 Estrutura de Diretórios
-
-```
-cliente-atributos/
-├── src/
-│   ├── api/
-│   │   ├── atributos.api.ts
-│   │   └── produtos.api.ts
-│   ├── services/
-│   │   ├── cache.service.ts
-│   │   ├── sync.service.ts
-│   │   ├── validation.service.ts
-│   │   └── produto.service.ts
-│   ├── models/
-│   │   ├── ncm.model.ts
-│   │   ├── atributo.model.ts
-│   │   └── produto.model.ts
-│   ├── components/
-│   │   ├── FormularioDinamico/
-│   │   ├── CampoDinamico/
-│   │   └── AlertaEstrutura/
-│   ├── utils/
-│   │   ├── json.utils.ts
-│   │   └── date.utils.ts
-│   └── config/
-│       └── database.config.ts
-├── tests/
-├── docs/
-└── docker/
-```
+1. **Cache Local**: Armazena estruturas de atributos para performance
+2. **Sincronizador**: Mantém dados atualizados com o servidor
+3. **Renderizador**: Gera formulários dinamicamente
+4. **Validador**: Aplica regras de negócio
+5. **Persistência**: Armazena valores junto aos produtos
 
 ---
 
-## 3. Configuração Inicial
+## 2. Arquitetura de Integração
 
-### 3.1 Variáveis de Ambiente
+### 2.1 Visão de Alto Nível
 
-```bash
-# .env
-# API do Servidor
-API_BASE_URL=https://api.servidor.com/v1
-API_KEY=sua_chave_api
-API_TIMEOUT=30000
-
-# Banco de Dados Local
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=cliente_atributos
-DB_USER=usuario
-DB_PASSWORD=senha
-
-# Cache
-CACHE_TTL_HORAS=24
-CACHE_MAX_REGISTROS=1000
-
-# Sync
-SYNC_INTERVALO_MINUTOS=60
-SYNC_BATCH_SIZE=50
-
-# Aplicação
-NODE_ENV=production
-LOG_LEVEL=info
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Aplicação Existente                      │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │   UI Layer  │  │ Business     │  │  Data Access     │  │
+│  │             │  │ Logic        │  │  Layer           │  │
+│  └──────┬──────┘  └──────┬───────┘  └────────┬─────────┘  │
+│         │                 │                    │            │
+│  ┌──────┴─────────────────┴───────────────────┴─────────┐  │
+│  │              Novo Módulo de Atributos                 │  │
+│  │  ┌────────────┐  ┌─────────────┐  ┌───────────────┐  │  │
+│  │  │   Cache    │  │    Sync     │  │  Validation   │  │  │
+│  │  │  Service   │  │   Service   │  │   Service     │  │  │
+│  │  └────────────┘  └─────────────┘  └───────────────┘  │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                              │                               │
+└──────────────────────────────┼───────────────────────────────┘
+                               │
+                    ┌──────────┴──────────┐
+                    │  Servidor Atributos │
+                    │      (Externa)       │
+                    └─────────────────────┘
 ```
 
-### 3.2 Configuração do Banco de Dados
+### 2.2 Pontos de Integração
 
-```javascript
-// config/database.config.js
-const mysql = require('mysql2/promise');
+#### 2.2.1 Interface de Usuário
+- Adicionar componente de formulário dinâmico na tela de cadastro/edição
+- Incluir campo de seleção de NCM (se não existir)
+- Implementar alertas para mudanças de estrutura
 
-const dbConfig = {
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0
-};
+#### 2.2.2 Camada de Negócio
+- Interceptar operações de salvamento para incluir validações
+- Adicionar lógica de snapshot de estrutura
+- Implementar regras condicionais
 
-const pool = mysql.createPool(dbConfig);
+#### 2.2.3 Camada de Dados
+- Criar novas tabelas (detalhadas na seção 3)
+- Modificar entidade Produto para incluir referências
+- Adicionar índices para queries JSON
 
-// Testar conexão
-async function testConnection() {
-  try {
-    const connection = await pool.getConnection();
-    await connection.ping();
-    connection.release();
-    console.log('✅ Conexão com banco estabelecida');
-  } catch (error) {
-    console.error('❌ Erro ao conectar ao banco:', error);
-    process.exit(1);
-  }
-}
+### 2.3 Dependências Mínimas
 
-module.exports = { pool, testConnection };
-```
-
-### 3.3 Inicialização das Tabelas
-
-```javascript
-// scripts/init-database.js
-async function initDatabase() {
-  const connection = await pool.getConnection();
-  
-  try {
-    // Criar tabelas (SQL do capítulo anterior)
-    await connection.execute(sqlCreateNcmCache);
-    await connection.execute(sqlCreateAtributosCache);
-    await connection.execute(sqlCreateProduto);
-    await connection.execute(sqlCreateViews);
-    
-    console.log('✅ Tabelas criadas com sucesso');
-  } catch (error) {
-    console.error('❌ Erro ao criar tabelas:', error);
-    throw error;
-  } finally {
-    connection.release();
-  }
-}
-```
+- Banco de dados com suporte a JSON (MySQL 5.7+, PostgreSQL 9.3+)
+- Cliente HTTP para comunicação com servidor
+- Sistema de cache (memória ou Redis)
+- Scheduler para sincronização periódica
 
 ---
 
-## 4. Implementação do Backend
+## 3. Estrutura do Banco de Dados
 
-### 4.1 Models
+### 3.1 Script SQL de Criação
 
-```typescript
-// models/ncm.model.ts
-export interface NCM {
-  codigo: string;
-  descricao: string;
-  unidadeMedida: string;
-  dataSincronizacao?: Date;
-}
-
-// models/atributo.model.ts
-export interface AtributoEstrutura {
-  id?: number;
-  ncmCodigo: string;
-  modalidade: 'IMPORTACAO' | 'EXPORTACAO';
-  estruturaJson: any;
-  dataSincronizacao?: Date;
-}
-
-export interface Atributo {
-  codigo: string;
-  nome: string;
-  nomeApresentacao: string;
-  formaPreenchimento: 'LISTA_ESTATICA' | 'BOOLEANO' | 'TEXTO' | 'NUMERO_REAL' | 'NUMERO_INTEIRO' | 'COMPOSTO';
-  obrigatorio?: boolean;
-  multivalorado?: boolean;
-  tamanhoMaximo?: number;
-  casasDecimais?: number;
-  mascara?: string;
-  dominio?: DominioValor[];
-  subAtributos?: Atributo[];
-  condicao?: CondicaoAtributo;
-}
-
-export interface DominioValor {
-  codigo: string;
-  descricao: string;
-}
-
-// models/produto.model.ts
-export interface Produto {
-  id?: number;
-  codigoCatalogo: string;
-  codigoProduto: string;
-  versao: number;
-  ncmCodigo: string;
-  modalidade: 'IMPORTACAO' | 'EXPORTACAO';
-  status: 'ATIVO' | 'PENDENTE';
-  valoresAtributosJson?: any;
-  estruturaSnapshotJson?: any;
-  criadoEm?: Date;
-  atualizadoEm?: Date;
-}
-```
-
-### 4.2 Cache Service
-
-```typescript
-// services/cache.service.ts
-export class CacheService {
-  private readonly TTL_HORAS = Number(process.env.CACHE_TTL_HORAS) || 24;
-  
-  async buscarNCM(codigo: string): Promise<NCM | null> {
-    const [rows] = await pool.execute(
-      'SELECT * FROM ncm_cache WHERE codigo = ?',
-      [codigo]
-    );
-    
-    if (rows.length === 0) return null;
-    
-    const ncm = rows[0];
-    if (this.isCacheValido(ncm.data_sincronizacao)) {
-      return this.mapearNCM(ncm);
-    }
-    
-    return null;
-  }
-  
-  async salvarNCM(ncm: NCM): Promise<void> {
-    await pool.execute(
-      `INSERT INTO ncm_cache (codigo, descricao, unidade_medida) 
-       VALUES (?, ?, ?) 
-       ON DUPLICATE KEY UPDATE 
-       descricao = VALUES(descricao),
-       unidade_medida = VALUES(unidade_medida),
-       data_sincronizacao = CURRENT_TIMESTAMP`,
-      [ncm.codigo, ncm.descricao, ncm.unidadeMedida]
-    );
-  }
-  
-  async buscarEstrutura(ncm: string, modalidade: string): Promise<any | null> {
-    const [rows] = await pool.execute(
-      `SELECT estrutura_json, data_sincronizacao 
-       FROM atributos_cache 
-       WHERE ncm_codigo = ? AND modalidade = ?`,
-      [ncm, modalidade]
-    );
-    
-    if (rows.length === 0) return null;
-    
-    const cache = rows[0];
-    if (this.isCacheValido(cache.data_sincronizacao)) {
-      return JSON.parse(cache.estrutura_json);
-    }
-    
-    return null;
-  }
-  
-  async salvarEstrutura(ncm: string, modalidade: string, estrutura: any): Promise<void> {
-    await pool.execute(
-      `INSERT INTO atributos_cache (ncm_codigo, modalidade, estrutura_json) 
-       VALUES (?, ?, ?) 
-       ON DUPLICATE KEY UPDATE 
-       estrutura_json = VALUES(estrutura_json),
-       data_sincronizacao = CURRENT_TIMESTAMP`,
-      [ncm, modalidade, JSON.stringify(estrutura)]
-    );
-  }
-  
-  private isCacheValido(dataSincronizacao: Date): boolean {
-    const horasDecorridas = (Date.now() - dataSincronizacao.getTime()) / (1000 * 60 * 60);
-    return horasDecorridas < this.TTL_HORAS;
-  }
-  
-  async limparCacheExpirado(): Promise<void> {
-    const dataLimite = new Date();
-    dataLimite.setHours(dataLimite.getHours() - this.TTL_HORAS);
-    
-    await pool.execute(
-      'DELETE FROM atributos_cache WHERE data_sincronizacao < ?',
-      [dataLimite]
-    );
-  }
-}
-```
-
-### 4.3 Sync Service
-
-```typescript
-// services/sync.service.ts
-export class SyncService {
-  constructor(
-    private cacheService: CacheService,
-    private apiService: ApiService
-  ) {}
-  
-  async sincronizarNCM(codigo: string): Promise<NCM> {
-    try {
-      // Busca no cache primeiro
-      const cacheNCM = await this.cacheService.buscarNCM(codigo);
-      if (cacheNCM) {
-        return cacheNCM;
-      }
-      
-      // Busca na API
-      const ncmRemoto = await this.apiService.buscarNCM(codigo);
-      
-      // Salva no cache
-      await this.cacheService.salvarNCM(ncmRemoto);
-      
-      return ncmRemoto;
-    } catch (error) {
-      console.error(`Erro ao sincronizar NCM ${codigo}:`, error);
-      throw new Error(`Falha ao sincronizar NCM: ${error.message}`);
-    }
-  }
-  
-  async sincronizarEstrutura(ncm: string, modalidade: string): Promise<any> {
-    try {
-      // Verifica cache
-      const cacheEstrutura = await this.cacheService.buscarEstrutura(ncm, modalidade);
-      if (cacheEstrutura) {
-        return cacheEstrutura;
-      }
-      
-      // Busca na API
-      console.log(`Buscando estrutura remota para NCM ${ncm}, modalidade ${modalidade}`);
-      const estruturaRemota = await this.apiService.buscarEstrutura(ncm, modalidade);
-      
-      // Salva no cache
-      await this.cacheService.salvarEstrutura(ncm, modalidade, estruturaRemota);
-      
-      return estruturaRemota;
-    } catch (error) {
-      console.error(`Erro ao sincronizar estrutura:`, error);
-      throw new Error(`Falha ao sincronizar estrutura: ${error.message}`);
-    }
-  }
-  
-  async sincronizarEmLote(ncms: string[]): Promise<void> {
-    const batchSize = Number(process.env.SYNC_BATCH_SIZE) || 50;
-    
-    for (let i = 0; i < ncms.length; i += batchSize) {
-      const batch = ncms.slice(i, i + batchSize);
-      
-      await Promise.all(
-        batch.map(ncm => 
-          this.sincronizarNCM(ncm).catch(err => 
-            console.error(`Erro ao sincronizar NCM ${ncm}:`, err)
-          )
-        )
-      );
-      
-      // Rate limiting
-      if (i + batchSize < ncms.length) {
-        await this.delay(1000);
-      }
-    }
-  }
-  
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-}
-```
-
----
-
-## 5. Sincronização com Servidor
-
-### 5.1 API Client
-
-```typescript
-// api/atributos.api.ts
-export class AtributosApi {
-  private readonly baseURL = process.env.API_BASE_URL;
-  private readonly apiKey = process.env.API_KEY;
-  private readonly timeout = Number(process.env.API_TIMEOUT) || 30000;
-  
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-    
-    try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': this.apiKey,
-          ...options.headers,
-        },
-        signal: controller.signal,
-      });
-      
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
-      }
-      
-      return await response.json();
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-  
-  async buscarNCM(codigo: string): Promise<NCM> {
-    return this.request<NCM>(`/ncm/${codigo}`);
-  }
-  
-  async buscarEstrutura(ncm: string, modalidade: string): Promise<any> {
-    return this.request(`/atributos/${ncm}/${modalidade}`);
-  }
-  
-  async validarAtributos(produto: any): Promise<ValidationResult> {
-    return this.request<ValidationResult>('/validar', {
-      method: 'POST',
-      body: JSON.stringify(produto),
-    });
-  }
-}
-```
-
-### 5.2 Estratégia de Retry
-
-```typescript
-// utils/retry.util.ts
-export async function retryWithBackoff<T>(
-  fn: () => Promise<T>,
-  maxRetries = 3,
-  baseDelay = 1000
-): Promise<T> {
-  let lastError: Error;
-  
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-      
-      if (i < maxRetries - 1) {
-        const delay = baseDelay * Math.pow(2, i);
-        console.log(`Tentativa ${i + 1} falhou. Retentando em ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  
-  throw lastError;
-}
-
-// Uso
-const estrutura = await retryWithBackoff(() => 
-  apiService.buscarEstrutura(ncm, modalidade)
-);
-```
-
-### 5.3 Sincronização Agendada
-
-```typescript
-// services/scheduler.service.ts
-export class SchedulerService {
-  private intervalId: NodeJS.Timer;
-  
-  constructor(private syncService: SyncService) {}
-  
-  iniciar(): void {
-    const intervaloMinutos = Number(process.env.SYNC_INTERVALO_MINUTOS) || 60;
-    const intervaloMs = intervaloMinutos * 60 * 1000;
-    
-    // Sincronização inicial
-    this.sincronizarNCMsPopulares();
-    
-    // Agendar sincronizações
-    this.intervalId = setInterval(() => {
-      this.sincronizarNCMsPopulares();
-    }, intervaloMs);
-    
-    console.log(`✅ Sincronização agendada a cada ${intervaloMinutos} minutos`);
-  }
-  
-  parar(): void {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      console.log('🛑 Sincronização agendada parada');
-    }
-  }
-  
-  private async sincronizarNCMsPopulares(): Promise<void> {
-    try {
-      console.log('🔄 Iniciando sincronização agendada...');
-      
-      // Buscar NCMs mais usados
-      const [rows] = await pool.execute(`
-        SELECT DISTINCT ncm_codigo, COUNT(*) as total
-        FROM produto
-        WHERE atualizado_em > DATE_SUB(NOW(), INTERVAL 30 DAY)
-        GROUP BY ncm_codigo
-        ORDER BY total DESC
-        LIMIT 100
-      `);
-      
-      const ncms = rows.map(row => row.ncm_codigo);
-      
-      await this.syncService.sincronizarEmLote(ncms);
-      
-      console.log(`✅ Sincronização concluída: ${ncms.length} NCMs atualizados`);
-    } catch (error) {
-      console.error('❌ Erro na sincronização agendada:', error);
-    }
-  }
-}
-```
-
----
-
-## 6. Interface de Usuário
-
-### 6.1 Componente de Formulário Dinâmico
-
-```typescript
-// components/FormularioDinamico/FormularioDinamico.tsx
-import React, { useState, useEffect } from 'react';
-import CampoDinamico from '../CampoDinamico';
-import AlertaEstrutura from '../AlertaEstrutura';
-
-interface Props {
-  ncm: string;
-  modalidade: 'IMPORTACAO' | 'EXPORTACAO';
-  produtoId?: number;
-  onSubmit: (valores: any) => void;
-}
-
-export const FormularioDinamico: React.FC<Props> = ({ 
-  ncm, 
-  modalidade, 
-  produtoId, 
-  onSubmit 
-}) => {
-  const [estrutura, setEstrutura] = useState<any>(null);
-  const [valores, setValores] = useState<Record<string, any>>({});
-  const [erros, setErros] = useState<Record<string, string>>({});
-  const [carregando, setCarregando] = useState(true);
-  const [estruturaMudou, setEstruturaMudou] = useState(false);
-  
-  useEffect(() => {
-    carregarEstrutura();
-  }, [ncm, modalidade, produtoId]);
-  
-  const carregarEstrutura = async () => {
-    try {
-      setCarregando(true);
-      
-      if (produtoId) {
-        // Produto existente - carregar com snapshot
-        const produto = await produtoService.buscarPorId(produtoId);
-        setEstrutura(produto.estruturaSnapshotJson);
-        setValores(produto.valoresAtributosJson || {});
-        
-        // Verificar se estrutura mudou
-        const estruturaAtual = await syncService.sincronizarEstrutura(ncm, modalidade);
-        setEstruturaMudou(!estruturasIguais(produto.estruturaSnapshotJson, estruturaAtual));
-      } else {
-        // Produto novo - estrutura atual
-        const estruturaAtual = await syncService.sincronizarEstrutura(ncm, modalidade);
-        setEstrutura(estruturaAtual);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar estrutura:', error);
-      toast.error('Erro ao carregar formulário');
-    } finally {
-      setCarregando(false);
-    }
-  };
-  
-  const handleChange = (codigoAtributo: string, valor: any) => {
-    setValores(prev => ({
-      ...prev,
-      [codigoAtributo]: valor
-    }));
-    
-    // Limpar erro do campo
-    setErros(prev => {
-      const novosErros = { ...prev };
-      delete novosErros[codigoAtributo];
-      return novosErros;
-    });
-    
-    // Verificar condicionais
-    verificarCondicionais(codigoAtributo, valor);
-  };
-  
-  const verificarCondicionais = (codigoAtributo: string, valor: any) => {
-    // Lógica para mostrar/ocultar campos condicionados
-    const atributo = encontrarAtributo(estrutura, codigoAtributo);
-    
-    if (atributo?.atributoCondicionante) {
-      // Atualizar visibilidade dos campos condicionados
-      estrutura.condicionados?.forEach((condicionado: any) => {
-        if (condicionado.atributoCodigo === codigoAtributo) {
-          // Avaliar condição e atualizar estado
-          const mostrar = avaliarCondicao(condicionado.condicao, valor);
-          // Implementar lógica de visibilidade
-        }
-      });
-    }
-  };
-  
-  const validarFormulario = (): boolean => {
-    const novosErros: Record<string, string> = {};
-    
-    // Validar campos obrigatórios
-    estrutura.atributos?.forEach((atributo: any) => {
-      if (atributo.obrigatorio && !valores[atributo.codigo]) {
-        novosErros[atributo.codigo] = 'Campo obrigatório';
-      }
-      
-      // Validações específicas por tipo
-      const valor = valores[atributo.codigo];
-      if (valor) {
-        const erro = validarCampo(atributo, valor);
-        if (erro) {
-          novosErros[atributo.codigo] = erro;
-        }
-      }
-    });
-    
-    setErros(novosErros);
-    return Object.keys(novosErros).length === 0;
-  };
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validarFormulario()) {
-      toast.error('Por favor, corrija os erros no formulário');
-      return;
-    }
-    
-    try {
-      await onSubmit(valores);
-      toast.success('Produto salvo com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao salvar produto');
-    }
-  };
-  
-  const handleAtualizarEstrutura = async () => {
-    if (confirm('Deseja atualizar para a nova estrutura? Alguns campos podem ser perdidos.')) {
-      await carregarEstrutura();
-      setEstruturaMudou(false);
-    }
-  };
-  
-  if (carregando) {
-    return <div className="loading">Carregando formulário...</div>;
-  }
-  
-  return (
-    <form onSubmit={handleSubmit} className="formulario-dinamico">
-      {estruturaMudou && (
-        <AlertaEstrutura onAtualizar={handleAtualizarEstrutura} />
-      )}
-      
-      <div className="campos-container">
-        {estrutura.atributos?.map((atributo: any) => (
-          <CampoDinamico
-            key={atributo.codigo}
-            atributo={atributo}
-            valor={valores[atributo.codigo]}
-            erro={erros[atributo.codigo]}
-            onChange={(valor) => handleChange(atributo.codigo, valor)}
-          />
-        ))}
-      </div>
-      
-      <div className="acoes">
-        <button type="submit" className="btn-primary">
-          {produtoId ? 'Atualizar' : 'Criar'} Produto
-        </button>
-        <button type="button" className="btn-secondary" onClick={() => history.back()}>
-          Cancelar
-        </button>
-      </div>
-    </form>
-  );
-};
-```
-
-### 6.2 Componente de Campo Dinâmico
-
-```typescript
-// components/CampoDinamico/CampoDinamico.tsx
-import React from 'react';
-
-interface Props {
-  atributo: any;
-  valor: any;
-  erro?: string;
-  onChange: (valor: any) => void;
-}
-
-export const CampoDinamico: React.FC<Props> = ({ 
-  atributo, 
-  valor, 
-  erro, 
-  onChange 
-}) => {
-  const renderCampo = () => {
-    switch (atributo.formaPreenchimento) {
-      case 'TEXTO':
-        return (
-          <input
-            type="text"
-            value={valor || ''}
-            onChange={(e) => onChange(e.target.value)}
-            maxLength={atributo.tamanhoMaximo}
-            placeholder={atributo.orientacaoPreenchimento}
-            className={`form-input ${erro ? 'error' : ''}`}
-          />
-        );
-        
-      case 'NUMERO_INTEIRO':
-        return (
-          <input
-            type="number"
-            value={valor || ''}
-            onChange={(e) => onChange(parseInt(e.target.value) || null)}
-            max={Math.pow(10, atributo.tamanhoMaximo) - 1}
-            className={`form-input ${erro ? 'error' : ''}`}
-          />
-        );
-        
-      case 'NUMERO_REAL':
-        return (
-          <input
-            type="number"
-            step={Math.pow(10, -atributo.casasDecimais)}
-            value={valor || ''}
-            onChange={(e) => onChange(parseFloat(e.target.value) || null)}
-            className={`form-input ${erro ? 'error' : ''}`}
-          />
-        );
-        
-      case 'BOOLEANO':
-        return (
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={valor || false}
-              onChange={(e) => onChange(e.target.checked)}
-            />
-            <span>{atributo.nomeApresentacao}</span>
-          </label>
-        );
-        
-      case 'LISTA_ESTATICA':
-        return (
-          <select
-            value={valor || ''}
-            onChange={(e) => onChange(e.target.value)}
-            className={`form-select ${erro ? 'error' : ''}`}
-          >
-            <option value="">Selecione...</option>
-            {atributo.dominio?.map((opcao: any) => (
-              <option key={opcao.codigo} value={opcao.codigo}>
-                {opcao.descricao}
-              </option>
-            ))}
-          </select>
-        );
-        
-      case 'COMPOSTO':
-        return (
-          <div className="campo-composto">
-            {atributo.subAtributos?.map((sub: any) => (
-              <CampoDinamico
-                key={sub.codigo}
-                atributo={sub}
-                valor={valor?.[sub.codigo]}
-                erro={erro?.[sub.codigo]}
-                onChange={(subValor) => onChange({
-                  ...valor,
-                  [sub.codigo]: subValor
-                })}
-              />
-            ))}
-          </div>
-        );
-        
-      default:
-        return <div>Tipo não suportado: {atributo.formaPreenchimento}</div>;
-    }
-  };
-  
-  if (atributo.formaPreenchimento === 'BOOLEANO') {
-    return renderCampo();
-  }
-  
-  return (
-    <div className={`campo-dinamico ${atributo.obrigatorio ? 'obrigatorio' : ''}`}>
-      <label className="campo-label">
-        {atributo.nomeApresentacao}
-        {atributo.obrigatorio && <span className="asterisco">*</span>}
-      </label>
-      
-      {renderCampo()}
-      
-      {atributo.definicao && (
-        <small className="campo-ajuda">{atributo.definicao}</small>
-      )}
-      
-      {erro && <span className="campo-erro">{erro}</span>}
-    </div>
-  );
-};
-```
-
-### 6.3 Máscaras e Formatação
-
-```typescript
-// utils/mascara.util.ts
-export function aplicarMascara(valor: string, mascara: string): string {
-  if (!mascara || !valor) return valor;
-  
-  let resultado = '';
-  let posValor = 0;
-  
-  for (let i = 0; i < mascara.length && posValor < valor.length; i++) {
-    if (mascara[i] === '#') {
-      resultado += valor[posValor];
-      posValor++;
-    } else {
-      resultado += mascara[i];
-    }
-  }
-  
-  return resultado;
-}
-
-export function removerMascara(valor: string): string {
-  return valor.replace(/[^a-zA-Z0-9]/g, '');
-}
-
-// Uso no componente
-const handleMaskedInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const valorSemMascara = removerMascara(e.target.value);
-  const valorComMascara = aplicarMascara(valorSemMascara, atributo.mascara);
-  onChange(valorSemMascara); // Salva sem máscara
-  e.target.value = valorComMascara; // Exibe com máscara
-};
-```
-
----
-
-## 7. Fluxo de Cadastro de Produtos
-
-### 7.1 Fluxo Completo
-
-```mermaid
-flowchart TD
-    A[Usuário informa NCM] --> B[Buscar/Sincronizar NCM]
-    B --> C{NCM encontrado?}
-    C -->|Não| D[Exibir erro]
-    C -->|Sim| E[Selecionar Modalidade]
-    E --> F[Buscar/Sincronizar Estrutura]
-    F --> G[Renderizar Formulário]
-    G --> H[Usuário preenche campos]
-    H --> I[Validar cliente]
-    I --> J{Válido?}
-    J -->|Não| K[Mostrar erros]
-    K --> H
-    J -->|Sim| L[Salvar Produto]
-    L --> M[Snapshot da estrutura]
-    M --> N[Persistir no banco]
-    N --> O[Validar servidor (opcional)]
-    O --> P[Sucesso]
-```
-
-### 7.2 Serviço de Produtos
-
-```typescript
-// services/produto.service.ts
-export class ProdutoService {
-  constructor(
-    private syncService: SyncService,
-    private validationService: ValidationService
-  ) {}
-  
-  async criarProduto(dados: CriarProdutoDTO): Promise<Produto> {
-    const connection = await pool.getConnection();
-    
-    try {
-      await connection.beginTransaction();
-      
-      // Sincronizar NCM se necessário
-      await this.syncService.sincronizarNCM(dados.ncmCodigo);
-      
-      // Buscar estrutura atual
-      const estrutura = await this.syncService.sincronizarEstrutura(
-        dados.ncmCodigo, 
-        dados.modalidade
-      );
-      
-      // Validar valores
-      const errosValidacao = this.validationService.validar(
-        estrutura, 
-        dados.valoresAtributos
-      );
-      
-      if (errosValidacao.length > 0) {
-        throw new ValidationError('Dados inválidos', errosValidacao);
-      }
-      
-      // Inserir produto
-      const [result] = await connection.execute(
-        `INSERT INTO produto (
-          codigo_catalogo, codigo_produto, versao,
-          ncm_codigo, modalidade, status,
-          valores_atributos_json, estrutura_snapshot_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          dados.codigoCatalogo,
-          dados.codigoProduto,
-          1, // Primeira versão
-          dados.ncmCodigo,
-          dados.modalidade,
-          'PENDENTE',
-          JSON.stringify(dados.valoresAtributos),
-          JSON.stringify(estrutura) // Snapshot!
-        ]
-      );
-      
-      await connection.commit();
-      
-      const produto = await this.buscarPorId(result.insertId);
-      
-      // Validação assíncrona no servidor (não bloqueia)
-      this.validarNoServidor(produto).catch(console.error);
-      
-      return produto;
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
-    }
-  }
-  
-  async atualizarProduto(id: number, dados: AtualizarProdutoDTO): Promise<Produto> {
-    const connection = await pool.getConnection();
-    
-    try {
-      await connection.beginTransaction();
-      
-      // Buscar produto atual
-      const produtoAtual = await this.buscarPorId(id);
-      if (!produtoAtual) {
-        throw new Error('Produto não encontrado');
-      }
-      
-      // Usar estrutura do snapshot para validação
-      const estrutura = produtoAtual.estruturaSnapshotJson;
-      
-      // Validar
-      const errosValidacao = this.validationService.validar(
-        estrutura,
-        dados.valoresAtributos
-      );
-      
-      if (errosValidacao.length > 0) {
-        throw new ValidationError('Dados inválidos', errosValidacao);
-      }
-      
-      // Atualizar
-      await connection.execute(
-        `UPDATE produto SET
-          valores_atributos_json = ?,
-          status = ?
-        WHERE id = ?`,
-        [
-          JSON.stringify(dados.valoresAtributos),
-          dados.status || produtoAtual.status,
-          id
-        ]
-      );
-      
-      await connection.commit();
-      
-      return await this.buscarPorId(id);
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
-    }
-  }
-  
-  async clonarProduto(id: number, novaVersao: number): Promise<Produto> {
-    const produtoOriginal = await this.buscarPorId(id);
-    if (!produtoOriginal) {
-      throw new Error('Produto não encontrado');
-    }
-    
-    // Buscar estrutura atual para comparação
-    const estruturaAtual = await this.syncService.sincronizarEstrutura(
-      produtoOriginal.ncmCodigo,
-      produtoOriginal.modalidade
-    );
-    
-    // Criar nova versão
-    return this.criarProduto({
-      codigoCatalogo: produtoOriginal.codigoCatalogo,
-      codigoProduto: produtoOriginal.codigoProduto,
-      versao: novaVersao,
-      ncmCodigo: produtoOriginal.ncmCodigo,
-      modalidade: produtoOriginal.modalidade,
-      valoresAtributos: produtoOriginal.valoresAtributosJson,
-      // Usa estrutura ATUAL, não o snapshot antigo
-      estruturaSnapshot: estruturaAtual
-    });
-  }
-  
-  private async validarNoServidor(produto: Produto): Promise<void> {
-    try {
-      const resultado = await this.apiService.validarAtributos({
-        ncm: produto.ncmCodigo,
-        modalidade: produto.modalidade,
-        valores: produto.valoresAtributosJson
-      });
-      
-      if (resultado.avisos && resultado.avisos.length > 0) {
-        // Salvar avisos para exibição posterior
-        await this.salvarAvisos(produto.id, resultado.avisos);
-      }
-    } catch (error) {
-      console.error('Erro na validação do servidor:', error);
-      // Não bloqueia o fluxo
-    }
-  }
-}
-```
-
----
-
-## 8. Validações e Regras de Negócio
-
-### 8.1 Serviço de Validação
-
-```typescript
-// services/validation.service.ts
-export class ValidationService {
-  validar(estrutura: any, valores: any): ErroValidacao[] {
-    const erros: ErroValidacao[] = [];
-    
-    // Validar cada atributo
-    estrutura.atributos?.forEach((atributo: any) => {
-      const valor = valores[atributo.codigo];
-      
-      // Obrigatoriedade
-      if (atributo.obrigatorio && this.isVazio(valor)) {
-        erros.push({
-          campo: atributo.codigo,
-          mensagem: `${atributo.nomeApresentacao} é obrigatório`
-        });
-        return;
-      }
-      
-      // Pular validação se campo vazio e não obrigatório
-      if (this.isVazio(valor)) return;
-      
-      // Validação por tipo
-      const erroTipo = this.validarTipo(atributo, valor);
-      if (erroTipo) {
-        erros.push({
-          campo: atributo.codigo,
-          mensagem: erroTipo
-        });
-      }
-      
-      // Validações específicas
-      const erroEspecifico = this.validarEspecifico(atributo, valor);
-      if (erroEspecifico) {
-        erros.push({
-          campo: atributo.codigo,
-          mensagem: erroEspecifico
-        });
-      }
-    });
-    
-    // Validar condicionais
-    const errosCondicionais = this.validarCondicionais(estrutura, valores);
-    erros.push(...errosCondicionais);
-    
-    return erros;
-  }
-  
-  private validarTipo(atributo: any, valor: any): string | null {
-    switch (atributo.formaPreenchimento) {
-      case 'NUMERO_INTEIRO':
-        if (!Number.isInteger(valor)) {
-          return 'Deve ser um número inteiro';
-        }
-        if (atributo.tamanhoMaximo) {
-          const max = Math.pow(10, atributo.tamanhoMaximo) - 1;
-          if (valor > max) {
-            return `Valor máximo: ${max}`;
-          }
-        }
-        break;
-        
-      case 'NUMERO_REAL':
-        if (typeof valor !== 'number') {
-          return 'Deve ser um número';
-        }
-        if (atributo.casasDecimais) {
-          const fator = Math.pow(10, atributo.casasDecimais);
-          const valorArredondado = Math.round(valor * fator) / fator;
-          if (valor !== valorArredondado) {
-            return `Máximo ${atributo.casasDecimais} casas decimais`;
-          }
-        }
-        break;
-        
-      case 'TEXTO':
-        if (typeof valor !== 'string') {
-          return 'Deve ser texto';
-        }
-        if (atributo.tamanhoMaximo && valor.length > atributo.tamanhoMaximo) {
-          return `Máximo ${atributo.tamanhoMaximo} caracteres`;
-        }
-        if (atributo.mascara && !this.validarMascara(valor, atributo.mascara)) {
-          return `Formato inválido. Use: ${atributo.mascara}`;
-        }
-        break;
-        
-      case 'LISTA_ESTATICA':
-        const valoresValidos = atributo.dominio?.map((d: any) => d.codigo) || [];
-        if (!valoresValidos.includes(valor)) {
-          return 'Valor inválido';
-        }
-        break;
-        
-      case 'BOOLEANO':
-        if (typeof valor !== 'boolean') {
-          return 'Deve ser verdadeiro ou falso';
-        }
-        break;
-    }
-    
-    return null;
-  }
-  
-  private validarCondicionais(estrutura: any, valores: any): ErroValidacao[] {
-    const erros: ErroValidacao[] = [];
-    
-    estrutura.condicionados?.forEach((condicional: any) => {
-      const valorCondicionante = valores[condicional.atributoCodigo];
-      
-      if (this.avaliarCondicao(condicional.condicao, valorCondicionante)) {
-        // Atributo condicionado deve ser validado
-        if (condicional.obrigatorio && this.isVazio(valores[condicional.codigo])) {
-          erros.push({
-            campo: condicional.codigo,
-            mensagem: `${condicional.nomeApresentacao} é obrigatório quando ${condicional.descricaoCondicao}`
-          });
-        }
-      }
-    });
-    
-    return erros;
-  }
-  
-  private avaliarCondicao(condicao: string, valor: any): boolean {
-    // Implementar parser de condições
-    // Exemplos: "valor = true", "valor IN ['A', 'B']", "valor > 100"
-    
-    // Implementação simplificada
-    if (condicao.includes('=')) {
-      const [_, esperado] = condicao.split('=').map(s => s.trim());
-      return String(valor) === esperado;
-    }
-    
-    return false;
-  }
-  
-  private isVazio(valor: any): boolean {
-    return valor === null || 
-           valor === undefined || 
-           valor === '' ||
-           (Array.isArray(valor) && valor.length === 0);
-  }
-  
-  private validarMascara(valor: string, mascara: string): boolean {
-    // Converter máscara em regex
-    const regex = mascara
-      .replace(/#/g, '\\d')
-      .replace(/A/g, '[A-Za-z]')
-      .replace(/\*/g, '.');
-      
-    return new RegExp(`^${regex}$`).test(valor);
-  }
-}
-```
-
-### 8.2 Validações Customizadas
-
-```typescript
-// validators/custom.validators.ts
-export const validadoresCPF = {
-  validar: (cpf: string): boolean => {
-    cpf = cpf.replace(/[^\d]/g, '');
-    
-    if (cpf.length !== 11) return false;
-    if (/^(\d)\1{10}$/.test(cpf)) return false;
-    
-    let soma = 0;
-    for (let i = 0; i < 9; i++) {
-      soma += parseInt(cpf.charAt(i)) * (10 - i);
-    }
-    
-    let resto = 11 - (soma % 11);
-    if (resto === 10 || resto === 11) resto = 0;
-    if (resto !== parseInt(cpf.charAt(9))) return false;
-    
-    soma = 0;
-    for (let i = 0; i < 10; i++) {
-      soma += parseInt(cpf.charAt(i)) * (11 - i);
-    }
-    
-    resto = 11 - (soma % 11);
-    if (resto === 10 || resto === 11) resto = 0;
-    if (resto !== parseInt(cpf.charAt(10))) return false;
-    
-    return true;
-  }
-};
-
-export const validadoresCNPJ = {
-  validar: (cnpj: string): boolean => {
-    cnpj = cnpj.replace(/[^\d]/g, '');
-    
-    if (cnpj.length !== 14) return false;
-    if (/^(\d)\1{13}$/.test(cnpj)) return false;
-    
-    // Implementar algoritmo de validação CNPJ
-    return true;
-  }
-};
-
-// Registrar validadores customizados
-ValidationService.registerCustomValidator('cpf', validadoresCPF);
-ValidationService.registerCustomValidator('cnpj', validadoresCNPJ);
-```
-
----
-
-## 9. Tratamento de Erros
-
-### 9.1 Middleware de Erro Global
-
-```typescript
-// middleware/error.middleware.ts
-export class ErrorHandler {
-  static handle(error: Error, req: Request, res: Response, next: NextFunction) {
-    console.error('Erro:', error);
-    
-    if (error instanceof ValidationError) {
-      return res.status(400).json({
-        tipo: 'VALIDATION_ERROR',
-        mensagem: error.message,
-        erros: error.erros
-      });
-    }
-    
-    if (error instanceof NotFoundError) {
-      return res.status(404).json({
-        tipo: 'NOT_FOUND',
-        mensagem: error.message
-      });
-    }
-    
-    if (error instanceof SyncError) {
-      return res.status(503).json({
-        tipo: 'SYNC_ERROR',
-        mensagem: 'Erro ao sincronizar com servidor',
-        detalhe: error.message
-      });
-    }
-    
-    // Erro genérico
-    res.status(500).json({
-      tipo: 'INTERNAL_ERROR',
-      mensagem: 'Erro interno do servidor',
-      ...(process.env.NODE_ENV === 'development' && {
-        stack: error.stack
-      })
-    });
-  }
-}
-
-// Tipos de erro customizados
-export class ValidationError extends Error {
-  constructor(message: string, public erros: any[]) {
-    super(message);
-    this.name = 'ValidationError';
-  }
-}
-
-export class SyncError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'SyncError';
-  }
-}
-```
-
-### 9.2 Interceptador de Erros no Frontend
-
-```typescript
-// utils/error.interceptor.ts
-export const setupErrorInterceptor = () => {
-  // Interceptar erros de fetch
-  const originalFetch = window.fetch;
-  
-  window.fetch = async (...args) => {
-    try {
-      const response = await originalFetch(...args);
-      
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        
-        switch (response.status) {
-          case 401:
-            // Redirecionar para login
-            window.location.href = '/login';
-            break;
-            
-          case 403:
-            toast.error('Sem permissão para esta ação');
-            break;
-            
-          case 404:
-            toast.error('Recurso não encontrado');
-            break;
-            
-          case 422:
-          case 400:
-            // Erros de validação
-            if (error.erros) {
-              error.erros.forEach((e: any) => {
-                toast.error(`${e.campo}: ${e.mensagem}`);
-              });
-            } else {
-              toast.error(error.mensagem || 'Dados inválidos');
-            }
-            break;
-            
-          case 503:
-            toast.error('Serviço temporariamente indisponível');
-            break;
-            
-          default:
-            toast.error('Erro ao processar requisição');
-        }
-      }
-      
-      return response;
-    } catch (error) {
-      // Erro de rede
-      console.error('Erro de rede:', error);
-      toast.error('Erro de conexão. Verifique sua internet.');
-      throw error;
-    }
-  };
-};
-```
-
-### 9.3 Fallback e Modo Offline
-
-```typescript
-// services/offline.service.ts
-export class OfflineService {
-  private filaSync: any[] = [];
-  
-  constructor() {
-    window.addEventListener('online', () => this.sincronizarFila());
-    window.addEventListener('offline', () => this.notificarOffline());
-  }
-  
-  async executarComFallback<T>(
-    operacaoOnline: () => Promise<T>,
-    operacaoOffline: () => T
-  ): Promise<T> {
-    if (navigator.onLine) {
-      try {
-        return await operacaoOnline();
-      } catch (error) {
-        console.warn('Falha na operação online, usando fallback:', error);
-        return operacaoOffline();
-      }
-    } else {
-      return operacaoOffline();
-    }
-  }
-  
-  adicionarFilaSync(operacao: any): void {
-    this.filaSync.push({
-      ...operacao,
-      timestamp: new Date(),
-      tentativas: 0
-    });
-    
-    localStorage.setItem('filaSync', JSON.stringify(this.filaSync));
-  }
-  
-  private async sincronizarFila(): Promise<void> {
-    const fila = JSON.parse(localStorage.getItem('filaSync') || '[]');
-    
-    for (const item of fila) {
-      try {
-        await this.executarOperacao(item);
-        this.removerDaFila(item);
-      } catch (error) {
-        item.tentativas++;
-        if (item.tentativas >= 3) {
-          this.removerDaFila(item);
-          console.error('Operação falhou após 3 tentativas:', item);
-        }
-      }
-    }
-  }
-  
-  private notificarOffline(): void {
-    toast.warning('Você está offline. Algumas funcionalidades podem estar limitadas.');
-  }
-}
-```
-
----
-
-## 10. Testes
-
-### 10.1 Testes Unitários
-
-```typescript
-// tests/services/validation.service.test.ts
-describe('ValidationService', () => {
-  let validationService: ValidationService;
-  
-  beforeEach(() => {
-    validationService = new ValidationService();
-  });
-  
-  describe('validar', () => {
-    it('deve validar campo obrigatório vazio', () => {
-      const estrutura = {
-        atributos: [{
-          codigo: 'nome',
-          nomeApresentacao: 'Nome',
-          formaPreenchimento: 'TEXTO',
-          obrigatorio: true
-        }]
-      };
-      
-      const valores = { nome: '' };
-      
-      const erros = validationService.validar(estrutura, valores);
-      
-      expect(erros).toHaveLength(1);
-      expect(erros[0]).toEqual({
-        campo: 'nome',
-        mensagem: 'Nome é obrigatório'
-      });
-    });
-    
-    it('deve validar número inteiro', () => {
-      const estrutura = {
-        atributos: [{
-          codigo: 'quantidade',
-          formaPreenchimento: 'NUMERO_INTEIRO',
-          tamanhoMaximo: 3
-        }]
-      };
-      
-      const valores = { quantidade: 1234 };
-      
-      const erros = validationService.validar(estrutura, valores);
-      
-      expect(erros).toHaveLength(1);
-      expect(erros[0].mensagem).toContain('Valor máximo: 999');
-    });
-    
-    it('deve validar máscara de texto', () => {
-      const estrutura = {
-        atributos: [{
-          codigo: 'cep',
-          formaPreenchimento: 'TEXTO',
-          mascara: '#####-###'
-        }]
-      };
-      
-      const valores = { cep: '12345678' };
-      
-      const erros = validationService.validar(estrutura, valores);
-      
-      expect(erros).toHaveLength(1);
-      expect(erros[0].mensagem).toContain('Formato inválido');
-    });
-  });
-});
-```
-
-### 10.2 Testes de Integração
-
-```typescript
-// tests/integration/produto.test.ts
-describe('Fluxo de Produto', () => {
-  let produtoService: ProdutoService;
-  
-  beforeEach(async () => {
-    // Limpar banco de testes
-    await pool.execute('TRUNCATE TABLE produto');
-    await pool.execute('TRUNCATE TABLE ncm_cache');
-    
-    // Mock da API
-    jest.spyOn(apiService, 'buscarEstrutura').mockResolvedValue({
-      atributos: [{
-        codigo: 'marca',
-        formaPreenchimento: 'TEXTO',
-        obrigatorio: true
-      }]
-    });
-  });
-  
-  it('deve criar produto com sucesso', async () => {
-    const dados = {
-      codigoCatalogo: 'CAT001',
-      codigoProduto: 'PROD001',
-      ncmCodigo: '12345678',
-      modalidade: 'IMPORTACAO',
-      valoresAtributos: {
-        marca: 'Teste'
-      }
-    };
-    
-    const produto = await produtoService.criarProduto(dados);
-    
-    expect(produto).toBeDefined();
-    expect(produto.id).toBeGreaterThan(0);
-    expect(produto.status).toBe('PENDENTE');
-    expect(produto.estruturaSnapshotJson).toBeDefined();
-  });
-  
-  it('deve falhar ao criar produto sem campo obrigatório', async () => {
-    const dados = {
-      codigoCatalogo: 'CAT001',
-      codigoProduto: 'PROD001',
-      ncmCodigo: '12345678',
-      modalidade: 'IMPORTACAO',
-      valoresAtributos: {
-        // marca ausente
-      }
-    };
-    
-    await expect(produtoService.criarProduto(dados))
-      .rejects.toThrow(ValidationError);
-  });
-});
-```
-
-### 10.3 Testes E2E
-
-```typescript
-// tests/e2e/cadastro-produto.e2e.ts
-describe('Cadastro de Produto E2E', () => {
-  beforeEach(() => {
-    cy.visit('/produtos/novo');
-  });
-  
-  it('deve cadastrar produto completo', () => {
-    // Preencher NCM
-    cy.get('[data-cy=input-ncm]').type('84713012');
-    cy.get('[data-cy=btn-buscar-ncm]').click();
-    
-    // Aguardar carregamento
-    cy.get('[data-cy=form-dinamico]').should('be.visible');
-    
-    // Selecionar modalidade
-    cy.get('[data-cy=select-modalidade]').select('IMPORTACAO');
-    
-    // Preencher campos dinâmicos
-    cy.get('[data-cy=campo-marca]').type('Dell');
-    cy.get('[data-cy=campo-modelo]').type('Latitude 5520');
-    cy.get('[data-cy=campo-memoria_ram]').type('16');
-    cy.get('[data-cy=campo-possui_bateria]').check();
-    
-    // Campos condicionais devem aparecer
-    cy.get('[data-cy=campo-tipo_bateria]').should('be.visible');
-    cy.get('[data-cy=campo-tipo_bateria]').select('Li-ion');
-    
-    // Submeter
-    cy.get('[data-cy=btn-salvar]').click();
-    
-    // Verificar sucesso
-    cy.get('[data-cy=toast-success]').should('contain', 'Produto salvo com sucesso');
-    cy.url().should('include', '/produtos/');
-  });
-  
-  it('deve mostrar erros de validação', () => {
-    cy.get('[data-cy=input-ncm]').type('84713012');
-    cy.get('[data-cy=btn-buscar-ncm]').click();
-    
-    // Submeter sem preencher
-    cy.get('[data-cy=btn-salvar]').click();
-    
-    // Verificar erros
-    cy.get('[data-cy=erro-campo-marca]').should('contain', 'obrigatório');
-  });
-});
-```
-
----
-
-## 11. Deploy e Monitoramento
-
-### 11.1 Docker Configuration
-
-```dockerfile
-# Dockerfile
-FROM node:18-alpine AS builder
-
-WORKDIR /app
-
-# Copiar dependências
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copiar código
-COPY . .
-
-# Build
-RUN npm run build
-
-# Imagem final
-FROM node:18-alpine
-
-WORKDIR /app
-
-# Copiar artefatos do build
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
-  CMD node healthcheck.js
-
-EXPOSE 3000
-
-CMD ["node", "dist/index.js"]
-```
-
-### 11.2 Docker Compose
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - DB_HOST=db
-    depends_on:
-      - db
-      - redis
-    restart: unless-stopped
-    
-  db:
-    image: mysql:8
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: cliente_atributos
-    volumes:
-      - db_data:/var/lib/mysql
-      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "3306:3306"
-      
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
-      
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
-    depends_on:
-      - app
-
-volumes:
-  db_data:
-```
-
-### 11.3 Monitoramento
-
-```typescript
-// monitoring/metrics.ts
-import { Counter, Histogram, register } from 'prom-client';
-
-// Métricas customizadas
-export const syncCounter = new Counter({
-  name: 'atributos_sync_total',
-  help: 'Total de sincronizações realizadas',
-  labelNames: ['tipo', 'status']
-});
-
-export const syncDuration = new Histogram({
-  name: 'atributos_sync_duration_seconds',
-  help: 'Duração das sincronizações',
-  labelNames: ['tipo']
-});
-
-export const validationErrors = new Counter({
-  name: 'atributos_validation_errors_total',
-  help: 'Total de erros de validação',
-  labelNames: ['campo', 'tipo_erro']
-});
-
-export const cacheHitRate = new Counter({
-  name: 'atributos_cache_hits_total',
-  help: 'Taxa de acerto do cache',
-  labelNames: ['tipo', 'hit']
-});
-
-// Endpoint de métricas
-app.get('/metrics', (req, res) => {
-  res.set('Content-Type', register.contentType);
-  res.end(register.metrics());
-});
-```
-
-### 11.4 Logs Estruturados
-
-```typescript
-// utils/logger.ts
-import winston from 'winston';
-
-export const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  defaultMeta: { service: 'atributos-cliente' },
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      )
-    }),
-    new winston.transports.File({ 
-      filename: 'logs/error.log', 
-      level: 'error' 
-    }),
-    new winston.transports.File({ 
-      filename: 'logs/combined.log' 
-    })
-  ]
-});
-
-// Uso
-logger.info('Sincronização iniciada', {
-  ncm: '12345678',
-  modalidade: 'IMPORTACAO',
-  usuario: 'user123'
-});
-```
-
----
-
-## 12. Troubleshooting
-
-### 12.1 Problemas Comuns
-
-#### Cache Desatualizado
-```bash
-# Limpar cache manualmente
-mysql -u root -p cliente_atributos -e "
-  UPDATE atributos_cache 
-  SET data_sincronizacao = DATE_SUB(NOW(), INTERVAL 2 DAY)
-  WHERE ncm_codigo = '12345678';
-"
-```
-
-#### Estrutura Corrompida
 ```sql
--- Verificar estruturas inválidas
+-- =====================================================
+-- Tabela: ncm_cache
+-- Descrição: Cache local de NCMs para evitar consultas repetidas
+-- =====================================================
+CREATE TABLE ncm_cache (
+  codigo VARCHAR(8) PRIMARY KEY,
+  descricao VARCHAR(255) NOT NULL,
+  unidade_medida VARCHAR(10),
+  data_sincronizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_descricao (descricao),
+  INDEX idx_data_sync (data_sincronizacao)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Cache de NCMs sincronizados do servidor';
+
+-- =====================================================
+-- Tabela: atributos_cache
+-- Descrição: Cache de estruturas de atributos por NCM/modalidade
+-- =====================================================
+CREATE TABLE atributos_cache (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  ncm_codigo VARCHAR(8) NOT NULL,
+  modalidade ENUM('IMPORTACAO', 'EXPORTACAO') NOT NULL,
+  estrutura_json JSON NOT NULL COMMENT 'Estrutura completa dos atributos',
+  hash_estrutura VARCHAR(64) COMMENT 'Hash MD5 para detectar mudanças',
+  data_sincronizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_ncm_modalidade (ncm_codigo, modalidade),
+  FOREIGN KEY (ncm_codigo) REFERENCES ncm_cache(codigo) ON DELETE CASCADE,
+  INDEX idx_modalidade (modalidade),
+  INDEX idx_data_sync (data_sincronizacao)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Cache de estruturas de atributos';
+
+-- =====================================================
+-- Alteração na tabela de produtos existente
+-- ATENÇÃO: Adaptar nome da tabela e campos conforme seu sistema
+-- =====================================================
+ALTER TABLE produto  -- Substituir 'produto' pelo nome real da sua tabela
+ADD COLUMN ncm_codigo VARCHAR(8),
+ADD COLUMN modalidade ENUM('IMPORTACAO', 'EXPORTACAO'),
+ADD COLUMN valores_atributos_json JSON COMMENT 'Valores preenchidos dos atributos',
+ADD COLUMN estrutura_snapshot_json JSON COMMENT 'Snapshot da estrutura no momento do cadastro',
+ADD INDEX idx_ncm_modalidade (ncm_codigo, modalidade),
+ADD FOREIGN KEY (ncm_codigo) REFERENCES ncm_cache(codigo);
+
+-- =====================================================
+-- Views úteis para consultas e relatórios
+-- =====================================================
+
+-- View para identificar produtos com estrutura potencialmente desatualizada
+CREATE VIEW v_produtos_estrutura_divergente AS
 SELECT 
-  id, 
-  ncm_codigo,
-  JSON_VALID(estrutura_json) as json_valido,
-  LENGTH(estrutura_json) as tamanho
-FROM atributos_cache
-WHERE JSON_VALID(estrutura_json) = 0;
+    p.id,
+    p.codigo_produto,  -- Adaptar nome do campo
+    p.ncm_codigo,
+    p.modalidade,
+    p.data_atualizacao,  -- Adaptar nome do campo
+    ac.data_sincronizacao as estrutura_atualizada_em,
+    CASE 
+        WHEN MD5(p.estrutura_snapshot_json) != ac.hash_estrutura THEN 'DESATUALIZADA'
+        ELSE 'ATUALIZADA'
+    END as status_estrutura
+FROM produto p
+INNER JOIN atributos_cache ac ON 
+    p.ncm_codigo = ac.ncm_codigo 
+    AND p.modalidade = ac.modalidade
+WHERE p.estrutura_snapshot_json IS NOT NULL;
+
+-- View para estatísticas de uso de NCMs
+CREATE VIEW v_estatisticas_ncm AS
+SELECT 
+    n.codigo as ncm,
+    n.descricao,
+    COUNT(DISTINCT p.id) as total_produtos,
+    MAX(p.data_atualizacao) as ultimo_uso,
+    CASE 
+        WHEN n.data_sincronizacao < DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 'DESATUALIZADO'
+        ELSE 'ATUALIZADO'
+    END as status_cache
+FROM ncm_cache n
+LEFT JOIN produto p ON n.codigo = p.ncm_codigo
+GROUP BY n.codigo, n.descricao, n.data_sincronizacao;
+
+-- =====================================================
+-- Índices adicionais para performance com JSON
+-- =====================================================
+
+-- Para MySQL 5.7+ (índices funcionais em campos JSON)
+-- Exemplo: índice no campo 'pais_origem' dentro do JSON
+-- ALTER TABLE produto 
+-- ADD COLUMN pais_origem_idx VARCHAR(100) AS 
+--   (JSON_UNQUOTE(JSON_EXTRACT(valores_atributos_json, '$.pais_origem'))) STORED,
+-- ADD INDEX idx_pais_origem (pais_origem_idx);
+
+-- Para PostgreSQL (índices GIN)
+-- CREATE INDEX idx_valores_gin ON produto USING GIN (valores_atributos_json);
 ```
 
-#### Performance de Queries JSON
+### 3.2 Dicionário de Dados
+
+#### Tabela: ncm_cache
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| codigo | VARCHAR(8) | Código NCM de 8 dígitos |
+| descricao | VARCHAR(255) | Descrição do NCM |
+| unidade_medida | VARCHAR(10) | Unidade de medida padrão |
+| data_sincronizacao | TIMESTAMP | Última atualização do cache |
+
+#### Tabela: atributos_cache
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único |
+| ncm_codigo | VARCHAR(8) | Referência ao NCM |
+| modalidade | ENUM | IMPORTACAO ou EXPORTACAO |
+| estrutura_json | JSON | Estrutura completa dos atributos |
+| hash_estrutura | VARCHAR(64) | Hash para detectar mudanças |
+| data_sincronizacao | TIMESTAMP | Última atualização |
+
+#### Campos adicionados em produto
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| ncm_codigo | VARCHAR(8) | NCM do produto |
+| modalidade | ENUM | Tipo de operação |
+| valores_atributos_json | JSON | Valores preenchidos |
+| estrutura_snapshot_json | JSON | Estrutura no momento do cadastro |
+
+---
+
+## 4. Fluxo de Sincronização
+
+### 4.1 Estratégia de Cache
+
+O sistema implementa um cache em duas camadas:
+
+1. **Cache de NCMs**: Informações básicas dos códigos NCM
+2. **Cache de Estruturas**: Definições completas de atributos por NCM/modalidade
+
+### 4.2 Processo de Sincronização
+
+#### 4.2.1 Sincronização sob Demanda
+
+Quando um usuário seleciona um NCM:
+
+1. **Verificar cache local**
+   - Buscar NCM na tabela `ncm_cache`
+   - Verificar idade do cache (configurável, ex: 24 horas)
+
+2. **Se cache válido**
+   - Retornar dados imediatamente
+   - Opcionalmente, agendar atualização assíncrona
+
+3. **Se cache inválido ou ausente**
+   - Fazer requisição ao servidor
+   - Atualizar cache local
+   - Retornar dados atualizados
+
+#### 4.2.2 Sincronização Agendada
+
+Processo executado periodicamente (ex: diariamente):
+
+1. **Identificar NCMs prioritários**
+   - NCMs mais utilizados (últimos 30 dias)
+   - NCMs com cache expirado
+   - NCMs de produtos ativos
+
+2. **Sincronizar em lotes**
+   - Agrupar requisições para eficiência
+   - Implementar rate limiting
+   - Registrar falhas para retry
+
+3. **Limpar cache obsoleto**
+   - Remover NCMs não utilizados há X dias
+   - Compactar histórico de sincronização
+
+### 4.3 Gestão de Falhas
+
+- **Timeout de requisições**: Usar cache antigo se disponível
+- **Servidor indisponível**: Modo offline com dados em cache
+- **Dados corrompidos**: Validar JSON antes de salvar
+- **Conflitos de versão**: Preferir dados mais recentes
+
+---
+
+## 5. Renderização de Formulários Dinâmicos
+
+### 5.1 Estrutura de Atributos
+
+Os atributos seguem uma hierarquia que deve ser respeitada na renderização:
+
+```
+Estrutura
+├── Atributos Simples
+│   ├── TEXTO
+│   ├── NUMERO_INTEIRO
+│   ├── NUMERO_REAL
+│   ├── BOOLEANO
+│   └── LISTA_ESTATICA
+├── Atributos Compostos
+│   └── Sub-atributos (recursivo)
+└── Atributos Condicionados
+    └── Aparecem baseados em condições
+```
+
+### 5.2 Processo de Renderização
+
+#### 5.2.1 Produto Novo
+
+1. **Carregar estrutura atual**
+   - Buscar no cache ou servidor
+   - Usar versão mais recente
+
+2. **Construir formulário**
+   - Iterar pelos atributos
+   - Aplicar regras de visibilidade
+   - Configurar validações
+
+3. **Inicializar valores**
+   - Campos vazios ou valores padrão
+   - Respeitar multivalorados
+
+#### 5.2.2 Produto Existente
+
+1. **Carregar snapshot**
+   - Usar `estrutura_snapshot_json` do produto
+   - Garantir compatibilidade com valores salvos
+
+2. **Verificar mudanças**
+   - Comparar com estrutura atual
+   - Alertar se houver divergências
+
+3. **Restaurar valores**
+   - Popular campos com `valores_atributos_json`
+   - Manter campos removidos visíveis (somente leitura)
+
+### 5.3 Componentes Necessários
+
+#### 5.3.1 Renderizador de Campo
+- Detectar tipo de campo (`forma_preenchimento`)
+- Aplicar máscaras e formatações
+- Configurar limites (tamanho, decimais)
+
+#### 5.3.2 Gerenciador de Condicionais
+- Avaliar condições em tempo real
+- Mostrar/ocultar campos dinamicamente
+- Atualizar obrigatoriedade
+
+#### 5.3.3 Validador em Tempo Real
+- Validar conforme usuário digita
+- Mostrar mensagens de erro contextuais
+- Prevenir submissão com erros
+
+---
+
+## 6. Gestão de Produtos
+
+### 6.1 Criação de Produto
+
+#### Fluxo Principal
+
+1. **Seleção de NCM**
+   - Interface de busca/seleção
+   - Validar código de 8 dígitos
+   - Exibir descrição para confirmação
+
+2. **Escolha de Modalidade**
+   - Importação ou Exportação
+   - Determina conjunto de atributos
+
+3. **Preenchimento de Atributos**
+   - Renderizar formulário dinâmico
+   - Validar em tempo real
+   - Salvar rascunhos (opcional)
+
+4. **Persistência**
+   - Validar conjunto completo
+   - Criar snapshot da estrutura
+   - Salvar em transação atômica
+
+### 6.2 Edição de Produto
+
+#### Considerações Especiais
+
+1. **Preservar Integridade**
+   - Usar estrutura do snapshot
+   - Não perder dados de campos removidos
+   - Permitir visualização histórica
+
+2. **Alertar Mudanças**
+   - Comparar estruturas (snapshot vs atual)
+   - Oferecer atualização opcional
+   - Documentar mudanças aplicadas
+
+3. **Migração de Estrutura**
+   - Mapear campos compatíveis
+   - Alertar campos removidos
+   - Solicitar novos obrigatórios
+
+### 6.3 Consultas e Relatórios
+
+#### Queries Úteis
+
 ```sql
--- Criar índice funcional
-ALTER TABLE produto 
-ADD COLUMN ncm_index VARCHAR(8) AS 
-  (JSON_UNQUOTE(JSON_EXTRACT(valores_atributos_json, '$.ncm'))) STORED,
-ADD INDEX idx_ncm_index (ncm_index);
+-- Buscar produtos por valor de atributo específico
+SELECT * FROM produto 
+WHERE JSON_EXTRACT(valores_atributos_json, '$.marca') = 'Dell';
+
+-- Produtos com estrutura desatualizada
+SELECT * FROM v_produtos_estrutura_divergente 
+WHERE status_estrutura = 'DESATUALIZADA';
+
+-- Estatísticas por NCM
+SELECT ncm, descricao, total_produtos 
+FROM v_estatisticas_ncm 
+ORDER BY total_produtos DESC;
 ```
 
-### 12.2 Scripts de Manutenção
+---
 
-```bash
-#!/bin/bash
-# scripts/maintenance.sh
+## 7. Validações e Regras de Negócio
 
-# Backup do banco
-mysqldump -u $DB_USER -p$DB_PASSWORD $DB_NAME > backup_$(date +%Y%m%d).sql
+### 7.1 Níveis de Validação
 
-# Limpar cache expirado
-mysql -u $DB_USER -p$DB_PASSWORD $DB_NAME -e "
-  DELETE FROM atributos_cache 
-  WHERE data_sincronizacao < DATE_SUB(NOW(), INTERVAL 7 DAY);
-"
+#### 7.1.1 Cliente (Tempo Real)
+- **Tipo de dado**: Número, texto, booleano
+- **Formato**: Máscaras, expressões regulares
+- **Limites**: Tamanho, range numérico
+- **Obrigatoriedade**: Campos requeridos
 
-# Otimizar tabelas
-mysql -u $DB_USER -p$DB_PASSWORD $DB_NAME -e "
-  OPTIMIZE TABLE produto;
-  OPTIMIZE TABLE atributos_cache;
-"
+#### 7.1.2 Servidor Local (Pré-save)
+- **Integridade**: Todos obrigatórios preenchidos
+- **Condicionais**: Regras complexas
+- **Unicidade**: Quando aplicável
+- **Consistência**: Entre campos relacionados
 
-# Verificar integridade
-node scripts/check-integrity.js
+#### 7.1.3 Servidor Remoto (Pós-save)
+- **Regras de negócio**: Específicas do domínio
+- **Validações cruzadas**: Com outros sistemas
+- **Compliance**: Requisitos regulatórios
+- **Avisos**: Não impeditivos
+
+### 7.2 Implementação de Regras
+
+#### 7.2.1 Obrigatoriedade
+- Base: Campo `obrigatorio` do atributo
+- Condicional: Avaliar `descricao_condicao`
+- Override: Por NCM/modalidade específica
+
+#### 7.2.2 Validações por Tipo
+
+**TEXTO**
+- Tamanho máximo
+- Máscara/padrão
+- Caracteres permitidos
+
+**NUMERO_INTEIRO**
+- Range válido
+- Dígitos máximos
+
+**NUMERO_REAL**
+- Casas decimais
+- Precisão total
+
+**LISTA_ESTATICA**
+- Valor no domínio
+- Cardinalidade (se multivalorado)
+
+**BOOLEANO**
+- Apenas true/false
+
+### 7.3 Mensagens de Erro
+
+Estrutura recomendada:
+- **Campo**: Identificador do atributo
+- **Mensagem**: Texto explicativo
+- **Tipo**: erro, aviso, info
+- **Ação**: Sugestão de correção
+
+---
+
+## 8. Tratamento de Mudanças de Estrutura
+
+### 8.1 Detecção de Mudanças
+
+Comparar hashes ou estruturas completas:
+- Durante edição de produtos
+- Em sincronizações periódicas
+- Por demanda do usuário
+
+### 8.2 Tipos de Mudanças
+
+#### 8.2.1 Adição de Atributos
+- **Impacto**: Baixo
+- **Ação**: Solicitar preenchimento se obrigatório
+
+#### 8.2.2 Remoção de Atributos
+- **Impacto**: Médio
+- **Ação**: Manter dados, marcar como obsoleto
+
+#### 8.2.3 Mudança de Tipo
+- **Impacto**: Alto
+- **Ação**: Conversão assistida ou re-entrada
+
+#### 8.2.4 Mudança de Obrigatoriedade
+- **Impacto**: Variável
+- **Ação**: Validar produtos existentes
+
+### 8.3 Estratégias de Migração
+
+1. **Manual por Produto**
+   - Usuário decide quando atualizar
+   - Mantém controle total
+   - Adequado para poucos produtos
+
+2. **Assistida em Lote**
+   - Sistema sugere mapeamentos
+   - Usuário revisa e aprova
+   - Eficiente para muitos produtos
+
+3. **Automática com Regras**
+   - Conversões pré-definidas
+   - Aplicação em background
+   - Requer validação cuidadosa
+
+---
+
+## 9. Estratégias de Cache
+
+### 9.1 Políticas de Cache
+
+#### 9.1.1 Time-to-Live (TTL)
+- **NCMs**: 7 dias (estável)
+- **Estruturas**: 24 horas (pode mudar)
+- **Configurável**: Por ambiente/necessidade
+
+#### 9.1.2 Invalidação
+- **Por evento**: Mudanças conhecidas
+- **Por tempo**: TTL expirado
+- **Manual**: Interface administrativa
+
+### 9.2 Otimizações
+
+1. **Pré-carregamento**
+   - NCMs mais usados
+   - Durante baixa demanda
+   - Em lotes eficientes
+
+2. **Cache Compartilhado**
+   - Entre usuários/sessões
+   - Redis ou similar
+   - Reduz carga no servidor
+
+3. **Compressão**
+   - JSONs grandes
+   - Gzip ou similar
+   - Trade-off CPU vs storage
+
+### 9.3 Métricas de Cache
+
+Monitorar para otimização:
+- Taxa de acerto (hit rate)
+- Tamanho médio de entrada
+- Tempo de vida útil real
+- Frequência de invalidação
+
+---
+
+## 10. Monitoramento e Manutenção
+
+### 10.1 Métricas Essenciais
+
+#### 10.1.1 Performance
+- Tempo de sincronização
+- Latência de renderização
+- Queries mais lentas
+- Taxa de erro em validações
+
+#### 10.1.2 Negócio
+- Produtos por NCM
+- Atributos mais preenchidos
+- Taxa de estruturas desatualizadas
+- Erros de validação frequentes
+
+#### 10.1.3 Sistema
+- Tamanho do cache
+- Crescimento do banco
+- Falhas de sincronização
+- Disponibilidade da API
+
+### 10.2 Rotinas de Manutenção
+
+#### Diária
+- Verificar logs de erro
+- Monitorar sincronizações
+- Validar integridade do cache
+
+#### Semanal
+- Limpar cache expirado
+- Analisar métricas
+- Revisar produtos com erro
+
+#### Mensal
+- Otimizar índices
+- Arquivar dados antigos
+- Relatório de uso
+
+### 10.3 Troubleshooting Comum
+
+| Problema | Diagnóstico | Solução |
+|----------|-------------|---------|
+| Formulário não carrega | Cache corrompido | Limpar cache do NCM |
+| Validações incorretas | Estrutura desatualizada | Forçar sincronização |
+| Lentidão em queries | Índices faltando | Criar índices JSON |
+| Erros de sincronização | API indisponível | Verificar conectividade |
+
+---
+
+## 11. Migração e Rollout
+
+### 11.1 Preparação
+
+#### 11.1.1 Análise de Impacto
+- Mapear produtos existentes
+- Identificar NCMs utilizados
+- Estimar volume de dados
+- Definir grupos de teste
+
+#### 11.1.2 Ambiente de Teste
+- Clonar dados de produção
+- Simular sincronizações
+- Validar integrações
+- Treinar usuários-chave
+
+### 11.2 Estratégia de Rollout
+
+#### Fase 1: Piloto (2-4 semanas)
+- Grupo pequeno de usuários
+- NCMs selecionados
+- Monitoramento intensivo
+- Coleta de feedback
+
+#### Fase 2: Expansão (4-8 semanas)
+- Aumentar usuários gradualmente
+- Incluir mais NCMs
+- Refinar baseado em feedback
+- Otimizar performance
+
+#### Fase 3: Produção Total
+- Todos usuários e NCMs
+- Desativar sistema antigo
+- Suporte intensificado
+- Documentação completa
+
+### 11.3 Rollback
+
+Plano de contingência:
+1. Manter sistema antigo em standby
+2. Backup antes de cada fase
+3. Scripts de reversão testados
+4. Comunicação clara com usuários
+
+---
+
+## 12. Considerações de Performance
+
+### 12.1 Otimizações de Banco
+
+#### 12.1.1 Índices Essenciais
+```sql
+-- Já incluídos no script de criação
+-- Adicionar conforme uso real:
+CREATE INDEX idx_produto_status ON produto(status);
+CREATE INDEX idx_json_ncm ON produto((CAST(valores_atributos_json->>'$.ncm' AS CHAR(8))));
 ```
 
-### 12.3 Checklist de Deploy
+#### 12.1.2 Particionamento
+Para grandes volumes:
+- Por data de criação
+- Por NCM (hash)
+- Por status
 
-- [ ] Variáveis de ambiente configuradas
-- [ ] Banco de dados criado e com permissões
-- [ ] Scripts de migração executados
-- [ ] SSL configurado (se aplicável)
-- [ ] Logs configurados e com rotação
-- [ ] Monitoramento ativo
-- [ ] Backup automático configurado
-- [ ] Testes de integração passando
-- [ ] Documentação atualizada
-- [ ] Plano de rollback definido
+### 12.2 Otimizações de Aplicação
+
+#### 12.2.1 Lazy Loading
+- Carregar estruturas sob demanda
+- Paginar listas grandes
+- Diferir validações não críticas
+
+#### 12.2.2 Caching Inteligente
+- Memória para dados quentes
+- Disco para volume maior
+- Invalidação seletiva
+
+#### 12.2.3 Processamento Assíncrono
+- Sincronizações em background
+- Validações não bloqueantes
+- Relatórios agendados
+
+### 12.3 Escalabilidade
+
+#### Horizontal
+- Cache distribuído
+- Load balancing
+- Sharding de dados
+
+#### Vertical
+- Otimizar queries
+- Índices apropriados
+- Hardware adequado
 
 ---
 
 ## Conclusão
 
-Este manual fornece uma base sólida para implementação do cliente de atributos dinâmicos. Lembre-se de:
+A integração do sistema de atributos dinâmicos representa uma evolução significativa na gestão de produtos, oferecendo flexibilidade sem comprometer a integridade dos dados existentes. 
 
-1. **Começar simples**: Implemente o MVP primeiro
-2. **Testar continuamente**: Testes são essenciais
-3. **Monitorar sempre**: Métricas ajudam a identificar problemas
-4. **Documentar mudanças**: Mantenha este manual atualizado
-5. **Buscar feedback**: Usuários finais são a melhor fonte de melhorias
+### Próximos Passos
 
-Para suporte adicional ou contribuições, consulte o repositório do projeto.
+1. **Avaliar** a infraestrutura atual contra os requisitos
+2. **Prototipar** com um subconjunto de funcionalidades
+3. **Validar** com usuários-chave
+4. **Planejar** rollout gradual
+5. **Monitorar** e otimizar continuamente
+
+### Suporte
+
+Para questões específicas de implementação:
+- Consulte a documentação da API do servidor
+- Revise logs de sincronização regularmente
+- Mantenha canal de feedback com usuários
+- Documente decisões e customizações
+
+Este sistema foi projetado para evoluir com suas necessidades, mantendo a simplicidade como princípio fundamental.
