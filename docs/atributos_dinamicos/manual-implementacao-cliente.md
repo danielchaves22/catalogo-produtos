@@ -1,4 +1,10 @@
-# Manual de Integração - Sistema de Atributos Dinâmicos
+### 12.1 Otimizações de Banco
+
+#### 12.1.1 Índices Essenciais
+```sql
+-- Para OPÇÃO 1 (tabela separada):
+CREATE INDEX idx_produto_atributos_produto ON produto_atributos(produto_id);
+CREATE INDEX idx_# Manual de Integração - Sistema de Atributos Dinâmicos
 
 ## Sumário
 
@@ -82,8 +88,10 @@ Este manual descreve como integrar um sistema de atributos dinâmicos a uma apli
 - Implementar regras condicionais
 
 #### 2.2.3 Camada de Dados
-- Criar novas tabelas (detalhadas na seção 3)
-- Modificar entidade Produto para incluir referências
+- Criar novas tabelas de cache (ncm_cache e atributos_cache)
+- Escolher estratégia de integração:
+  - **OPÇÃO 1**: Criar tabela separada (produto_atributos) - Mais seguro
+  - **OPÇÃO 2**: Adicionar colunas na tabela existente - Mais integrado
 - Adicionar índices para queries JSON
 
 ### 2.3 Dependências Mínimas
@@ -101,9 +109,24 @@ Este manual descreve como integrar um sistema de atributos dinâmicos a uma apli
 
 ```sql
 -- =====================================================
+-- IMPORTANTE: Este script oferece DUAS OPÇÕES de integração
+-- 
+-- OPÇÃO 1: Criar tabela separada (produto_atributos)
+--   - Mais segura, não altera sistema existente
+--   - Recomendada para começar
+-- 
+-- OPÇÃO 2: Adicionar colunas na sua tabela de produtos
+--   - Mais integrada, mas altera estrutura existente
+--   - Use após validar com Opção 1
+-- =====================================================
+
+-- =====================================================
+-- Tabelas de CACHE (necessárias para ambas opções)
+-- =====================================================
+
 -- Tabela: ncm_cache
 -- Descrição: Cache local de NCMs para evitar consultas repetidas
--- =====================================================
+-- -----------------------------------------------------
 CREATE TABLE ncm_cache (
   codigo VARCHAR(8) PRIMARY KEY,
   descricao VARCHAR(255) NOT NULL,
@@ -113,10 +136,9 @@ CREATE TABLE ncm_cache (
   INDEX idx_data_sync (data_sincronizacao)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Cache de NCMs sincronizados do servidor';
 
--- =====================================================
 -- Tabela: atributos_cache
 -- Descrição: Cache de estruturas de atributos por NCM/modalidade
--- =====================================================
+-- -----------------------------------------------------
 CREATE TABLE atributos_cache (
   id INT PRIMARY KEY AUTO_INCREMENT,
   ncm_codigo VARCHAR(8) NOT NULL,
@@ -131,54 +153,110 @@ CREATE TABLE atributos_cache (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Cache de estruturas de atributos';
 
 -- =====================================================
--- Alteração na tabela de produtos existente
--- ATENÇÃO: Adaptar nome da tabela e campos conforme seu sistema
+-- OPÇÃO 1: Criar nova tabela de produtos com atributos
+-- Use esta opção se preferir manter os atributos dinâmicos
+-- separados do seu sistema atual de produtos
 -- =====================================================
-ALTER TABLE produto  -- Substituir 'produto' pelo nome real da sua tabela
+CREATE TABLE produto_atributos (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  produto_id INT NOT NULL COMMENT 'ID do produto no seu sistema',
+  ncm_codigo VARCHAR(8) NOT NULL,
+  modalidade ENUM('IMPORTACAO', 'EXPORTACAO') NOT NULL,
+  valores_atributos_json JSON COMMENT 'Valores preenchidos dos atributos',
+  estrutura_snapshot_json JSON COMMENT 'Snapshot da estrutura no momento do cadastro',
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_produto (produto_id),
+  INDEX idx_ncm_modalidade (ncm_codigo, modalidade),
+  FOREIGN KEY (ncm_codigo) REFERENCES ncm_cache(codigo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Atributos dinâmicos dos produtos';
+
+-- =====================================================
+-- OPÇÃO 2: Adicionar colunas na tabela existente
+-- Use esta opção se preferir integrar diretamente
+-- ATENÇÃO: Substituir 'sua_tabela_produto' pelo nome real
+-- =====================================================
+/*
+ALTER TABLE sua_tabela_produto
 ADD COLUMN ncm_codigo VARCHAR(8),
 ADD COLUMN modalidade ENUM('IMPORTACAO', 'EXPORTACAO'),
 ADD COLUMN valores_atributos_json JSON COMMENT 'Valores preenchidos dos atributos',
 ADD COLUMN estrutura_snapshot_json JSON COMMENT 'Snapshot da estrutura no momento do cadastro',
 ADD INDEX idx_ncm_modalidade (ncm_codigo, modalidade),
 ADD FOREIGN KEY (ncm_codigo) REFERENCES ncm_cache(codigo);
+*/
 
 -- =====================================================
--- Views úteis para consultas e relatórios
+-- Queries úteis para consultas e relatórios
+-- Adapte conforme a opção escolhida (tabela separada ou integrada)
 -- =====================================================
 
--- View para identificar produtos com estrutura potencialmente desatualizada
-CREATE VIEW v_produtos_estrutura_divergente AS
+-- Query 1: Identificar produtos com estrutura potencialmente desatualizada
+-- Uso: Executar periodicamente para identificar produtos que precisam revisão
+/*
+-- Para OPÇÃO 1 (tabela separada):
+SELECT 
+    pa.id,
+    pa.produto_id,
+    pa.ncm_codigo,
+    pa.modalidade,
+    pa.atualizado_em,
+    ac.data_sincronizacao as estrutura_atualizada_em
+FROM produto_atributos pa
+INNER JOIN atributos_cache ac ON 
+    pa.ncm_codigo = ac.ncm_codigo 
+    AND pa.modalidade = ac.modalidade
+WHERE pa.estrutura_snapshot_json IS NOT NULL
+    AND MD5(pa.estrutura_snapshot_json) != ac.hash_estrutura;
+
+-- Para OPÇÃO 2 (tabela integrada):
+-- Substituir 'sua_tabela_produto' pelo nome real
 SELECT 
     p.id,
-    p.codigo_produto,  -- Adaptar nome do campo
+    p.codigo,  -- Adaptar campos conforme sua tabela
     p.ncm_codigo,
-    p.modalidade,
-    p.data_atualizacao,  -- Adaptar nome do campo
-    ac.data_sincronizacao as estrutura_atualizada_em,
-    CASE 
-        WHEN MD5(p.estrutura_snapshot_json) != ac.hash_estrutura THEN 'DESATUALIZADA'
-        ELSE 'ATUALIZADA'
-    END as status_estrutura
-FROM produto p
+    p.modalidade
+FROM sua_tabela_produto p
 INNER JOIN atributos_cache ac ON 
     p.ncm_codigo = ac.ncm_codigo 
     AND p.modalidade = ac.modalidade
-WHERE p.estrutura_snapshot_json IS NOT NULL;
+WHERE p.estrutura_snapshot_json IS NOT NULL
+    AND MD5(p.estrutura_snapshot_json) != ac.hash_estrutura;
+*/
 
--- View para estatísticas de uso de NCMs
-CREATE VIEW v_estatisticas_ncm AS
+-- Query 2: Estatísticas de uso de NCMs
+-- Uso: Relatórios gerenciais e priorização de sincronização
+/*
+-- Para OPÇÃO 1 (tabela separada):
 SELECT 
     n.codigo as ncm,
     n.descricao,
-    COUNT(DISTINCT p.id) as total_produtos,
-    MAX(p.data_atualizacao) as ultimo_uso,
+    COUNT(DISTINCT pa.produto_id) as total_produtos,
+    MAX(pa.atualizado_em) as ultimo_uso,
     CASE 
-        WHEN n.data_sincronizacao < DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 'DESATUALIZADO'
-        ELSE 'ATUALIZADO'
+        WHEN n.data_sincronizacao < DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 'CACHE_ANTIGO'
+        ELSE 'CACHE_RECENTE'
     END as status_cache
 FROM ncm_cache n
-LEFT JOIN produto p ON n.codigo = p.ncm_codigo
-GROUP BY n.codigo, n.descricao, n.data_sincronizacao;
+LEFT JOIN produto_atributos pa ON n.codigo = pa.ncm_codigo
+GROUP BY n.codigo, n.descricao, n.data_sincronizacao
+ORDER BY total_produtos DESC;
+*/
+
+-- Query 3: NCMs mais utilizados sem cache
+-- Uso: Identificar NCMs que precisam ser sincronizados
+/*
+-- Para OPÇÃO 1 (tabela separada):
+SELECT 
+    pa.ncm_codigo,
+    COUNT(DISTINCT pa.produto_id) as total_uso
+FROM produto_atributos pa
+LEFT JOIN ncm_cache nc ON pa.ncm_codigo = nc.codigo
+WHERE nc.codigo IS NULL
+GROUP BY pa.ncm_codigo
+ORDER BY total_uso DESC
+LIMIT 50;
+*/
 
 -- =====================================================
 -- Índices adicionais para performance com JSON
@@ -215,13 +293,58 @@ GROUP BY n.codigo, n.descricao, n.data_sincronizacao;
 | hash_estrutura | VARCHAR(64) | Hash para detectar mudanças |
 | data_sincronizacao | TIMESTAMP | Última atualização |
 
-#### Campos adicionados em produto
+#### OPÇÃO 1 - Tabela: produto_atributos (nova)
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único |
+| produto_id | INT | FK para produto no sistema existente |
+| ncm_codigo | VARCHAR(8) | NCM do produto |
+| modalidade | ENUM | Tipo de operação |
+| valores_atributos_json | JSON | Valores preenchidos |
+| estrutura_snapshot_json | JSON | Estrutura no momento do cadastro |
+| criado_em | TIMESTAMP | Data de criação |
+| atualizado_em | TIMESTAMP | Última atualização |
+
+#### OPÇÃO 2 - Campos adicionados na tabela existente
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | ncm_codigo | VARCHAR(8) | NCM do produto |
 | modalidade | ENUM | Tipo de operação |
 | valores_atributos_json | JSON | Valores preenchidos |
 | estrutura_snapshot_json | JSON | Estrutura no momento do cadastro |
+
+### 3.3 Escolhendo entre as Opções
+
+**OPÇÃO 1 - Tabela Separada (produto_atributos)**
+✅ Vantagens:
+- Não altera estrutura existente
+- Migração mais segura
+- Separação de responsabilidades
+
+❌ Desvantagens:
+- JOIN adicional nas queries
+- Sincronização de IDs
+
+**OPÇÃO 2 - Integração Direta**
+✅ Vantagens:
+- Queries mais simples
+- Dados unificados
+- Menos manutenção
+
+❌ Desvantagens:
+- Altera tabela existente
+- Risco em produção
+- Pode gerar conflitos
+
+### 3.4 Queries de Referência
+
+As queries SQL comentadas na seção anterior devem ser adaptadas conforme a opção escolhida. Elas cobrem os casos de uso mais comuns:
+
+1. **Detecção de mudanças**: Comparar hash da estrutura
+2. **Estatísticas**: Agrupar e contar uso
+3. **Manutenção**: Identificar dados faltantes
+
+Recomenda-se criar funções ou procedures em sua aplicação para encapsular estas queries, facilitando manutenção e reuso.
 
 ---
 
@@ -352,7 +475,21 @@ Estrutura
 
 ## 6. Gestão de Produtos
 
-### 6.1 Criação de Produto
+### 6.1 Estratégias de Integração
+
+Antes de implementar, escolha entre:
+
+1. **Tabela Separada (produto_atributos)**
+   - Vincula ao produto existente via `produto_id`
+   - Menor risco, fácil rollback
+   - Ideal para piloto
+
+2. **Integração Direta**
+   - Adiciona colunas JSON na tabela existente
+   - Melhor performance (sem JOINs)
+   - Requer alteração estrutural
+
+### 6.2 Criação de Produto
 
 #### Fluxo Principal
 
@@ -374,8 +511,10 @@ Estrutura
    - Validar conjunto completo
    - Criar snapshot da estrutura
    - Salvar em transação atômica
+   - Para OPÇÃO 1: Inserir em produto_atributos com referência ao produto
+   - Para OPÇÃO 2: Atualizar campos JSON na tabela de produto existente
 
-### 6.2 Edição de Produto
+### 6.3 Edição de Produto
 
 #### Considerações Especiais
 
@@ -394,22 +533,40 @@ Estrutura
    - Alertar campos removidos
    - Solicitar novos obrigatórios
 
-### 6.3 Consultas e Relatórios
+### 6.4 Consultas e Relatórios
 
 #### Queries Úteis
 
 ```sql
+-- Para OPÇÃO 1 (tabela separada):
 -- Buscar produtos por valor de atributo específico
-SELECT * FROM produto 
+SELECT pa.*, p.* 
+FROM produto_atributos pa
+JOIN sua_tabela_produto p ON pa.produto_id = p.id
+WHERE JSON_EXTRACT(pa.valores_atributos_json, '$.marca') = 'Dell';
+
+-- Para OPÇÃO 2 (tabela integrada):
+-- Buscar produtos por valor de atributo específico
+SELECT * FROM sua_tabela_produto 
 WHERE JSON_EXTRACT(valores_atributos_json, '$.marca') = 'Dell';
 
--- Produtos com estrutura desatualizada
-SELECT * FROM v_produtos_estrutura_divergente 
-WHERE status_estrutura = 'DESATUALIZADA';
+-- Produtos com estrutura desatualizada (OPÇÃO 1)
+SELECT pa.*, ac.hash_estrutura as hash_atual
+FROM produto_atributos pa
+INNER JOIN atributos_cache ac 
+    ON pa.ncm_codigo = ac.ncm_codigo 
+    AND pa.modalidade = ac.modalidade
+WHERE pa.estrutura_snapshot_json IS NOT NULL
+    AND MD5(pa.estrutura_snapshot_json) != ac.hash_estrutura;
 
 -- Estatísticas por NCM
-SELECT ncm, descricao, total_produtos 
-FROM v_estatisticas_ncm 
+SELECT 
+    n.codigo as ncm,
+    n.descricao,
+    COUNT(DISTINCT pa.produto_id) as total_produtos
+FROM ncm_cache n
+LEFT JOIN produto_atributos pa ON n.codigo = pa.ncm_codigo
+GROUP BY n.codigo, n.descricao
 ORDER BY total_produtos DESC;
 ```
 
@@ -610,6 +767,7 @@ Monitorar para otimização:
 | Validações incorretas | Estrutura desatualizada | Forçar sincronização |
 | Lentidão em queries | Índices faltando | Criar índices JSON |
 | Erros de sincronização | API indisponível | Verificar conectividade |
+| Dados JSON inválidos | Estrutura corrompida | Validar JSON antes de salvar |
 
 ---
 
@@ -665,13 +823,39 @@ Plano de contingência:
 
 #### 12.1.1 Índices Essenciais
 ```sql
--- Já incluídos no script de criação
--- Adicionar conforme uso real:
-CREATE INDEX idx_produto_status ON produto(status);
-CREATE INDEX idx_json_ncm ON produto((CAST(valores_atributos_json->>'$.ncm' AS CHAR(8))));
+-- Para OPÇÃO 1 (tabela separada):
+CREATE INDEX idx_pa_produto_id ON produto_atributos(produto_id);
+CREATE INDEX idx_pa_json_marca ON produto_atributos((CAST(valores_atributos_json->>'$.marca' AS CHAR(50))));
+
+-- Para OPÇÃO 2 (tabela integrada):
+CREATE INDEX idx_prod_ncm ON sua_tabela_produto(ncm_codigo);
+CREATE INDEX idx_prod_json_marca ON sua_tabela_produto((CAST(valores_atributos_json->>'$.marca' AS CHAR(50))));
 ```
 
-#### 12.1.2 Particionamento
+#### 12.1.2 Otimizações para Queries Frequentes
+
+Para queries executadas com alta frequência, considere:
+
+1. **Campos calculados persistidos** (MySQL 5.7+)
+```sql
+-- Para OPÇÃO 1:
+ALTER TABLE produto_atributos 
+ADD COLUMN estrutura_hash_atual VARCHAR(64) 
+    GENERATED ALWAYS AS (MD5(estrutura_snapshot_json)) STORED,
+ADD INDEX idx_estrutura_hash (estrutura_hash_atual);
+```
+
+2. **Materialized Views** (PostgreSQL) ou **Tabelas de agregação** (todos SGBDs)
+   - Apenas se volume justificar
+   - Atualização via triggers ou jobs
+   - Trade-off: espaço vs performance
+
+3. **Procedures armazenadas**
+   - Para lógica complexa reutilizada
+   - Reduz tráfego de rede
+   - Facilita manutenção centralizada
+
+#### 12.1.3 Particionamento
 Para grandes volumes:
 - Por data de criação
 - Por NCM (hash)
