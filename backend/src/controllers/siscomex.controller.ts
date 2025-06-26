@@ -1,9 +1,11 @@
 // backend/src/controllers/siscomex.controller.ts
 import { Request, Response } from 'express';
 import { SiscomexService, SiscomexConsultaFiltros } from '../services/siscomex.service';
+import { AtributoLegacyService } from '../services/atributo-legacy.service';
 import { logger } from '../utils/logger';
 
 const siscomexService = new SiscomexService();
+const atributoLegacyService = new AtributoLegacyService();
 
 /**
  * GET /api/siscomex/produtos
@@ -149,7 +151,8 @@ export async function consultarAtributosPorNcm(req: Request, res: Response) {
       });
     }
 
-    const atributos = await siscomexService.consultarAtributosPorNcm(ncm);
+    const modalidade = (req.query.modalidade as string) || 'IMPORTACAO';
+    const atributos = await atributoLegacyService.buscarEstrutura(ncm, modalidade);
     
     return res.status(200).json({
       sucesso: true,

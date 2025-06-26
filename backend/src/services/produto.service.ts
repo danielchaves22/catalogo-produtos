@@ -1,7 +1,8 @@
 // backend/src/services/produto.service.ts
-import { catalogoPrisma, legacyPrisma } from '../utils/prisma';
+import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { Prisma } from '@prisma/client';
+import { AtributoLegacyService } from './atributo-legacy.service';
 
 export interface CreateProdutoDTO {
   codigo: string;
@@ -12,6 +13,7 @@ export interface CreateProdutoDTO {
 }
 
 export class ProdutoService {
+  private atributosService = new AtributoLegacyService();
   async listarTodos() {
     return catalogoPrisma.produto.findMany({ include: { atributos: true } });
   }
@@ -63,16 +65,14 @@ export class ProdutoService {
       return cache.estruturaJson as Prisma.InputJsonValue;
     }
 
-    // Consulta simplificada na base legacy para obter JSON
     try {
-      const result: any = await legacyPrisma.$queryRaw`SELECT estrutura_json FROM atributos_legacy WHERE ncm = ${ncm} AND modalidade = ${modalidade} LIMIT 1`;
-      const estrutura = (result?.[0]?.estrutura_json || {}) as Prisma.InputJsonValue;
+      const estrutura = (await this.atributosService.buscarEstrutura(ncm, modalidade)) as Prisma.InputJsonValue;
 
       await catalogoPrisma.atributosCache.create({
         data: {
           ncmCodigo: ncm,
           modalidade,
-          estruturaJson: estrutura as Prisma.InputJsonValue,
+          estruturaJson: estrutura,
           versao: 1
         }
       });
