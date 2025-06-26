@@ -5,6 +5,7 @@ import { json, urlencoded } from 'body-parser';
 
 import authRoutes from './routes/auth.routes';
 import catalogoRoutes from './routes/catalogo.routes';
+import produtoRoutes from './routes/produto.routes';
 import { authMiddleware } from './middlewares/auth.middleware';
 import { setupSwagger } from './swagger';
 import siscomexRoutes from './routes/siscomex.routes';
@@ -35,6 +36,9 @@ apiRouter.use('/siscomex', siscomexRoutes);
 
 // Rotas de operadores estrangeiros (protegidas)
 apiRouter.use('/operadores-estrangeiros', operadorEstrangeiroRoutes);
+
+// Rotas de produtos (protegidas)
+apiRouter.use('/produtos', produtoRoutes);
 
 // Middleware de autenticação para rotas protegidas
 apiRouter.use('/protected', authMiddleware, (req, res) => {

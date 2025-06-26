@@ -133,3 +133,73 @@ enum OperadorEstrangeiroStatus {
   INATIVO
   DESATIVADO
 }
+// Enum de status de Produto
+enum ProdutoStatus {
+  RASCUNHO
+  ATIVO
+  INATIVO
+}
+
+// Tabela de cache de NCM
+model NcmCache {
+  id                   Int      @id @default(autoincrement()) @map("id")
+  codigo               String   @unique @map("codigo")
+  descricao            String?  @map("descricao")
+  dataUltimaSincronizacao DateTime? @map("data_ultima_sincronizacao")
+  hashEstrutura        String?  @map("hash_estrutura")
+  versaoEstrutura      Int?     @map("versao_estrutura")
+  unidadeMedida        String?  @map("unidade_medida")
+  aliquotaIi           Decimal? @map("aliquota_ii")
+  atributos            AtributosCache[]
+
+  @@map("ncm_cache")
+}
+
+// Tabela de cache das estruturas de atributos
+model AtributosCache {
+  id                 Int      @id @default(autoincrement()) @map("id")
+  ncmCodigo          String   @map("ncm_codigo")
+  modalidade         String   @map("modalidade")
+  estruturaJson      Json     @map("estrutura_json")
+  dataSincronizacao  DateTime? @map("data_sincronizacao")
+  versao             Int?     @map("versao")
+  hashEstrutura      String?  @map("hash_estrutura")
+  vigenciaInicio     DateTime? @map("vigencia_inicio")
+  vigenciaFim        DateTime? @map("vigencia_fim")
+  produtos           ProdutoAtributos[]
+
+  @@unique([ncmCodigo, modalidade, versao], name: "uk_ncm_modalidade_versao")
+  @@map("atributos_cache")
+}
+
+// Tabela de produtos
+model Produto {
+  id                        Int               @id @default(autoincrement()) @map("id")
+  codigo                    String            @unique @map("codigo")
+  versao                    Int               @map("versao")
+  status                    ProdutoStatus     @map("status")
+  ncmCodigo                 String            @map("ncm_codigo")
+  modalidade                String?           @map("modalidade")
+  criadoEm                  DateTime          @default(now()) @map("criado_em")
+  atualizadoEm              DateTime          @updatedAt @map("atualizado_em")
+  criadoPor                 String?           @map("criado_por")
+  versaoEstruturaAtributos  Int?              @map("versao_estrutura_atributos")
+  atributos                 ProdutoAtributos[]
+
+  @@index([ncmCodigo], name: "idx_ncm")
+  @@unique([codigo, versao], name: "uk_codigo_versao")
+  @@map("produto")
+}
+
+// Tabela com valores de atributos dos produtos
+model ProdutoAtributos {
+  id                    Int       @id @default(autoincrement()) @map("id")
+  produtoId             Int       @map("produto_id")
+  valoresJson           Json      @map("valores_json")
+  estruturaSnapshotJson Json?     @map("estrutura_snapshot_json")
+  validadoEm            DateTime? @map("validado_em")
+  errosValidacao        Json?     @map("erros_validacao")
+  produto               Produto   @relation(fields: [produtoId], references: [id])
+
+  @@map("produto_atributos")
+}
