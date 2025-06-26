@@ -150,7 +150,7 @@ model NcmCache {
   versaoEstrutura      Int?     @map("versao_estrutura")
   unidadeMedida        String?  @map("unidade_medida")
   aliquotaIi           Decimal? @map("aliquota_ii")
-  atributos            AtributosCache[]
+  atributos            AtributosCache[] @relation("NcmAtributos")
 
   @@map("ncm_cache")
 }
@@ -166,7 +166,7 @@ model AtributosCache {
   hashEstrutura      String?  @map("hash_estrutura")
   vigenciaInicio     DateTime? @map("vigencia_inicio")
   vigenciaFim        DateTime? @map("vigencia_fim")
-  produtos           ProdutoAtributos[]
+  ncm                NcmCache @relation("NcmAtributos", fields: [ncmCodigo], references: [codigo])
 
   @@unique([ncmCodigo, modalidade, versao], name: "uk_ncm_modalidade_versao")
   @@map("atributos_cache")
