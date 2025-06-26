@@ -66,17 +66,18 @@ export class ProdutoService {
     }
 
     try {
-      const estrutura = (await this.atributosService.buscarEstrutura(ncm, modalidade)) as Prisma.InputJsonValue;
+      const estrutura = await this.atributosService.buscarEstrutura(ncm, modalidade);
+      const estruturaJson = estrutura as unknown as Prisma.InputJsonValue;
 
       await catalogoPrisma.atributosCache.create({
         data: {
           ncmCodigo: ncm,
           modalidade,
-          estruturaJson: estrutura,
+          estruturaJson: estruturaJson,
           versao: 1
         }
       });
-      return estrutura;
+      return estruturaJson;
     } catch (error) {
       logger.error('Erro ao obter atributos do legacy:', error);
       return {} as Prisma.InputJsonValue;
