@@ -14,6 +14,9 @@ interface AtributoEstrutura {
   obrigatorio: boolean;
   dominio?: { codigo: string; descricao: string }[];
   validacoes?: Record<string, any>;
+  descricaoCondicao?: string;
+  parentCodigo?: string;
+  subAtributos?: AtributoEstrutura[];
 }
 
 export default function NovoProdutoPage() {
@@ -34,7 +37,20 @@ export default function NovoProdutoPage() {
     setValores(prev => ({ ...prev, [codigo]: valor }));
   }
 
-  function renderCampo(attr: AtributoEstrutura) {
+  function condicaoAtendida(attr: AtributoEstrutura): boolean {
+    if (!attr.descricaoCondicao || !attr.parentCodigo) return true;
+
+    const regex = /valor\s*=\s*'?"?(\w+)"?'?/i;
+    const match = attr.descricaoCondicao.match(regex);
+    if (!match) return true;
+    const esperado = match[1];
+    const atual = valores[attr.parentCodigo] || '';
+    return atual === esperado;
+  }
+
+  function renderCampo(attr: AtributoEstrutura): React.ReactNode {
+    if (!condicaoAtendida(attr)) return null;
+
     const value = valores[attr.codigo] || '';
 
     switch (attr.tipo) {
@@ -88,6 +104,15 @@ export default function NovoProdutoPage() {
             value={value}
             onChange={e => handleValor(attr.codigo, e.target.value)}
           />
+        );
+      case 'COMPOSTO':
+        return (
+          <div key={attr.codigo} className="col-span-2">
+            <p className="font-medium mb-2">{attr.nome}</p>
+            <div className="grid grid-cols-2 gap-4 pl-4">
+              {attr.subAtributos?.map(sa => renderCampo(sa))}
+            </div>
+          </div>
         );
       default:
         return (
