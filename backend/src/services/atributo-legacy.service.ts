@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 
 export interface DominioDTO {
   codigo: string
-  descricao: string
+  descricao: string | null
 }
 
 export interface AtributoEstruturaDTO {
