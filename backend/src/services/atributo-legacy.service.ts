@@ -122,8 +122,7 @@ export class AtributoLegacyService {
         if (row.mascara !== null) attr.validacoes.mascara = row.mascara
         map.set(row.codigo, attr)
       } else {
-        if (row.parent_codigo) attr.parentCodigo = row.parent_codigo
-        attr.condicionanteCodigo = row.condicionante_codigo
+        attr.parentCodigo = row.parent_codigo || row.condicionante_codigo
         attr.descricaoCondicao = row.descricao_condicao || attr.descricaoCondicao
       }
       if (row.dominio_codigo) {

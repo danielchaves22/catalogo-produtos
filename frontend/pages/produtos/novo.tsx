@@ -16,7 +16,6 @@ interface AtributoEstrutura {
   validacoes?: Record<string, any>;
   descricaoCondicao?: string;
   parentCodigo?: string;
-  condicionanteCodigo?: string;
   subAtributos?: AtributoEstrutura[];
 }
 
@@ -39,14 +38,13 @@ export default function NovoProdutoPage() {
   }
 
   function condicaoAtendida(attr: AtributoEstrutura): boolean {
-    if (!attr.descricaoCondicao || !attr.condicionanteCodigo) return true;
+    if (!attr.descricaoCondicao || !attr.parentCodigo) return true;
 
-    const match = attr.descricaoCondicao
-      .toLowerCase()
-      .match(/valor\s*=\s*['"]?([^'"\s]+)['"]?/);
+    const regex = /valor\s*=\s*'?"?(\w+)"?'?/i;
+    const match = attr.descricaoCondicao.match(regex);
     if (!match) return true;
     const esperado = match[1];
-    const atual = (valores[attr.condicionanteCodigo] || '').toLowerCase();
+    const atual = valores[attr.parentCodigo] || '';
     return atual === esperado;
   }
 
