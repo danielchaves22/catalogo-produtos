@@ -16,6 +16,7 @@ export interface AtributoEstruturaDTO {
   dominio?: DominioDTO[]
   descricaoCondicao?: string
   parentCodigo?: string
+  condicionanteCodigo?: string
   subAtributos?: AtributoEstruturaDTO[]
 }
 
@@ -111,7 +112,8 @@ export class AtributoLegacyService {
           obrigatorio: Boolean(row.obrigatorio),
           multivalorado: Boolean(row.multivalorado),
           validacoes: {},
-          parentCodigo: row.parent_codigo || row.condicionante_codigo,
+          parentCodigo: row.parent_codigo || undefined,
+          condicionanteCodigo: row.condicionante_codigo,
           descricaoCondicao: row.descricao_condicao || undefined,
           dominio: []
         }
