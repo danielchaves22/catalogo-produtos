@@ -3,6 +3,10 @@ const { execSync } = require('child_process');
 const path = require('path');
 
 module.exports = async () => {
+  if (process.env.SKIP_PRISMA_GENERATE) {
+    console.log('> [jest.global-setup] SKIP_PRISMA_GENERATE flag ativa, pulando migracao');
+    return;
+  }
   // Carrega as vars do .env.test
   require('dotenv').config({ path: path.resolve(__dirname, '.env.test') });
   process.env.NODE_ENV = 'test';

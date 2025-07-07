@@ -1,5 +1,6 @@
 import { legacyPrisma } from '../utils/prisma'
 import { Prisma } from '@prisma/client'
+import { parseJsonSafe } from '../utils/parse-json'
 
 export interface DominioDTO {
   codigo: string
@@ -114,8 +115,8 @@ export class AtributoLegacyService {
           validacoes: {},
           parentCodigo: row.condicionante_codigo,
           condicionanteCodigo: row.condicionante_codigo,
-          descricaoCondicao: row.descricao_condicao || undefined,
-          condicao: row.condicao ? JSON.parse(row.condicao) : undefined,
+        descricaoCondicao: row.descricao_condicao || undefined,
+        condicao: row.condicao ? parseJsonSafe(row.condicao) : undefined,
           dominio: []
         }
         if (row.tamanho_maximo !== null) attr.validacoes.tamanho_maximo = row.tamanho_maximo
@@ -125,7 +126,7 @@ export class AtributoLegacyService {
       } else {
         attr.parentCodigo = row.condicionante_codigo
         attr.descricaoCondicao = row.descricao_condicao || attr.descricaoCondicao
-        if (row.condicao) attr.condicao = JSON.parse(row.condicao)
+        if (row.condicao) attr.condicao = parseJsonSafe(row.condicao)
       }
       if (row.dominio_codigo) {
         if (!attr.dominio) attr.dominio = []
