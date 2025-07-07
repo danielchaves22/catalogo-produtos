@@ -71,10 +71,11 @@ export default function NovoProdutoPage() {
 
   function condicaoAtendida(attr: AtributoEstrutura): boolean {
     if (!attr.parentCodigo) return true;
-    const atual = valores[attr.parentCodigo] || '';
+    const atual = valores[attr.parentCodigo];
+    if (atual === undefined || atual === '') return false;
 
     if (attr.condicao) {
-      return avaliarExpressao(attr.condicao, atual);
+      return avaliarExpressao(attr.condicao, String(atual));
     }
 
     if (!attr.descricaoCondicao) return true;

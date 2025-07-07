@@ -125,8 +125,10 @@ export class ProdutoService {
 
   private condicaoAtendida(attr: AtributoEstruturaDTO, valores: Record<string, any>): boolean {
     if (!attr.parentCodigo) return true;
-    const atual = String(valores[attr.parentCodigo] ?? '');
-    if (attr.condicao) return this.avaliarExpressao(attr.condicao, atual);
+    const atual = valores[attr.parentCodigo];
+    if (atual === undefined || atual === '') return false;
+    const atualStr = String(atual);
+    if (attr.condicao) return this.avaliarExpressao(attr.condicao, atualStr);
     if (!attr.descricaoCondicao) return true;
     const match = attr.descricaoCondicao.match(/valor\s*=\s*'?"?(\w+)"?'?/i);
     if (!match) return true;
