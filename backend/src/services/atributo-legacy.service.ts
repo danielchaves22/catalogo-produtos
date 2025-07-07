@@ -89,7 +89,7 @@ export class AtributoLegacyService {
           obrigatorio: Boolean(row.obrigatorio),
           multivalorado: Boolean(row.multivalorado),
           validacoes: {},
-          parentCodigo: row.parent_codigo || undefined,
+          parentCodigo: row.parent_codigo || row.condicionante_codigo || undefined,
           dominio: []
         }
         if (row.tamanho_maximo !== null) attr.validacoes.tamanho_maximo = row.tamanho_maximo
@@ -112,7 +112,7 @@ export class AtributoLegacyService {
           obrigatorio: Boolean(row.obrigatorio),
           multivalorado: Boolean(row.multivalorado),
           validacoes: {},
-          parentCodigo: row.parent_codigo || undefined,
+          parentCodigo: row.parent_codigo || row.condicionante_codigo || undefined,
           condicionanteCodigo: row.condicionante_codigo,
           descricaoCondicao: row.descricao_condicao || undefined,
           dominio: []
@@ -122,7 +122,7 @@ export class AtributoLegacyService {
         if (row.mascara !== null) attr.validacoes.mascara = row.mascara
         map.set(row.codigo, attr)
       } else {
-        attr.parentCodigo = row.parent_codigo || row.condicionante_codigo
+        attr.parentCodigo = attr.parentCodigo || row.parent_codigo || row.condicionante_codigo
         attr.descricaoCondicao = row.descricao_condicao || attr.descricaoCondicao
       }
       if (row.dominio_codigo) {

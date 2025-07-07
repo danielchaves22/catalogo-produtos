@@ -73,6 +73,10 @@ erDiagram
     }
 ```
 
+### 2.2 Importação da Estrutura Legada
+
+Os arquivos desta pasta permitem recriar e popular o banco de dados legado. Utilize o script `DDL_ATRIBUTOS.SQL` para gerar as tabelas e o `generate_atributo_inserts.py` juntamente com `exemplo_atributo.json` para produzir os `INSERTs` correspondentes.
+
 ## 3. Detalhamento das Tabelas
 
 ### 3.1 Tabela `atributo` - Definição Principal

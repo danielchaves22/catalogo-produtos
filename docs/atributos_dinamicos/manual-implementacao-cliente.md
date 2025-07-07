@@ -1,10 +1,6 @@
-### 12.1 Otimizações de Banco
+# Manual de Integração - Sistema de Atributos Dinâmicos
 
-#### 12.1.1 Índices Essenciais
-```sql
--- Para OPÇÃO 1 (tabela separada):
-CREATE INDEX idx_produto_atributos_produto ON produto_atributos(produto_id);
-CREATE INDEX idx_# Manual de Integração - Sistema de Atributos Dinâmicos
+Este documento orienta como integrar o sistema de atributos dinâmicos ao seu aplicativo.
 
 ## Sumário
 
