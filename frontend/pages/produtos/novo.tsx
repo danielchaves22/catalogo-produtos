@@ -26,12 +26,43 @@ export default function NovoProdutoPage() {
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
   const [valores, setValores] = useState<Record<string, string>>({});
 
+  function ordenarAtributos(lista: AtributoEstrutura[]): AtributoEstrutura[] {
+    const map = new Map(lista.map(a => [a.codigo, a]));
+    const resultado: AtributoEstrutura[] = [];
+    const visitados = new Set<string>();
+
+    function inserir(attr: AtributoEstrutura) {
+      if (visitados.has(attr.codigo)) return;
+      visitados.add(attr.codigo);
+      if (attr.subAtributos) {
+        attr.subAtributos = ordenarAtributos(attr.subAtributos);
+      }
+      resultado.push(attr);
+      for (const a of lista) {
+        if (a.parentCodigo === attr.codigo && map.get(attr.codigo)?.tipo !== 'COMPOSTO') {
+          inserir(a);
+        }
+      }
+    }
+
+    for (const attr of lista) {
+      if (!attr.parentCodigo || map.get(attr.parentCodigo)?.tipo === 'COMPOSTO') {
+        inserir(attr);
+      }
+    }
+
+    for (const attr of lista) if (!visitados.has(attr.codigo)) inserir(attr);
+
+    return resultado;
+  }
+
   async function carregarEstrutura() {
     if (ncm.length < 8) return;
     const response = await api.get(
       `/siscomex/atributos/ncm/${ncm}?modalidade=${modalidade}`
     );
-    setEstrutura(response.data.dados || []);
+    const dados: AtributoEstrutura[] = response.data.dados || [];
+    setEstrutura(ordenarAtributos(dados));
   }
 
   function handleValor(codigo: string, valor: string) {
@@ -69,6 +100,8 @@ export default function NovoProdutoPage() {
     return ok;
   }
 
+  // A visibilidade dos atributos condicionados é verificada a cada alteração
+  // pois o componente re-renderiza sempre que 'valores' é atualizado.
   function condicaoAtendida(attr: AtributoEstrutura): boolean {
     if (!attr.parentCodigo) return true;
     const atual = valores[attr.parentCodigo];
