@@ -6,7 +6,7 @@ export function parseJsonSafe(text: string): any | undefined {
   } catch (_) {
     try {
       const normalized = text
-        .replace(/\b'([^']*)'(?=\s*:)/g, '"$1"')
+        .replace(/'([^']*)'(?=\s*:)/g, '"$1"')
         .replace(/:\s*'([^']*)'/g, ': "$1"')
       return JSON.parse(normalized)
     } catch (error) {
