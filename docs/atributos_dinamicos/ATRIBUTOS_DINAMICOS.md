@@ -50,8 +50,17 @@ erDiagram
         varchar atributo_codigo FK
         varchar codigo
         varchar nome
+        varchar nome_apresentacao
+        varchar forma_preenchimento
         boolean obrigatorio
+        boolean multivalorado
+        int tamanho_maximo
+        int casas_decimais
+        varchar mascara
         text descricao_condicao
+        text condicao
+        date data_inicio_vigencia
+        date data_fim_vigencia
     }
     
     atributo_dominio {
@@ -140,13 +149,15 @@ Define como o atributo será preenchido pelo usuário:
 ### 3.2 Tabela `atributo_condicionado` - Regras Condicionais
 
 Define atributos que só aparecem quando condições específicas são atendidas.
+Nessa tabela são armazenados **todos** os detalhes do atributo que só deve ser exibido quando a condição é verdadeira.
 
 #### 3.2.1 Funcionamento
 
-1. O campo `atributo_codigo` referencia o atributo condicionante (pai)
-2. `descricao_condicao` define a regra (ex: "Quando valor = 'SIM'")
-3. O atributo condicionado herda a maioria das características do atributo base
-4. `obrigatorio` define se é mandatório quando a condição é satisfeita
+1. `atributo_codigo` referencia o atributo condicionante (código do pai)
+2. Os campos `nome`, `nome_apresentacao`, `forma_preenchimento`, `tamanho_maximo`, `casas_decimais`, `mascara`, `multivalorado`, etc. são próprios do atributo condicionado e seguem o mesmo significado da tabela `atributo`
+3. `descricao_condicao` é uma descrição legível da regra, enquanto `condicao` armazena a expressão em JSON (operadores `==`, `!=`, `>`, `<`, composição `&&`/`||`)
+4. `obrigatorio` e `multivalorado` podem ser sobrescritos pelos campos `obrigatorio_con` e `multivalorado_con` para vigências específicas
+5. `data_inicio_vigencia_con` e `data_fim_vigencia_con` definem a validade da regra condicional
 
 #### 3.2.2 Exemplo Prático
 

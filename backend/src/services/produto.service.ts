@@ -2,7 +2,7 @@
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { Prisma } from '@prisma/client';
-import { AtributoLegacyService } from './atributo-legacy.service';
+import { AtributoLegacyService, AtributoEstruturaDTO } from './atributo-legacy.service';
 
 export interface CreateProdutoDTO {
   codigo: string;
@@ -28,6 +28,14 @@ export class ProdutoService {
       data.modalidade
     );
 
+    const erros = this.validarValores(
+      (data.valoresAtributos ?? {}) as Record<string, any>,
+      estrutura
+    );
+    if (Object.keys(erros).length > 0) {
+      throw new Error('Erros de validação: ' + JSON.stringify(erros));
+    }
+
     return catalogoPrisma.$transaction(async (tx) => {
       const produto = await tx.produto.create({
         data: {
@@ -45,7 +53,7 @@ export class ProdutoService {
         data: {
           produtoId: produto.id,
           valoresJson: (data.valoresAtributos ?? {}) as Prisma.InputJsonValue,
-          estruturaSnapshotJson: estrutura as Prisma.InputJsonValue
+          estruturaSnapshotJson: estrutura as unknown as Prisma.InputJsonValue
         }
       });
 
@@ -56,13 +64,13 @@ export class ProdutoService {
   private async obterEstruturaAtributos(
     ncm: string,
     modalidade: string
-  ): Promise<Prisma.InputJsonValue> {
+  ): Promise<AtributoEstruturaDTO[]> {
     const cache = await catalogoPrisma.atributosCache.findFirst({
       where: { ncmCodigo: ncm, modalidade },
       orderBy: { versao: 'desc' }
     });
     if (cache) {
-      return cache.estruturaJson as Prisma.InputJsonValue;
+      return cache.estruturaJson as unknown as AtributoEstruturaDTO[];
     }
 
     try {
@@ -77,10 +85,96 @@ export class ProdutoService {
           versao: 1
         }
       });
-      return estruturaJson;
+      return estrutura;
     } catch (error) {
       logger.error('Erro ao obter atributos do legacy:', error);
-      return {} as Prisma.InputJsonValue;
+      return [];
     }
+  }
+
+  private avaliarExpressao(cond: any, valor: string): boolean {
+    if (!cond) return true;
+    const esperado = cond.valor;
+    let ok = true;
+    switch (cond.operador) {
+      case '==':
+        ok = valor === esperado;
+        break;
+      case '!=':
+        ok = valor !== esperado;
+        break;
+      case '>':
+        ok = Number(valor) > Number(esperado);
+        break;
+      case '>=':
+        ok = Number(valor) >= Number(esperado);
+        break;
+      case '<':
+        ok = Number(valor) < Number(esperado);
+        break;
+      case '<=':
+        ok = Number(valor) <= Number(esperado);
+        break;
+    }
+    if (cond.condicao) {
+      const next = this.avaliarExpressao(cond.condicao, valor);
+      return cond.composicao === '||' ? ok || next : ok && next;
+    }
+    return ok;
+  }
+
+  private condicaoAtendida(attr: AtributoEstruturaDTO, valores: Record<string, any>): boolean {
+    if (!attr.parentCodigo) return true;
+    const atual = String(valores[attr.parentCodigo] ?? '');
+    if (attr.condicao) return this.avaliarExpressao(attr.condicao, atual);
+    if (!attr.descricaoCondicao) return true;
+    const match = attr.descricaoCondicao.match(/valor\s*=\s*'?"?(\w+)"?'?/i);
+    if (!match) return true;
+    return atual === match[1];
+  }
+
+  private validarValores(valores: Record<string, any>, estrutura: AtributoEstruturaDTO[]): Record<string, string> {
+    const erros: Record<string, string> = {};
+
+    const todos: AtributoEstruturaDTO[] = [];
+    function coletar(attrs: AtributoEstruturaDTO[]) {
+      for (const a of attrs) {
+        todos.push(a);
+        if (a.subAtributos) coletar(a.subAtributos);
+      }
+    }
+    coletar(estrutura);
+
+    for (const attr of todos) {
+      if (!this.condicaoAtendida(attr, valores)) continue;
+      const v = valores[attr.codigo];
+      if (attr.obrigatorio && (v === undefined || v === '')) {
+        erros[attr.codigo] = 'Obrigatório';
+        continue;
+      }
+      if (v === undefined || v === '') continue;
+
+      if (attr.validacoes?.tamanho_maximo && String(v).length > attr.validacoes.tamanho_maximo) {
+        erros[attr.codigo] = 'Tamanho máximo excedido';
+        continue;
+      }
+      switch (attr.tipo) {
+        case 'NUMERO_INTEIRO':
+          if (!/^[-]?\d+$/.test(String(v))) erros[attr.codigo] = 'Número inteiro inválido';
+          break;
+        case 'NUMERO_REAL':
+          if (isNaN(Number(v))) erros[attr.codigo] = 'Número real inválido';
+          break;
+        case 'LISTA_ESTATICA':
+          if (attr.dominio && !attr.dominio.some(d => d.codigo == v)) {
+            erros[attr.codigo] = 'Valor fora do domínio';
+          }
+          break;
+        case 'BOOLEANO':
+          if (v !== 'true' && v !== 'false') erros[attr.codigo] = 'Valor booleano inválido';
+          break;
+      }
+    }
+    return erros;
   }
 }

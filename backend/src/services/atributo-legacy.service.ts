@@ -15,6 +15,7 @@ export interface AtributoEstruturaDTO {
   validacoes: Record<string, any>
   dominio?: DominioDTO[]
   descricaoCondicao?: string
+  condicao?: any
   parentCodigo?: string
   condicionanteCodigo?: string
   subAtributos?: AtributoEstruturaDTO[]
@@ -56,19 +57,18 @@ export class AtributoLegacyService {
       tamanho_maximo: number | null
       casas_decimais: number | null
       mascara: string | null
-      parent_codigo: string | null
       descricao_condicao: string | null
+      condicao: string | null
       dominio_codigo: string | null
       dominio_descricao: string | null
     }>>(Prisma.sql`
       SELECT ac.atributo_codigo AS condicionante_codigo,
-             a.codigo, a.nome_apresentacao, a.forma_preenchimento,
-             ac.obrigatorio, a.multivalorado, a.tamanho_maximo,
-             a.casas_decimais, a.mascara, a.parent_codigo,
-             ac.descricao_condicao, ad.codigo AS dominio_codigo,
+             ac.codigo, ac.nome_apresentacao, ac.forma_preenchimento,
+             ac.obrigatorio, ac.multivalorado, ac.tamanho_maximo,
+             ac.casas_decimais, ac.mascara,
+             ac.descricao_condicao, ac.condicao, ad.codigo AS dominio_codigo,
              ad.descricao AS dominio_descricao
       FROM atributo_condicionado ac
-        JOIN atributo a ON a.codigo = ac.codigo
         LEFT JOIN atributo_dominio ad ON ad.atributo_codigo = ac.codigo
       WHERE ac.atributo_codigo IN (
         SELECT codigo FROM atributo_vinculo
@@ -112,9 +112,10 @@ export class AtributoLegacyService {
           obrigatorio: Boolean(row.obrigatorio),
           multivalorado: Boolean(row.multivalorado),
           validacoes: {},
-          parentCodigo: row.parent_codigo || undefined,
+          parentCodigo: row.condicionante_codigo,
           condicionanteCodigo: row.condicionante_codigo,
           descricaoCondicao: row.descricao_condicao || undefined,
+          condicao: row.condicao ? JSON.parse(row.condicao) : undefined,
           dominio: []
         }
         if (row.tamanho_maximo !== null) attr.validacoes.tamanho_maximo = row.tamanho_maximo
@@ -122,8 +123,9 @@ export class AtributoLegacyService {
         if (row.mascara !== null) attr.validacoes.mascara = row.mascara
         map.set(row.codigo, attr)
       } else {
-        attr.parentCodigo = row.parent_codigo || row.condicionante_codigo
+        attr.parentCodigo = row.condicionante_codigo
         attr.descricaoCondicao = row.descricao_condicao || attr.descricaoCondicao
+        if (row.condicao) attr.condicao = JSON.parse(row.condicao)
       }
       if (row.dominio_codigo) {
         if (!attr.dominio) attr.dominio = []

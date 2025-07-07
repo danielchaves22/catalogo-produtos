@@ -1,0 +1,39 @@
+# Catálogo de Produtos
+
+Este repositório contém uma aplicação exemplo de cadastro de produtos com atributos dinâmicos.
+O projeto é dividido em dois módulos principais:
+
+- **backend/**: API em Node.js/Express com Prisma
+- **frontend/**: Aplicação Next.js para interface de usuário
+
+## Pré-requisitos
+
+- Node.js 18 ou superior
+- Docker (opcional para rodar via `docker-compose`)
+
+## Instalação e uso
+
+1. Instale as dependências de todos os módulos:
+   ```bash
+   npm install
+   npm run install:all
+   ```
+2. Gere os builds de produção:
+   ```bash
+   npm run build:all
+   ```
+3. Para executar com Docker:
+   ```bash
+   docker-compose up -d
+   ```
+   O backend ficará em `http://localhost:3000` e o frontend em `http://localhost:3001`.
+
+Para desenvolvimento separado, utilize os scripts `npm run start:backend` e `npm run start:frontend` em terminais distintos.
+
+## Testes
+
+Execute `npm test -- --passWithNoTests` na raiz do projeto.
+
+---
+
+Consulte a pasta `docs/` para mais informações sobre a modelagem dos atributos dinâmicos e demais guias de implementação.

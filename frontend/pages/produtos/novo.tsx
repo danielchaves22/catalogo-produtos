@@ -15,6 +15,7 @@ interface AtributoEstrutura {
   dominio?: { codigo: string; descricao: string }[];
   validacoes?: Record<string, any>;
   descricaoCondicao?: string;
+  condicao?: any;
   parentCodigo?: string;
   subAtributos?: AtributoEstrutura[];
 }
@@ -37,14 +38,50 @@ export default function NovoProdutoPage() {
     setValores(prev => ({ ...prev, [codigo]: valor }));
   }
 
-  function condicaoAtendida(attr: AtributoEstrutura): boolean {
-    if (!attr.descricaoCondicao || !attr.parentCodigo) return true;
+  function avaliarExpressao(cond: any, valor: string): boolean {
+    if (!cond) return true;
+    const esperado = cond.valor;
+    let ok = true;
+    switch (cond.operador) {
+      case '==':
+        ok = valor === esperado;
+        break;
+      case '!=':
+        ok = valor !== esperado;
+        break;
+      case '>':
+        ok = Number(valor) > Number(esperado);
+        break;
+      case '>=':
+        ok = Number(valor) >= Number(esperado);
+        break;
+      case '<':
+        ok = Number(valor) < Number(esperado);
+        break;
+      case '<=':
+        ok = Number(valor) <= Number(esperado);
+        break;
+    }
+    if (cond.condicao) {
+      const next = avaliarExpressao(cond.condicao, valor);
+      return cond.composicao === '||' ? ok || next : ok && next;
+    }
+    return ok;
+  }
 
+  function condicaoAtendida(attr: AtributoEstrutura): boolean {
+    if (!attr.parentCodigo) return true;
+    const atual = valores[attr.parentCodigo] || '';
+
+    if (attr.condicao) {
+      return avaliarExpressao(attr.condicao, atual);
+    }
+
+    if (!attr.descricaoCondicao) return true;
     const regex = /valor\s*=\s*'?"?(\w+)"?'?/i;
     const match = attr.descricaoCondicao.match(regex);
     if (!match) return true;
     const esperado = match[1];
-    const atual = valores[attr.parentCodigo] || '';
     return atual === esperado;
   }
 
