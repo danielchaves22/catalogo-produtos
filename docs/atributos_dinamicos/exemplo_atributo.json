@@ -1,0 +1,1819 @@
+{"vinculo" : [{
+    "codigoNcm" : "0403.20.00",
+    "listaAtributos" : [ {
+      "codigo" : "ATT_9324",
+      "modalidade" : "Importação",
+      "obrigatorio" : false,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2023-11-06"
+    }]}, {
+    "codigoNcm" : "0504.00.11",
+    "listaAtributos" : [ {
+
+      "codigo" : "ATT_14545",
+      "modalidade" : "Importação",
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-29"
+    }]}]
+, "detalhesAtributos" : [ {
+    "codigo" : "ATT_14545",
+    "nome" : "Categoria regulatória Catálogo Anvisa",
+    "nomeApresentacao" : "Categoria regulatória - Anvisa",
+    "orientacaoPreenchimento" : "Classificar o produto conforme definição da Agência Nacional de Vigilância Sanitária. Caso o produto não esteja sujeito a controle pela Anvisa, deverá ser assinalado o valor \"99\".",
+    "formaPreenchimento" : "LISTA_ESTATICA",
+    "dataInicioVigencia" : "2025-06-13",
+    "dataFimVigencia" : "",
+    "dominio" : [ {
+      "codigo" : "99",
+      "descricao" : "Não se aplica (produto não sujeito à fiscalização sanitária)"
+    }, {
+      "codigo" : "80",
+      "descricao" : "Alimento (e insumo) para indústria/uso humano"
+    }, {
+      "codigo" : "81",
+      "descricao" : "Cosmético, produtos de higiene e perfume (e insumos) para indústria/uso humano"
+    }, {
+      "codigo" : "82",
+      "descricao" : "Dispositivo médico (e componentes) para indústria/uso humano"
+    }, {
+      "codigo" : "83",
+      "descricao" : "Medicamento (e insumos) para indústria/uso humano"
+    }, {
+      "codigo" : "84",
+      "descricao" : "Medicamentos ou substâncias com finalidade controlada pela Portaria SVS/MS 344/1998"
+    }, {
+      "codigo" : "85",
+      "descricao" : "Padrão/Material/Substância de referência (primário/CQ/proficiência)"
+    }, {
+      "codigo" : "86",
+      "descricao" : "Saneante (e insumos) para indústria/uso humano"
+    }, {
+      "codigo" : "87",
+      "descricao" : "Sangue, tecidos, células e órgãos"
+    }, {
+      "codigo" : "88",
+      "descricao" : "Produtos fumígenos"
+    }, {
+      "codigo" : "89",
+      "descricao" : "Mamadeiras, bicos, chupetas, mordedores"
+    }, {
+      "codigo" : "90",
+      "descricao" : "Produto de Cannabis"
+    } ],
+    "objetivos" : [ {
+      "codigo" : 3,
+      "descricao" : "Tratamento administrativo"
+    }, {
+      "codigo" : 7,
+      "descricao" : "Produto"
+    } ],
+    "orgaos" : [ "ANVISA" ],
+    "atributoCondicionante" : true,
+    "condicionados" : [ {
+      "obrigatorio" : false,
+      "multivalorado" : true,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Diferente '99' E 'ATT_14545' Diferente '85' E 'ATT_14545' Diferente '87' E 'ATT_14545' Diferente '89' E 'ATT_14545' Diferente '90'",
+      "condicao" : {
+        "operador" : "!=",
+        "valor" : "99",
+        "composicao" : "&&",
+        "condicao" : {
+          "operador" : "!=",
+          "valor" : "85",
+          "composicao" : "&&",
+          "condicao" : {
+            "operador" : "!=",
+            "valor" : "87",
+            "composicao" : "&&",
+            "condicao" : {
+              "operador" : "!=",
+              "valor" : "89",
+              "composicao" : "&&",
+              "condicao" : {
+                "operador" : "!=",
+                "valor" : "90"
+              }
+            }
+          }
+        }
+      },
+      "atributo" : {
+        "codigo" : "ATT_14551",
+        "nome" : "Número de regularização no SNVS Catálogo",
+        "nomeApresentacao" : "Número de regularização no SNVS",
+        "orientacaoPreenchimento" : "Regularização=registro, cadastro, notificação ou comunicação de importação. Componentes de DM - indicar nº de regularização do equipamento médico. Kits/bandejas/sistemas com mais de uma regularização",
+        "formaPreenchimento" : "TEXTO",
+        "tamanhoMaximo" : 30,
+        "obrigatorio" : false,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : true
+      }
+    }, {
+      "obrigatorio" : false,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-07-02",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '81' OU 'ATT_14545' Igual '82' OU 'ATT_14545' Igual '84' OU 'ATT_14545' Igual '86'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "81",
+        "composicao" : "||",
+        "condicao" : {
+          "operador" : "==",
+          "valor" : "82",
+          "composicao" : "||",
+          "condicao" : {
+            "operador" : "==",
+            "valor" : "84",
+            "composicao" : "||",
+            "condicao" : {
+              "operador" : "==",
+              "valor" : "86"
+            }
+          }
+        }
+      },
+      "atributo" : {
+        "codigo" : "ATT_14860",
+        "nome" : "Apresentação Catálogo Anvisa_",
+        "nomeApresentacao" : "Forma de apresentação",
+        "orientacaoPreenchimento" : "Indicar as apresentações do produto conforme definição do fabricante.\nProdutos kits, bandejas ou sistemas deverão ter todas as apresentações citadas no campo, separados por ponto e vírgula \";\".",
+        "formaPreenchimento" : "TEXTO",
+        "tamanhoMaximo" : 512,
+        "obrigatorio" : false,
+        "dataInicioVigencia" : "2025-06-27",
+        "dataFimVigencia" : "",
+        "dominio" : [ ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Diferente '99'",
+      "condicao" : {
+        "operador" : "!=",
+        "valor" : "99"
+      },
+      "atributo" : {
+        "codigo" : "ATT_14546",
+        "nome" : "Prazo de validade Catálogo Anvisa",
+        "nomeApresentacao" : "Prazo de validade",
+        "orientacaoPreenchimento" : "Indicar o prazo de validade em anos, meses, dias, horas ou \"indeterminado\". Para produtos regularizados no SNVS, este prazo deve ser idêntico ao indicado na regularização.",
+        "formaPreenchimento" : "TEXTO",
+        "tamanhoMaximo" : 30,
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : true,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Diferente '99'",
+      "condicao" : {
+        "operador" : "!=",
+        "valor" : "99"
+      },
+      "atributo" : {
+        "codigo" : "ATT_14556",
+        "nome" : "Condição armazenamento catálogo Anvisa",
+        "nomeApresentacao" : "Condição de armazenamento",
+        "orientacaoPreenchimento" : "Armazenagem é condição de prateleira do produto.\nCaso o produto possua componentes com temperaturas de armazenagem diferentes, selecionar todas as condições existentes.",
+        "formaPreenchimento" : "LISTA_ESTATICA",
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ {
+          "codigo" : "1",
+          "descricao" : "Armazenar abaixo de -150°C"
+        }, {
+          "codigo" : "2",
+          "descricao" : "Armazenar abaixo de -70°C"
+        }, {
+          "codigo" : "3",
+          "descricao" : "Armazenar abaixo de -20°C"
+        }, {
+          "codigo" : "4",
+          "descricao" : "Armazenar a temperatura entre 0 e -20°C (freezer)"
+        }, {
+          "codigo" : "5",
+          "descricao" : "Armazenar entre 0 e 8°C"
+        }, {
+          "codigo" : "6",
+          "descricao" : "Armazenar entre 2 e 8°C"
+        }, {
+          "codigo" : "7",
+          "descricao" : "Armazenar entre 9 e 15°C"
+        }, {
+          "codigo" : "8",
+          "descricao" : "Armazenar entre 15 e 30°C"
+        }, {
+          "codigo" : "9",
+          "descricao" : "Armazenar em temperatura ambiente inferior a 25°C"
+        }, {
+          "codigo" : "10",
+          "descricao" : "Armazenar em temperatura inferior a 30°C"
+        }, {
+          "codigo" : "11",
+          "descricao" : "Não apresenta cuidados especiais de conservação"
+        }, {
+          "codigo" : "99",
+          "descricao" : "Outros (especifique)"
+        } ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : true
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : true,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Diferente '99'",
+      "condicao" : {
+        "operador" : "!=",
+        "valor" : "99"
+      },
+      "atributo" : {
+        "codigo" : "ATT_14560",
+        "nome" : "Condição transporte Catálogo Anvisa",
+        "nomeApresentacao" : "Condição de transporte",
+        "formaPreenchimento" : "LISTA_ESTATICA",
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ {
+          "codigo" : "1",
+          "descricao" : "Armazenar abaixo de -150°C"
+        }, {
+          "codigo" : "2",
+          "descricao" : "Armazenar abaixo de -70°C"
+        }, {
+          "codigo" : "3",
+          "descricao" : "Armazenar abaixo de -20°C"
+        }, {
+          "codigo" : "4",
+          "descricao" : "Armazenar a temperatura entre 0 e -20°C (freezer)"
+        }, {
+          "codigo" : "5",
+          "descricao" : "Armazenar entre 0 e 8°C"
+        }, {
+          "codigo" : "6",
+          "descricao" : "Armazenar entre 2 e 8°C"
+        }, {
+          "codigo" : "7",
+          "descricao" : "Armazenar entre 9 e 15°C"
+        }, {
+          "codigo" : "8",
+          "descricao" : "Armazenar entre 15 e 30°C"
+        }, {
+          "codigo" : "9",
+          "descricao" : "Armazenar em temperatura ambiente inferior a 25°C"
+        }, {
+          "codigo" : "10",
+          "descricao" : "Armazenar em temperatura inferior a 30°C"
+        }, {
+          "codigo" : "11",
+          "descricao" : "Não apresenta cuidados especiais de conservação"
+        }, {
+          "codigo" : "99",
+          "descricao" : "Outros (especifique)"
+        } ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : true
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Diferente '99' E 'ATT_14545' Diferente '89' E 'ATT_14545' Diferente '85' E 'ATT_14545' Diferente '87' E 'ATT_14545' Diferente '90'",
+      "condicao" : {
+        "operador" : "!=",
+        "valor" : "99",
+        "composicao" : "&&",
+        "condicao" : {
+          "operador" : "!=",
+          "valor" : "89",
+          "composicao" : "&&",
+          "condicao" : {
+            "operador" : "!=",
+            "valor" : "85",
+            "composicao" : "&&",
+            "condicao" : {
+              "operador" : "!=",
+              "valor" : "87",
+              "composicao" : "&&",
+              "condicao" : {
+                "operador" : "!=",
+                "valor" : "90"
+              }
+            }
+          }
+        }
+      },
+      "atributo" : {
+        "codigo" : "ATT_14540",
+        "nome" : "Estágio de Fabricação Catálogo Anvisa",
+        "nomeApresentacao" : "Estágio de fabricação",
+        "formaPreenchimento" : "LISTA_ESTATICA",
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ {
+          "codigo" : "01",
+          "descricao" : "Produto acabado"
+        }, {
+          "codigo" : "02",
+          "descricao" : "Granel"
+        }, {
+          "codigo" : "03",
+          "descricao" : "Semiacabado"
+        }, {
+          "codigo" : "04",
+          "descricao" : "Matérias-primas ou outros insumos (exceto IFA)"
+        }, {
+          "codigo" : "05",
+          "descricao" : "Insumo Farmacêutico Ativo"
+        }, {
+          "codigo" : "06",
+          "descricao" : "Componente de produto acabado - peça"
+        }, {
+          "codigo" : "07",
+          "descricao" : "Componente de produto acabado - acessório"
+        } ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '83' OU 'ATT_14545' Igual '84' OU 'ATT_14545' Igual '90'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "83",
+        "composicao" : "||",
+        "condicao" : {
+          "operador" : "==",
+          "valor" : "84",
+          "composicao" : "||",
+          "condicao" : {
+            "operador" : "==",
+            "valor" : "90"
+          }
+        }
+      },
+      "atributo" : {
+        "codigo" : "ATT_14561",
+        "nome" : "Importação fabricante medic. Catálogo",
+        "nomeApresentacao" : "Importação por/para fabricante",
+        "orientacaoPreenchimento" : "Selecionar SIM se o produto for importado para fabricação de medicamento.",
+        "formaPreenchimento" : "BOOLEANO",
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '84' OU 'ATT_14545' Igual '90'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "84",
+        "composicao" : "||",
+        "condicao" : {
+          "operador" : "==",
+          "valor" : "90"
+        }
+      },
+      "atributo" : {
+        "codigo" : "ATT_14541",
+        "nome" : "Lista da Portaria SVS/MS 344 Catálogo",
+        "nomeApresentacao" : "Lista da Portaria SVS/MS nº 344/1998",
+        "formaPreenchimento" : "LISTA_ESTATICA",
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ {
+          "codigo" : "01",
+          "descricao" : "Lista A1, A2, A3, B1, B2, C3 ou D1"
+        }, {
+          "codigo" : "02",
+          "descricao" : "Lista C1, C2 ou C5"
+        }, {
+          "codigo" : "03",
+          "descricao" : "Listas E ou F"
+        } ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '83' OU 'ATT_14545' Igual '84' OU 'ATT_14545' Igual '90' OU 'ATT_14545' Igual '82'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "83",
+        "composicao" : "||",
+        "condicao" : {
+          "operador" : "==",
+          "valor" : "84",
+          "composicao" : "||",
+          "condicao" : {
+            "operador" : "==",
+            "valor" : "90",
+            "composicao" : "||",
+            "condicao" : {
+              "operador" : "==",
+              "valor" : "82"
+            }
+          }
+        }
+      },
+      "atributo" : {
+        "codigo" : "ATT_14554",
+        "nome" : "Contém derivado animal ruminante Catálog",
+        "nomeApresentacao" : "Contém derivado de animal ruminante",
+        "orientacaoPreenchimento" : "Selecionar SIM se o produto for de uso humano e possuir material de partida de bovino",
+        "formaPreenchimento" : "BOOLEANO",
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '83' OU 'ATT_14545' Igual '84'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "83",
+        "composicao" : "||",
+        "condicao" : {
+          "operador" : "==",
+          "valor" : "84"
+        }
+      },
+      "atributo" : {
+        "codigo" : "ATT_14562",
+        "nome" : "Forma farmacêutica Catálogo",
+        "nomeApresentacao" : "Forma farmacêutica",
+        "formaPreenchimento" : "TEXTO",
+        "tamanhoMaximo" : 50,
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : false,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '84' OU 'ATT_14545' Igual '85'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "84",
+        "composicao" : "||",
+        "condicao" : {
+          "operador" : "==",
+          "valor" : "85"
+        }
+      },
+      "atributo" : {
+        "codigo" : "ATT_14552",
+        "nome" : "Teor de pureza Catálogo Anvisa",
+        "nomeApresentacao" : "Teor de pureza",
+        "orientacaoPreenchimento" : "Indicar a % do teor de pureza, somente se o produto for padrão de referência",
+        "formaPreenchimento" : "NUMERO_REAL",
+        "tamanhoMaximo" : 5,
+        "casasDecimais" : 2,
+        "obrigatorio" : false,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '81' OU 'ATT_14545' Igual '86'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "81",
+        "composicao" : "||",
+        "condicao" : {
+          "operador" : "==",
+          "valor" : "86"
+        }
+      },
+      "atributo" : {
+        "codigo" : "ATT_14553",
+        "nome" : "Forma física Catálogo Anvisa cosm sanean",
+        "nomeApresentacao" : "Forma física",
+        "formaPreenchimento" : "LISTA_ESTATICA",
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ {
+          "codigo" : "1",
+          "descricao" : "Adesivo"
+        }, {
+          "codigo" : "2",
+          "descricao" : "Aerossol"
+        }, {
+          "codigo" : "3",
+          "descricao" : "Bastão"
+        }, {
+          "codigo" : "4",
+          "descricao" : "Cápsula dura"
+        }, {
+          "codigo" : "5",
+          "descricao" : "Cápsula mole"
+        }, {
+          "codigo" : "6",
+          "descricao" : "Cartela"
+        }, {
+          "codigo" : "7",
+          "descricao" : "Cera"
+        }, {
+          "codigo" : "8",
+          "descricao" : "Chip"
+        }, {
+          "codigo" : "9",
+          "descricao" : "Colírio"
+        }, {
+          "codigo" : "10",
+          "descricao" : "Colódio"
+        }, {
+          "codigo" : "11",
+          "descricao" : "Colutório"
+        }, {
+          "codigo" : "12",
+          "descricao" : "Compressa"
+        }, {
+          "codigo" : "13",
+          "descricao" : "Comprimido"
+        }, {
+          "codigo" : "14",
+          "descricao" : "Comprimido revestido"
+        }, {
+          "codigo" : "15",
+          "descricao" : "Creme"
+        }, {
+          "codigo" : "16",
+          "descricao" : "Granulado"
+        }, {
+          "codigo" : "17",
+          "descricao" : "Curativo"
+        }, {
+          "codigo" : "18",
+          "descricao" : "Decocto"
+        }, {
+          "codigo" : "19",
+          "descricao" : "Disco"
+        }, {
+          "codigo" : "20",
+          "descricao" : "Loção"
+        }, {
+          "codigo" : "21",
+          "descricao" : "Drágea"
+        }, {
+          "codigo" : "22",
+          "descricao" : "Ducha"
+        }, {
+          "codigo" : "23",
+          "descricao" : "Elixir"
+        }, {
+          "codigo" : "24",
+          "descricao" : "Emplasto"
+        }, {
+          "codigo" : "25",
+          "descricao" : "Emugel"
+        }, {
+          "codigo" : "26",
+          "descricao" : "Emulsão"
+        }, {
+          "codigo" : "27",
+          "descricao" : "Microcápsulas"
+        }, {
+          "codigo" : "28",
+          "descricao" : "Escamas"
+        }, {
+          "codigo" : "29",
+          "descricao" : "Esmalte"
+        }, {
+          "codigo" : "30",
+          "descricao" : "Pads"
+        }, {
+          "codigo" : "31",
+          "descricao" : "Pasta"
+        }, {
+          "codigo" : "32",
+          "descricao" : "Espuma"
+        }, {
+          "codigo" : "33",
+          "descricao" : "Pomada"
+        }, {
+          "codigo" : "34",
+          "descricao" : "Filme"
+        }, {
+          "codigo" : "35",
+          "descricao" : "Fio"
+        }, {
+          "codigo" : "36",
+          "descricao" : "Solução"
+        }, {
+          "codigo" : "37",
+          "descricao" : "Suspensão"
+        }, {
+          "codigo" : "38",
+          "descricao" : "Gaze"
+        }, {
+          "codigo" : "39",
+          "descricao" : "Vareta"
+        }, {
+          "codigo" : "40",
+          "descricao" : "Vela"
+        }, {
+          "codigo" : "41",
+          "descricao" : "Óleo"
+        }, {
+          "codigo" : "42",
+          "descricao" : "Goma"
+        }, {
+          "codigo" : "44",
+          "descricao" : "Grânulo"
+        }, {
+          "codigo" : "45",
+          "descricao" : "Haste"
+        }, {
+          "codigo" : "46",
+          "descricao" : "Implante"
+        }, {
+          "codigo" : "47",
+          "descricao" : "Infusão"
+        }, {
+          "codigo" : "48",
+          "descricao" : "Injetável"
+        }, {
+          "codigo" : "49",
+          "descricao" : "Isca"
+        }, {
+          "codigo" : "50",
+          "descricao" : "Lâmina"
+        }, {
+          "codigo" : "51",
+          "descricao" : "Lenço"
+        }, {
+          "codigo" : "52",
+          "descricao" : "Licor"
+        }, {
+          "codigo" : "53",
+          "descricao" : "Linimento"
+        }, {
+          "codigo" : "54",
+          "descricao" : "Lipossoma"
+        }, {
+          "codigo" : "56",
+          "descricao" : "Melito"
+        }, {
+          "codigo" : "58",
+          "descricao" : "Mousse"
+        }, {
+          "codigo" : "59",
+          "descricao" : "Nanossoma"
+        }, {
+          "codigo" : "61",
+          "descricao" : "Óvulo"
+        }, {
+          "codigo" : "63",
+          "descricao" : "Palito"
+        }, {
+          "codigo" : "65",
+          "descricao" : "Pastilha"
+        }, {
+          "codigo" : "66",
+          "descricao" : "Pellets"
+        }, {
+          "codigo" : "67",
+          "descricao" : "Pérola"
+        }, {
+          "codigo" : "68",
+          "descricao" : "Pessário"
+        }, {
+          "codigo" : "69",
+          "descricao" : "Pílula"
+        }, {
+          "codigo" : "70",
+          "descricao" : "Pó"
+        }, {
+          "codigo" : "72",
+          "descricao" : "Rasura"
+        }, {
+          "codigo" : "73",
+          "descricao" : "Sabonete"
+        }, {
+          "codigo" : "74",
+          "descricao" : "Sachê"
+        }, {
+          "codigo" : "75",
+          "descricao" : "Sistema"
+        }, {
+          "codigo" : "77",
+          "descricao" : "SPGV"
+        }, {
+          "codigo" : "78",
+          "descricao" : "SPPV"
+        }, {
+          "codigo" : "79",
+          "descricao" : "Spray"
+        }, {
+          "codigo" : "80",
+          "descricao" : "Supositório"
+        }, {
+          "codigo" : "82",
+          "descricao" : "Tablete"
+        }, {
+          "codigo" : "83",
+          "descricao" : "Tala"
+        }, {
+          "codigo" : "84",
+          "descricao" : "Tintura"
+        }, {
+          "codigo" : "85",
+          "descricao" : "Unguento"
+        }, {
+          "codigo" : "88",
+          "descricao" : "Xampu"
+        }, {
+          "codigo" : "89",
+          "descricao" : "Xarope"
+        }, {
+          "codigo" : "90",
+          "descricao" : "Outros"
+        } ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Diferente '99' E 'ATT_14545' Diferente '82' E 'ATT_14545' Diferente '83' E 'ATT_14545' Diferente '84' E 'ATT_14545' Diferente '85' E 'ATT_14545' Diferente '87' E 'ATT_14545' Diferente '88' E 'ATT_14545' Diferente '89' E 'ATT_14545' Diferente '90'",
+      "condicao" : {
+        "operador" : "!=",
+        "valor" : "99",
+        "composicao" : "&&",
+        "condicao" : {
+          "operador" : "!=",
+          "valor" : "82",
+          "composicao" : "&&",
+          "condicao" : {
+            "operador" : "!=",
+            "valor" : "83",
+            "composicao" : "&&",
+            "condicao" : {
+              "operador" : "!=",
+              "valor" : "84",
+              "composicao" : "&&",
+              "condicao" : {
+                "operador" : "!=",
+                "valor" : "85",
+                "composicao" : "&&",
+                "condicao" : {
+                  "operador" : "!=",
+                  "valor" : "87",
+                  "composicao" : "&&",
+                  "condicao" : {
+                    "operador" : "!=",
+                    "valor" : "88",
+                    "composicao" : "&&",
+                    "condicao" : {
+                      "operador" : "!=",
+                      "valor" : "89",
+                      "composicao" : "&&",
+                      "condicao" : {
+                        "operador" : "!=",
+                        "valor" : "90"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "atributo" : {
+        "codigo" : "ATT_14550",
+        "nome" : "Material embalagem catálogo Anvisa",
+        "nomeApresentacao" : "Material de embalagem",
+        "formaPreenchimento" : "LISTA_ESTATICA",
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ {
+          "codigo" : "1",
+          "descricao" : "Ampola"
+        }, {
+          "codigo" : "2",
+          "descricao" : "Balde plástico"
+        }, {
+          "codigo" : "3",
+          "descricao" : "Bandeja de alumínio"
+        }, {
+          "codigo" : "4",
+          "descricao" : "Bandeja de flandres"
+        }, {
+          "codigo" : "5",
+          "descricao" : "Bandeja plástica"
+        }, {
+          "codigo" : "6",
+          "descricao" : "Base de cortiça"
+        }, {
+          "codigo" : "7",
+          "descricao" : "Berço"
+        }, {
+          "codigo" : "8",
+          "descricao" : "Bisnaga de alumínio"
+        }, {
+          "codigo" : "9",
+          "descricao" : "Bisnaga de alumínio revestida"
+        }, {
+          "codigo" : "10",
+          "descricao" : "Bisnaga de alumínio/plástico"
+        }, {
+          "codigo" : "11",
+          "descricao" : "Bisnaga de plástico"
+        }, {
+          "codigo" : "12",
+          "descricao" : "Bisnaga plástico laminado"
+        }, {
+          "codigo" : "13",
+          "descricao" : "Bisnaga polietileno"
+        }, {
+          "codigo" : "14",
+          "descricao" : "Blíster de alumínio/plástico"
+        }, {
+          "codigo" : "15",
+          "descricao" : "Blíster de cartolina/plástico"
+        }, {
+          "codigo" : "16",
+          "descricao" : "Blíster de papel/plástico"
+        }, {
+          "codigo" : "17",
+          "descricao" : "Blíster plástico"
+        }, {
+          "codigo" : "18",
+          "descricao" : "Blister PVC"
+        }, {
+          "codigo" : "19",
+          "descricao" : "Bolsa plástica"
+        }, {
+          "codigo" : "20",
+          "descricao" : "Bombona plástica"
+        }, {
+          "codigo" : "21",
+          "descricao" : "Caixa de acetato"
+        }, {
+          "codigo" : "22",
+          "descricao" : "Caixa de cartolina"
+        }, {
+          "codigo" : "23",
+          "descricao" : "Caixa de isopor"
+        }, {
+          "codigo" : "24",
+          "descricao" : "Caixa de madeira"
+        }, {
+          "codigo" : "25",
+          "descricao" : "Caixa de papelão"
+        }, {
+          "codigo" : "26",
+          "descricao" : "Caixa display de cartolina"
+        }, {
+          "codigo" : "27",
+          "descricao" : "Caixa plástica"
+        }, {
+          "codigo" : "28",
+          "descricao" : "Caneta"
+        }, {
+          "codigo" : "29",
+          "descricao" : "Cápsula"
+        }, {
+          "codigo" : "30",
+          "descricao" : "Cartela de cartolina"
+        }, {
+          "codigo" : "31",
+          "descricao" : "Cartela de plástico"
+        }, {
+          "codigo" : "32",
+          "descricao" : "Cartolina de acetado"
+        }, {
+          "codigo" : "33",
+          "descricao" : "Cartucho de acetato"
+        }, {
+          "codigo" : "34",
+          "descricao" : "Cartucho de cartolina"
+        }, {
+          "codigo" : "35",
+          "descricao" : "Cartucho de papelão"
+        }, {
+          "codigo" : "36",
+          "descricao" : "Cartucho de plástico"
+        }, {
+          "codigo" : "37",
+          "descricao" : "Celofane"
+        }, {
+          "codigo" : "38",
+          "descricao" : "Envelope de alumínio"
+        }, {
+          "codigo" : "39",
+          "descricao" : "Envelope de alumínio e plástico"
+        }, {
+          "codigo" : "40",
+          "descricao" : "Envelope de alumínio laminado"
+        }, {
+          "codigo" : "41",
+          "descricao" : "Envelope de papel"
+        }, {
+          "codigo" : "42",
+          "descricao" : "Envelope de papel / alumínio / plástico"
+        }, {
+          "codigo" : "43",
+          "descricao" : "Envelope kraft"
+        }, {
+          "codigo" : "44",
+          "descricao" : "Envelope kraft e plástico"
+        }, {
+          "codigo" : "45",
+          "descricao" : "Envelope plástico"
+        }, {
+          "codigo" : "46",
+          "descricao" : "Escova dental"
+        }, {
+          "codigo" : "47",
+          "descricao" : "Estojo de alumínio"
+        }, {
+          "codigo" : "48",
+          "descricao" : "Estojo de cartolina"
+        }, {
+          "codigo" : "49",
+          "descricao" : "Estojo de couro"
+        }, {
+          "codigo" : "50",
+          "descricao" : "Estojo de madeira"
+        }, {
+          "codigo" : "51",
+          "descricao" : "Estojo de nylon"
+        }, {
+          "codigo" : "52",
+          "descricao" : "Estojo de papel"
+        }, {
+          "codigo" : "53",
+          "descricao" : "Estojo de papelão"
+        }, {
+          "codigo" : "54",
+          "descricao" : "Estojo de plástico"
+        }, {
+          "codigo" : "55",
+          "descricao" : "Estojo de plástico + bandeja de alumínio"
+        }, {
+          "codigo" : "56",
+          "descricao" : "Estojo de plástico + bandeja de flandres"
+        }, {
+          "codigo" : "57",
+          "descricao" : "Estojo metálico"
+        }, {
+          "codigo" : "58",
+          "descricao" : "Fibralata"
+        }, {
+          "codigo" : "59",
+          "descricao" : "Filme de poliéster metalizado"
+        }, {
+          "codigo" : "60",
+          "descricao" : "Filme de polietileno"
+        }, {
+          "codigo" : "61",
+          "descricao" : "Filme de polipropileno"
+        }, {
+          "codigo" : "62",
+          "descricao" : "Filme plástico"
+        }, {
+          "codigo" : "63",
+          "descricao" : "Filme plástico metalizado"
+        }, {
+          "codigo" : "64",
+          "descricao" : "Filme poliéster"
+        }, {
+          "codigo" : "65",
+          "descricao" : "Flaconete de alumínio"
+        }, {
+          "codigo" : "66",
+          "descricao" : "Flaconete de plástico"
+        }, {
+          "codigo" : "67",
+          "descricao" : "Flaconete de plástico com gotejador"
+        }, {
+          "codigo" : "68",
+          "descricao" : "Flaconete de vidro"
+        }, {
+          "codigo" : "69",
+          "descricao" : "Flaconete de vidro com gotejador"
+        }, {
+          "codigo" : "70",
+          "descricao" : "Folha de alumínio"
+        }, {
+          "codigo" : "71",
+          "descricao" : "Frasco de acrílico com válvula dosadora"
+        }, {
+          "codigo" : "72",
+          "descricao" : "Frasco de alumínio"
+        }, {
+          "codigo" : "73",
+          "descricao" : "Frasco de alumínio com válvula dosadora"
+        }, {
+          "codigo" : "74",
+          "descricao" : "Frasco de cerâmica"
+        }, {
+          "codigo" : "75",
+          "descricao" : "Frasco de plástico"
+        }, {
+          "codigo" : "76",
+          "descricao" : "Frasco de plástico com gotejador"
+        }, {
+          "codigo" : "77",
+          "descricao" : "Frasco de plástico com válvula dosadora"
+        }, {
+          "codigo" : "78",
+          "descricao" : "Frasco de plástico com válvula spray"
+        }, {
+          "codigo" : "79",
+          "descricao" : "Frasco de vidro"
+        }, {
+          "codigo" : "80",
+          "descricao" : "Frasco de vidro com conta gotas"
+        }, {
+          "codigo" : "81",
+          "descricao" : "Frasco de vidro com válvula dosadora"
+        }, {
+          "codigo" : "82",
+          "descricao" : "Frasco de vidro com válvula spray"
+        }, {
+          "codigo" : "83",
+          "descricao" : "Frasco de vidro gotejador"
+        }, {
+          "codigo" : "84",
+          "descricao" : "Frasco metálico com válvula spray"
+        }, {
+          "codigo" : "85",
+          "descricao" : "Frasco metálico revestido"
+        }, {
+          "codigo" : "86",
+          "descricao" : "Frasnaga"
+        }, {
+          "codigo" : "87",
+          "descricao" : "Frasqueira plástica"
+        }, {
+          "codigo" : "88",
+          "descricao" : "Galão"
+        }, {
+          "codigo" : "89",
+          "descricao" : "Granel"
+        }, {
+          "codigo" : "90",
+          "descricao" : "Lápis de madeira"
+        }, {
+          "codigo" : "91",
+          "descricao" : "Lápis de plástico"
+        }, {
+          "codigo" : "92",
+          "descricao" : "Lapiseira"
+        }, {
+          "codigo" : "93",
+          "descricao" : "Lata de alumínio"
+        }, {
+          "codigo" : "94",
+          "descricao" : "Lata de flandres"
+        }, {
+          "codigo" : "95",
+          "descricao" : "Luva lacre"
+        }, {
+          "codigo" : "96",
+          "descricao" : "Luva lacre/blíster"
+        }, {
+          "codigo" : "97",
+          "descricao" : "Papel"
+        }, {
+          "codigo" : "98",
+          "descricao" : "Papel cartão"
+        }, {
+          "codigo" : "99",
+          "descricao" : "Papel celofane"
+        }, {
+          "codigo" : "100",
+          "descricao" : "Papel couché"
+        }, {
+          "codigo" : "101",
+          "descricao" : "Papel kraft"
+        }, {
+          "codigo" : "102",
+          "descricao" : "Papel manteiga"
+        }, {
+          "codigo" : "103",
+          "descricao" : "Papel parafinado"
+        }, {
+          "codigo" : "104",
+          "descricao" : "Papel parafinado com revestimento de poliéster"
+        }, {
+          "codigo" : "105",
+          "descricao" : "Papel de seda"
+        }, {
+          "codigo" : "106",
+          "descricao" : "Papel sulfite"
+        }, {
+          "codigo" : "107",
+          "descricao" : "Porta crayon retratil ou não"
+        }, {
+          "codigo" : "108",
+          "descricao" : "Pote de acrílico"
+        }, {
+          "codigo" : "109",
+          "descricao" : "Pote de alumínio"
+        }, {
+          "codigo" : "110",
+          "descricao" : "Pote de isopor"
+        }, {
+          "codigo" : "111",
+          "descricao" : "Pote de papelão"
+        }, {
+          "codigo" : "112",
+          "descricao" : "Pote de plástico"
+        }, {
+          "codigo" : "113",
+          "descricao" : "Pote de porcelana"
+        }, {
+          "codigo" : "114",
+          "descricao" : "Pote de vidro"
+        }, {
+          "codigo" : "115",
+          "descricao" : "Pouchs"
+        }, {
+          "codigo" : "116",
+          "descricao" : "Produto somente contém embalagem primária"
+        }, {
+          "codigo" : "117",
+          "descricao" : "Refil"
+        }, {
+          "codigo" : "118",
+          "descricao" : "Sachê"
+        }, {
+          "codigo" : "119",
+          "descricao" : "Saco aluminizado"
+        }, {
+          "codigo" : "120",
+          "descricao" : "Saco de papel"
+        }, {
+          "codigo" : "121",
+          "descricao" : "Saco plástico"
+        }, {
+          "codigo" : "122",
+          "descricao" : "Saco tecido"
+        }, {
+          "codigo" : "123",
+          "descricao" : "Shrink"
+        }, {
+          "codigo" : "124",
+          "descricao" : "Strip"
+        }, {
+          "codigo" : "125",
+          "descricao" : "Tecido de poliamida e elastano"
+        }, {
+          "codigo" : "126",
+          "descricao" : "Tecido não tecido"
+        }, {
+          "codigo" : "127",
+          "descricao" : "Tubo de acrílico"
+        }, {
+          "codigo" : "128",
+          "descricao" : "Tubo de alumínio"
+        }, {
+          "codigo" : "129",
+          "descricao" : "Tubo de flandres"
+        }, {
+          "codigo" : "130",
+          "descricao" : "Tubo de papel/papelão"
+        }, {
+          "codigo" : "131",
+          "descricao" : "Tubo laminado"
+        }, {
+          "codigo" : "132",
+          "descricao" : "Tubo plástico"
+        } ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Diferente '99' E 'ATT_14545' Diferente '82' E 'ATT_14545' Diferente '83' E 'ATT_14545' Diferente '84' E 'ATT_14545' Diferente '85' E 'ATT_14545' Diferente '87' E 'ATT_14545' Diferente '88' E 'ATT_14545' Diferente '89' E 'ATT_14545' Diferente '90'",
+      "condicao" : {
+        "operador" : "!=",
+        "valor" : "99",
+        "composicao" : "&&",
+        "condicao" : {
+          "operador" : "!=",
+          "valor" : "82",
+          "composicao" : "&&",
+          "condicao" : {
+            "operador" : "!=",
+            "valor" : "83",
+            "composicao" : "&&",
+            "condicao" : {
+              "operador" : "!=",
+              "valor" : "84",
+              "composicao" : "&&",
+              "condicao" : {
+                "operador" : "!=",
+                "valor" : "85",
+                "composicao" : "&&",
+                "condicao" : {
+                  "operador" : "!=",
+                  "valor" : "87",
+                  "composicao" : "&&",
+                  "condicao" : {
+                    "operador" : "!=",
+                    "valor" : "88",
+                    "composicao" : "&&",
+                    "condicao" : {
+                      "operador" : "!=",
+                      "valor" : "89",
+                      "composicao" : "&&",
+                      "condicao" : {
+                        "operador" : "!=",
+                        "valor" : "90"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "atributo" : {
+        "codigo" : "ATT_14557",
+        "nome" : "Conteúdo Catálogo Anvisa",
+        "nomeApresentacao" : "Conteúdo",
+        "orientacaoPreenchimento" : "Indicar o conteúdo líquido do alimento, cosmético ou saneante.\nProdutos kits deverão ter todos os conteúdos citados no campo, separados por ponto e vírgula \";\".",
+        "formaPreenchimento" : "TEXTO",
+        "tamanhoMaximo" : 60,
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : true,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '83' OU 'ATT_14545' Igual '84'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "83",
+        "composicao" : "||",
+        "condicao" : {
+          "operador" : "==",
+          "valor" : "84"
+        }
+      },
+      "atributo" : {
+        "codigo" : "ATT_14543",
+        "nome" : "Subcategoria medicamentos catálogo Anvis",
+        "nomeApresentacao" : "Subcategoria de medicamentos",
+        "formaPreenchimento" : "LISTA_ESTATICA",
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ {
+          "codigo" : "1",
+          "descricao" : "Dinamizado"
+        }, {
+          "codigo" : "2",
+          "descricao" : "Específico"
+        }, {
+          "codigo" : "3",
+          "descricao" : "Fitoterápico"
+        }, {
+          "codigo" : "4",
+          "descricao" : "Genérico"
+        }, {
+          "codigo" : "5",
+          "descricao" : "Novo"
+        }, {
+          "codigo" : "6",
+          "descricao" : "Produto de terapia avançada"
+        }, {
+          "codigo" : "7",
+          "descricao" : "Radiofármaco"
+        }, {
+          "codigo" : "8",
+          "descricao" : "Similar"
+        }, {
+          "codigo" : "9",
+          "descricao" : "Medicamento de baixo risco"
+        }, {
+          "codigo" : "10",
+          "descricao" : "Gases medicinais"
+        }, {
+          "codigo" : "11",
+          "descricao" : "Produto de Cannabis"
+        }, {
+          "codigo" : "12",
+          "descricao" : "Produto da MTC*"
+        }, {
+          "codigo" : "13",
+          "descricao" : "Biológico - Hemoderivado"
+        }, {
+          "codigo" : "14",
+          "descricao" : "Biológico - Soro e vacina"
+        }, {
+          "codigo" : "15",
+          "descricao" : "Biológico - Derivado de fluido e tecido animal"
+        }, {
+          "codigo" : "16",
+          "descricao" : "Biológico - Alérgenos"
+        }, {
+          "codigo" : "17",
+          "descricao" : "Biológico - Obtido por biotecnologia"
+        }, {
+          "codigo" : "18",
+          "descricao" : "Biológico - Anticorpos monoclonais"
+        }, {
+          "codigo" : "19",
+          "descricao" : "Biológico - Contendo micro-organismos"
+        }, {
+          "codigo" : "20",
+          "descricao" : "Biológico - Probiótico"
+        } ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : true
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '82'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "82"
+      },
+      "atributo" : {
+        "codigo" : "ATT_14555",
+        "nome" : "Unidade fabril Catálogo Anvisa",
+        "nomeApresentacao" : "Unidade(s) fabril(is)",
+        "orientacaoPreenchimento" : "Indicar a(s) unidade(s)fabril(s) do dispositivo médico ou do componente.\nExemplo: Razão social1;endereço1;país1; Razão social2; endereço2; país2; etc.",
+        "formaPreenchimento" : "TEXTO",
+        "tamanhoMaximo" : 200,
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '82'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "82"
+      },
+      "atributo" : {
+        "codigo" : "ATT_14547",
+        "nome" : "Disp médico ou comp estéril Catálogo",
+        "nomeApresentacao" : "Dispositivo médico ou componente estéril",
+        "formaPreenchimento" : "BOOLEANO",
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : true,
+        "condicionados" : [ {
+          "obrigatorio" : true,
+          "multivalorado" : false,
+          "dataInicioVigencia" : "2025-06-14",
+          "dataFimVigencia" : "",
+          "descricaoCondicao" : " 'ATT_14547' Igual 'true'",
+          "condicao" : {
+            "operador" : "==",
+            "valor" : "true"
+          },
+          "atributo" : {
+            "codigo" : "ATT_14548",
+            "nome" : "Método esterilização Catálogo Anvisa",
+            "nomeApresentacao" : "Método de esterilização",
+            "orientacaoPreenchimento" : "Indicar o(s) método(s) de esterilização validados para o produto.\nProdutos com mais de um método de esterilização deverão ter todos  citados no campo separados por ponto e vírgula \";\".",
+            "formaPreenchimento" : "TEXTO",
+            "tamanhoMaximo" : 25,
+            "obrigatorio" : true,
+            "dataInicioVigencia" : "2025-06-13",
+            "dataFimVigencia" : "",
+            "dominio" : [ ],
+            "objetivos" : [ {
+              "codigo" : 7,
+              "descricao" : "Produto"
+            } ],
+            "orgaos" : [ "ANVISA" ],
+            "atributoCondicionante" : false,
+            "condicionados" : [ ],
+            "listaSubatributos" : [ ],
+            "multivalorado" : false
+          }
+        } ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : false,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '81'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "81"
+      },
+      "atributo" : {
+        "codigo" : "ATT_14549",
+        "nome" : "Tonalidade - Catálogo Anvisa",
+        "nomeApresentacao" : "Tonalidade",
+        "orientacaoPreenchimento" : "Indicar a(s) tonalidade(s) do produto, caso haja tal condição.\nProdutos kits deverão ter todas as tonalidades citadas no campo, separados por ponto e vírgula \";\".",
+        "formaPreenchimento" : "TEXTO",
+        "tamanhoMaximo" : 100,
+        "obrigatorio" : false,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '87'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "87"
+      },
+      "atributo" : {
+        "codigo" : "ATT_14542",
+        "nome" : "Tipo de material biol. humano catálogo",
+        "nomeApresentacao" : "Tipo de material biológico humano",
+        "formaPreenchimento" : "LISTA_ESTATICA",
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ {
+          "codigo" : "01",
+          "descricao" : "Células, tecidos, gametas e embriões humanos para fins terapêuticos (CTGE)"
+        }, {
+          "codigo" : "02",
+          "descricao" : "Amostra biológica humana para diagnóstico laboratorial"
+        }, {
+          "codigo" : "03",
+          "descricao" : "Amostra biológica humana para teste dopagem"
+        }, {
+          "codigo" : "04",
+          "descricao" : "Amostra biológica humana para pesquisa"
+        } ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    }, {
+      "obrigatorio" : true,
+      "multivalorado" : false,
+      "dataInicioVigencia" : "2025-06-14",
+      "dataFimVigencia" : "",
+      "descricaoCondicao" : " 'ATT_14545' Igual '88'",
+      "condicao" : {
+        "operador" : "==",
+        "valor" : "88"
+      },
+      "atributo" : {
+        "codigo" : "ATT_14544",
+        "nome" : "Tipo de produto fumígeno catálogo Anvisa",
+        "nomeApresentacao" : "Tipo de produto fumígeno",
+        "formaPreenchimento" : "LISTA_ESTATICA",
+        "obrigatorio" : true,
+        "dataInicioVigencia" : "2025-06-13",
+        "dataFimVigencia" : "",
+        "dominio" : [ {
+          "codigo" : "1",
+          "descricao" : "Bidis"
+        }, {
+          "codigo" : "2",
+          "descricao" : "Blunt"
+        }, {
+          "codigo" : "3",
+          "descricao" : "Charuto"
+        }, {
+          "codigo" : "4",
+          "descricao" : "Cigarrilha"
+        }, {
+          "codigo" : "5",
+          "descricao" : "Cigarro com filtro"
+        }, {
+          "codigo" : "6",
+          "descricao" : "Cigarro de palha"
+        }, {
+          "codigo" : "7",
+          "descricao" : "Cigarro kretek"
+        }, {
+          "codigo" : "8",
+          "descricao" : "Cigarro sem filtro"
+        }, {
+          "codigo" : "9",
+          "descricao" : "Fumo de rolo"
+        }, {
+          "codigo" : "10",
+          "descricao" : "Fumo desfiado"
+        }, {
+          "codigo" : "11",
+          "descricao" : "Fumo mascável"
+        }, {
+          "codigo" : "12",
+          "descricao" : "Fumo para cachimbo"
+        }, {
+          "codigo" : "13",
+          "descricao" : "Fumo para narguile"
+        }, {
+          "codigo" : "14",
+          "descricao" : "Tabaco de uso oral"
+        }, {
+          "codigo" : "15",
+          "descricao" : "Tabaco inalável"
+        } ],
+        "objetivos" : [ {
+          "codigo" : 7,
+          "descricao" : "Produto"
+        } ],
+        "orgaos" : [ "ANVISA" ],
+        "atributoCondicionante" : false,
+        "condicionados" : [ ],
+        "listaSubatributos" : [ ],
+        "multivalorado" : false
+      }
+    } ],
+    "listaSubatributos" : [ ]
+  }, 
+    {
+    "codigo" : "ATT_9324",
+    "nome" : "Composto embalagem de transporte",
+    "nomeApresentacao" : "Embalagem de transporte",
+    "formaPreenchimento" : "COMPOSTO",
+    "dataInicioVigencia" : "2023-11-06",
+    "dataFimVigencia" : "",
+    "dominio" : [ ],
+    "objetivos" : [ {
+      "codigo" : 7,
+      "descricao" : "Produto"
+    } ],
+    "orgaos" : [ "RECEITA" ],
+    "atributoCondicionante" : false,
+    "condicionados" : [ ],
+    "listaSubatributos" : [ {
+      "codigo" : "ATT_9362",
+      "nome" : "Embalagem de transporte",
+      "nomeApresentacao" : "Tipo",
+      "formaPreenchimento" : "LISTA_ESTATICA",
+      "obrigatorio" : true,
+      "dataInicioVigencia" : "2023-11-06",
+      "dataFimVigencia" : "",
+      "dominio" : [ {
+        "codigo" : "1",
+        "descricao" : "Amarrado/atado/feixe"
+      }, {
+        "codigo" : "2",
+        "descricao" : "Barrica de ferro"
+      } ],
+      "objetivos" : [ {
+        "codigo" : 7,
+        "descricao" : "Produto"
+      } ],
+      "orgaos" : [ "RECEITA" ],
+      "atributoCondicionante" : false,
+      "condicionados" : [ ],
+      "listaSubatributos" : [ ]
+    }, {
+      "codigo" : "ATT_10629",
+      "nome" : "Quantidade da embalagem de transporte",
+      "nomeApresentacao" : "Quantidade (embalagem de transporte)",
+      "formaPreenchimento" : "NUMERO_INTEIRO",
+      "tamanhoMaximo" : 10,
+      "obrigatorio" : true,
+      "dataInicioVigencia" : "2023-11-06",
+      "dataFimVigencia" : "",
+      "dominio" : [ ],
+      "objetivos" : [ {
+        "codigo" : 7,
+        "descricao" : "Produto"
+      } ],
+      "orgaos" : [ "RECEITA" ],
+      "atributoCondicionante" : false,
+      "condicionados" : [ ],
+      "listaSubatributos" : [ ]
+    }, {
+      "codigo" : "ATT_10928",
+      "nome" : "Unidade da embalagem de transporte",
+      "nomeApresentacao" : "Conteúdo (em embalagem primária)",
+      "orientacaoPreenchimento" : "Informe a quantidade de embalagens primárias contidas em uma unidade de embalagem de transporte",
+      "formaPreenchimento" : "TEXTO",
+      "tamanhoMaximo" : 50,
+      "obrigatorio" : true,
+      "dataInicioVigencia" : "2023-11-06",
+      "dataFimVigencia" : "",
+      "dominio" : [ ],
+      "objetivos" : [ {
+        "codigo" : 7,
+        "descricao" : "Produto"
+      } ],
+      "orgaos" : [ "RECEITA" ],
+      "atributoCondicionante" : false,
+      "condicionados" : [ ],
+      "listaSubatributos" : [ ]
+    } ]
+  } ] }
