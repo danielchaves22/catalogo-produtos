@@ -123,8 +123,16 @@ export class ProdutoService {
     return ok;
   }
 
-  private condicaoAtendida(attr: AtributoEstruturaDTO, valores: Record<string, any>): boolean {
+  private condicaoAtendida(
+    attr: AtributoEstruturaDTO,
+    valores: Record<string, any>,
+    mapa: Map<string, AtributoEstruturaDTO>
+  ): boolean {
     if (!attr.parentCodigo) return true;
+
+    const pai = mapa.get(attr.parentCodigo);
+    if (pai && !this.condicaoAtendida(pai, valores, mapa)) return false;
+
     const atual = valores[attr.parentCodigo];
     if (atual === undefined || atual === '') return false;
     const atualStr = String(atual);
@@ -147,8 +155,11 @@ export class ProdutoService {
     }
     coletar(estrutura);
 
+    const mapa = new Map<string, AtributoEstruturaDTO>();
+    for (const a of todos) mapa.set(a.codigo, a);
+
     for (const attr of todos) {
-      if (!this.condicaoAtendida(attr, valores)) continue;
+      if (!this.condicaoAtendida(attr, valores, mapa)) continue;
       const v = valores[attr.codigo];
       if (attr.obrigatorio && (v === undefined || v === '')) {
         erros[attr.codigo] = 'Obrigatório';

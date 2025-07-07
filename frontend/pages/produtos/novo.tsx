@@ -26,6 +26,18 @@ export default function NovoProdutoPage() {
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
   const [valores, setValores] = useState<Record<string, string>>({});
 
+  const mapaEstrutura = React.useMemo(() => {
+    const map = new Map<string, AtributoEstrutura>();
+    function coletar(lista: AtributoEstrutura[]) {
+      for (const a of lista) {
+        map.set(a.codigo, a);
+        if (a.subAtributos) coletar(a.subAtributos);
+      }
+    }
+    coletar(estrutura);
+    return map;
+  }, [estrutura]);
+
   function ordenarAtributos(lista: AtributoEstrutura[]): AtributoEstrutura[] {
     const map = new Map(lista.map(a => [a.codigo, a]));
     const resultado: AtributoEstrutura[] = [];
@@ -104,6 +116,10 @@ export default function NovoProdutoPage() {
   // pois o componente re-renderiza sempre que 'valores' é atualizado.
   function condicaoAtendida(attr: AtributoEstrutura): boolean {
     if (!attr.parentCodigo) return true;
+
+    const pai = mapaEstrutura.get(attr.parentCodigo);
+    if (pai && !condicaoAtendida(pai)) return false;
+
     const atual = valores[attr.parentCodigo];
     if (atual === undefined || atual === '') return false;
 
