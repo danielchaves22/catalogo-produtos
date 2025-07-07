@@ -1,4 +1,5 @@
-{"vinculo" : [{
+{"versao" : "193",
+  "listaNcm" : [{
     "codigoNcm" : "0403.20.00",
     "listaAtributos" : [ {
       "codigo" : "ATT_9324",
