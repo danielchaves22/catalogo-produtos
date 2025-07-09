@@ -25,6 +25,7 @@ interface AtributoEstrutura {
 }
 
 export default function EditarProdutoPage() {
+  const [catalogoNome, setCatalogoNome] = useState('');
   const [ncm, setNcm] = useState('');
   const [modalidade, setModalidade] = useState('IMPORTACAO');
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
@@ -222,6 +223,7 @@ export default function EditarProdutoPage() {
     try {
       const response = await api.get(`/produtos/${produtoId}`);
       const dados = response.data;
+      setCatalogoNome(dados.catalogo?.nome || '');
       setNcm(dados.ncmCodigo);
       setModalidade(dados.modalidade);
       const estr = dados.atributos?.[0]?.estruturaSnapshotJson || [];
@@ -245,7 +247,6 @@ export default function EditarProdutoPage() {
   async function salvar() {
     try {
       await api.put(`/produtos/${id}`, {
-        ncmCodigo: ncm,
         modalidade,
         valoresAtributos: valores
       });
@@ -280,8 +281,9 @@ export default function EditarProdutoPage() {
   return (
     <DashboardLayout title="Editar Produto">
       <Card>
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <Input label="NCM" value={ncm} onChange={e => setNcm(e.target.value)} />
+        <div className="grid grid-cols-4 gap-4 mb-4">
+          <Input label="Catálogo" value={catalogoNome} disabled />
+          <Input label="NCM" value={ncm} disabled />
           <Input label="Modalidade" value={modalidade} onChange={e => setModalidade(e.target.value)} />
           <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
         </div>

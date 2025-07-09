@@ -51,6 +51,9 @@ export async function atualizarProduto(req: Request, res: Response) {
     if (error.message?.includes('não encontrado')) {
       return res.status(404).json({ error: error.message });
     }
+    if (error.message?.includes('não pode ser alterado')) {
+      return res.status(400).json({ error: error.message });
+    }
     logger.error('Erro ao atualizar produto:', error);
     res.status(500).json({ error: error.message });
   }

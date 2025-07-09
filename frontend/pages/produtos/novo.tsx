@@ -1,5 +1,5 @@
 // frontend/pages/produtos/novo.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -24,12 +24,22 @@ interface AtributoEstrutura {
 }
 
 export default function NovoProdutoPage() {
+  const [catalogoId, setCatalogoId] = useState('');
+  const [catalogos, setCatalogos] = useState<Array<{ id: number; nome: string }>>([]);
   const [ncm, setNcm] = useState('');
   const [modalidade, setModalidade] = useState('IMPORTACAO');
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
   const [valores, setValores] = useState<Record<string, string>>({});
   const { addToast } = useToast();
   const router = useRouter();
+
+  useEffect(() => {
+    async function carregarCatalogos() {
+      const res = await api.get('/catalogos');
+      setCatalogos(res.data);
+    }
+    carregarCatalogos();
+  }, []);
 
   const mapaEstrutura = React.useMemo(() => {
     const map = new Map<string, AtributoEstrutura>();
@@ -226,6 +236,7 @@ export default function NovoProdutoPage() {
         codigo: `PROD-${Date.now()}`,
         ncmCodigo: ncm,
         modalidade,
+        catalogoId: Number(catalogoId),
         valoresAtributos: valores
       });
       addToast('Produto salvo com sucesso!', 'success');
@@ -252,16 +263,30 @@ export default function NovoProdutoPage() {
     <DashboardLayout title="Novo Produto">
       <Card>
         <div className="grid grid-cols-3 gap-4 mb-4">
-          <Input label="NCM" value={ncm} onChange={e => setNcm(e.target.value)} />
-          <Input label="Modalidade" value={modalidade} onChange={e => setModalidade(e.target.value)} />
-          <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
+          <Select
+            label="Catálogo"
+            options={catalogos.map(c => ({ value: String(c.id), label: c.nome }))}
+            value={catalogoId}
+            onChange={e => setCatalogoId(e.target.value)}
+          />
+          {catalogoId && (
+            <>
+              <Input label="NCM" value={ncm} onChange={e => setNcm(e.target.value)} />
+              <Input label="Modalidade" value={modalidade} onChange={e => setModalidade(e.target.value)} />
+              <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
+            </>
+          )}
         </div>
 
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          {estrutura.map(attr => renderCampo(attr))}
-        </div>
+        {catalogoId && (
+          <>
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              {estrutura.map(attr => renderCampo(attr))}
+            </div>
 
-        <Button type="button" onClick={salvar} className="mt-4">Salvar Produto</Button>
+            <Button type="button" onClick={salvar} className="mt-4">Salvar Produto</Button>
+          </>
+        )}
       </Card>
     </DashboardLayout>
   );

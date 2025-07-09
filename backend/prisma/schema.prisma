@@ -40,7 +40,8 @@ model Catalogo {
   ultima_alteracao DateTime       @map("ultima_alteracao") 
   numero           Int            @map("numero")
   status           CatalogoStatus @map("status")
-  
+  produtos         Produto[]
+
   @@map("catalogo")
 }
 
@@ -180,6 +181,8 @@ model Produto {
   status                    ProdutoStatus     @map("status")
   ncmCodigo                 String            @map("ncm_codigo")
   modalidade                String?           @map("modalidade")
+  catalogoId                Int               @map("catalogo_id")
+  catalogo                  Catalogo          @relation(fields: [catalogoId], references: [id])
   criadoEm                  DateTime          @default(now()) @map("criado_em")
   atualizadoEm              DateTime          @updatedAt @map("atualizado_em")
   criadoPor                 String?           @map("criado_por")
@@ -187,6 +190,7 @@ model Produto {
   atributos                 ProdutoAtributos[]
 
   @@index([ncmCodigo], name: "idx_ncm")
+  @@index([catalogoId], name: "idx_catalogo")
   @@unique([codigo, versao], name: "uk_codigo_versao")
   @@map("produto")
 }
