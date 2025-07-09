@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { RadioGroup } from '@/components/ui/RadioGroup';
 import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/ToastContext';
+import { useRouter } from 'next/router';
 import api from '@/lib/api';
 
 interface AtributoEstrutura {
@@ -26,6 +28,8 @@ export default function NovoProdutoPage() {
   const [modalidade, setModalidade] = useState('IMPORTACAO');
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
   const [valores, setValores] = useState<Record<string, string>>({});
+  const { addToast } = useToast();
+  const router = useRouter();
 
   const mapaEstrutura = React.useMemo(() => {
     const map = new Map<string, AtributoEstrutura>();
@@ -217,13 +221,31 @@ export default function NovoProdutoPage() {
   }
 
   async function salvar() {
-    await api.post('/produtos', {
-      codigo: `PROD-${Date.now()}`,
-      ncmCodigo: ncm,
-      modalidade,
-      valoresAtributos: valores
-    });
-    alert('Produto salvo');
+    try {
+      await api.post('/produtos', {
+        codigo: `PROD-${Date.now()}`,
+        ncmCodigo: ncm,
+        modalidade,
+        valoresAtributos: valores
+      });
+      addToast('Produto salvo com sucesso!', 'success');
+      router.push('/produtos');
+    } catch (error: any) {
+      handleApiError(error);
+    }
+  }
+
+  function handleApiError(error: any) {
+    if (error.response?.status === 400 && error.response?.data?.details) {
+      const details = error.response.data.details
+        .map((d: any) => `${d.field}: ${d.message}`)
+        .join('; ');
+      addToast(`Erro de valida\u00e7\u00e3o: ${details}`, 'error');
+    } else if (error.response?.data?.error) {
+      addToast(error.response.data.error, 'error');
+    } else {
+      addToast('Erro ao salvar produto', 'error');
+    }
   }
 
   return (

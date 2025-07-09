@@ -3,6 +3,7 @@ import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { Prisma } from '@prisma/client';
 import { AtributoLegacyService, AtributoEstruturaDTO } from './atributo-legacy.service';
+import { ValidationError } from '../types/validation-error';
 
 export interface CreateProdutoDTO {
   codigo: string;
@@ -33,7 +34,7 @@ export class ProdutoService {
       estrutura
     );
     if (Object.keys(erros).length > 0) {
-      throw new Error('Erros de validação: ' + JSON.stringify(erros));
+      throw new ValidationError(erros);
     }
 
     return catalogoPrisma.$transaction(async (tx) => {
