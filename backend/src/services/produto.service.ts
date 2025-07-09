@@ -116,7 +116,10 @@ export class ProdutoService {
 
   async remover(id: number) {
     try {
-      await catalogoPrisma.produto.delete({ where: { id } });
+      await catalogoPrisma.$transaction(async tx => {
+        await tx.produtoAtributos.deleteMany({ where: { produtoId: id } });
+        await tx.produto.delete({ where: { id } });
+      });
     } catch (error: any) {
       const prismaErr = error as Prisma.PrismaClientKnownRequestError;
       if (prismaErr.code === 'P2025') {
