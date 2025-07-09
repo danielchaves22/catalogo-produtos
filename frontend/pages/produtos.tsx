@@ -5,9 +5,11 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { AlertCircle, Plus, Search } from 'lucide-react';
+import { AlertCircle, Plus, Search, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
+import { useToast } from '@/components/ui/ToastContext';
 
 interface Produto {
   id: number;
@@ -27,6 +29,9 @@ export default function ProdutosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
+  const [produtoParaExcluir, setProdutoParaExcluir] = useState<number | null>(null);
+  const router = useRouter();
+  const { addToast } = useToast();
 
   useEffect(() => {
     carregarProdutos();
@@ -66,6 +71,32 @@ export default function ProdutosPage() {
         <PageLoader message="Carregando produtos..." />
       </DashboardLayout>
     );
+  }
+
+  function editarProduto(id: number) {
+    router.push(`/produtos/${id}`);
+  }
+
+  function confirmarExclusao(id: number) {
+    setProdutoParaExcluir(id);
+  }
+
+  function cancelarExclusao() {
+    setProdutoParaExcluir(null);
+  }
+
+  async function excluirProduto() {
+    if (!produtoParaExcluir) return;
+    try {
+      await api.delete(`/produtos/${produtoParaExcluir}`);
+      setProdutos(produtos.filter(p => p.id !== produtoParaExcluir));
+      addToast('Produto excluído com sucesso', 'success');
+    } catch (err) {
+      console.error('Erro ao excluir produto:', err);
+      addToast('Erro ao excluir produto', 'error');
+    } finally {
+      setProdutoParaExcluir(null);
+    }
   }
 
   return (
@@ -113,6 +144,7 @@ export default function ProdutosPage() {
             <table className="w-full text-sm text-left">
               <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
                 <tr>
+                  <th className="w-16 px-4 py-3 text-center">Ações</th>
                   <th className="px-4 py-3">Nº do Catálogo</th>
                   <th className="px-4 py-3">Nome Catálogo</th>
                   <th className="px-4 py-3">Nome do Produto</th>
@@ -125,7 +157,19 @@ export default function ProdutosPage() {
               </thead>
               <tbody>
                 {produtosFiltrados.map((produto) => (
-                  <tr key={produto.id} className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors">
+                  <tr
+                    key={produto.id}
+                    className="border-b border-gray-700 hover:bg-[#1a1f2b] cursor-pointer transition-colors"
+                    onClick={() => editarProduto(produto.id)}
+                  >
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                        onClick={() => confirmarExclusao(produto.id)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
                     <td className="px-4 py-3 font-mono text-[#f59e0b]">{produto.catalogoNumero ?? '-'}</td>
                     <td className="px-4 py-3">{produto.catalogoNome ?? '-'}</td>
                     <td className="px-4 py-3">{produto.nome ?? produto.codigo}</td>
@@ -141,6 +185,25 @@ export default function ProdutosPage() {
           </div>
         )}
       </Card>
+
+      {produtoParaExcluir && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-4">Confirmar Exclusão</h3>
+            <p className="text-gray-300 mb-6">
+              Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={cancelarExclusao}>
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={excluirProduto}>
+                Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

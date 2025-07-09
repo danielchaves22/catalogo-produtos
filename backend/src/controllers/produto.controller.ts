@@ -38,3 +38,34 @@ export async function criarProduto(req: Request, res: Response) {
     res.status(500).json({ error: error.message });
   }
 }
+
+export async function atualizarProduto(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const produto = await produtoService.atualizar(id, req.body);
+    res.json(produto);
+  } catch (error: any) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, details: error.details });
+    }
+    if (error.message?.includes('não encontrado')) {
+      return res.status(404).json({ error: error.message });
+    }
+    logger.error('Erro ao atualizar produto:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function removerProduto(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    await produtoService.remover(id);
+    res.status(204).send();
+  } catch (error: any) {
+    if (error.message?.includes('não encontrado')) {
+      return res.status(404).json({ error: error.message });
+    }
+    logger.error('Erro ao remover produto:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
