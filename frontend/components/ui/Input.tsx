@@ -12,6 +12,7 @@ export function Input({ label, error, className = '', ...props }: InputProps) {
       {label && (
         <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor={props.id}>
           {label}
+          {props.required && <span className="text-red-400 ml-1">*</span>}
         </label>
       )}
       <input
@@ -24,5 +25,4 @@ export function Input({ label, error, className = '', ...props }: InputProps) {
           {error}
         </p>
       )}
-    </div>
-  );}
+    </div>  );}
