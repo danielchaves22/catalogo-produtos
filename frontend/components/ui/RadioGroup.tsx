@@ -34,7 +34,7 @@ export function RadioGroup({
           {required && <span className="text-red-400 ml-1">*</span>}
         </label>
       )}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 text-sm">
         {options.map(opt => (
           <label key={opt.value} className="inline-flex items-center gap-2">
             <input

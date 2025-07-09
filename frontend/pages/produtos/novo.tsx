@@ -196,9 +196,9 @@ export default function NovoProdutoPage() {
         );
       case 'COMPOSTO':
         return (
-          <div key={attr.codigo} className="col-span-2">
-            <p className="font-medium mb-2">{attr.nome}</p>
-            <div className="grid grid-cols-2 gap-4 pl-4">
+          <div key={attr.codigo} className="col-span-3">
+            <p className="font-medium mb-2 text-sm">{attr.nome}</p>
+            <div className="grid grid-cols-3 gap-4 pl-4">
               {attr.subAtributos?.map(sa => renderCampo(sa))}
             </div>
           </div>
@@ -229,13 +229,13 @@ export default function NovoProdutoPage() {
   return (
     <DashboardLayout title="Novo Produto">
       <Card>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-3 gap-4 mb-4">
           <Input label="NCM" value={ncm} onChange={e => setNcm(e.target.value)} />
           <Input label="Modalidade" value={modalidade} onChange={e => setModalidade(e.target.value)} />
           <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4 text-sm">
           {estrutura.map(attr => renderCampo(attr))}
         </div>
 

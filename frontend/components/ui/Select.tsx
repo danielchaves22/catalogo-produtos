@@ -19,7 +19,7 @@ export function Select({ label, options, className = '', error, placeholder = 'S
       )}
       <select
         {...props}
-        className={`w-full px-2 py-1.5 bg-[#1e2126] border rounded-md focus:outline-none focus:ring focus:border-blue-500 text-white appearance-none ${
+        className={`w-full px-2 py-1 text-sm bg-[#1e2126] border rounded-md focus:outline-none focus:ring focus:border-blue-500 text-white appearance-none ${
           error ? 'border-red-500' : 'border-gray-700'
         }`}
         style={{
@@ -43,5 +43,4 @@ export function Select({ label, options, className = '', error, placeholder = 'S
           {error}
         </p>
       )}
-    </div>
-  );}
+    </div>  );}

@@ -16,7 +16,7 @@ export function Input({ label, error, className = '', ...props }: InputProps) {
       )}
       <input
         id={props.id}
-        className="w-full px-2 py-1.5 bg-[#1e2126] border border-gray-700 text-white rounded-md focus:outline-none focus:ring focus:border-blue-500"
+        className="w-full px-2 py-1 text-sm bg-[#1e2126] border border-gray-700 text-white rounded-md focus:outline-none focus:ring focus:border-blue-500"
         {...props}
       />
       {error && (
@@ -25,5 +25,4 @@ export function Input({ label, error, className = '', ...props }: InputProps) {
         </p>
       )}
     </div>
-  );
-}
+  );}
