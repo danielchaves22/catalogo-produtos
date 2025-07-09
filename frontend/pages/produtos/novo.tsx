@@ -10,6 +10,7 @@ import { Tabs } from '@/components/ui/Tabs';
 import { useToast } from '@/components/ui/ToastContext';
 import { useRouter } from 'next/router';
 import api from '@/lib/api';
+import { PageLoader } from '@/components/ui/PageLoader';
 
 interface AtributoEstrutura {
   codigo: string;
@@ -32,6 +33,8 @@ export default function NovoProdutoPage() {
   const [modalidade, setModalidade] = useState('IMPORTACAO');
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
   const [valores, setValores] = useState<Record<string, string>>({});
+  const [loadingEstrutura, setLoadingEstrutura] = useState(false);
+  const [estruturaCarregada, setEstruturaCarregada] = useState(false);
   const { addToast } = useToast();
   const router = useRouter();
 
@@ -87,11 +90,21 @@ export default function NovoProdutoPage() {
 
   async function carregarEstrutura() {
     if (ncm.length < 8) return;
-    const response = await api.get(
-      `/siscomex/atributos/ncm/${ncm}?modalidade=${modalidade}`
-    );
-    const dados: AtributoEstrutura[] = response.data.dados || [];
-    setEstrutura(ordenarAtributos(dados));
+    setLoadingEstrutura(true);
+    try {
+      const response = await api.get(
+        `/siscomex/atributos/ncm/${ncm}?modalidade=${modalidade}`
+      );
+      const dados: AtributoEstrutura[] = response.data.dados || [];
+      setEstrutura(ordenarAtributos(dados));
+      setEstruturaCarregada(true);
+    } catch (error) {
+      console.error('Erro ao carregar atributos:', error);
+      addToast('Erro ao carregar atributos', 'error');
+      setEstruturaCarregada(false);
+    } finally {
+      setLoadingEstrutura(false);
+    }
   }
 
   function handleValor(codigo: string, valor: string) {
@@ -284,32 +297,42 @@ export default function NovoProdutoPage() {
             </div>
           </Card>
 
-          <Card className="mb-6" headerTitle="Dados do Produto">
-            <Tabs
-              tabs={[
-                {
-                  id: 'fixos',
-                  label: 'Dados Fixos',
-                  content: (
-                    <div className="grid grid-cols-3 gap-4">
-                      <Input label="Código" value={codigo} disabled />
-                    </div>
-                  )
-                },
-                {
-                  id: 'dinamicos',
-                  label: 'Atributos Dinâmicos',
-                  content: (
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      {estrutura.map(attr => renderCampo(attr))}
-                    </div>
-                  )
-                }
-              ]}
-            />
-          </Card>
+          {loadingEstrutura && (
+            <Card className="mb-6">
+              <PageLoader message="Carregando dados do produto..." />
+            </Card>
+          )}
 
-          <Button type="button" onClick={salvar}>Salvar Produto</Button>
+          {estruturaCarregada && !loadingEstrutura && (
+            <>
+              <Card className="mb-6" headerTitle="Dados do Produto">
+                <Tabs
+                  tabs={[
+                    {
+                      id: 'fixos',
+                      label: 'Dados Fixos',
+                      content: (
+                        <div className="grid grid-cols-3 gap-4">
+                          <Input label="Código" value={codigo} disabled />
+                        </div>
+                      )
+                    },
+                    {
+                      id: 'dinamicos',
+                      label: 'Atributos Dinâmicos',
+                      content: (
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          {estrutura.map(attr => renderCampo(attr))}
+                        </div>
+                      )
+                    }
+                  ]}
+                />
+              </Card>
+
+              <Button type="button" onClick={salvar}>Salvar Produto</Button>
+            </>
+          )}
         </>
       )}
     </DashboardLayout>
