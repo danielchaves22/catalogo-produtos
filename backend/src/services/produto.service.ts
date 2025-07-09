@@ -13,6 +13,14 @@ export interface CreateProdutoDTO {
   criadoPor?: string;
 }
 
+export interface UpdateProdutoDTO {
+  ncmCodigo?: string;
+  modalidade?: string;
+  status?: 'RASCUNHO' | 'ATIVO' | 'INATIVO';
+  valoresAtributos?: Prisma.InputJsonValue;
+  atualizadoPor?: string;
+}
+
 export class ProdutoService {
   private atributosService = new AtributoLegacyService();
   async listarTodos() {
@@ -60,6 +68,62 @@ export class ProdutoService {
 
       return produto;
     });
+  }
+
+  async atualizar(id: number, data: UpdateProdutoDTO) {
+    const atual = await catalogoPrisma.produto.findUnique({
+      where: { id },
+      include: { atributos: true }
+    });
+    if (!atual) {
+      throw new Error(`Produto ID ${id} não encontrado`);
+    }
+
+    const ncm = data.ncmCodigo || atual.ncmCodigo;
+    const modalidade = data.modalidade || atual.modalidade || '';
+    const estrutura = await this.obterEstruturaAtributos(ncm, modalidade);
+    const valores = (data.valoresAtributos ?? atual.atributos[0]?.valoresJson ?? {}) as Record<string, any>;
+
+    const erros = this.validarValores(valores, estrutura);
+    if (Object.keys(erros).length > 0) {
+      throw new ValidationError(erros);
+    }
+
+    return catalogoPrisma.$transaction(async tx => {
+      const produto = await tx.produto.update({
+        where: { id },
+        data: {
+          ncmCodigo: data.ncmCodigo,
+          modalidade: data.modalidade,
+          status: data.status,
+          versaoEstruturaAtributos: atual.versaoEstruturaAtributos
+        }
+      });
+
+      if (data.valoresAtributos !== undefined) {
+        await tx.produtoAtributos.updateMany({
+          where: { produtoId: id },
+          data: {
+            valoresJson: data.valoresAtributos,
+            estruturaSnapshotJson: estrutura as unknown as Prisma.InputJsonValue
+          }
+        });
+      }
+
+      return produto;
+    });
+  }
+
+  async remover(id: number) {
+    try {
+      await catalogoPrisma.produto.delete({ where: { id } });
+    } catch (error: any) {
+      const prismaErr = error as Prisma.PrismaClientKnownRequestError;
+      if (prismaErr.code === 'P2025') {
+        throw new Error(`Produto ID ${id} não encontrado`);
+      }
+      throw error;
+    }
   }
 
   private async obterEstruturaAtributos(
