@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { RadioGroup } from '@/components/ui/RadioGroup';
 import { Button } from '@/components/ui/Button';
+import { Tabs } from '@/components/ui/Tabs';
 import { useToast } from '@/components/ui/ToastContext';
 import { useRouter } from 'next/router';
 import api from '@/lib/api';
@@ -25,6 +26,7 @@ interface AtributoEstrutura {
 
 export default function NovoProdutoPage() {
   const [catalogoId, setCatalogoId] = useState('');
+  const [codigo] = useState(() => `PROD-${Date.now()}`);
   const [catalogos, setCatalogos] = useState<Array<{ id: number; nome: string }>>([]);
   const [ncm, setNcm] = useState('');
   const [modalidade, setModalidade] = useState('IMPORTACAO');
@@ -261,33 +263,55 @@ export default function NovoProdutoPage() {
 
   return (
     <DashboardLayout title="Novo Produto">
-      <Card>
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <Select
-            label="Catálogo"
-            options={catalogos.map(c => ({ value: String(c.id), label: c.nome }))}
-            value={catalogoId}
-            onChange={e => setCatalogoId(e.target.value)}
-          />
-          {catalogoId && (
-            <>
+      <Card className="mb-6" headerTitle="Seleção do Catálogo">
+        <Select
+          label="Catálogo"
+          options={catalogos.map(c => ({ value: String(c.id), label: c.nome }))}
+          value={catalogoId}
+          onChange={e => setCatalogoId(e.target.value)}
+        />
+      </Card>
+
+      {catalogoId && (
+        <>
+          <Card className="mb-6" headerTitle="Dados da NCM">
+            <div className="grid grid-cols-3 gap-4">
               <Input label="NCM" value={ncm} onChange={e => setNcm(e.target.value)} />
               <Input label="Modalidade" value={modalidade} onChange={e => setModalidade(e.target.value)} />
-              <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
-            </>
-          )}
-        </div>
-
-        {catalogoId && (
-          <>
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              {estrutura.map(attr => renderCampo(attr))}
+              <div className="flex items-end">
+                <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
+              </div>
             </div>
+          </Card>
 
-            <Button type="button" onClick={salvar} className="mt-4">Salvar Produto</Button>
-          </>
-        )}
-      </Card>
+          <Card className="mb-6" headerTitle="Dados do Produto">
+            <Tabs
+              tabs={[
+                {
+                  id: 'fixos',
+                  label: 'Dados Fixos',
+                  content: (
+                    <div className="grid grid-cols-3 gap-4">
+                      <Input label="Código" value={codigo} disabled />
+                    </div>
+                  )
+                },
+                {
+                  id: 'dinamicos',
+                  label: 'Atributos Dinâmicos',
+                  content: (
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      {estrutura.map(attr => renderCampo(attr))}
+                    </div>
+                  )
+                }
+              ]}
+            />
+          </Card>
+
+          <Button type="button" onClick={salvar}>Salvar Produto</Button>
+        </>
+      )}
     </DashboardLayout>
   );
 }

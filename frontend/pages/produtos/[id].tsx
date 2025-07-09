@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { RadioGroup } from '@/components/ui/RadioGroup';
 import { Button } from '@/components/ui/Button';
+import { Tabs } from '@/components/ui/Tabs';
 import { useToast } from '@/components/ui/ToastContext';
 import { useRouter } from 'next/router';
 import { PageLoader } from '@/components/ui/PageLoader';
@@ -26,6 +27,7 @@ interface AtributoEstrutura {
 
 export default function EditarProdutoPage() {
   const [catalogoNome, setCatalogoNome] = useState('');
+  const [codigo, setCodigo] = useState('');
   const [ncm, setNcm] = useState('');
   const [modalidade, setModalidade] = useState('IMPORTACAO');
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
@@ -223,6 +225,7 @@ export default function EditarProdutoPage() {
     try {
       const response = await api.get(`/produtos/${produtoId}`);
       const dados = response.data;
+      setCodigo(dados.codigo);
       setCatalogoNome(dados.catalogo?.nome || '');
       setNcm(dados.ncmCodigo);
       setModalidade(dados.modalidade);
@@ -280,23 +283,49 @@ export default function EditarProdutoPage() {
 
   return (
     <DashboardLayout title="Editar Produto">
-      <Card>
-        <div className="grid grid-cols-4 gap-4 mb-4">
-          <Input label="Catálogo" value={catalogoNome} disabled />
+      <Card className="mb-6" headerTitle="Seleção do Catálogo">
+        <Input label="Catálogo" value={catalogoNome} disabled />
+      </Card>
+
+      <Card className="mb-6" headerTitle="Dados da NCM">
+        <div className="grid grid-cols-3 gap-4">
           <Input label="NCM" value={ncm} disabled />
           <Input label="Modalidade" value={modalidade} onChange={e => setModalidade(e.target.value)} />
-          <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          {estrutura.map(attr => renderCampo(attr))}
-        </div>
-
-        <div className="mt-4 flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => router.push('/produtos')}>Cancelar</Button>
-          <Button type="button" onClick={salvar}>Salvar Produto</Button>
+          <div className="flex items-end">
+            <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
+          </div>
         </div>
       </Card>
+
+      <Card className="mb-6" headerTitle="Dados do Produto">
+        <Tabs
+          tabs={[
+            {
+              id: 'fixos',
+              label: 'Dados Fixos',
+              content: (
+                <div className="grid grid-cols-3 gap-4">
+                  <Input label="Código" value={codigo} disabled />
+                </div>
+              )
+            },
+            {
+              id: 'dinamicos',
+              label: 'Atributos Dinâmicos',
+              content: (
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  {estrutura.map(attr => renderCampo(attr))}
+                </div>
+              )
+            }
+          ]}
+        />
+      </Card>
+
+      <div className="flex justify-end gap-3">
+        <Button type="button" variant="outline" onClick={() => router.push('/produtos')}>Cancelar</Button>
+        <Button type="button" onClick={salvar}>Salvar Produto</Button>
+      </div>
     </DashboardLayout>
   );
 }
