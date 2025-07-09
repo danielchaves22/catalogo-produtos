@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { RadioGroup } from '@/components/ui/RadioGroup';
 import { Button } from '@/components/ui/Button';
 import api from '@/lib/api';
 
@@ -151,13 +152,14 @@ export default function NovoProdutoPage() {
               attr.dominio?.map(d => ({ value: d.codigo, label: d.descricao })) ||
               []
             }
+            placeholder="Selecione..."
             value={value}
             onChange={e => handleValor(attr.codigo, e.target.value)}
           />
         );
       case 'BOOLEANO':
         return (
-          <Select
+          <RadioGroup
             key={attr.codigo}
             label={attr.nome}
             required={attr.obrigatorio}
@@ -166,7 +168,7 @@ export default function NovoProdutoPage() {
               { value: 'false', label: 'Não' }
             ]}
             value={value}
-            onChange={e => handleValor(attr.codigo, e.target.value)}
+            onChange={v => handleValor(attr.codigo, v)}
           />
         );
       case 'NUMERO_INTEIRO':

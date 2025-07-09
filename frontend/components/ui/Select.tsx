@@ -5,9 +5,10 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   options: Array<{ value: string; label: string }>;
   error?: string;
+  placeholder?: string;
 }
 
-export function Select({ label, options, className = '', error, ...props }: SelectProps) {
+export function Select({ label, options, className = '', error, placeholder = 'Selecione...', ...props }: SelectProps) {
   return (
     <div className={`mb-4 ${className}`}>
       {label && (
@@ -28,6 +29,9 @@ export function Select({ label, options, className = '', error, ...props }: Sele
           backgroundSize: '1.5em 1.5em'
         }}
       >
+        <option value="" hidden>
+          {placeholder}
+        </option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -40,5 +44,4 @@ export function Select({ label, options, className = '', error, ...props }: Sele
         </p>
       )}
     </div>
-  );
-}
+  );}
