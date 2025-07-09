@@ -9,12 +9,12 @@ export interface CreateProdutoDTO {
   codigo: string;
   ncmCodigo: string;
   modalidade: string;
+  catalogoId: number;
   valoresAtributos?: Prisma.InputJsonValue;
   criadoPor?: string;
 }
 
 export interface UpdateProdutoDTO {
-  ncmCodigo?: string;
   modalidade?: string;
   status?: 'RASCUNHO' | 'ATIVO' | 'INATIVO';
   valoresAtributos?: Prisma.InputJsonValue;
@@ -24,11 +24,11 @@ export interface UpdateProdutoDTO {
 export class ProdutoService {
   private atributosService = new AtributoLegacyService();
   async listarTodos() {
-    return catalogoPrisma.produto.findMany({ include: { atributos: true } });
+    return catalogoPrisma.produto.findMany({ include: { atributos: true, catalogo: true } });
   }
 
   async buscarPorId(id: number) {
-    return catalogoPrisma.produto.findUnique({ where: { id }, include: { atributos: true } });
+    return catalogoPrisma.produto.findUnique({ where: { id }, include: { atributos: true, catalogo: true } });
   }
 
   async criar(data: CreateProdutoDTO) {
@@ -53,6 +53,7 @@ export class ProdutoService {
           status: 'RASCUNHO',
           ncmCodigo: data.ncmCodigo,
           modalidade: data.modalidade,
+          catalogoId: data.catalogoId,
           versaoEstruturaAtributos: 1,
           criadoPor: data.criadoPor || null
         }
@@ -79,7 +80,15 @@ export class ProdutoService {
       throw new Error(`Produto ID ${id} não encontrado`);
     }
 
-    const ncm = data.ncmCodigo || atual.ncmCodigo;
+    const incoming: any = data as any;
+    if (incoming.ncmCodigo && incoming.ncmCodigo !== atual.ncmCodigo) {
+      throw new Error('NCM não pode ser alterado');
+    }
+    if (incoming.catalogoId && incoming.catalogoId !== atual.catalogoId) {
+      throw new Error('Catálogo não pode ser alterado');
+    }
+
+    const ncm = atual.ncmCodigo;
     const modalidade = data.modalidade || atual.modalidade || '';
     const estrutura = await this.obterEstruturaAtributos(ncm, modalidade);
     const valores = (data.valoresAtributos ?? atual.atributos[0]?.valoresJson ?? {}) as Record<string, any>;
@@ -93,7 +102,6 @@ export class ProdutoService {
       const produto = await tx.produto.update({
         where: { id },
         data: {
-          ncmCodigo: data.ncmCodigo,
           modalidade: data.modalidade,
           status: data.status,
           versaoEstruturaAtributos: atual.versaoEstruturaAtributos
