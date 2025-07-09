@@ -129,12 +129,13 @@ export class ProdutoService {
     valores: Record<string, any>,
     mapa: Map<string, AtributoEstruturaDTO>
   ): boolean {
-    if (!attr.parentCodigo) return true;
+    const codigoCondicionante = attr.condicionanteCodigo || attr.parentCodigo;
+    if (!codigoCondicionante) return true;
 
-    const pai = mapa.get(attr.parentCodigo);
+    const pai = mapa.get(codigoCondicionante);
     if (pai && !this.condicaoAtendida(pai, valores, mapa)) return false;
 
-    const atual = valores[attr.parentCodigo];
+    const atual = valores[codigoCondicionante];
     if (atual === undefined || atual === '') return false;
     const atualStr = String(atual);
     if (attr.condicao) return this.avaliarExpressao(attr.condicao, atualStr);
