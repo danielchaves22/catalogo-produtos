@@ -29,6 +29,7 @@ export default function EditarProdutoPage() {
   const [catalogoNome, setCatalogoNome] = useState('');
   const [codigo, setCodigo] = useState('');
   const [ncm, setNcm] = useState('');
+  const [ncmDescricao, setNcmDescricao] = useState('');
   const [modalidade, setModalidade] = useState('IMPORTACAO');
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
   const [valores, setValores] = useState<Record<string, string>>({});
@@ -36,6 +37,13 @@ export default function EditarProdutoPage() {
   const { addToast } = useToast();
   const router = useRouter();
   const { id } = router.query;
+
+  const tituloSelecionado = React.useMemo(() => {
+    if (!catalogoNome) return 'Catálogo / NCM';
+    if (!ncm) return `Catálogo ${catalogoNome} / NCM`;
+    if (!ncmDescricao) return `Catálogo ${catalogoNome} / NCM ${ncm}`;
+    return `Catálogo ${catalogoNome} / NCM ${ncm} - ${ncmDescricao}`;
+  }, [catalogoNome, ncm, ncmDescricao]);
 
   const mapaEstrutura = React.useMemo(() => {
     const map = new Map<string, AtributoEstrutura>();
@@ -83,6 +91,7 @@ export default function EditarProdutoPage() {
     if (ncm.length < 8) return;
     const response = await api.get(`/siscomex/atributos/ncm/${ncm}?modalidade=${modalidade}`);
     const dados: AtributoEstrutura[] = response.data.dados || [];
+    setNcmDescricao(response.data.descricaoNcm || '');
     setEstrutura(ordenarAtributos(dados));
   }
 
@@ -229,6 +238,14 @@ export default function EditarProdutoPage() {
       setCatalogoNome(dados.catalogo?.nome || '');
       setNcm(dados.ncmCodigo);
       setModalidade(dados.modalidade);
+      try {
+        const resp = await api.get(
+          `/siscomex/atributos/ncm/${dados.ncmCodigo}?modalidade=${dados.modalidade}`
+        );
+        setNcmDescricao(resp.data.descricaoNcm || '');
+      } catch (e) {
+        setNcmDescricao('');
+      }
       const estr = dados.atributos?.[0]?.estruturaSnapshotJson || [];
       setEstrutura(ordenarAtributos(estr));
       setValores(dados.atributos?.[0]?.valoresJson || {});
@@ -283,18 +300,26 @@ export default function EditarProdutoPage() {
 
   return (
     <DashboardLayout title="Editar Produto">
-      <Card className="mb-6" headerTitle="Seleção do Catálogo">
+      <Card className="mb-6" headerTitle="Seleção do Catálogo" headerSubtitle={tituloSelecionado}>
         <div className="grid grid-cols-3 gap-4">
           <Input label="Catálogo" value={catalogoNome} disabled />
           <Input label="NCM" value={ncm} disabled />
-          <Input label="Modalidade" value={modalidade} onChange={e => setModalidade(e.target.value)} />
+          <Select
+            label="Modalidade"
+            options={[
+              { value: 'IMPORTACAO', label: 'IMPORTACAO' },
+              { value: 'EXPORTACAO', label: 'EXPORTACAO' }
+            ]}
+            value={modalidade}
+            onChange={e => setModalidade(e.target.value)}
+          />
           <div className="flex items-end">
             <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
           </div>
         </div>
       </Card>
 
-      <Card className="mb-6" headerTitle="Dados do Produto">
+      <Card className="mb-6">
         <Tabs
           tabs={[
             {

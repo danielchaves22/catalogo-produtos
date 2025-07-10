@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { SiscomexService, SiscomexConsultaFiltros } from '../services/siscomex.service';
 import { AtributoLegacyService } from '../services/atributo-legacy.service';
 import { logger } from '../utils/logger';
+import { catalogoPrisma } from '../utils/prisma';
 
 const siscomexService = new SiscomexService();
 const atributoLegacyService = new AtributoLegacyService();
@@ -153,10 +154,14 @@ export async function consultarAtributosPorNcm(req: Request, res: Response) {
 
     const modalidade = (req.query.modalidade as string) || 'IMPORTACAO';
     const atributos = await atributoLegacyService.buscarEstrutura(ncm, modalidade);
-    
+    const info = await catalogoPrisma.ncmCache.findUnique({
+      where: { codigo: ncm }
+    });
+
     return res.status(200).json({
       sucesso: true,
       ncm,
+      descricaoNcm: info?.descricao || null,
       total: atributos.length,
       dados: atributos
     });
