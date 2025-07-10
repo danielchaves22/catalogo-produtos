@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { MaskedInput } from '@/components/ui/MaskedInput';
 import { Select } from '@/components/ui/Select';
 import { RadioGroup } from '@/components/ui/RadioGroup';
 import { Button } from '@/components/ui/Button';
@@ -97,12 +98,12 @@ export default function NovoProdutoPage() {
     return resultado;
   }
 
-  async function carregarEstrutura() {
-    if (ncm.length < 8) return;
+  async function carregarEstrutura(ncmCodigo: string = ncm) {
+    if (ncmCodigo.length < 8) return;
     setLoadingEstrutura(true);
     try {
       const response = await api.get(
-        `/siscomex/atributos/ncm/${ncm}?modalidade=${modalidade}`
+        `/siscomex/atributos/ncm/${ncmCodigo}?modalidade=${modalidade}`
       );
       const dados: AtributoEstrutura[] = response.data.dados || [];
       setNcmDescricao(response.data.descricaoNcm || '');
@@ -114,6 +115,13 @@ export default function NovoProdutoPage() {
       setEstruturaCarregada(false);
     } finally {
       setLoadingEstrutura(false);
+    }
+  }
+
+  function handleNcmChange(value: string) {
+    setNcm(value);
+    if (value.length === 8) {
+      carregarEstrutura(value);
     }
   }
 
@@ -296,7 +304,12 @@ export default function NovoProdutoPage() {
           />
           {catalogoId && (
             <>
-              <Input label="NCM" value={ncm} onChange={e => setNcm(e.target.value)} />
+              <MaskedInput
+                label="NCM"
+                mask="ncm"
+                value={ncm}
+                onChange={(value) => handleNcmChange(value)}
+              />
               <Select
                 label="Modalidade"
                 options={[
@@ -306,9 +319,6 @@ export default function NovoProdutoPage() {
                 value={modalidade}
                 onChange={e => setModalidade(e.target.value)}
               />
-              <div className="flex items-end">
-                <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
-              </div>
             </>
           )}
         </div>

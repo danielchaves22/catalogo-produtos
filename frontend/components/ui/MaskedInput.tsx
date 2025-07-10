@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 interface MaskedInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   label?: string;
   error?: string;
-  mask: 'cpf' | 'cnpj' | 'cpf-cnpj' | 'cep';
+  mask: 'cpf' | 'cnpj' | 'cpf-cnpj' | 'cep' | 'ncm';
   value: string | undefined;
   onChange: (value: string, formattedValue: string) => void;
 }
@@ -57,6 +57,19 @@ function applyCEPMask(value: string): string {
 }
 
 /**
+ * Aplica máscara de NCM
+ */
+function applyNCMMask(value: string): string {
+  const numbers = onlyNumbers(value).slice(0, 8);
+  return numbers.replace(/(\d{4})(\d{0,2})(\d{0,2})/, (_, p1, p2, p3) => {
+    let result = p1;
+    if (p2) result += `.${p2}`;
+    if (p3) result += `.${p3}`;
+    return result;
+  });
+}
+
+/**
  * Aplica máscara dinâmica para CPF ou CNPJ
  */
 function applyCPFOrCNPJMask(value: string): string {
@@ -85,6 +98,8 @@ function applyMask(value: string, mask: MaskedInputProps['mask']): string {
       return applyCPFOrCNPJMask(value);
     case 'cep':
       return applyCEPMask(value);
+    case 'ncm':
+      return applyNCMMask(value);
     default:
       return value;
   }
@@ -103,6 +118,8 @@ function getPlaceholder(mask: MaskedInputProps['mask']): string {
       return 'CPF: 000.000.000-00 ou CNPJ: 00.000.000/0000-00';
     case 'cep':
       return '00000-000';
+    case 'ncm':
+      return '9999.99.99';
     default:
       return '';
   }
@@ -121,6 +138,8 @@ function getMaxLength(mask: MaskedInputProps['mask']): number | undefined {
       return 18; // Maior entre CPF e CNPJ
     case 'cep':
       return 9;  // 00000-000
+    case 'ncm':
+      return 10; // 9999.99.99
     default:
       return undefined;
   }
