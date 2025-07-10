@@ -277,25 +277,27 @@ export default function NovoProdutoPage() {
   return (
     <DashboardLayout title="Novo Produto">
       <Card className="mb-6" headerTitle="Seleção do Catálogo">
-        <Select
-          label="Catálogo"
-          options={catalogos.map(c => ({ value: String(c.id), label: c.nome }))}
-          value={catalogoId}
-          onChange={e => setCatalogoId(e.target.value)}
-        />
-      </Card>
-
-      {catalogoId && (
-        <>
-          <Card className="mb-6" headerTitle="Dados da NCM">
-            <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-4">
+          <Select
+            label="Catálogo"
+            options={catalogos.map(c => ({ value: String(c.id), label: c.nome }))}
+            value={catalogoId}
+            onChange={e => setCatalogoId(e.target.value)}
+          />
+          {catalogoId && (
+            <>
               <Input label="NCM" value={ncm} onChange={e => setNcm(e.target.value)} />
               <Input label="Modalidade" value={modalidade} onChange={e => setModalidade(e.target.value)} />
               <div className="flex items-end">
                 <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
               </div>
-            </div>
-          </Card>
+            </>
+          )}
+        </div>
+      </Card>
+
+      {catalogoId && (
+        <>
 
           {loadingEstrutura && (
             <Card className="mb-6">
