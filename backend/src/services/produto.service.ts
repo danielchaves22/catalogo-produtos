@@ -31,7 +31,8 @@ export class ProdutoService {
     return produtos.map(p => ({
       ...p,
       catalogoNumero: p.catalogo?.numero,
-      catalogoNome: p.catalogo?.nome
+      catalogoNome: p.catalogo?.nome,
+      catalogoCpfCnpj: p.catalogo?.cpf_cnpj
     }));
   }
 

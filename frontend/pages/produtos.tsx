@@ -19,6 +19,7 @@ interface Produto {
   atualizadoEm: string;
   catalogoNumero?: number;
   catalogoNome?: string;
+  catalogoCpfCnpj?: string;
   nome?: string;
   codigoInterno?: string;
   situacao?: string;
@@ -147,6 +148,7 @@ export default function ProdutosPage() {
                   <th className="w-16 px-4 py-3 text-center">Ações</th>
                   <th className="px-4 py-3">Nº do Catálogo</th>
                   <th className="px-4 py-3">Nome Catálogo</th>
+                  <th className="px-4 py-3">CPF/CNPJ</th>
                   <th className="px-4 py-3">Nome do Produto</th>
                   <th className="px-4 py-3">Código Interno</th>
                   <th className="px-4 py-3">NCM</th>
@@ -172,6 +174,7 @@ export default function ProdutosPage() {
                     </td>
                     <td className="px-4 py-3 font-mono text-[#f59e0b]">{produto.catalogoNumero ?? '-'}</td>
                     <td className="px-4 py-3">{produto.catalogoNome ?? '-'}</td>
+                    <td className="px-4 py-3">{produto.catalogoCpfCnpj ?? '-'}</td>
                     <td className="px-4 py-3">{produto.nome ?? produto.codigo}</td>
                     <td className="px-4 py-3">{produto.codigoInterno ?? '-'}</td>
                     <td className="px-4 py-3 font-mono">{produto.ncmCodigo}</td>
