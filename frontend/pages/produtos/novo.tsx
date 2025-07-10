@@ -350,7 +350,16 @@ export default function NovoProdutoPage() {
                 />
               </Card>
 
-              <Button type="button" onClick={salvar}>Salvar Produto</Button>
+              <div className="flex justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push('/produtos')}
+                >
+                  Cancelar
+                </Button>
+                <Button type="button" onClick={salvar}>Salvar Produto</Button>
+              </div>
             </>
           )}
         </>
