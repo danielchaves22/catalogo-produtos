@@ -30,6 +30,7 @@ export default function NovoProdutoPage() {
   const [codigo] = useState(() => `PROD-${Date.now()}`);
   const [catalogos, setCatalogos] = useState<Array<{ id: number; nome: string }>>([]);
   const [ncm, setNcm] = useState('');
+  const [ncmDescricao, setNcmDescricao] = useState('');
   const [modalidade, setModalidade] = useState('IMPORTACAO');
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
   const [valores, setValores] = useState<Record<string, string>>({});
@@ -37,6 +38,14 @@ export default function NovoProdutoPage() {
   const [estruturaCarregada, setEstruturaCarregada] = useState(false);
   const { addToast } = useToast();
   const router = useRouter();
+
+  const tituloSelecionado = React.useMemo(() => {
+    const catNome = catalogos.find(c => String(c.id) === catalogoId)?.nome;
+    if (!catalogoId) return 'Catálogo / NCM';
+    if (!ncm) return `Catálogo ${catNome} / NCM`;
+    if (!ncmDescricao) return `Catálogo ${catNome} / NCM ${ncm}`;
+    return `Catálogo ${catNome} / NCM ${ncm} - ${ncmDescricao}`;
+  }, [catalogos, catalogoId, ncm, ncmDescricao]);
 
   useEffect(() => {
     async function carregarCatalogos() {
@@ -96,6 +105,7 @@ export default function NovoProdutoPage() {
         `/siscomex/atributos/ncm/${ncm}?modalidade=${modalidade}`
       );
       const dados: AtributoEstrutura[] = response.data.dados || [];
+      setNcmDescricao(response.data.descricaoNcm || '');
       setEstrutura(ordenarAtributos(dados));
       setEstruturaCarregada(true);
     } catch (error) {
@@ -276,7 +286,7 @@ export default function NovoProdutoPage() {
 
   return (
     <DashboardLayout title="Novo Produto">
-      <Card className="mb-6" headerTitle="Seleção do Catálogo">
+      <Card className="mb-6" headerTitle="Seleção do Catálogo" headerSubtitle={tituloSelecionado}>
         <div className="grid grid-cols-3 gap-4">
           <Select
             label="Catálogo"
@@ -287,7 +297,15 @@ export default function NovoProdutoPage() {
           {catalogoId && (
             <>
               <Input label="NCM" value={ncm} onChange={e => setNcm(e.target.value)} />
-              <Input label="Modalidade" value={modalidade} onChange={e => setModalidade(e.target.value)} />
+              <Select
+                label="Modalidade"
+                options={[
+                  { value: 'IMPORTACAO', label: 'IMPORTACAO' },
+                  { value: 'EXPORTACAO', label: 'EXPORTACAO' }
+                ]}
+                value={modalidade}
+                onChange={e => setModalidade(e.target.value)}
+              />
               <div className="flex items-end">
                 <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
               </div>
@@ -307,7 +325,7 @@ export default function NovoProdutoPage() {
 
           {estruturaCarregada && !loadingEstrutura && (
             <>
-              <Card className="mb-6" headerTitle="Dados do Produto">
+              <Card className="mb-6">
                 <Tabs
                   tabs={[
                     {
