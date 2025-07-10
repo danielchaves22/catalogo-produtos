@@ -24,7 +24,15 @@ export interface UpdateProdutoDTO {
 export class ProdutoService {
   private atributosService = new AtributoLegacyService();
   async listarTodos() {
-    return catalogoPrisma.produto.findMany({ include: { atributos: true, catalogo: true } });
+    const produtos = await catalogoPrisma.produto.findMany({
+      include: { atributos: true, catalogo: true }
+    });
+
+    return produtos.map(p => ({
+      ...p,
+      catalogoNumero: p.catalogo?.numero,
+      catalogoNome: p.catalogo?.nome
+    }));
   }
 
   async buscarPorId(id: number) {
