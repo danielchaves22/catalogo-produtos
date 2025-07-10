@@ -284,11 +284,8 @@ export default function EditarProdutoPage() {
   return (
     <DashboardLayout title="Editar Produto">
       <Card className="mb-6" headerTitle="Seleção do Catálogo">
-        <Input label="Catálogo" value={catalogoNome} disabled />
-      </Card>
-
-      <Card className="mb-6" headerTitle="Dados da NCM">
         <div className="grid grid-cols-3 gap-4">
+          <Input label="Catálogo" value={catalogoNome} disabled />
           <Input label="NCM" value={ncm} disabled />
           <Input label="Modalidade" value={modalidade} onChange={e => setModalidade(e.target.value)} />
           <div className="flex items-end">
