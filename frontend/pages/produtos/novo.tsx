@@ -42,13 +42,7 @@ export default function NovoProdutoPage() {
   const { addToast } = useToast();
   const router = useRouter();
 
-  const tituloSelecionado = React.useMemo(() => {
-    const catNome = catalogos.find(c => String(c.id) === catalogoId)?.nome;
-    if (!catalogoId) return 'Catálogo / NCM';
-    if (!ncm) return `Catálogo ${catNome} / NCM`;
-    if (!ncmDescricao) return `Catálogo ${catNome} / NCM ${ncm}`;
-    return `Catálogo ${catNome} / NCM ${ncm} - ${ncmDescricao}`;
-  }, [catalogos, catalogoId, ncm, ncmDescricao]);
+  // Texto do cabeçalho removido conforme novo layout
 
   useEffect(() => {
     async function carregarCatalogos() {
@@ -108,8 +102,18 @@ export default function NovoProdutoPage() {
       const response = await api.get(
         `/siscomex/atributos/ncm/${ncmCodigo}?modalidade=${modalidade}`
       );
+
+      if (!response.data.descricaoNcm) {
+        addToast('NCM não encontrada', 'error');
+        setEstruturaCarregada(false);
+        setNcmDescricao('');
+        setUnidadeMedida('');
+        setEstrutura([]);
+        return;
+      }
+
       const dados: AtributoEstrutura[] = response.data.dados || [];
-      setNcmDescricao(response.data.descricaoNcm || '');
+      setNcmDescricao(response.data.descricaoNcm);
       setUnidadeMedida(response.data.unidadeMedida || '');
       setEstrutura(ordenarAtributos(dados));
       setEstruturaCarregada(true);
@@ -308,7 +312,7 @@ export default function NovoProdutoPage() {
 
   return (
     <DashboardLayout title="Novo Produto">
-      <Card className="mb-6" headerTitle="Seleção do Catálogo" headerSubtitle={tituloSelecionado}>
+      <Card className="mb-6" headerTitle="Seleção do Catálogo">
         <div className="grid grid-cols-3 gap-4">
           <Select
             label="Catálogo"
@@ -328,17 +332,25 @@ export default function NovoProdutoPage() {
         </div>
 
         {catalogoId && (
-          <div className="grid grid-cols-5 gap-4 mt-4">
-            <MaskedInput
-              label="NCM"
-              mask="ncm"
-              value={ncm}
-              onChange={(val) => handleNcmChange(val)}
-              className="col-span-1"
-            />
-            <Input label="Descrição" value={ncmDescricao} disabled className="col-span-3" />
-            <Input label="Unidade" value={unidadeMedida} disabled className="col-span-1" />
-          </div>
+          <>
+            <div className="grid grid-cols-5 gap-4 mt-4">
+              <MaskedInput
+                label="NCM"
+                mask="ncm"
+                value={ncm}
+                onChange={(val) => handleNcmChange(val)}
+                className="col-span-1"
+              />
+              <Input label="Descrição" value={ncmDescricao} disabled className="col-span-3" />
+              <Input label="Unidade" value={unidadeMedida} disabled className="col-span-1" />
+            </div>
+
+            {estruturaCarregada && !loadingEstrutura && (
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <Input label="Código" value={codigo} disabled />
+              </div>
+            )}
+          </>
         )}
       </Card>
 
@@ -356,15 +368,6 @@ export default function NovoProdutoPage() {
               <Card className="mb-6">
                 <Tabs
                   tabs={[
-                    {
-                      id: 'fixos',
-                      label: 'Dados Fixos',
-                      content: (
-                        <div className="grid grid-cols-3 gap-4">
-                          <Input label="Código" value={codigo} disabled />
-                        </div>
-                      )
-                    },
                     {
                       id: 'dinamicos',
                       label: 'Atributos Dinâmicos',
