@@ -2,11 +2,13 @@
 import { Request, Response } from 'express';
 import { SiscomexService, SiscomexConsultaFiltros } from '../services/siscomex.service';
 import { AtributoLegacyService } from '../services/atributo-legacy.service';
+import { NcmLegacyService } from '../services/ncm-legacy.service';
 import { logger } from '../utils/logger';
 import { catalogoPrisma } from '../utils/prisma';
 
 const siscomexService = new SiscomexService();
 const atributoLegacyService = new AtributoLegacyService();
+const ncmLegacyService = new NcmLegacyService();
 
 /**
  * GET /api/siscomex/produtos
@@ -154,14 +156,25 @@ export async function consultarAtributosPorNcm(req: Request, res: Response) {
 
     const modalidade = (req.query.modalidade as string) || 'IMPORTACAO';
     const atributos = await atributoLegacyService.buscarEstrutura(ncm, modalidade);
-    const info = await catalogoPrisma.ncmCache.findUnique({
+    let info = await catalogoPrisma.ncmCache.findUnique({
       where: { codigo: ncm }
     });
+    if (!info) {
+      const atualizado = await ncmLegacyService.sincronizarNcm(ncm);
+      if (atualizado) {
+        info = {
+          codigo: ncm,
+          descricao: atualizado.descricao,
+          unidadeMedida: atualizado.unidadeMedida
+        } as any;
+      }
+    }
 
     return res.status(200).json({
       sucesso: true,
       ncm,
       descricaoNcm: info?.descricao || null,
+      unidadeMedida: info?.unidadeMedida || null,
       total: atributos.length,
       dados: atributos
     });

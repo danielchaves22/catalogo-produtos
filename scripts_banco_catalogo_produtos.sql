@@ -1,8 +1,5 @@
--- Criar o schema catpro-hml
-CREATE SCHEMA IF NOT EXISTS `catpro-hml`;
 
--- Tabela catalogo no schema catpro-hml
-CREATE TABLE IF NOT EXISTS`catpro-hml`.`catalogo` (
+CREATE TABLE IF NOT EXISTS catalogo (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nome VARCHAR(255) NOT NULL,
     cpf_cnpj VARCHAR(20),
@@ -16,7 +13,7 @@ CREATE TABLE IF NOT EXISTS`catpro-hml`.`catalogo` (
 -- Função para gerar números aleatórios de 6 dígitos
 DELIMITER $$
 
-CREATE FUNCTION IF NOT EXISTS `catpro-hml`.generate_unique_random_numero() 
+CREATE FUNCTION IF NOT EXISTS generate_unique_random_numero() 
 RETURNS INT UNSIGNED
 BEGIN
     DECLARE random_num INT UNSIGNED;
@@ -31,7 +28,7 @@ BEGIN
         SET random_num = FLOOR(100000 + RAND() * 900000);
         
         -- Verificar se já existe
-        IF NOT EXISTS (SELECT 1 FROM `catpro-hml`.catalogo WHERE numero = random_num) THEN
+        IF NOT EXISTS (SELECT 1 FROM catalogo WHERE numero = random_num) THEN
             SET is_unique = TRUE;
         END IF;
         
@@ -41,7 +38,7 @@ BEGIN
     -- Se não conseguiu um número único após várias tentativas, usar fallback
     IF NOT is_unique THEN
         -- Fallback: Pegar o maior número existente e adicionar 1
-        SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM `catpro-hml`.catalogo;
+        SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM catalogo;
     END IF;
     
     RETURN random_num;
@@ -52,13 +49,13 @@ DELIMITER ;
 -- Trigger para inserir o número automático antes do INSERT
 DELIMITER $$
 
-CREATE TRIGGER IF NOT EXISTS `catpro-hml`.before_catalogo_insert
-BEFORE INSERT ON `catpro-hml`.catalogo
+CREATE TRIGGER IF NOT EXISTS before_catalogo_insert
+BEFORE INSERT ON catalogo
 FOR EACH ROW
 BEGIN
     -- Se o número não foi especificado explicitamente, gerar um
     IF NEW.numero IS NULL OR NEW.numero = 0 THEN
-        SET NEW.numero = `catpro-hml`.generate_unique_random_numero();
+        SET NEW.numero = generate_unique_random_numero();
     END IF;
     
     -- Atualizar também o timestamp de última alteração
@@ -71,21 +68,21 @@ DELIMITER ;
     -- Adicionar ao arquivo de criação de tabelas
 
     -- Tabelas auxiliares para dropdowns
-    CREATE TABLE IF NOT EXISTS `catpro-hml`.`pais` (
+    CREATE TABLE IF NOT EXISTS pais (
         codigo VARCHAR(10) NOT NULL PRIMARY KEY,
         sigla VARCHAR(10) NOT NULL,
         nome VARCHAR(255) NOT NULL,
         INDEX idx_nome (nome)
     );
 
-    CREATE TABLE IF NOT EXISTS `catpro-hml`.`agencia_emissora` (
+    CREATE TABLE IF NOT EXISTS agencia_emissora (
         codigo VARCHAR(20) NOT NULL PRIMARY KEY,
         sigla VARCHAR(20) NOT NULL,
         nome VARCHAR(255) NOT NULL,
         INDEX idx_nome (nome)
     );
 
-    CREATE TABLE IF NOT EXISTS `catpro-hml`.`subdivisao` (
+    CREATE TABLE IF NOT EXISTS subdivisao (
         codigo VARCHAR(20) NOT NULL PRIMARY KEY,
         sigla VARCHAR(20) NOT NULL,
         nome VARCHAR(255) NOT NULL,
@@ -96,7 +93,7 @@ DELIMITER ;
     );
 
     -- Tabela principal do Operador Estrangeiro
-    CREATE TABLE IF NOT EXISTS `catpro-hml`.`operador_estrangeiro` (
+    CREATE TABLE IF NOT EXISTS operador_estrangeiro (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
         cnpj_raiz_responsavel VARCHAR(14) NOT NULL,
         
@@ -132,7 +129,7 @@ DELIMITER ;
     );
 
     -- Tabela para identificações adicionais (DUNS, LEI, etc.)
-    CREATE TABLE IF NOT EXISTS `catpro-hml`.`identificacao_adicional` (
+    CREATE TABLE IF NOT EXISTS identificacao_adicional (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
         operador_estrangeiro_id INT UNSIGNED NOT NULL,
         numero VARCHAR(100) NOT NULL,
@@ -175,18 +172,21 @@ DELIMITER ;
 
     CREATE TABLE produto (
         id INT PRIMARY KEY AUTO_INCREMENT,
+        catalogo_id INT NOT NULL,
         codigo VARCHAR(50) UNIQUE NOT NULL,
         versao INT NOT NULL DEFAULT 1,
         status ENUM('RASCUNHO', 'ATIVO', 'INATIVO') DEFAULT 'RASCUNHO',
         ncm_codigo VARCHAR(8) NOT NULL,
         modalidade VARCHAR(50),
         -- Rastreabilidade
-        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         atualizado_em TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         criado_por VARCHAR(100),
         -- Versionamento de estrutura
         versao_estrutura_atributos INT,
         INDEX idx_ncm (ncm_codigo),
+        INDEX idx_catalogo (catalogo_id),
+        FOREIGN KEY (catalogo_id) REFERENCES catalogo(id),
         UNIQUE KEY uk_codigo_versao (codigo, versao)
     );
 
@@ -207,7 +207,7 @@ DELIMITER ;
     -- Execute após criar as tabelas
 
     -- Inserir países principais
-    INSERT INTO `catpro-hml`.`pais` (codigo, sigla, nome) VALUES
+    INSERT INTO pais (codigo, sigla, nome) VALUES
     -- América do Sul
     ('BR', 'BR', 'Brasil'),
     ('AR', 'AR', 'Argentina'),
@@ -272,7 +272,7 @@ DELIMITER ;
     ('TR', 'TR', 'Turquia');
 
     -- Inserir subdivisões principais (estados brasileiros e alguns internacionais)
-    INSERT INTO `catpro-hml`.`subdivisao` (codigo, sigla, nome, pais_codigo) VALUES
+    INSERT INTO subdivisao (codigo, sigla, nome, pais_codigo) VALUES
     -- Estados brasileiros
     ('BR-AC', 'AC', 'Acre', 'BR'),
     ('BR-AL', 'AL', 'Alagoas', 'BR'),
@@ -322,7 +322,7 @@ DELIMITER ;
     ('CN-JS', 'JS', 'Jiangsu', 'CN');
 
     -- Inserir agências emissoras principais
-    INSERT INTO `catpro-hml`.`agencia_emissora` (codigo, sigla, nome) VALUES
+    INSERT INTO agencia_emissora (codigo, sigla, nome) VALUES
     -- Principais agências de rating e identificação
     ('DUNS', 'DUNS', 'Dun & Bradstreet (DUNS Number)'),
     ('LEI', 'LEI', 'Legal Entity Identifier (LEI)'),
