@@ -312,8 +312,8 @@ export default function NovoProdutoPage() {
 
   return (
     <DashboardLayout title="Novo Produto">
-      <Card className="mb-6" headerTitle="Seleção do Catálogo">
-        <div className="grid grid-cols-3 gap-4">
+      <Card className="mb-6" headerTitle="Catálogo / NCM">
+        <div className="grid grid-cols-4 gap-4">
           <Select
             label="Catálogo"
             options={catalogos.map(c => ({ value: String(c.id), label: `${c.nome} - ${formatCPFOrCNPJ(c.cpf_cnpj)}` }))}
@@ -329,6 +329,11 @@ export default function NovoProdutoPage() {
             value={modalidade}
             onChange={e => setModalidade(e.target.value)}
           />
+          {estruturaCarregada && !loadingEstrutura && (
+              <div className="grid grid-cols-1 gap-4">
+                <Input label="Código" value={codigo} disabled />
+              </div>
+            )}
         </div>
 
         {catalogoId && (
@@ -344,12 +349,6 @@ export default function NovoProdutoPage() {
               <Input label="Descrição" value={ncmDescricao} disabled className="col-span-3" />
               <Input label="Unidade" value={unidadeMedida} disabled className="col-span-1" />
             </div>
-
-            {estruturaCarregada && !loadingEstrutura && (
-              <div className="grid grid-cols-3 gap-4 mt-4">
-                <Input label="Código" value={codigo} disabled />
-              </div>
-            )}
           </>
         )}
       </Card>
