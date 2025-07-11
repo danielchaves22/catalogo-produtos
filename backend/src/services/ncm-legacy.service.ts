@@ -12,9 +12,9 @@ export class NcmLegacyService {
       descricao: string | null
       unidade_medida: string | null
     }>>(Prisma.sql`
-      SELECT t.descricao, u.sigla AS unidade_medida
+      SELECT t.mercadoria as descricao, u.sigla AS unidade_medida
         FROM TEC t
-        LEFT JOIN UNIMED u ON u.codigo = t.unidade_medida
+        LEFT JOIN UNIMED u ON u.codigo = t.unidade
        WHERE t.codigo = ${codigo}
     `)
 
