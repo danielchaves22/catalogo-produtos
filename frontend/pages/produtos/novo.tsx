@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/ToastContext';
 import { useRouter } from 'next/router';
 import api from '@/lib/api';
 import { PageLoader } from '@/components/ui/PageLoader';
+import { formatCPFOrCNPJ } from '@/lib/validation';
 
 interface AtributoEstrutura {
   codigo: string;
@@ -28,9 +29,10 @@ interface AtributoEstrutura {
 export default function NovoProdutoPage() {
   const [catalogoId, setCatalogoId] = useState('');
   const [codigo] = useState(() => `PROD-${Date.now()}`);
-  const [catalogos, setCatalogos] = useState<Array<{ id: number; nome: string }>>([]);
+  const [catalogos, setCatalogos] = useState<Array<{ id: number; nome: string; cpf_cnpj: string | null }>>([]);
   const [ncm, setNcm] = useState('');
   const [ncmDescricao, setNcmDescricao] = useState('');
+  const [unidadeMedida, setUnidadeMedida] = useState('');
   const [modalidade, setModalidade] = useState('IMPORTACAO');
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
   const [valores, setValores] = useState<Record<string, string>>({});
@@ -97,15 +99,17 @@ export default function NovoProdutoPage() {
     return resultado;
   }
 
-  async function carregarEstrutura() {
-    if (ncm.length < 8) return;
+  async function carregarEstrutura(codigo?: string) {
+    const ncmCodigo = codigo || ncm;
+    if (ncmCodigo.length < 8) return;
     setLoadingEstrutura(true);
     try {
       const response = await api.get(
-        `/siscomex/atributos/ncm/${ncm}?modalidade=${modalidade}`
+        `/siscomex/atributos/ncm/${ncmCodigo}?modalidade=${modalidade}`
       );
       const dados: AtributoEstrutura[] = response.data.dados || [];
       setNcmDescricao(response.data.descricaoNcm || '');
+      setUnidadeMedida(response.data.unidadeMedida || '');
       setEstrutura(ordenarAtributos(dados));
       setEstruturaCarregada(true);
     } catch (error) {
@@ -116,6 +120,24 @@ export default function NovoProdutoPage() {
       setLoadingEstrutura(false);
     }
   }
+
+  function handleNcmChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setNcm(value);
+    if (value.length === 8) {
+      carregarEstrutura(value);
+    } else {
+      setNcmDescricao('');
+      setUnidadeMedida('');
+      setEstruturaCarregada(false);
+    }
+  }
+
+  useEffect(() => {
+    if (ncm.length === 8) {
+      carregarEstrutura(ncm);
+    }
+  }, [modalidade]);
 
   function handleValor(codigo: string, valor: string) {
     setValores(prev => ({ ...prev, [codigo]: valor }));
@@ -290,28 +312,28 @@ export default function NovoProdutoPage() {
         <div className="grid grid-cols-3 gap-4">
           <Select
             label="Catálogo"
-            options={catalogos.map(c => ({ value: String(c.id), label: c.nome }))}
+            options={catalogos.map(c => ({ value: String(c.id), label: `${c.nome} - ${formatCPFOrCNPJ(c.cpf_cnpj)}` }))}
             value={catalogoId}
             onChange={e => setCatalogoId(e.target.value)}
           />
-          {catalogoId && (
-            <>
-              <Input label="NCM" value={ncm} onChange={e => setNcm(e.target.value)} />
-              <Select
-                label="Modalidade"
-                options={[
-                  { value: 'IMPORTACAO', label: 'IMPORTACAO' },
-                  { value: 'EXPORTACAO', label: 'EXPORTACAO' }
-                ]}
-                value={modalidade}
-                onChange={e => setModalidade(e.target.value)}
-              />
-              <div className="flex items-end">
-                <Button type="button" onClick={carregarEstrutura}>Carregar Estrutura</Button>
-              </div>
-            </>
-          )}
+          <Select
+            label="Modalidade"
+            options={[
+              { value: 'IMPORTACAO', label: 'IMPORTACAO' },
+              { value: 'EXPORTACAO', label: 'EXPORTACAO' }
+            ]}
+            value={modalidade}
+            onChange={e => setModalidade(e.target.value)}
+          />
         </div>
+
+        {catalogoId && (
+          <div className="grid grid-cols-5 gap-4 mt-4">
+            <Input label="NCM" value={ncm} onChange={handleNcmChange} className="col-span-1" />
+            <Input label="Descrição" value={ncmDescricao} disabled className="col-span-3" />
+            <Input label="Unidade" value={unidadeMedida} disabled className="col-span-1" />
+          </div>
+        )}
       </Card>
 
       {catalogoId && (
