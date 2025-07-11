@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { MaskedInput } from '@/components/ui/MaskedInput';
 import { Select } from '@/components/ui/Select';
 import { RadioGroup } from '@/components/ui/RadioGroup';
 import { Button } from '@/components/ui/Button';
@@ -121,11 +122,10 @@ export default function NovoProdutoPage() {
     }
   }
 
-  function handleNcmChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = e.target.value;
-    setNcm(value);
-    if (value.length === 8) {
-      carregarEstrutura(value);
+  function handleNcmChange(valor: string) {
+    setNcm(valor);
+    if (valor.length === 8) {
+      carregarEstrutura(valor);
     } else {
       setNcmDescricao('');
       setUnidadeMedida('');
@@ -329,7 +329,13 @@ export default function NovoProdutoPage() {
 
         {catalogoId && (
           <div className="grid grid-cols-5 gap-4 mt-4">
-            <Input label="NCM" value={ncm} onChange={handleNcmChange} className="col-span-1" />
+            <MaskedInput
+              label="NCM"
+              mask="ncm"
+              value={ncm}
+              onChange={(val) => handleNcmChange(val)}
+              className="col-span-1"
+            />
             <Input label="Descrição" value={ncmDescricao} disabled className="col-span-3" />
             <Input label="Unidade" value={unidadeMedida} disabled className="col-span-1" />
           </div>
