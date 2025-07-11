@@ -38,12 +38,7 @@ export default function EditarProdutoPage() {
   const router = useRouter();
   const { id } = router.query;
 
-  const tituloSelecionado = React.useMemo(() => {
-    if (!catalogoNome) return 'Catálogo / NCM';
-    if (!ncm) return `Catálogo ${catalogoNome} / NCM`;
-    if (!ncmDescricao) return `Catálogo ${catalogoNome} / NCM ${ncm}`;
-    return `Catálogo ${catalogoNome} / NCM ${ncm} - ${ncmDescricao}`;
-  }, [catalogoNome, ncm, ncmDescricao]);
+  // Texto do cabeçalho removido conforme novo layout
 
   const mapaEstrutura = React.useMemo(() => {
     const map = new Map<string, AtributoEstrutura>();
@@ -300,7 +295,7 @@ export default function EditarProdutoPage() {
 
   return (
     <DashboardLayout title="Editar Produto">
-      <Card className="mb-6" headerTitle="Seleção do Catálogo" headerSubtitle={tituloSelecionado}>
+      <Card className="mb-6" headerTitle="Seleção do Catálogo">
         <div className="grid grid-cols-3 gap-4">
           <Input label="Catálogo" value={catalogoNome} disabled />
           <Input label="NCM" value={ncm} disabled />
