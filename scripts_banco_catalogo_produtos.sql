@@ -49,7 +49,7 @@ END$$
 DELIMITER ;
 
 -- Trigger para inserir o número automático antes do INSERT
-DELIMITER $$
+DELIMITER $$;
 
 CREATE TRIGGER IF NOT EXISTS before_catalogo_insert
 BEFORE INSERT ON catalogo
