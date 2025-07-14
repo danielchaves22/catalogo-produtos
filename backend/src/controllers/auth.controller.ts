@@ -18,18 +18,22 @@ export async function login(req: Request, res: Response) {
     return res.status(400).json({ error: 'Email e password são obrigatórios.' });
   }
 
+  logger.info(`Tentativa de login para ${email} - IP: ${req.ip}`);
+
   try {
     // Busca o usuário pelo email
     const user = await authService.findUserByEmail(email);
-    
+
     if (!user) {
+      logger.warn(`Login falhou para ${email} - usuário não encontrado - IP: ${req.ip}`);
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
     // Verifica a senha
     const isValid = authService.verifyPassword(password, user.password);
-    
+
     if (!isValid) {
+      logger.warn(`Login falhou para ${email} - senha incorreta - IP: ${req.ip}`);
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
@@ -39,10 +43,11 @@ export async function login(req: Request, res: Response) {
     // Gera o token JWT
     const token = generateToken(userData);
 
-    return res.status(200).json({ 
-      token, 
+    logger.info(`Login bem-sucedido para ${email} - IP: ${req.ip}`);
+    return res.status(200).json({
+      token,
       user: userData,
-      message: 'Login realizado com sucesso!' 
+      message: 'Login realizado com sucesso!'
     });
   } catch (error: unknown) {
     logger.error('Erro no login:', error);
