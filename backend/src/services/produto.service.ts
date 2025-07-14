@@ -59,7 +59,31 @@ export class ProdutoService {
   }
 
   async buscarPorId(id: number) {
-    return catalogoPrisma.produto.findUnique({ where: { id }, include: { atributos: true, catalogo: true, codigosInternos: true, operadoresEstrangeiros: true } });
+    const p = await catalogoPrisma.produto.findUnique({
+      where: { id },
+      include: {
+        atributos: true,
+        catalogo: true,
+        codigosInternos: true,
+        operadoresEstrangeiros: { include: { pais: true, operadorEstrangeiro: true } }
+      }
+    });
+    if (!p) return null;
+    return {
+      ...p,
+      codigosInternos: p.codigosInternos.map(ci => ci.codigo),
+      operadoresEstrangeiros: p.operadoresEstrangeiros.map(o => ({
+        id: o.id,
+        paisCodigo: o.paisCodigo,
+        paisNome: o.pais.nome,
+        conhecido: o.conhecido,
+        operadorEstrangeiroId: o.operadorEstrangeiroId,
+        operadorEstrangeiro: o.operadorEstrangeiro
+      })),
+      catalogoNumero: p.catalogo?.numero,
+      catalogoNome: p.catalogo?.nome,
+      catalogoCpfCnpj: p.catalogo?.cpf_cnpj
+    };
   }
 
   async criar(data: CreateProdutoDTO) {
