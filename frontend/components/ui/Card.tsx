@@ -6,13 +6,14 @@ interface CardProps {
   className?: string;
   headerTitle?: string;
   headerSubtitle?: string;
+  headerClassName?: string;
 }
 
-export function Card({ children, className = '', headerTitle, headerSubtitle }: CardProps) {
+export function Card({ children, className = '', headerTitle, headerSubtitle, headerClassName = '' }: CardProps) {
   return (
     <div className={`bg-[#151921] shadow-md rounded-lg overflow-hidden border border-gray-700 ${className}`}>
       {(headerTitle || headerSubtitle) && (
-        <div className="bg-[#151921] px-6 py-4 border-b border-gray-700">
+        <div className={`bg-[#151921] px-6 py-4 border-b border-gray-700 ${headerClassName}`}>
           {headerTitle && <h2 className="text-lg font-medium text-white">{headerTitle}</h2>}
           {headerSubtitle && <p className="text-sm text-gray-400">{headerSubtitle}</p>}
         </div>
