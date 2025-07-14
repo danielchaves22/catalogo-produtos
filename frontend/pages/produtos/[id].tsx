@@ -28,6 +28,8 @@ interface AtributoEstrutura {
 export default function EditarProdutoPage() {
   const [catalogoNome, setCatalogoNome] = useState('');
   const [codigo, setCodigo] = useState('');
+  const [codigosInternos, setCodigosInternos] = useState<string[]>([]);
+  const [novoCodigoInterno, setNovoCodigoInterno] = useState('');
   const [ncm, setNcm] = useState('');
   const [ncmDescricao, setNcmDescricao] = useState('');
   const [modalidade, setModalidade] = useState('IMPORTACAO');
@@ -92,6 +94,12 @@ export default function EditarProdutoPage() {
 
   function handleValor(codigo: string, valor: string) {
     setValores(prev => ({ ...prev, [codigo]: valor }));
+  }
+
+  function adicionarCodigoInterno() {
+    if (!novoCodigoInterno.trim()) return;
+    setCodigosInternos(prev => [...prev, novoCodigoInterno.trim()]);
+    setNovoCodigoInterno('');
   }
 
   function avaliarExpressao(cond: any, valor: string): boolean {
@@ -230,6 +238,7 @@ export default function EditarProdutoPage() {
       const response = await api.get(`/produtos/${produtoId}`);
       const dados = response.data;
       setCodigo(dados.codigo);
+      setCodigosInternos(dados.codigosInternos || []);
       setCatalogoNome(dados.catalogo?.nome || '');
       setNcm(dados.ncmCodigo);
       setModalidade(dados.modalidade);
@@ -263,7 +272,8 @@ export default function EditarProdutoPage() {
     try {
       await api.put(`/produtos/${id}`, {
         modalidade,
-        valoresAtributos: valores
+        valoresAtributos: valores,
+        codigosInternos
       });
       addToast('Produto atualizado com sucesso!', 'success');
       router.push('/produtos');
@@ -321,8 +331,29 @@ export default function EditarProdutoPage() {
               id: 'fixos',
               label: 'Dados Fixos',
               content: (
-                <div className="grid grid-cols-3 gap-4">
-                  <Input label="Código" value={codigo} disabled />
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <Input label="Código" value={codigo || '-'} disabled />
+
+                  <div className="col-span-3 mt-2">
+                    <label className="block text-sm font-medium mb-1 text-gray-300">
+                      Código Interno
+                    </label>
+                    <div className="flex gap-2 mb-2">
+                      <Input
+                        value={novoCodigoInterno}
+                        onChange={e => setNovoCodigoInterno(e.target.value)}
+                        className="mb-0 flex-1"
+                      />
+                      <Button type="button" onClick={adicionarCodigoInterno}>+ Incluir</Button>
+                    </div>
+                    {codigosInternos.length > 0 && (
+                      <ul className="list-disc list-inside text-gray-300">
+                        {codigosInternos.map((c, i) => (
+                          <li key={i}>{c}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               )
             },

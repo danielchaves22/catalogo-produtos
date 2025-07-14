@@ -6,11 +6,12 @@ import { AtributoLegacyService, AtributoEstruturaDTO } from './atributo-legacy.s
 import { ValidationError } from '../types/validation-error';
 
 export interface CreateProdutoDTO {
-  codigo: string;
+  codigo?: string;
   ncmCodigo: string;
   modalidade: string;
   catalogoId: number;
   valoresAtributos?: Prisma.InputJsonValue;
+  codigosInternos?: string[];
   criadoPor?: string;
 }
 
@@ -18,6 +19,7 @@ export interface UpdateProdutoDTO {
   modalidade?: string;
   status?: 'RASCUNHO' | 'ATIVO' | 'INATIVO';
   valoresAtributos?: Prisma.InputJsonValue;
+  codigosInternos?: string[];
   atualizadoPor?: string;
 }
 
@@ -25,11 +27,12 @@ export class ProdutoService {
   private atributosService = new AtributoLegacyService();
   async listarTodos() {
     const produtos = await catalogoPrisma.produto.findMany({
-      include: { atributos: true, catalogo: true }
+      include: { atributos: true, catalogo: true, codigosInternos: true }
     });
 
     return produtos.map(p => ({
       ...p,
+      codigosInternos: p.codigosInternos.map(ci => ci.codigo),
       catalogoNumero: p.catalogo?.numero,
       catalogoNome: p.catalogo?.nome,
       catalogoCpfCnpj: p.catalogo?.cpf_cnpj
@@ -37,7 +40,7 @@ export class ProdutoService {
   }
 
   async buscarPorId(id: number) {
-    return catalogoPrisma.produto.findUnique({ where: { id }, include: { atributos: true, catalogo: true } });
+    return catalogoPrisma.produto.findUnique({ where: { id }, include: { atributos: true, catalogo: true, codigosInternos: true } });
   }
 
   async criar(data: CreateProdutoDTO) {
@@ -57,15 +60,19 @@ export class ProdutoService {
     return catalogoPrisma.$transaction(async (tx) => {
       const produto = await tx.produto.create({
         data: {
-          codigo: data.codigo,
+          codigo: data.codigo ?? null,
           versao: 1,
           status: 'RASCUNHO',
           ncmCodigo: data.ncmCodigo,
           modalidade: data.modalidade,
           catalogoId: data.catalogoId,
           versaoEstruturaAtributos: 1,
-          criadoPor: data.criadoPor || null
-        }
+          criadoPor: data.criadoPor || null,
+          codigosInternos: data.codigosInternos
+            ? { create: data.codigosInternos.map(c => ({ codigo: c })) }
+            : undefined
+        },
+        include: { codigosInternos: true }
       });
 
       await tx.produtoAtributos.create({
@@ -114,7 +121,8 @@ export class ProdutoService {
           modalidade: data.modalidade,
           status: data.status,
           versaoEstruturaAtributos: atual.versaoEstruturaAtributos
-        }
+        },
+        include: { codigosInternos: true }
       });
 
       if (data.valoresAtributos !== undefined) {
@@ -124,6 +132,13 @@ export class ProdutoService {
             valoresJson: data.valoresAtributos,
             estruturaSnapshotJson: estrutura as unknown as Prisma.InputJsonValue
           }
+        });
+      }
+
+      if (data.codigosInternos) {
+        await tx.codigoInternoProduto.deleteMany({ where: { produtoId: id } });
+        await tx.codigoInternoProduto.createMany({
+          data: data.codigosInternos.map(c => ({ codigo: c, produtoId: id }))
         });
       }
 

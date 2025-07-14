@@ -175,7 +175,7 @@ DELIMITER ;
     CREATE TABLE produto (
         id INT PRIMARY KEY AUTO_INCREMENT,
         catalogo_id INT UNSIGNED NOT NULL,
-        codigo VARCHAR(50) UNIQUE NOT NULL,
+        codigo VARCHAR(50) UNIQUE DEFAULT NULL,
         versao INT NOT NULL DEFAULT 1,
         status ENUM('RASCUNHO', 'ATIVO', 'INATIVO') DEFAULT 'RASCUNHO',
         ncm_codigo VARCHAR(8) NOT NULL,
@@ -201,6 +201,13 @@ DELIMITER ;
         validado_em TIMESTAMP NULL,
         erros_validacao JSON NULL,
         FOREIGN KEY (produto_id) REFERENCES produto(id)
+    );
+
+    CREATE TABLE codigo_interno_produto (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        produto_id INT NOT NULL,
+        codigo VARCHAR(50) NOT NULL,
+        FOREIGN KEY (produto_id) REFERENCES produto(id) ON DELETE CASCADE
     );
 
 

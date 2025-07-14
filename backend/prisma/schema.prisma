@@ -176,7 +176,7 @@ model AtributosCache {
 // Tabela de produtos
 model Produto {
   id                        Int               @id @default(autoincrement()) @map("id")
-  codigo                    String            @unique @map("codigo")
+  codigo                    String?           @unique @map("codigo")
   versao                    Int               @map("versao")
   status                    ProdutoStatus     @map("status")
   ncmCodigo                 String            @map("ncm_codigo")
@@ -188,6 +188,7 @@ model Produto {
   criadoPor                 String?           @map("criado_por")
   versaoEstruturaAtributos  Int?              @map("versao_estrutura_atributos")
   atributos                 ProdutoAtributos[]
+  codigosInternos           CodigoInternoProduto[]
 
   @@index([ncmCodigo], name: "idx_ncm")
   @@index([catalogoId], name: "idx_catalogo")
@@ -206,4 +207,13 @@ model ProdutoAtributos {
   produto               Produto   @relation(fields: [produtoId], references: [id])
 
   @@map("produto_atributos")
+}
+
+model CodigoInternoProduto {
+  id        Int     @id @default(autoincrement()) @map("id")
+  produtoId Int     @map("produto_id")
+  codigo    String  @map("codigo")
+  produto   Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+
+  @@map("codigo_interno_produto")
 }

@@ -29,7 +29,9 @@ interface AtributoEstrutura {
 
 export default function NovoProdutoPage() {
   const [catalogoId, setCatalogoId] = useState('');
-  const [codigo] = useState(() => `PROD-${Date.now()}`);
+  const [codigo] = useState('');
+  const [codigosInternos, setCodigosInternos] = useState<string[]>([]);
+  const [novoCodigoInterno, setNovoCodigoInterno] = useState('');
   const [catalogos, setCatalogos] = useState<Array<{ id: number; nome: string; cpf_cnpj: string | null }>>([]);
   const [ncm, setNcm] = useState('');
   const [ncmDescricao, setNcmDescricao] = useState('');
@@ -145,6 +147,12 @@ export default function NovoProdutoPage() {
 
   function handleValor(codigo: string, valor: string) {
     setValores(prev => ({ ...prev, [codigo]: valor }));
+  }
+
+  function adicionarCodigoInterno() {
+    if (!novoCodigoInterno.trim()) return;
+    setCodigosInternos(prev => [...prev, novoCodigoInterno.trim()]);
+    setNovoCodigoInterno('');
   }
 
   function avaliarExpressao(cond: any, valor: string): boolean {
@@ -284,11 +292,11 @@ export default function NovoProdutoPage() {
   async function salvar() {
     try {
       await api.post('/produtos', {
-        codigo: `PROD-${Date.now()}`,
         ncmCodigo: ncm,
         modalidade,
         catalogoId: Number(catalogoId),
-        valoresAtributos: valores
+        valoresAtributos: valores,
+        codigosInternos
       });
       addToast('Produto salvo com sucesso!', 'success');
       router.push('/produtos');
@@ -331,7 +339,7 @@ export default function NovoProdutoPage() {
           />
           {estruturaCarregada && !loadingEstrutura && (
               <div className="grid grid-cols-1 gap-4">
-                <Input label="Código" value={codigo} disabled />
+                <Input label="Código" value={codigo || '-'} disabled />
               </div>
             )}
         </div>
@@ -376,11 +384,32 @@ export default function NovoProdutoPage() {
                             label="Nome do Produto"
                             className="col-span-1"
                           />
-                          
+
                           <Input
                             label="Descrição do Produto"
                             className="col-span-1"
                           />
+
+                          <div className="col-span-3">
+                            <label className="block text-sm font-medium mb-1 text-gray-300">
+                              Código Interno
+                            </label>
+                            <div className="flex gap-2 mb-2">
+                              <Input
+                                value={novoCodigoInterno}
+                                onChange={e => setNovoCodigoInterno(e.target.value)}
+                                className="mb-0 flex-1"
+                              />
+                              <Button type="button" onClick={adicionarCodigoInterno}>+ Incluir</Button>
+                            </div>
+                            {codigosInternos.length > 0 && (
+                              <ul className="list-disc list-inside text-sm text-gray-300">
+                                {codigosInternos.map((c, i) => (
+                                  <li key={i}>{c}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
                         </div>
                       )
                     },
