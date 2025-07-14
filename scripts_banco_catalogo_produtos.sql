@@ -1,5 +1,3 @@
-use `catpro-hml`;
-
 -- Criar o schema catpro-hml
 CREATE TABLE IF NOT EXISTS catalogo (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -144,7 +142,7 @@ DELIMITER ;
         INDEX idx_numero (numero)
     );
 
-    CREATE TABLE ncm_cache (
+    CREATE TABLE IF NOT EXISTS ncm_cache (
         id INT PRIMARY KEY AUTO_INCREMENT,
         codigo VARCHAR(8) UNIQUE NOT NULL,
         descricao VARCHAR(255),
@@ -157,7 +155,7 @@ DELIMITER ;
         aliquota_ii DECIMAL(5,2)
     );
 
-    CREATE TABLE atributos_cache (
+    CREATE TABLE IF NOT EXISTS atributos_cache (
         id INT PRIMARY KEY AUTO_INCREMENT,
         ncm_codigo VARCHAR(8),
         modalidade VARCHAR(50),
@@ -172,7 +170,7 @@ DELIMITER ;
         UNIQUE KEY uk_ncm_modalidade_versao (ncm_codigo, modalidade, versao)
     );
 
-    CREATE TABLE produto (
+    CREATE TABLE IF NOT EXISTS produto (
         id INT PRIMARY KEY AUTO_INCREMENT,
         catalogo_id INT UNSIGNED NOT NULL,
         codigo VARCHAR(50) UNIQUE DEFAULT NULL,
@@ -182,6 +180,7 @@ DELIMITER ;
         modalidade VARCHAR(50),
         -- Rastreabilidade
         atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         criado_por VARCHAR(100),
         -- Versionamento de estrutura
         versao_estrutura_atributos INT,
@@ -191,7 +190,7 @@ DELIMITER ;
         UNIQUE KEY uk_codigo_versao (codigo, versao)
     );
 
-    CREATE TABLE produto_atributos (
+    CREATE TABLE IF NOT EXISTS produto_atributos (
         id INT PRIMARY KEY AUTO_INCREMENT,
         produto_id INT NOT NULL,
         valores_json JSON NOT NULL,
@@ -203,18 +202,18 @@ DELIMITER ;
         FOREIGN KEY (produto_id) REFERENCES produto(id)
     );
 
-    CREATE TABLE codigo_interno_produto (
+    CREATE TABLE IF NOT EXISTS codigo_interno_produto (
         id INT PRIMARY KEY AUTO_INCREMENT,
         produto_id INT NOT NULL,
         codigo VARCHAR(50) NOT NULL,
         FOREIGN KEY (produto_id) REFERENCES produto(id) ON DELETE CASCADE
     );
 
-    CREATE TABLE operador_estrangeiro_produto (
+    CREATE TABLE IF NOT EXISTS operador_estrangeiro_produto (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        pais_codigo VARCHAR(2) NOT NULL,
+        pais_codigo VARCHAR(10) NOT NULL,
         conhecido BOOLEAN NOT NULL,
-        operador_estrangeiro_id INT NULL,
+        operador_estrangeiro_id INT UNSIGNED NULL,
         produto_id INT NOT NULL,
         FOREIGN KEY (pais_codigo) REFERENCES pais(codigo),
         FOREIGN KEY (operador_estrangeiro_id) REFERENCES operador_estrangeiro(id),
