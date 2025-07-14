@@ -13,7 +13,7 @@ import { useRouter } from 'next/router';
 import api from '@/lib/api';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { formatCPFOrCNPJ, formatCEP } from '@/lib/validation';
-import { Trash2 } from 'lucide-react';
+import { Trash2, BrainCog } from 'lucide-react';
 import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
 
@@ -50,6 +50,7 @@ export default function NovoProdutoPage() {
   const [valores, setValores] = useState<Record<string, string>>({});
   const [loadingEstrutura, setLoadingEstrutura] = useState(false);
   const [estruturaCarregada, setEstruturaCarregada] = useState(false);
+  const [activeTab, setActiveTab] = useState('informacoes');
   const { addToast } = useToast();
   const router = useRouter();
 
@@ -415,6 +416,8 @@ export default function NovoProdutoPage() {
             <>
               <Card className="mb-6">
                 <Tabs
+                  activeId={activeTab}
+                  onChange={setActiveTab}
                   tabs={[
                     {
                       id: 'informacoes',
@@ -428,13 +431,24 @@ export default function NovoProdutoPage() {
                             onChange={e => setDenominacao(e.target.value)}
                           />
 
-                          <textarea
-                            className="col-span-3 w-full px-2 py-1 text-sm bg-[#1e2126] border border-gray-700 text-white rounded-md focus:outline-none focus:ring focus:border-blue-500"
-                            placeholder="Descrição do Produto"
-                            rows={4}
-                            value={descricao}
-                            onChange={e => setDescricao(e.target.value)}
-                          />
+                          <div className="col-span-3 mb-4">
+                            <label htmlFor="descricao" className="block text-sm font-medium mb-1 text-gray-300">
+                              Descrição
+                            </label>
+                            <textarea
+                              id="descricao"
+                              className="w-full px-2 py-1 text-sm bg-[#1e2126] border border-gray-700 text-white rounded-md focus:outline-none focus:ring focus:border-blue-500"
+                              placeholder="Descrição do Produto"
+                              rows={4}
+                              value={descricao}
+                              onChange={e => setDescricao(e.target.value)}
+                            />
+                            <div className="mt-2">
+                              <Button type="button" size="sm" onClick={() => setActiveTab('dinamicos')}>
+                                <BrainCog size={16} className="inline mr-2" /> Preencher Atributos
+                              </Button>
+                            </div>
+                          </div>
 
                           <div className="col-span-3">
                           <Card
