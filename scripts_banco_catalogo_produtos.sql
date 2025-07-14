@@ -1,4 +1,6 @@
+use `catpro-hml`;
 
+-- Criar o schema catpro-hml
 CREATE TABLE IF NOT EXISTS catalogo (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nome VARCHAR(255) NOT NULL,
@@ -11,7 +13,7 @@ CREATE TABLE IF NOT EXISTS catalogo (
 );
 
 -- Função para gerar números aleatórios de 6 dígitos
-DELIMITER $$
+DELIMITER $$;
 
 CREATE FUNCTION IF NOT EXISTS generate_unique_random_numero() 
 RETURNS INT UNSIGNED
@@ -172,7 +174,7 @@ DELIMITER ;
 
     CREATE TABLE produto (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        catalogo_id INT NOT NULL,
+        catalogo_id INT UNSIGNED NOT NULL,
         codigo VARCHAR(50) UNIQUE NOT NULL,
         versao INT NOT NULL DEFAULT 1,
         status ENUM('RASCUNHO', 'ATIVO', 'INATIVO') DEFAULT 'RASCUNHO',
@@ -180,7 +182,6 @@ DELIMITER ;
         modalidade VARCHAR(50),
         -- Rastreabilidade
         atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        atualizado_em TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         criado_por VARCHAR(100),
         -- Versionamento de estrutura
         versao_estrutura_atributos INT,

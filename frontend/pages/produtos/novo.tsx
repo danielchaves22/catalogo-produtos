@@ -346,8 +346,8 @@ export default function NovoProdutoPage() {
                 onChange={(val) => handleNcmChange(val)}
                 className="col-span-1"
               />
-              <Input label="Descrição" value={ncmDescricao} disabled className="col-span-3" />
-              <Input label="Unidade" value={unidadeMedida} disabled className="col-span-1" />
+              <Input label="Descrição NCM" value={ncmDescricao} disabled className="col-span-3" />
+              <Input label="Unidade de Medida" value={unidadeMedida} disabled className="col-span-1" />
             </div>
           </>
         )}
@@ -367,6 +367,23 @@ export default function NovoProdutoPage() {
               <Card className="mb-6">
                 <Tabs
                   tabs={[
+                    {
+                      id: 'informacoes',
+                      label: 'Informações do Produto',
+                      content: (
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <Input
+                            label="Nome do Produto"
+                            className="col-span-1"
+                          />
+                          
+                          <Input
+                            label="Descrição do Produto"
+                            className="col-span-1"
+                          />
+                        </div>
+                      )
+                    },
                     {
                       id: 'dinamicos',
                       label: 'Atributos Dinâmicos',
