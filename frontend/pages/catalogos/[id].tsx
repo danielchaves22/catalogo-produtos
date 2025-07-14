@@ -188,7 +188,7 @@ export default function CatalogoFormPage() {
 
       <Card>
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-4">
             {/* Número e Data (somente leitura) */}
             {!isNew && catalogo && (
               <>

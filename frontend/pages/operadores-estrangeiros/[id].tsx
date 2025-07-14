@@ -92,7 +92,7 @@ function CustomSelect({ label, name, value, onChange, options, disabled, classNa
         value={value}
         onChange={onChange}
         disabled={disabled}
-        className={`w-full px-3 py-2 bg-[#1e2126] border rounded-lg focus:outline-none focus:ring focus:border-blue-500 text-white ${
+        className={`w-full px-2 py-1 bg-[#1e2126] border rounded-md focus:outline-none focus:ring focus:border-blue-500 text-white ${
           error ? 'border-red-500' : 'border-gray-700'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         style={{ zIndex: 10 }} // Garantir que fique acima dos cards
@@ -473,7 +473,7 @@ const cnpjOptions = [
       <form onSubmit={handleSubmit}>
         {/* Dados Básicos */}
         <Card className="mb-6" headerTitle="Dados Básicos">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Informações do sistema (somente leitura) */}
             {!isNew && operador && (
               <>
@@ -570,7 +570,7 @@ const cnpjOptions = [
 
         {/* Endereço */}
         <Card className="mb-6" headerTitle="Endereço">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <MaskedInput
               label="Código Postal"
               mask="cep"
@@ -679,7 +679,7 @@ const cnpjOptions = [
         {/* Informações do Sistema (apenas para edição) */}
         {!isNew && operador && (
           <Card className="mb-6" headerTitle="Informações do Sistema">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Data de Inclusão"
                 value={formatarData(operador.dataInclusao)}
