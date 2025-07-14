@@ -13,6 +13,7 @@ import { PageLoader } from '@/components/ui/PageLoader';
 import api from '@/lib/api';
 import { Trash2 } from 'lucide-react';
 import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
+import { formatCPFOrCNPJ, formatCEP } from '@/lib/validation';
 import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
 
 interface AtributoEstrutura {
@@ -122,6 +123,16 @@ export default function EditarProdutoPage() {
 
   function removerOperador(index: number) {
     setOperadores(prev => prev.filter((_, i) => i !== index));
+  }
+
+  function formatarEndereco(op?: OperadorEstrangeiro | null) {
+    if (!op) return '';
+    const partes: string[] = [];
+    if (op.logradouro) partes.push(op.logradouro);
+    if (op.cidade) partes.push(op.cidade);
+    if (op.subdivisao) partes.push(op.subdivisao.nome);
+    const endereco = partes.join(', ');
+    return op.codigoPostal ? `${endereco} - ${formatCEP(op.codigoPostal)}` : endereco;
   }
 
   function avaliarExpressao(cond: any, valor: string): boolean {
@@ -445,7 +456,13 @@ export default function EditarProdutoPage() {
                           <thead className="text-gray-400 bg-[#0f1419] uppercase">
                             <tr>
                               <th className="w-16 px-4 py-2 text-center">Ações</th>
-                              <th className="px-4 py-2">Operador</th>
+                              <th className="px-4 py-2">País de Origem</th>
+                              <th className="px-4 py-2">Conhecido</th>
+                              <th className="px-4 py-2">CPF/CNPJ/TIN</th>
+                              <th className="px-4 py-2">Código</th>
+                              <th className="px-4 py-2">Código Interno</th>
+                              <th className="px-4 py-2">Nome</th>
+                              <th className="px-4 py-2">Endereço</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -456,9 +473,15 @@ export default function EditarProdutoPage() {
                                     <Trash2 size={16} />
                                   </button>
                                 </td>
+                                <td className="px-4 py-1">{op.conhecido === 'sim' ? op.operador?.pais.nome : ''}</td>
+                                <td className="px-4 py-1">{op.conhecido === 'sim' ? 'Sim' : 'Não'}</td>
                                 <td className="px-4 py-1">
-                                  {op.conhecido === 'sim' ? op.operador?.nome : 'Não informado'} - {op.paisCodigo}
+                                  {op.conhecido === 'sim' ? (op.operador?.tin || formatCPFOrCNPJ(op.operador?.cnpjRaizResponsavel)) : ''}
                                 </td>
+                                <td className="px-4 py-1">{op.conhecido === 'sim' ? op.operador?.codigo || '' : ''}</td>
+                                <td className="px-4 py-1">{op.conhecido === 'sim' ? op.operador?.codigoInterno || '' : ''}</td>
+                                <td className="px-4 py-1">{op.conhecido === 'sim' ? op.operador?.nome || '' : ''}</td>
+                                <td className="px-4 py-1">{op.conhecido === 'sim' ? formatarEndereco(op.operador) : ''}</td>
                               </tr>
                             ))}
                           </tbody>
