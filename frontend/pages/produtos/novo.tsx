@@ -396,15 +396,12 @@ export default function NovoProdutoPage() {
                           />
 
                           <div className="col-span-3">
-                            <Card>
-                              <label className="block text-sm font-medium mb-1 text-gray-300">
-                                Código Interno
-                              </label>
+                            <Card headerTitle="Códigos Internos">
                               <div className="flex gap-2 mb-4">
                                 <Input
                                   value={novoCodigoInterno}
                                   onChange={e => setNovoCodigoInterno(e.target.value)}
-                                  className="mb-0 flex-1"
+                                  className="mb-0 w-1/2"
                                 />
                                 <Button type="button" onClick={adicionarCodigoInterno}>+ Incluir</Button>
                               </div>
