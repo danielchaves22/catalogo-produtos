@@ -10,10 +10,20 @@ interface TabsProps {
   tabs: Tab[];
   initialId?: string;
   className?: string;
+  activeId?: string;
+  onChange?: (id: string) => void;
 }
 
-export function Tabs({ tabs, initialId, className = '' }: TabsProps) {
-  const [active, setActive] = useState(initialId || tabs[0]?.id);
+export function Tabs({ tabs, initialId, className = '', activeId, onChange }: TabsProps) {
+  const [internalActive, setInternalActive] = useState(initialId || tabs[0]?.id);
+  const active = activeId ?? internalActive;
+
+  const changeTab = (id: string) => {
+    if (activeId === undefined) {
+      setInternalActive(id);
+    }
+    onChange?.(id);
+  };
   const current = tabs.find(t => t.id === active);
 
   return (
@@ -23,7 +33,7 @@ export function Tabs({ tabs, initialId, className = '' }: TabsProps) {
           <button
             key={tab.id}
             type="button"
-            onClick={() => setActive(tab.id)}
+            onClick={() => changeTab(tab.id)}
             className={`py-2 px-4 text-sm transition-colors ${
               active === tab.id
                 ? 'border-b-2 border-accent text-white'
