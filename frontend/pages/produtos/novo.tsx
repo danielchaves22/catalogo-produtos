@@ -13,6 +13,7 @@ import { useRouter } from 'next/router';
 import api from '@/lib/api';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { formatCPFOrCNPJ } from '@/lib/validation';
+import { Trash2 } from 'lucide-react';
 
 interface AtributoEstrutura {
   codigo: string;
@@ -153,6 +154,10 @@ export default function NovoProdutoPage() {
     if (!novoCodigoInterno.trim()) return;
     setCodigosInternos(prev => [...prev, novoCodigoInterno.trim()]);
     setNovoCodigoInterno('');
+  }
+
+  function removerCodigoInterno(index: number) {
+    setCodigosInternos(prev => prev.filter((_, i) => i !== index));
   }
 
   function avaliarExpressao(cond: any, valor: string): boolean {
@@ -391,24 +396,40 @@ export default function NovoProdutoPage() {
                           />
 
                           <div className="col-span-3">
-                            <label className="block text-sm font-medium mb-1 text-gray-300">
-                              Código Interno
-                            </label>
-                            <div className="flex gap-2 mb-2">
-                              <Input
-                                value={novoCodigoInterno}
-                                onChange={e => setNovoCodigoInterno(e.target.value)}
-                                className="mb-0 flex-1"
-                              />
-                              <Button type="button" onClick={adicionarCodigoInterno}>+ Incluir</Button>
-                            </div>
-                            {codigosInternos.length > 0 && (
-                              <ul className="list-disc list-inside text-sm text-gray-300">
-                                {codigosInternos.map((c, i) => (
-                                  <li key={i}>{c}</li>
-                                ))}
-                              </ul>
-                            )}
+                            <Card>
+                              <label className="block text-sm font-medium mb-1 text-gray-300">
+                                Código Interno
+                              </label>
+                              <div className="flex gap-2 mb-4">
+                                <Input
+                                  value={novoCodigoInterno}
+                                  onChange={e => setNovoCodigoInterno(e.target.value)}
+                                  className="mb-0 flex-1"
+                                />
+                                <Button type="button" onClick={adicionarCodigoInterno}>+ Incluir</Button>
+                              </div>
+                              {codigosInternos.length > 0 && (
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm text-left">
+                                    <tbody>
+                                      {codigosInternos.map((c, i) => (
+                                        <tr key={i} className="border-b border-gray-700">
+                                          <td className="px-4 py-2 w-16 text-center">
+                                            <button
+                                              className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                                              onClick={() => removerCodigoInterno(i)}
+                                            >
+                                              <Trash2 size={16} />
+                                            </button>
+                                          </td>
+                                          <td className="px-4 py-2">{c}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </Card>
                           </div>
                         </div>
                       )
