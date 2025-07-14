@@ -52,6 +52,7 @@ model Pais {
   
   // Relacionamentos
   operadoresEstrangeiros OperadorEstrangeiro[]
+  operadoresEstrangeiroProdutos OperadorEstrangeiroProduto[] @relation("PaisOperadorProduto")
   subdivisoes Subdivisao[] // Adicionado relacionamento com subdivisões
   
   @@map("pais")
@@ -111,6 +112,7 @@ model OperadorEstrangeiro {
   pais                   Pais     @relation(fields: [paisCodigo], references: [codigo])
   subdivisao             Subdivisao? @relation(fields: [subdivisaoCodigo], references: [codigo])
   identificacoesAdicionais IdentificacaoAdicional[]
+  operadorEstrangeiroProdutos OperadorEstrangeiroProduto[] @relation("OperadorProduto")
   
   @@map("operador_estrangeiro")
 }
@@ -189,6 +191,7 @@ model Produto {
   versaoEstruturaAtributos  Int?              @map("versao_estrutura_atributos")
   atributos                 ProdutoAtributos[]
   codigosInternos           CodigoInternoProduto[]
+  operadoresEstrangeiros    OperadorEstrangeiroProduto[]
 
   @@index([ncmCodigo], name: "idx_ncm")
   @@index([catalogoId], name: "idx_catalogo")
@@ -216,4 +219,18 @@ model CodigoInternoProduto {
   produto   Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
 
   @@map("codigo_interno_produto")
+}
+
+model OperadorEstrangeiroProduto {
+  id                    Int     @id @default(autoincrement()) @map("id")
+  paisCodigo            String  @map("pais_codigo")
+  conhecido             Boolean @map("conhecido")
+  operadorEstrangeiroId Int?    @map("operador_estrangeiro_id")
+  produtoId             Int     @map("produto_id")
+
+  pais                  Pais                  @relation("PaisOperadorProduto", fields: [paisCodigo], references: [codigo])
+  operadorEstrangeiro   OperadorEstrangeiro?  @relation("OperadorProduto", fields: [operadorEstrangeiroId], references: [id])
+  produto               Produto               @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+
+  @@map("operador_estrangeiro_produto")
 }
