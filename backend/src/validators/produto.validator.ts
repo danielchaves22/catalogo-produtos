@@ -8,6 +8,11 @@ export const createProdutoSchema = z.object({
   catalogoId: z.number().int(),
   valoresAtributos: z.record(z.any()).optional(),
   codigosInternos: z.array(z.string().max(50)).optional(),
+  operadoresEstrangeiros: z.array(z.object({
+    paisCodigo: z.string().min(2),
+    conhecido: z.boolean(),
+    operadorEstrangeiroId: z.number().int().optional()
+  })).optional(),
   criadoPor: z.string().optional()
 });
 
@@ -16,5 +21,10 @@ export const updateProdutoSchema = z.object({
   status: z.enum(['RASCUNHO', 'ATIVO', 'INATIVO']).optional(),
   valoresAtributos: z.record(z.any()).optional(),
   codigosInternos: z.array(z.string().max(50)).optional(),
+  operadoresEstrangeiros: z.array(z.object({
+    paisCodigo: z.string().min(2),
+    conhecido: z.boolean(),
+    operadorEstrangeiroId: z.number().int().optional()
+  })).optional(),
   atualizadoPor: z.string().optional()
 });

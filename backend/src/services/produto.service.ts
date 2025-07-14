@@ -12,6 +12,7 @@ export interface CreateProdutoDTO {
   catalogoId: number;
   valoresAtributos?: Prisma.InputJsonValue;
   codigosInternos?: string[];
+  operadoresEstrangeiros?: OperadorEstrangeiroProdutoInput[];
   criadoPor?: string;
 }
 
@@ -20,19 +21,33 @@ export interface UpdateProdutoDTO {
   status?: 'RASCUNHO' | 'ATIVO' | 'INATIVO';
   valoresAtributos?: Prisma.InputJsonValue;
   codigosInternos?: string[];
+  operadoresEstrangeiros?: OperadorEstrangeiroProdutoInput[];
   atualizadoPor?: string;
+}
+
+export interface OperadorEstrangeiroProdutoInput {
+  paisCodigo: string;
+  conhecido: boolean;
+  operadorEstrangeiroId?: number;
 }
 
 export class ProdutoService {
   private atributosService = new AtributoLegacyService();
   async listarTodos() {
     const produtos = await catalogoPrisma.produto.findMany({
-      include: { atributos: true, catalogo: true, codigosInternos: true }
+      include: { atributos: true, catalogo: true, codigosInternos: true, operadoresEstrangeiros: { include: { pais: true, operadorEstrangeiro: true } } }
     });
 
     return produtos.map(p => ({
       ...p,
       codigosInternos: p.codigosInternos.map(ci => ci.codigo),
+      operadoresEstrangeiros: p.operadoresEstrangeiros.map(o => ({
+        id: o.id,
+        paisCodigo: o.paisCodigo,
+        paisNome: o.pais.nome,
+        conhecido: o.conhecido,
+        operadorEstrangeiroId: o.operadorEstrangeiroId
+      })),
       catalogoNumero: p.catalogo?.numero,
       catalogoNome: p.catalogo?.nome,
       catalogoCpfCnpj: p.catalogo?.cpf_cnpj
@@ -40,7 +55,7 @@ export class ProdutoService {
   }
 
   async buscarPorId(id: number) {
-    return catalogoPrisma.produto.findUnique({ where: { id }, include: { atributos: true, catalogo: true, codigosInternos: true } });
+    return catalogoPrisma.produto.findUnique({ where: { id }, include: { atributos: true, catalogo: true, codigosInternos: true, operadoresEstrangeiros: true } });
   }
 
   async criar(data: CreateProdutoDTO) {
@@ -71,8 +86,18 @@ export class ProdutoService {
           codigosInternos: data.codigosInternos
             ? { create: data.codigosInternos.map(c => ({ codigo: c })) }
             : undefined
+          ,
+          operadoresEstrangeiros: data.operadoresEstrangeiros
+            ? {
+                create: data.operadoresEstrangeiros.map(o => ({
+                  paisCodigo: o.paisCodigo,
+                  conhecido: o.conhecido,
+                  operadorEstrangeiroId: o.operadorEstrangeiroId ?? null
+                }))
+              }
+            : undefined
         },
-        include: { codigosInternos: true }
+        include: { codigosInternos: true, operadoresEstrangeiros: true }
       });
 
       await tx.produtoAtributos.create({
@@ -122,7 +147,7 @@ export class ProdutoService {
           status: data.status,
           versaoEstruturaAtributos: atual.versaoEstruturaAtributos
         },
-        include: { codigosInternos: true }
+        include: { codigosInternos: true, operadoresEstrangeiros: true }
       });
 
       if (data.valoresAtributos !== undefined) {
@@ -139,6 +164,18 @@ export class ProdutoService {
         await tx.codigoInternoProduto.deleteMany({ where: { produtoId: id } });
         await tx.codigoInternoProduto.createMany({
           data: data.codigosInternos.map(c => ({ codigo: c, produtoId: id }))
+        });
+      }
+
+      if (data.operadoresEstrangeiros) {
+        await tx.operadorEstrangeiroProduto.deleteMany({ where: { produtoId: id } });
+        await tx.operadorEstrangeiroProduto.createMany({
+          data: data.operadoresEstrangeiros.map(o => ({
+            paisCodigo: o.paisCodigo,
+            conhecido: o.conhecido,
+            operadorEstrangeiroId: o.operadorEstrangeiroId ?? null,
+            produtoId: id
+          }))
         });
       }
 

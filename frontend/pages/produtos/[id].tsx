@@ -11,6 +11,9 @@ import { useToast } from '@/components/ui/ToastContext';
 import { useRouter } from 'next/router';
 import { PageLoader } from '@/components/ui/PageLoader';
 import api from '@/lib/api';
+import { Trash2 } from 'lucide-react';
+import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
+import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
 
 interface AtributoEstrutura {
   codigo: string;
@@ -30,6 +33,10 @@ export default function EditarProdutoPage() {
   const [codigo, setCodigo] = useState('');
   const [codigosInternos, setCodigosInternos] = useState<string[]>([]);
   const [novoCodigoInterno, setNovoCodigoInterno] = useState('');
+  const [operadores, setOperadores] = useState<Array<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>>([]);
+  const [novoOperador, setNovoOperador] = useState<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>({ paisCodigo: '', conhecido: 'nao', operador: undefined });
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const { getPaisOptions } = useOperadorEstrangeiro();
   const [ncm, setNcm] = useState('');
   const [ncmDescricao, setNcmDescricao] = useState('');
   const [modalidade, setModalidade] = useState('IMPORTACAO');
@@ -100,6 +107,17 @@ export default function EditarProdutoPage() {
     if (!novoCodigoInterno.trim()) return;
     setCodigosInternos(prev => [...prev, novoCodigoInterno.trim()]);
     setNovoCodigoInterno('');
+  }
+
+  function adicionarOperador() {
+    if (!novoOperador.paisCodigo) return;
+    if (novoOperador.conhecido === 'sim' && !novoOperador.operador) return;
+    setOperadores(prev => [...prev, { ...novoOperador }]);
+    setNovoOperador({ paisCodigo: '', conhecido: 'nao', operador: undefined });
+  }
+
+  function removerOperador(index: number) {
+    setOperadores(prev => prev.filter((_, i) => i !== index));
   }
 
   function avaliarExpressao(cond: any, valor: string): boolean {
@@ -239,6 +257,13 @@ export default function EditarProdutoPage() {
       const dados = response.data;
       setCodigo(dados.codigo);
       setCodigosInternos(dados.codigosInternos || []);
+      setOperadores(
+        (dados.operadoresEstrangeiros || []).map((o: any) => ({
+          paisCodigo: o.paisCodigo,
+          conhecido: o.conhecido ? 'sim' : 'nao',
+          operador: o.operadorEstrangeiro || null
+        }))
+      );
       setCatalogoNome(dados.catalogo?.nome || '');
       setNcm(dados.ncmCodigo);
       setModalidade(dados.modalidade);
@@ -273,7 +298,12 @@ export default function EditarProdutoPage() {
       await api.put(`/produtos/${id}`, {
         modalidade,
         valoresAtributos: valores,
-        codigosInternos
+        codigosInternos,
+        operadoresEstrangeiros: operadores.map(o => ({
+          paisCodigo: o.paisCodigo,
+          conhecido: o.conhecido === 'sim',
+          operadorEstrangeiroId: o.operador?.id
+        }))
       });
       addToast('Produto atualizado com sucesso!', 'success');
       router.push('/produtos');
@@ -354,6 +384,53 @@ export default function EditarProdutoPage() {
                       </ul>
                     )}
                   </div>
+
+                  <Card headerTitle="Operadores Estrangeiros" className="mt-4">
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      <Select
+                        label="País"
+                        options={getPaisOptions()}
+                        value={novoOperador.paisCodigo}
+                        onChange={e => setNovoOperador(prev => ({ ...prev, paisCodigo: e.target.value }))}
+                        className="mb-0"
+                      />
+                      <RadioGroup
+                        label="Conhecido?"
+                        options={[{ value: 'nao', label: 'Não' }, { value: 'sim', label: 'Sim' }]}
+                        value={novoOperador.conhecido}
+                        onChange={v => setNovoOperador(prev => ({ ...prev, conhecido: v }))}
+                        className="mb-0"
+                      />
+                      {novoOperador.conhecido === 'sim' && (
+                        <div className="flex items-end gap-2">
+                          <Input label="Operador" value={novoOperador.operador?.nome || ''} readOnly className="flex-1" />
+                          <Button type="button" onClick={() => setSelectorOpen(true)}>Buscar</Button>
+                        </div>
+                      )}
+                    </div>
+                    <Button type="button" onClick={adicionarOperador}>Vincular Operador</Button>
+
+                    {operadores.length > 0 && (
+                      <div className="overflow-x-auto mt-4">
+                        <table className="w-full text-sm text-left">
+                          <tbody>
+                            {operadores.map((op, i) => (
+                              <tr key={i} className="border-b border-gray-700">
+                                <td className="px-4 py-2 w-16 text-center">
+                                  <button className="p-1 text-gray-300 hover:text-red-500 transition-colors" onClick={() => removerOperador(i)}>
+                                    <Trash2 size={16} />
+                                  </button>
+                                </td>
+                                <td className="px-4 py-2">
+                                  {op.conhecido === 'sim' ? op.operador?.nome : 'Não informado'} - {op.paisCodigo}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Card>
                 </div>
               )
             },
@@ -374,6 +451,13 @@ export default function EditarProdutoPage() {
         <Button type="button" variant="outline" onClick={() => router.push('/produtos')}>Cancelar</Button>
         <Button type="button" onClick={salvar}>Salvar Produto</Button>
       </div>
+      {selectorOpen && (
+        <OperadorEstrangeiroSelector
+          onSelect={op => { setNovoOperador(prev => ({ ...prev, operador: op })); setSelectorOpen(false); }}
+          onCancel={() => setSelectorOpen(false)}
+          selectedOperadores={[]}
+        />
+      )}
     </DashboardLayout>
   );
 }

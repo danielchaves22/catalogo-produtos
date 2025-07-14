@@ -14,6 +14,8 @@ import api from '@/lib/api';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 import { Trash2 } from 'lucide-react';
+import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
+import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
 
 interface AtributoEstrutura {
   codigo: string;
@@ -33,6 +35,10 @@ export default function NovoProdutoPage() {
   const [codigo] = useState('');
   const [codigosInternos, setCodigosInternos] = useState<string[]>([]);
   const [novoCodigoInterno, setNovoCodigoInterno] = useState('');
+  const [operadores, setOperadores] = useState<Array<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>>([]);
+  const [novoOperador, setNovoOperador] = useState<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>({ paisCodigo: '', conhecido: 'nao', operador: undefined });
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const { getPaisOptions, buscarOperadorPorId } = useOperadorEstrangeiro();
   const [catalogos, setCatalogos] = useState<Array<{ id: number; nome: string; cpf_cnpj: string | null }>>([]);
   const [ncm, setNcm] = useState('');
   const [ncmDescricao, setNcmDescricao] = useState('');
@@ -158,6 +164,17 @@ export default function NovoProdutoPage() {
 
   function removerCodigoInterno(index: number) {
     setCodigosInternos(prev => prev.filter((_, i) => i !== index));
+  }
+
+  function adicionarOperador() {
+    if (!novoOperador.paisCodigo) return;
+    if (novoOperador.conhecido === 'sim' && !novoOperador.operador) return;
+    setOperadores(prev => [...prev, { ...novoOperador }]);
+    setNovoOperador({ paisCodigo: '', conhecido: 'nao', operador: undefined });
+  }
+
+  function removerOperador(index: number) {
+    setOperadores(prev => prev.filter((_, i) => i !== index));
   }
 
   function avaliarExpressao(cond: any, valor: string): boolean {
@@ -301,7 +318,12 @@ export default function NovoProdutoPage() {
         modalidade,
         catalogoId: Number(catalogoId),
         valoresAtributos: valores,
-        codigosInternos
+        codigosInternos,
+        operadoresEstrangeiros: operadores.map(o => ({
+          paisCodigo: o.paisCodigo,
+          conhecido: o.conhecido === 'sim',
+          operadorEstrangeiroId: o.operador?.id
+        }))
       });
       addToast('Produto salvo com sucesso!', 'success');
       router.push('/produtos');
@@ -396,7 +418,7 @@ export default function NovoProdutoPage() {
                           />
 
                           <div className="col-span-3">
-                            <Card headerTitle="Códigos Internos">
+                          <Card headerTitle="Códigos Internos">
                               <div className="flex gap-2 mb-4">
                                 <Input
                                   value={novoCodigoInterno}
@@ -425,12 +447,58 @@ export default function NovoProdutoPage() {
                                     </tbody>
                                   </table>
                                 </div>
+                            )}
+                          </Card>
+                          <Card headerTitle="Operadores Estrangeiros" className="mt-4">
+                            <div className="grid grid-cols-3 gap-4 mb-4">
+                              <Select
+                                label="País"
+                                options={getPaisOptions()}
+                                value={novoOperador.paisCodigo}
+                                onChange={e => setNovoOperador(prev => ({ ...prev, paisCodigo: e.target.value }))}
+                                className="mb-0"
+                              />
+                              <RadioGroup
+                                label="Conhecido?"
+                                options={[{ value: 'nao', label: 'Não' }, { value: 'sim', label: 'Sim' }]}
+                                value={novoOperador.conhecido}
+                                onChange={v => setNovoOperador(prev => ({ ...prev, conhecido: v }))}
+                                className="mb-0"
+                              />
+                              {novoOperador.conhecido === 'sim' && (
+                                <div className="flex items-end gap-2">
+                                  <Input label="Operador" value={novoOperador.operador?.nome || ''} readOnly className="flex-1" />
+                                  <Button type="button" onClick={() => setSelectorOpen(true)}>Buscar</Button>
+                                </div>
                               )}
-                            </Card>
-                          </div>
+                            </div>
+                            <Button type="button" onClick={adicionarOperador}>Vincular Operador</Button>
+
+                            {operadores.length > 0 && (
+                              <div className="overflow-x-auto mt-4">
+                                <table className="w-full text-sm text-left">
+                                  <tbody>
+                                    {operadores.map((op, i) => (
+                                      <tr key={i} className="border-b border-gray-700">
+                                        <td className="px-4 py-2 w-16 text-center">
+                                          <button className="p-1 text-gray-300 hover:text-red-500 transition-colors" onClick={() => removerOperador(i)}>
+                                            <Trash2 size={16} />
+                                          </button>
+                                        </td>
+                                        <td className="px-4 py-2">
+                                          {op.conhecido === 'sim' ? op.operador?.nome : 'Não informado'} - {op.paisCodigo}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </Card>
                         </div>
-                      )
-                    },
+                      </div>
+                    )
+                  },
                     {
                       id: 'dinamicos',
                       label: 'Atributos Dinâmicos',
@@ -457,6 +525,13 @@ export default function NovoProdutoPage() {
             </>
           )}
         </>
+      )}
+      {selectorOpen && (
+        <OperadorEstrangeiroSelector
+          onSelect={op => { setNovoOperador(prev => ({ ...prev, operador: op })); setSelectorOpen(false); }}
+          onCancel={() => setSelectorOpen(false)}
+          selectedOperadores={[]}
+        />
       )}
     </DashboardLayout>
   );

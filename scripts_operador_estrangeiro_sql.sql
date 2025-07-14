@@ -76,6 +76,18 @@
         INDEX idx_numero (numero)
     );
 
+    CREATE TABLE IF NOT EXISTS `catpro-hml`.`operador_estrangeiro_produto` (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        pais_codigo VARCHAR(2) NOT NULL,
+        conhecido BOOLEAN NOT NULL,
+        operador_estrangeiro_id INT UNSIGNED NULL,
+        produto_id INT UNSIGNED NOT NULL,
+        PRIMARY KEY (id),
+        FOREIGN KEY (pais_codigo) REFERENCES pais(codigo),
+        FOREIGN KEY (operador_estrangeiro_id) REFERENCES operador_estrangeiro(id),
+        FOREIGN KEY (produto_id) REFERENCES produto(id) ON DELETE CASCADE
+    );
+
 
     -- Scripts de dados iniciais para Operador Estrangeiro
     -- Execute após criar as tabelas
