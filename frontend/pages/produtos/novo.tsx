@@ -44,6 +44,8 @@ export default function NovoProdutoPage() {
   const [ncmDescricao, setNcmDescricao] = useState('');
   const [unidadeMedida, setUnidadeMedida] = useState('');
   const [modalidade, setModalidade] = useState('IMPORTACAO');
+  const [denominacao, setDenominacao] = useState('');
+  const [descricao, setDescricao] = useState('');
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
   const [valores, setValores] = useState<Record<string, string>>({});
   const [loadingEstrutura, setLoadingEstrutura] = useState(false);
@@ -327,6 +329,8 @@ export default function NovoProdutoPage() {
         ncmCodigo: ncm,
         modalidade,
         catalogoId: Number(catalogoId),
+        denominacao,
+        descricao,
         valoresAtributos: valores,
         codigosInternos,
         operadoresEstrangeiros: operadores.map(o => ({
@@ -419,12 +423,17 @@ export default function NovoProdutoPage() {
                         <div className="grid grid-cols-3 gap-4 text-sm">
                           <Input
                             label="Nome do Produto"
-                            className="col-span-1"
+                            className="col-span-3"
+                            value={denominacao}
+                            onChange={e => setDenominacao(e.target.value)}
                           />
 
-                          <Input
-                            label="Descrição do Produto"
-                            className="col-span-1"
+                          <textarea
+                            className="col-span-3 w-full px-2 py-1 text-sm bg-[#1e2126] border border-gray-700 text-white rounded-md focus:outline-none focus:ring focus:border-blue-500"
+                            placeholder="Descrição do Produto"
+                            rows={4}
+                            value={descricao}
+                            onChange={e => setDescricao(e.target.value)}
                           />
 
                           <div className="col-span-3">

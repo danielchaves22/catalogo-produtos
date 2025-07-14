@@ -10,6 +10,8 @@ export interface CreateProdutoDTO {
   ncmCodigo: string;
   modalidade: string;
   catalogoId: number;
+  denominacao?: string;
+  descricao?: string;
   valoresAtributos?: Prisma.InputJsonValue;
   codigosInternos?: string[];
   operadoresEstrangeiros?: OperadorEstrangeiroProdutoInput[];
@@ -19,6 +21,8 @@ export interface CreateProdutoDTO {
 export interface UpdateProdutoDTO {
   modalidade?: string;
   status?: 'RASCUNHO' | 'ATIVO' | 'INATIVO';
+  denominacao?: string;
+  descricao?: string;
   valoresAtributos?: Prisma.InputJsonValue;
   codigosInternos?: string[];
   operadoresEstrangeiros?: OperadorEstrangeiroProdutoInput[];
@@ -80,6 +84,8 @@ export class ProdutoService {
           status: 'RASCUNHO',
           ncmCodigo: data.ncmCodigo,
           modalidade: data.modalidade,
+          denominacao: data.denominacao ?? null,
+          descricao: data.descricao ?? null,
           catalogoId: data.catalogoId,
           versaoEstruturaAtributos: 1,
           criadoPor: data.criadoPor || null,
@@ -145,6 +151,8 @@ export class ProdutoService {
         data: {
           modalidade: data.modalidade,
           status: data.status,
+          denominacao: data.denominacao,
+          descricao: data.descricao,
           versaoEstruturaAtributos: atual.versaoEstruturaAtributos
         },
         include: { codigosInternos: true, operadoresEstrangeiros: true }
