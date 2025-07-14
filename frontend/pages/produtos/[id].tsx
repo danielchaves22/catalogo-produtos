@@ -109,6 +109,10 @@ export default function EditarProdutoPage() {
     setNovoCodigoInterno('');
   }
 
+  function removerCodigoInterno(index: number) {
+    setCodigosInternos(prev => prev.filter((_, i) => i !== index));
+  }
+
   function adicionarOperador() {
     if (!novoOperador.paisCodigo) return;
     if (novoOperador.conhecido === 'sim' && !novoOperador.operador) return;
@@ -364,11 +368,12 @@ export default function EditarProdutoPage() {
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <Input label="Código" value={codigo || '-'} disabled />
 
-                  <div className="col-span-3 mt-2">
-                    <label className="block text-sm font-medium mb-1 text-gray-300">
-                      Código Interno
-                    </label>
-                    <div className="flex gap-2 mb-2">
+                  <Card
+                    headerTitle="Códigos Internos"
+                    headerClassName="bg-[#1a1f2b] px-4 py-2"
+                    className="col-span-3 mt-2"
+                  >
+                    <div className="flex gap-2 mb-4">
                       <Input
                         value={novoCodigoInterno}
                         onChange={e => setNovoCodigoInterno(e.target.value)}
@@ -377,15 +382,39 @@ export default function EditarProdutoPage() {
                       <Button type="button" onClick={adicionarCodigoInterno}>+ Incluir</Button>
                     </div>
                     {codigosInternos.length > 0 && (
-                      <ul className="list-disc list-inside text-gray-300">
-                        {codigosInternos.map((c, i) => (
-                          <li key={i}>{c}</li>
-                        ))}
-                      </ul>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead className="text-gray-400 bg-[#0f1419] uppercase">
+                            <tr>
+                              <th className="w-16 px-4 py-2 text-center">Ações</th>
+                              <th className="px-4 py-2">Código</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {codigosInternos.map((c, i) => (
+                              <tr key={i} className="border-b border-gray-700">
+                                <td className="px-4 py-1 text-center">
+                                  <button
+                                    className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                                    onClick={() => removerCodigoInterno(i)}
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </td>
+                                <td className="px-4 py-1">{c}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     )}
-                  </div>
+                  </Card>
 
-                  <Card headerTitle="Operadores Estrangeiros" className="mt-4">
+                  <Card
+                    headerTitle="Operadores Estrangeiros"
+                    headerClassName="bg-[#1a1f2b] px-4 py-2"
+                    className="mt-4"
+                  >
                     <div className="grid grid-cols-3 gap-4 mb-4">
                       <Select
                         label="País"
@@ -412,16 +441,22 @@ export default function EditarProdutoPage() {
 
                     {operadores.length > 0 && (
                       <div className="overflow-x-auto mt-4">
-                        <table className="w-full text-sm text-left">
+                        <table className="w-full text-xs text-left">
+                          <thead className="text-gray-400 bg-[#0f1419] uppercase">
+                            <tr>
+                              <th className="w-16 px-4 py-2 text-center">Ações</th>
+                              <th className="px-4 py-2">Operador</th>
+                            </tr>
+                          </thead>
                           <tbody>
                             {operadores.map((op, i) => (
                               <tr key={i} className="border-b border-gray-700">
-                                <td className="px-4 py-2 w-16 text-center">
+                                <td className="px-4 py-1 text-center">
                                   <button className="p-1 text-gray-300 hover:text-red-500 transition-colors" onClick={() => removerOperador(i)}>
                                     <Trash2 size={16} />
                                   </button>
                                 </td>
-                                <td className="px-4 py-2">
+                                <td className="px-4 py-1">
                                   {op.conhecido === 'sim' ? op.operador?.nome : 'Não informado'} - {op.paisCodigo}
                                 </td>
                               </tr>
