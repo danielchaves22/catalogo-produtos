@@ -506,7 +506,7 @@ export default function EditarProdutoPage() {
                                     <Trash2 size={16} />
                                   </button>
                                 </td>
-                                <td className="px-4 py-1">{op.conhecido === 'sim' ? op.operador?.pais.nome : ''}</td>
+                                <td className="px-4 py-1">{op.conhecido === 'sim' ? op.operador?.pais?.nome : ''}</td>
                                 <td className="px-4 py-1">{op.conhecido === 'sim' ? 'Sim' : 'Não'}</td>
                                 <td className="px-4 py-1">
                                   {op.conhecido === 'sim' ? (op.operador?.tin || formatCPFOrCNPJ(op.operador?.cnpjRaizResponsavel)) : ''}
