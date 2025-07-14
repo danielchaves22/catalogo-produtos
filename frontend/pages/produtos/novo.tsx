@@ -499,8 +499,15 @@ export default function NovoProdutoPage() {
                               />
                               {novoOperador.conhecido === 'sim' && (
                                 <div className="flex items-end gap-2">
-                                  <Input label="Operador" value={novoOperador.operador?.nome || ''} readOnly className="flex-1" />
-                                  <Button type="button" onClick={() => setSelectorOpen(true)}>Buscar</Button>
+                                  <Input
+                                    label="Operador"
+                                    value={novoOperador.operador?.nome || ''}
+                                    readOnly
+                                    className="flex-1 mb-0"
+                                  />
+                                  <Button type="button" onClick={() => setSelectorOpen(true)}>
+                                    Buscar
+                                  </Button>
                                 </div>
                               )}
                             </div>
