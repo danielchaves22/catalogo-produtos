@@ -20,7 +20,8 @@ interface Produto {
   catalogoNumero?: number;
   catalogoNome?: string;
   catalogoCpfCnpj?: string;
-  nome?: string;
+  denominacao?: string;
+  descricao?: string;
   codigoInterno?: string;
   situacao?: string;
 }
@@ -62,7 +63,7 @@ export default function ProdutosPage() {
     return (
       (p.codigo || '').toLowerCase().includes(termo) ||
       p.ncmCodigo.toLowerCase().includes(termo) ||
-      (p.nome && p.nome.toLowerCase().includes(termo))
+      (p.denominacao && p.denominacao.toLowerCase().includes(termo))
     );
   });
 
@@ -175,7 +176,7 @@ export default function ProdutosPage() {
                     <td className="px-4 py-3 font-mono text-[#f59e0b]">{produto.catalogoNumero ?? '-'}</td>
                     <td className="px-4 py-3">{produto.catalogoNome ?? '-'}</td>
                     <td className="px-4 py-3">{produto.catalogoCpfCnpj ?? '-'}</td>
-                    <td className="px-4 py-3">{produto.nome ?? produto.codigo ?? '-'}</td>
+                    <td className="px-4 py-3">{produto.denominacao ?? produto.codigo ?? '-'}</td>
                     <td className="px-4 py-3">{produto.codigoInterno ?? '-'}</td>
                     <td className="px-4 py-3 font-mono">{produto.ncmCodigo}</td>
                     <td className="px-4 py-3">{produto.status}</td>

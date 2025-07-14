@@ -41,6 +41,8 @@ export default function EditarProdutoPage() {
   const [ncm, setNcm] = useState('');
   const [ncmDescricao, setNcmDescricao] = useState('');
   const [modalidade, setModalidade] = useState('IMPORTACAO');
+  const [denominacao, setDenominacao] = useState('');
+  const [descricao, setDescricao] = useState('');
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
   const [valores, setValores] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -279,6 +281,8 @@ export default function EditarProdutoPage() {
           operador: o.operadorEstrangeiro || null
         }))
       );
+      setDenominacao(dados.denominacao || '');
+      setDescricao(dados.descricao || '');
       setCatalogoNome(dados.catalogo?.nome || '');
       setNcm(dados.ncmCodigo);
       setModalidade(dados.modalidade);
@@ -312,6 +316,8 @@ export default function EditarProdutoPage() {
     try {
       await api.put(`/produtos/${id}`, {
         modalidade,
+        denominacao,
+        descricao,
         valoresAtributos: valores,
         codigosInternos,
         operadoresEstrangeiros: operadores.map(o => ({
@@ -378,6 +384,19 @@ export default function EditarProdutoPage() {
               content: (
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <Input label="Código" value={codigo || '-'} disabled />
+                  <Input
+                    label="Nome do Produto"
+                    className="col-span-3"
+                    value={denominacao}
+                    onChange={e => setDenominacao(e.target.value)}
+                  />
+                  <textarea
+                    className="col-span-3 w-full px-2 py-1 text-sm bg-[#1e2126] border border-gray-700 text-white rounded-md focus:outline-none focus:ring focus:border-blue-500"
+                    placeholder="Descrição do Produto"
+                    rows={4}
+                    value={descricao}
+                    onChange={e => setDescricao(e.target.value)}
+                  />
 
                   <Card
                     headerTitle="Códigos Internos"

@@ -6,6 +6,8 @@ export const createProdutoSchema = z.object({
   ncmCodigo: z.string().length(8),
   modalidade: z.string().min(1),
   catalogoId: z.number().int(),
+  denominacao: z.string().max(100).optional(),
+  descricao: z.string().optional(),
   valoresAtributos: z.record(z.any()).optional(),
   codigosInternos: z.array(z.string().max(50)).optional(),
   operadoresEstrangeiros: z.array(z.object({
@@ -19,6 +21,8 @@ export const createProdutoSchema = z.object({
 export const updateProdutoSchema = z.object({
   modalidade: z.string().min(1).optional(),
   status: z.enum(['RASCUNHO', 'ATIVO', 'INATIVO']).optional(),
+  denominacao: z.string().max(100).optional(),
+  descricao: z.string().optional(),
   valoresAtributos: z.record(z.any()).optional(),
   codigosInternos: z.array(z.string().max(50)).optional(),
   operadoresEstrangeiros: z.array(z.object({

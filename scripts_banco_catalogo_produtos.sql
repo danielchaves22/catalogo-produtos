@@ -178,6 +178,8 @@ DELIMITER ;
         status ENUM('RASCUNHO', 'ATIVO', 'INATIVO') DEFAULT 'RASCUNHO',
         ncm_codigo VARCHAR(8) NOT NULL,
         modalidade VARCHAR(50),
+        denominacao VARCHAR(100),
+        descricao TEXT,
         -- Rastreabilidade
         atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
