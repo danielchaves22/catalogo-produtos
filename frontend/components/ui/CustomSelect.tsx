@@ -92,9 +92,9 @@ export function CustomSelect({
           disabled={disabled}
           onClick={() => !disabled && setIsOpen(!isOpen)}
           onKeyDown={handleKeyDown}
-        className={`w-full px-2 py-1.5 bg-[#1e2126] border rounded-md focus:outline-none focus:ring focus:border-blue-500 text-white text-left flex items-center justify-between transition-colors ${
-            error ? 'border-red-500' : 'border-gray-700'
-          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-600'}`}
+        className={`w-full px-2 py-1 bg-[#1e2126] border rounded-md focus:outline-none focus:ring focus:border-blue-500 text-white text-left flex items-center justify-between transition-colors ${
+          error ? 'border-red-500' : 'border-gray-700'
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-600'}`}
         >
           <span className={selectedOption ? 'text-white' : 'text-gray-400'}>
             {selectedOption ? selectedOption.label : placeholder}
