@@ -457,7 +457,7 @@ export default function EditarProdutoPage() {
                   <Card
                     headerTitle="Operadores Estrangeiros"
                     headerClassName="bg-[#1a1f2b] px-4 py-2"
-                    className="mt-4"
+                    className="col-span-3 mt-4"
                   >
                     <div className="grid grid-cols-3 gap-4 mb-4">
                       <Select
