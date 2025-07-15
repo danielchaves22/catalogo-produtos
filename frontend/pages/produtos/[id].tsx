@@ -13,7 +13,8 @@ import { useRouter } from 'next/router';
 import api from '@/lib/api';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { formatCPFOrCNPJ, formatCEP } from '@/lib/validation';
-import { Trash2, BrainCog } from 'lucide-react';
+import { Trash2, BrainCog, ArrowLeft } from 'lucide-react';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
 
@@ -420,9 +421,30 @@ export default function ProdutoPage() {
     }
   }
 
+  function voltar() {
+    router.push('/produtos');
+  }
+
   return (
     <DashboardLayout title={isNew ? 'Novo Produto' : 'Editar Produto'}>
-      <Card className="mb-6" headerTitle="Catálogo / NCM">
+      <Breadcrumb
+        items={[
+          { label: 'Início', href: '/' },
+          { label: 'Produtos', href: '/produtos' },
+          { label: isNew ? 'Novo Produto' : 'Editar Produto' }
+        ]}
+      />
+
+      <div className="mb-6 flex items-center gap-2">
+        <button onClick={voltar} className="text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft size={20} />
+        </button>
+        <h1 className="text-2xl font-semibold text-white">
+          {isNew ? 'Cadastrar Novo Produto' : 'Editar Produto'}
+        </h1>
+      </div>
+
+      <Card className="mb-6">
         <div className="grid grid-cols-4 gap-4">
           {isNew ? (
             <Select
