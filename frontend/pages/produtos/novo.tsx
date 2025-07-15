@@ -350,7 +350,10 @@ export default function NovoProdutoPage() {
   function handleApiError(error: any) {
     if (error.response?.status === 400 && error.response?.data?.details) {
       const details = error.response.data.details
-        .map((d: any) => `${d.field}: ${d.message}`)
+        .map((d: any) => {
+          const nome = mapaEstrutura.get(d.field)?.nome ?? d.field;
+          return `${nome}: ${d.message}`;
+        })
         .join('; ');
       addToast(`Erro de valida\u00e7\u00e3o: ${details}`, 'error');
     } else if (error.response?.data?.error) {
