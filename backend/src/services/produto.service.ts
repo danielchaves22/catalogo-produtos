@@ -35,10 +35,22 @@ export interface OperadorEstrangeiroProdutoInput {
   operadorEstrangeiroId?: number;
 }
 
+export interface ListarProdutosFiltro {
+  status?: 'RASCUNHO' | 'ATIVO' | 'INATIVO';
+  situacao?: string;
+  ncm?: string;
+}
+
 export class ProdutoService {
   private atributosService = new AtributoLegacyService();
-  async listarTodos() {
+  async listarTodos(filtros: ListarProdutosFiltro = {}) {
+    const where: Prisma.ProdutoWhereInput = {};
+    if (filtros.status) where.status = filtros.status;
+    if (filtros.ncm) where.ncmCodigo = filtros.ncm;
+    // Situacao não filtrada pois não há campo correspondente no banco
+
     const produtos = await catalogoPrisma.produto.findMany({
+      where,
       include: { atributos: true, catalogo: true, codigosInternos: true, operadoresEstrangeiros: { include: { pais: true, operadorEstrangeiro: true } } }
     });
 
