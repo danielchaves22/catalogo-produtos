@@ -126,52 +126,64 @@ export default function ProdutosPage() {
     <DashboardLayout title="Produtos">
       <Breadcrumb items={[{ label: 'Início', href: '/' }, { label: 'Produtos' }]} />
 
-      {/* Filtros */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="relative max-w-xs">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <Search size={18} className="text-gray-400" />
-          </div>
-          <input
-            type="text"
-            placeholder="Buscar produtos..."
-            className="pl-10 pr-4 py-2 w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-          />
-        </div>
-        <input
-          type="text"
-          placeholder="Filtrar NCM"
-          className="px-3 py-2 bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
-          value={filtros.ncm}
-          onChange={e => setFiltros({ ...filtros, ncm: e.target.value })}
-        />
-        <select
-          className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
-          value={filtros.status}
-          onChange={e => setFiltros({ ...filtros, status: e.target.value })}
+      <div className="mb-6 flex justify-between items-center">
+        <h1 className="text-2xl font-semibold text-white">Lista de Produtos</h1>
+        <Link
+          href="/produtos/novo"
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
         >
-          <option value="TODOS">Todos os status</option>
-          <option value="RASCUNHO">Rascunho</option>
-          <option value="ATIVO">Ativo</option>
-          <option value="INATIVO">Inativo</option>
-        </select>
-        <select
-          className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
-          value={filtros.situacao}
-          onChange={e => setFiltros({ ...filtros, situacao: e.target.value })}
-        >
-          <option value="TODOS">Todas as situações</option>
-          <option value="ATIVADO">Ativado</option>
-          <option value="DESATIVADO">Desativado</option>
-          <option value="RASCUNHO">Rascunho</option>
-        </select>
-        <Link href="/produtos/novo" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
-          <Plus size={18} />
+          <Plus size={16} />
           <span>Novo Produto</span>
         </Link>
       </div>
+
+      {/* Filtros */}
+      <Card className="mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <Search size={18} className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Buscar produtos..."
+              className="pl-10 pr-4 py-2 w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+            />
+          </div>
+          <input
+            type="text"
+            placeholder="Filtrar NCM"
+            className="px-3 py-2 bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
+            value={filtros.ncm}
+            onChange={e => setFiltros({ ...filtros, ncm: e.target.value })}
+          />
+          <select
+            className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
+            value={filtros.status}
+            onChange={e => setFiltros({ ...filtros, status: e.target.value })}
+          >
+            <option value="TODOS">Todos os status</option>
+            <option value="RASCUNHO">Rascunho</option>
+            <option value="ATIVO">Ativo</option>
+            <option value="INATIVO">Inativo</option>
+          </select>
+          <select
+            className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
+            value={filtros.situacao}
+            onChange={e => setFiltros({ ...filtros, situacao: e.target.value })}
+          >
+            <option value="TODOS">Todas as situações</option>
+            <option value="ATIVADO">Ativado</option>
+            <option value="DESATIVADO">Desativado</option>
+            <option value="RASCUNHO">Rascunho</option>
+          </select>
+          <div className="text-sm text-gray-400 self-center">
+            Exibindo {produtosFiltrados.length} de {produtos.length} produtos
+          </div>
+        </div>
+      </Card>
 
       {error && (
         <div className="bg-red-500/20 border border-red-700 p-4 rounded-lg mb-6 flex items-center gap-3">
