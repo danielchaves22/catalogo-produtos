@@ -31,18 +31,29 @@ export default function ProdutosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
+  const [filtros, setFiltros] = useState({
+    status: 'TODOS',
+    situacao: 'TODOS',
+    ncm: ''
+  });
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<number | null>(null);
   const router = useRouter();
   const { addToast } = useToast();
 
   useEffect(() => {
     carregarProdutos();
-  }, []);
+  }, [filtros.status, filtros.situacao, filtros.ncm]);
 
   async function carregarProdutos() {
     try {
       setLoading(true);
-      const response = await api.get('/produtos');
+      const params = new URLSearchParams();
+      if (filtros.status !== 'TODOS') params.append('status', filtros.status);
+      if (filtros.situacao !== 'TODOS') params.append('situacao', filtros.situacao);
+      if (filtros.ncm) params.append('ncm', filtros.ncm);
+      const query = params.toString();
+      const url = query ? `/produtos?${query}` : '/produtos';
+      const response = await api.get(url);
       setProdutos(response.data);
       setError(null);
     } catch (err) {
@@ -60,11 +71,21 @@ export default function ProdutosPage() {
 
   const produtosFiltrados = produtos.filter(p => {
     const termo = busca.toLowerCase();
-    return (
+    const matchBusca =
       (p.codigo || '').toLowerCase().includes(termo) ||
       p.ncmCodigo.toLowerCase().includes(termo) ||
-      (p.denominacao && p.denominacao.toLowerCase().includes(termo))
-    );
+      (p.denominacao && p.denominacao.toLowerCase().includes(termo));
+
+    const matchStatus =
+      filtros.status === 'TODOS' || p.status === filtros.status;
+
+    const matchSituacao =
+      filtros.situacao === 'TODOS' || p.situacao === filtros.situacao;
+
+    const matchNcm =
+      filtros.ncm === '' || p.ncmCodigo.includes(filtros.ncm);
+
+    return matchBusca && matchStatus && matchSituacao && matchNcm;
   });
 
   if (loading) {
@@ -105,9 +126,9 @@ export default function ProdutosPage() {
     <DashboardLayout title="Produtos">
       <Breadcrumb items={[{ label: 'Início', href: '/' }, { label: 'Produtos' }]} />
 
-      {/* Campo de busca */}
-      <div className="mb-6 flex justify-between">
-        <div className="relative max-w-md">
+      {/* Filtros */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="relative max-w-xs">
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
             <Search size={18} className="text-gray-400" />
           </div>
@@ -119,6 +140,33 @@ export default function ProdutosPage() {
             onChange={e => setBusca(e.target.value)}
           />
         </div>
+        <input
+          type="text"
+          placeholder="Filtrar NCM"
+          className="px-3 py-2 bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
+          value={filtros.ncm}
+          onChange={e => setFiltros({ ...filtros, ncm: e.target.value })}
+        />
+        <select
+          className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
+          value={filtros.status}
+          onChange={e => setFiltros({ ...filtros, status: e.target.value })}
+        >
+          <option value="TODOS">Todos os status</option>
+          <option value="RASCUNHO">Rascunho</option>
+          <option value="ATIVO">Ativo</option>
+          <option value="INATIVO">Inativo</option>
+        </select>
+        <select
+          className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
+          value={filtros.situacao}
+          onChange={e => setFiltros({ ...filtros, situacao: e.target.value })}
+        >
+          <option value="TODOS">Todas as situações</option>
+          <option value="ATIVADO">Ativado</option>
+          <option value="DESATIVADO">Desativado</option>
+          <option value="RASCUNHO">Rascunho</option>
+        </select>
         <Link href="/produtos/novo" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
           <Plus size={18} />
           <span>Novo Produto</span>

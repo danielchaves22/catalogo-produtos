@@ -8,7 +8,12 @@ const produtoService = new ProdutoService();
 
 export async function listarProdutos(req: Request, res: Response) {
   try {
-    const produtos = await produtoService.listarTodos();
+    const filtros = {
+      status: req.query.status as 'RASCUNHO' | 'ATIVO' | 'INATIVO' | undefined,
+      situacao: req.query.situacao as string | undefined,
+      ncm: req.query.ncm as string | undefined
+    };
+    const produtos = await produtoService.listarTodos(filtros);
     res.json(produtos);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
