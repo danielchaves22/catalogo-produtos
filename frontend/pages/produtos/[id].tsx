@@ -37,7 +37,7 @@ export default function EditarProdutoPage() {
   const [operadores, setOperadores] = useState<Array<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>>([]);
   const [novoOperador, setNovoOperador] = useState<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>({ paisCodigo: '', conhecido: 'nao', operador: undefined });
   const [selectorOpen, setSelectorOpen] = useState(false);
-  const { getPaisOptions } = useOperadorEstrangeiro();
+  const { getPaisOptions, getPaisNome } = useOperadorEstrangeiro();
   const [ncm, setNcm] = useState('');
   const [ncmDescricao, setNcmDescricao] = useState('');
   const [modalidade, setModalidade] = useState('IMPORTACAO');
@@ -506,7 +506,7 @@ export default function EditarProdutoPage() {
                                     <Trash2 size={16} />
                                   </button>
                                 </td>
-                                <td className="px-4 py-1">{op.conhecido === 'sim' ? op.operador?.pais?.nome : ''}</td>
+                                <td className="px-4 py-1">{op.operador?.pais?.nome || getPaisNome(op.paisCodigo)}</td>
                                 <td className="px-4 py-1">{op.conhecido === 'sim' ? 'Sim' : 'Não'}</td>
                                 <td className="px-4 py-1">
                                   {op.conhecido === 'sim' ? (op.operador?.tin || formatCPFOrCNPJ(op.operador?.cnpjRaizResponsavel)) : ''}
