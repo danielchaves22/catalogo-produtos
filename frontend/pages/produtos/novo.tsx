@@ -38,7 +38,7 @@ export default function NovoProdutoPage() {
   const [operadores, setOperadores] = useState<Array<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>>([]);
   const [novoOperador, setNovoOperador] = useState<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>({ paisCodigo: '', conhecido: 'nao', operador: undefined });
   const [selectorOpen, setSelectorOpen] = useState(false);
-  const { getPaisOptions, buscarOperadorPorId } = useOperadorEstrangeiro();
+  const { getPaisOptions, buscarOperadorPorId, getPaisNome } = useOperadorEstrangeiro();
   const [catalogos, setCatalogos] = useState<Array<{ id: number; nome: string; cpf_cnpj: string | null }>>([]);
   const [ncm, setNcm] = useState('');
   const [ncmDescricao, setNcmDescricao] = useState('');
@@ -550,7 +550,7 @@ export default function NovoProdutoPage() {
                                             <Trash2 size={16} />
                                           </button>
                                         </td>
-                                        <td className="px-4 py-1">{op.conhecido === 'sim' ? op.operador?.pais?.nome : ''}</td>
+                                        <td className="px-4 py-1">{op.operador?.pais?.nome || getPaisNome(op.paisCodigo)}</td>
                                         <td className="px-4 py-1">{op.conhecido === 'sim' ? 'Sim' : 'Não'}</td>
                                         <td className="px-4 py-1">
                                           {op.conhecido === 'sim' ? (op.operador?.tin || formatCPFOrCNPJ(op.operador?.cnpjRaizResponsavel)) : ''}
