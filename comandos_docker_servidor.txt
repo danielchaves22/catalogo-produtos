@@ -1,0 +1,7 @@
+docker stop catalogo-frontend
+
+docker rm catalogo-frontend
+
+docker build  --build-arg NEXT_PUBLIC_API_URL="https://api.catprod-hml.comexdez.com.br/api/v1" --build-arg NODE_ENV=production -t catalogo-frontend .
+
+docker run -d --name catalogo-frontend -p 3001:3000 catalogo-frontend
