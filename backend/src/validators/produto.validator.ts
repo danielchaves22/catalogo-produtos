@@ -6,8 +6,8 @@ export const createProdutoSchema = z.object({
   ncmCodigo: z.string().length(8),
   modalidade: z.string().min(1),
   catalogoId: z.number().int(),
-  denominacao: z.string().max(100).optional(),
-  descricao: z.string().optional(),
+  denominacao: z.string().max(100).min(1),
+  descricao: z.string().min(1),
   valoresAtributos: z.record(z.any()).optional(),
   codigosInternos: z.array(z.string().max(50)).optional(),
   operadoresEstrangeiros: z.array(z.object({
