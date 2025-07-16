@@ -24,7 +24,10 @@ interface AtributoEstrutura {
   tipo: string;
   obrigatorio: boolean;
   dominio?: { codigo: string; descricao: string }[];
-  validacoes?: Record<string, any>;
+  validacoes?: {
+    tamanho_maximo?: number;
+    [key: string]: any;
+  };
   descricaoCondicao?: string;
   condicao?: any;
   parentCodigo?: string;
@@ -278,8 +281,10 @@ export default function ProdutoPage() {
             label={attr.nome}
             required={attr.obrigatorio}
             options={
-              attr.dominio?.map(d => ({ value: d.codigo, label: d.descricao })) ||
-              []
+              attr.dominio?.map(d => ({
+                value: d.codigo,
+                label: `${d.codigo} - ${d.descricao}`
+              })) || []
             }
             placeholder="Selecione..."
             value={value}
@@ -333,6 +338,47 @@ export default function ProdutoPage() {
           </div>
         );
       default:
+        if (attr.tipo === 'TEXTO') {
+          const max = attr.validacoes?.tamanho_maximo ?? 0;
+          if (max >= 100) {
+            return (
+              <div key={attr.codigo} className="col-span-3 mb-4">
+                <label
+                  htmlFor={attr.codigo}
+                  className="block text-sm font-medium mb-1 text-gray-300"
+                >
+                  {attr.nome}
+                  {attr.obrigatorio && (
+                    <span className="text-red-400 ml-1">*</span>
+                  )}
+                </label>
+                <textarea
+                  id={attr.codigo}
+                  rows={3}
+                  className="w-full px-2 py-1 text-sm bg-[#1e2126] border border-gray-700 text-white rounded-md focus:outline-none focus:ring focus:border-blue-500"
+                  value={value}
+                  onChange={e => handleValor(attr.codigo, e.target.value)}
+                />
+              </div>
+            );
+          }
+
+          let span = 'col-span-1';
+          if (max > 30 && max <= 60) span = 'col-span-2';
+          else if (max > 60) span = 'col-span-3';
+
+          return (
+            <Input
+              key={attr.codigo}
+              label={attr.nome}
+              required={attr.obrigatorio}
+              value={value}
+              onChange={e => handleValor(attr.codigo, e.target.value)}
+              className={span}
+            />
+          );
+        }
+
         return (
           <Input
             key={attr.codigo}
