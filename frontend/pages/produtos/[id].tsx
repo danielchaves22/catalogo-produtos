@@ -40,6 +40,7 @@ export default function ProdutoPage() {
   const [operadores, setOperadores] = useState<Array<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>>([]);
   const [novoOperador, setNovoOperador] = useState<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>({ paisCodigo: '', conhecido: 'nao', operador: undefined });
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [operadorErro, setOperadorErro] = useState<{ paisCodigo?: string; operador?: string }>({});
   const { getPaisOptions, buscarOperadorPorId, getPaisNome } = useOperadorEstrangeiro();
   const [catalogos, setCatalogos] = useState<Array<{ id: number; nome: string; cpf_cnpj: string | null }>>([]);
   const [ncm, setNcm] = useState('');
@@ -176,8 +177,22 @@ export default function ProdutoPage() {
   }
 
   function adicionarOperador() {
-    if (!novoOperador.paisCodigo) return;
-    if (novoOperador.conhecido === 'sim' && !novoOperador.operador) return;
+    const erros: { paisCodigo?: string; operador?: string } = {};
+    if (!novoOperador.paisCodigo) {
+      erros.paisCodigo = 'País obrigatório';
+    }
+    if (novoOperador.conhecido === 'sim' && !novoOperador.operador) {
+      erros.operador = 'Selecione o operador';
+    }
+    if (Object.keys(erros).length > 0) {
+      setOperadorErro(erros);
+      const campos = [erros.paisCodigo ? 'País' : null, erros.operador ? 'Operador' : null]
+        .filter(Boolean)
+        .join(' e ');
+      addToast(`Informe ${campos}`, 'error');
+      return;
+    }
+    setOperadorErro({});
     setOperadores(prev => [...prev, { ...novoOperador }]);
     setNovoOperador({ paisCodigo: '', conhecido: 'nao', operador: undefined });
   }
@@ -591,14 +606,28 @@ export default function ProdutoPage() {
                                 label="País"
                                 options={getPaisOptions()}
                                 value={novoOperador.paisCodigo}
-                                onChange={e => setNovoOperador(prev => ({ ...prev, paisCodigo: e.target.value }))}
+                                onChange={e => {
+                                  setOperadorErro(prev => ({ ...prev, paisCodigo: undefined }));
+                                  setNovoOperador(prev => ({ ...prev, paisCodigo: e.target.value }));
+                                }}
                                 className="mb-0"
+                                disabled={novoOperador.conhecido === 'sim'}
+                                error={operadorErro.paisCodigo}
                               />
                               <RadioGroup
                                 label="Conhecido?"
                                 options={[{ value: 'nao', label: 'Não' }, { value: 'sim', label: 'Sim' }]}
                                 value={novoOperador.conhecido}
-                                onChange={v => setNovoOperador(prev => ({ ...prev, conhecido: v }))}
+                                onChange={v => {
+                                  setOperadorErro({});
+                                  setNovoOperador(prev => {
+                                    const novo = { ...prev, conhecido: v };
+                                    if (v === 'sim' && prev.operador) {
+                                      novo.paisCodigo = prev.operador.pais.codigo;
+                                    }
+                                    return novo;
+                                  });
+                                }}
                                 className="mb-0"
                               />
                               {novoOperador.conhecido === 'sim' && (
@@ -606,8 +635,9 @@ export default function ProdutoPage() {
                                   <Input
                                     label="Operador"
                                     value={novoOperador.operador?.nome || ''}
-                                    readOnly
+                                    disabled
                                     className="flex-1 mb-0"
+                                    error={operadorErro.operador}
                                   />
                                   <Button type="button" onClick={() => setSelectorOpen(true)}>
                                     Buscar
@@ -689,7 +719,11 @@ export default function ProdutoPage() {
       )}
       {selectorOpen && (
         <OperadorEstrangeiroSelector
-          onSelect={op => { setNovoOperador(prev => ({ ...prev, operador: op })); setSelectorOpen(false); }}
+          onSelect={op => {
+            setOperadorErro(prev => ({ ...prev, operador: undefined }));
+            setNovoOperador(prev => ({ ...prev, operador: op, paisCodigo: op.pais.codigo }));
+            setSelectorOpen(false);
+          }}
           onCancel={() => setSelectorOpen(false)}
           selectedOperadores={[]}
         />
