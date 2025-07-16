@@ -44,7 +44,7 @@ export class AtributoLegacyService {
       FROM atributo_vinculo av
         JOIN atributo a ON a.codigo = av.codigo
         LEFT JOIN atributo_dominio ad ON ad.atributo_codigo = a.codigo
-      WHERE av.codigo_ncm = ${ncm} AND av.modalidade = ${modalidade}
+      WHERE av.codigo_ncm = ${ncm} AND av.modalidade = ${modalidade} AND a.objetivos like ("%Produto%")
       ORDER BY a.codigo, ad.id
     `)
 
@@ -71,7 +71,7 @@ export class AtributoLegacyService {
              ad.descricao AS dominio_descricao
       FROM atributo_condicionado ac
         LEFT JOIN atributo_dominio ad ON ad.atributo_codigo = ac.codigo
-      WHERE ac.atributo_codigo IN (
+      WHERE ac.objetivos like ("%Produto%") AND ac.atributo_codigo IN (
         SELECT codigo FROM atributo_vinculo
         WHERE codigo_ncm = ${ncm} AND modalidade = ${modalidade}
       )
