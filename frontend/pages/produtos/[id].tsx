@@ -534,6 +534,7 @@ export default function ProdutoPage() {
                             className="col-span-3"
                             value={denominacao}
                             onChange={e => setDenominacao(e.target.value)}
+                            required
                           />
 
                           <div className="col-span-3 mb-4">
@@ -547,6 +548,7 @@ export default function ProdutoPage() {
                               rows={4}
                               value={descricao}
                               onChange={e => setDescricao(e.target.value)}
+                              required
                             />
                             <div className="mt-2">
                               <Button type="button" size="sm" onClick={() => setActiveTab('dinamicos')}>

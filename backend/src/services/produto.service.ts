@@ -10,8 +10,8 @@ export interface CreateProdutoDTO {
   ncmCodigo: string;
   modalidade: string;
   catalogoId: number;
-  denominacao?: string;
-  descricao?: string;
+  denominacao: string;
+  descricao: string;
   valoresAtributos?: Prisma.InputJsonValue;
   codigosInternos?: string[];
   operadoresEstrangeiros?: OperadorEstrangeiroProdutoInput[];
@@ -120,8 +120,8 @@ export class ProdutoService {
           status: 'RASCUNHO',
           ncmCodigo: data.ncmCodigo,
           modalidade: data.modalidade,
-          denominacao: data.denominacao ?? null,
-          descricao: data.descricao ?? null,
+          denominacao: data.denominacao,
+          descricao: data.descricao,
           catalogoId: data.catalogoId,
           versaoEstruturaAtributos: 1,
           criadoPor: data.criadoPor || null,
