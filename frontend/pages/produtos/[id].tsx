@@ -65,6 +65,8 @@ export default function ProdutoPage() {
   const { id } = router.query;
   const isNew = !id || id === 'novo';
 
+  const [attrsFaltando, setAttrsFaltando] = useState<string[] | null>(null);
+
   // Texto do cabeçalho removido conforme novo layout
 
   useEffect(() => {
@@ -452,7 +454,30 @@ export default function ProdutoPage() {
     }
   }, [router.isReady, id, isNew]);
 
-  async function salvar() {
+  function coletarFaltantes(lista: AtributoEstrutura[]): AtributoEstrutura[] {
+    const faltantes: AtributoEstrutura[] = [];
+    for (const a of lista) {
+      if (!condicaoAtendida(a)) continue;
+      if (a.subAtributos && a.tipo === 'COMPOSTO') {
+        faltantes.push(...coletarFaltantes(a.subAtributos));
+      } else if (a.obrigatorio && (!valores[a.codigo] || valores[a.codigo] === '')) {
+        faltantes.push(a);
+      }
+    }
+    return faltantes;
+  }
+
+  async function salvar(force = false) {
+    if (!force) {
+      const pendentes = coletarFaltantes(estrutura);
+      if (pendentes.length > 0) {
+        setAttrsFaltando(pendentes.map(p => p.nome));
+        return;
+      }
+    } else {
+      setAttrsFaltando(null);
+    }
+
     try {
       const url = isNew ? '/produtos' : `/produtos/${id}`;
       const metodo = isNew ? api.post : api.put;
@@ -770,7 +795,7 @@ export default function ProdutoPage() {
                 >
                   Cancelar
                 </Button>
-                <Button type="button" onClick={salvar}>Salvar Produto</Button>
+                <Button type="button" onClick={() => salvar()}>Salvar Produto</Button>
               </div>
             </>
           )}
@@ -786,6 +811,25 @@ export default function ProdutoPage() {
           onCancel={() => setSelectorOpen(false)}
           selectedOperadores={[]}
         />
+      )}
+
+      {attrsFaltando && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-4">Confirmar Salvamento</h3>
+            <p className="text-gray-300 mb-2">Os seguintes atributos obrigatórios não foram preenchidos:</p>
+            <ul className="text-gray-300 list-disc list-inside mb-4">
+              {attrsFaltando.map((a, i) => (
+                <li key={i}>{a}</li>
+              ))}
+            </ul>
+            <p className="text-gray-300 mb-6">Deseja continuar mesmo assim?</p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setAttrsFaltando(null)}>Cancelar</Button>
+              <Button onClick={() => salvar(true)}>Continuar</Button>
+            </div>
+          </div>
+        </div>
       )}
     </DashboardLayout>
   );
