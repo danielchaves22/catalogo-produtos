@@ -1,4 +1,5 @@
 import React from 'react';
+import { Hint } from './Hint';
 
 interface Option {
   value: string;
@@ -14,6 +15,7 @@ interface RadioGroupProps {
   name?: string;
   className?: string;
   error?: string;
+  hint?: string;
 }
 
 export function RadioGroup({
@@ -24,7 +26,8 @@ export function RadioGroup({
   required = false,
   name,
   className = '',
-  error
+  error,
+  hint
 }: RadioGroupProps) {
   return (
     <div className={`mb-4 ${className}`}>
@@ -32,6 +35,7 @@ export function RadioGroup({
         <label className="block text-sm font-medium mb-1 text-gray-300">
           {label}
           {required && <span className="text-red-400 ml-1">*</span>}
+          {hint && <Hint text={hint} />}
         </label>
       )}
       <div className="flex items-center gap-4 text-sm">

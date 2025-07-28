@@ -17,6 +17,7 @@ import { Trash2, BrainCog, ArrowLeft } from 'lucide-react';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
+import { Hint } from '@/components/ui/Hint';
 
 interface AtributoEstrutura {
   codigo: string;
@@ -31,6 +32,7 @@ interface AtributoEstrutura {
   descricaoCondicao?: string;
   condicao?: any;
   parentCodigo?: string;
+  orientacaoPreenchimento?: string;
   subAtributos?: AtributoEstrutura[];
 }
 
@@ -279,6 +281,7 @@ export default function ProdutoPage() {
           <Select
             key={attr.codigo}
             label={attr.nome}
+            hint={attr.orientacaoPreenchimento}
             required={attr.obrigatorio}
             options={
               attr.dominio?.map(d => ({
@@ -296,6 +299,7 @@ export default function ProdutoPage() {
           <RadioGroup
             key={attr.codigo}
             label={attr.nome}
+            hint={attr.orientacaoPreenchimento}
             required={attr.obrigatorio}
             options={[
               { value: 'true', label: 'Sim' },
@@ -310,6 +314,7 @@ export default function ProdutoPage() {
           <Input
             key={attr.codigo}
             label={attr.nome}
+            hint={attr.orientacaoPreenchimento}
             type="number"
             required={attr.obrigatorio}
             value={value}
@@ -321,6 +326,7 @@ export default function ProdutoPage() {
           <Input
             key={attr.codigo}
             label={attr.nome}
+            hint={attr.orientacaoPreenchimento}
             type="number"
             step="0.01"
             required={attr.obrigatorio}
@@ -351,6 +357,9 @@ export default function ProdutoPage() {
                   {attr.obrigatorio && (
                     <span className="text-red-400 ml-1">*</span>
                   )}
+                  {attr.orientacaoPreenchimento && (
+                    <Hint text={attr.orientacaoPreenchimento} />
+                  )}
                 </label>
                 <textarea
                   id={attr.codigo}
@@ -371,6 +380,7 @@ export default function ProdutoPage() {
             <Input
               key={attr.codigo}
               label={attr.nome}
+              hint={attr.orientacaoPreenchimento}
               required={attr.obrigatorio}
               value={value}
               onChange={e => handleValor(attr.codigo, e.target.value)}
@@ -383,6 +393,7 @@ export default function ProdutoPage() {
           <Input
             key={attr.codigo}
             label={attr.nome}
+            hint={attr.orientacaoPreenchimento}
             required={attr.obrigatorio}
             value={value}
             onChange={e => handleValor(attr.codigo, e.target.value)}

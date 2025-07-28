@@ -1,18 +1,21 @@
 // frontend/components/ui/Input.tsx
 import React from 'react';
+import { Hint } from './Hint';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  hint?: string;
 }
 
-export function Input({ label, error, className = '', ...props }: InputProps) {
+export function Input({ label, error, hint, className = '', ...props }: InputProps) {
   return (
     <div className={`mb-4 ${className}`}>
       {label && (
         <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor={props.id}>
           {label}
           {props.required && <span className="text-red-400 ml-1">*</span>}
+          {hint && <Hint text={hint} />}
         </label>
       )}
       <input

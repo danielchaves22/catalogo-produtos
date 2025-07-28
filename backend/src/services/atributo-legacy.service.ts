@@ -14,6 +14,7 @@ export interface AtributoEstruturaDTO {
   obrigatorio: boolean
   multivalorado: boolean
   validacoes: Record<string, any>
+  orientacaoPreenchimento?: string
   dominio?: DominioDTO[]
   descricaoCondicao?: string
   condicao?: any
@@ -33,13 +34,14 @@ export class AtributoLegacyService {
       tamanho_maximo: number | null
       casas_decimais: number | null
       mascara: string | null
+      orientacao_preenchimento: string | null
       parent_codigo: string | null
       dominio_codigo: string | null
       dominio_descricao: string | null
     }>>(Prisma.sql`
       SELECT a.codigo, a.nome_apresentacao, a.forma_preenchimento,
              av.obrigatorio, COALESCE(av.multivalorado, a.multivalorado) AS multivalorado,
-             a.tamanho_maximo, a.casas_decimais, a.mascara, a.parent_codigo,
+             a.tamanho_maximo, a.casas_decimais, a.mascara, a.orientacao_preenchimento, a.parent_codigo,
              ad.codigo AS dominio_codigo, ad.descricao AS dominio_descricao
       FROM atributo_vinculo av
         JOIN atributo a ON a.codigo = av.codigo
@@ -58,6 +60,7 @@ export class AtributoLegacyService {
       tamanho_maximo: number | null
       casas_decimais: number | null
       mascara: string | null
+      orientacao_preenchimento: string | null
       descricao_condicao: string | null
       condicao: string | null
       dominio_codigo: string | null
@@ -66,7 +69,7 @@ export class AtributoLegacyService {
       SELECT ac.atributo_codigo AS condicionante_codigo,
              ac.codigo, ac.nome_apresentacao, ac.forma_preenchimento,
              ac.obrigatorio, ac.multivalorado, ac.tamanho_maximo,
-             ac.casas_decimais, ac.mascara,
+             ac.casas_decimais, ac.mascara, ac.orientacao_preenchimento,
              ac.descricao_condicao, ac.condicao, ad.codigo AS dominio_codigo,
              ad.descricao AS dominio_descricao
       FROM atributo_condicionado ac
@@ -91,6 +94,7 @@ export class AtributoLegacyService {
           multivalorado: Boolean(row.multivalorado),
           validacoes: {},
           parentCodigo: row.parent_codigo || undefined,
+          orientacaoPreenchimento: row.orientacao_preenchimento || undefined,
           dominio: []
         }
         if (row.tamanho_maximo !== null) attr.validacoes.tamanho_maximo = row.tamanho_maximo
@@ -115,8 +119,9 @@ export class AtributoLegacyService {
           validacoes: {},
           parentCodigo: row.condicionante_codigo,
           condicionanteCodigo: row.condicionante_codigo,
-        descricaoCondicao: row.descricao_condicao || undefined,
-        condicao: row.condicao ? parseJsonSafe(row.condicao) : undefined,
+          descricaoCondicao: row.descricao_condicao || undefined,
+          condicao: row.condicao ? parseJsonSafe(row.condicao) : undefined,
+          orientacaoPreenchimento: row.orientacao_preenchimento || undefined,
           dominio: []
         }
         if (row.tamanho_maximo !== null) attr.validacoes.tamanho_maximo = row.tamanho_maximo
@@ -127,6 +132,8 @@ export class AtributoLegacyService {
         attr.parentCodigo = row.condicionante_codigo
         attr.descricaoCondicao = row.descricao_condicao || attr.descricaoCondicao
         if (row.condicao) attr.condicao = parseJsonSafe(row.condicao)
+        if (row.orientacao_preenchimento)
+          attr.orientacaoPreenchimento = row.orientacao_preenchimento
       }
       if (row.dominio_codigo) {
         if (!attr.dominio) attr.dominio = []
