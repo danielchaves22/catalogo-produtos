@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CircleHelp } from 'lucide-react';
 
 interface HintProps {
@@ -7,11 +7,27 @@ interface HintProps {
 
 export function Hint({ text }: HintProps) {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [open]);
+
   return (
-    <div className="relative inline-block ml-1">
+    <div className="relative inline-block ml-1" ref={ref}>
       <CircleHelp
         size={14}
-        className="text-gray-400 cursor-pointer"
+        className="text-[#f59e0b] cursor-pointer"
         onClick={() => setOpen((v) => !v)}
       />
       {open && (
