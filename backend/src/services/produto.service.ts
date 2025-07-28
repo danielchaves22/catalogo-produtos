@@ -343,10 +343,6 @@ export class ProdutoService {
     for (const attr of todos) {
       if (!this.condicaoAtendida(attr, valores, mapa)) continue;
       const v = valores[attr.codigo];
-      if (attr.obrigatorio && (v === undefined || v === '')) {
-        erros[attr.codigo] = 'Obrigatório';
-        continue;
-      }
       if (v === undefined || v === '') continue;
 
       if (attr.validacoes?.tamanho_maximo && String(v).length > attr.validacoes.tamanho_maximo) {
