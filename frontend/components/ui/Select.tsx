@@ -1,20 +1,23 @@
 // frontend/components/ui/Select.tsx (CORRIGIDO)
 import React from 'react';
+import { Hint } from './Hint';
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   options: Array<{ value: string; label: string }>;
   error?: string;
   placeholder?: string;
+  hint?: string;
 }
 
-export function Select({ label, options, className = '', error, placeholder = 'Selecione...', ...props }: SelectProps) {
+export function Select({ label, options, className = '', error, placeholder = 'Selecione...', hint, ...props }: SelectProps) {
   return (
     <div className={`mb-4 ${className}`}>
       {label && (
         <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor={props.id}>
           {label}
           {props.required && <span className="text-red-400 ml-1">*</span>}
+          {hint && <Hint text={hint} />}
         </label>
       )}
       <select

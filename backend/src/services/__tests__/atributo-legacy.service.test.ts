@@ -22,6 +22,7 @@ describe('AtributoLegacyService', () => {
           tamanho_maximo: null,
           casas_decimais: null,
           mascara: null,
+          orientacao_preenchimento: null,
           descricao_condicao: 'desc',
           condicao: '{invalid',
           dominio_codigo: null,
