@@ -622,6 +622,7 @@ export default function ProdutoPage() {
                           <div className="col-span-3 mb-4">
                             <label htmlFor="descricao" className="block text-sm font-medium mb-1 text-gray-300">
                               Descrição
+                              <span className="text-red-400 ml-1">*</span>
                             </label>
                             <textarea
                               id="descricao"
@@ -815,7 +816,7 @@ export default function ProdutoPage() {
 
       {attrsFaltando && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
+          <Card className="max-w-md w-full p-6">
             <h3 className="text-xl font-semibold text-white mb-4">Confirmar Salvamento</h3>
             <p className="text-gray-300 mb-2">Os seguintes atributos obrigatórios não foram preenchidos:</p>
             <ul className="text-gray-300 list-disc list-inside mb-4">
@@ -828,7 +829,7 @@ export default function ProdutoPage() {
               <Button variant="outline" onClick={() => setAttrsFaltando(null)}>Cancelar</Button>
               <Button onClick={() => salvar(true)}>Continuar</Button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </DashboardLayout>
