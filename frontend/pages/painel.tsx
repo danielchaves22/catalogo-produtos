@@ -44,9 +44,11 @@ export default function PainelPage() {
               {resumo?.produtos.total ?? 0}
             </p>
             <ul className="text-sm text-gray-300 space-y-1">
-              <li>RASCUNHO: {resumo?.produtos.porStatus.RASCUNHO ?? 0}</li>
-              <li>ATIVO: {resumo?.produtos.porStatus.ATIVO ?? 0}</li>
-              <li>INATIVO: {resumo?.produtos.porStatus.INATIVO ?? 0}</li>
+              <li>PENDENTE: {resumo?.produtos.porStatus.PENDENTE ?? 0}</li>
+              <li>APROVADO: {resumo?.produtos.porStatus.APROVADO ?? 0}</li>
+              <li>PROCESSANDO: {resumo?.produtos.porStatus.PROCESSANDO ?? 0}</li>
+              <li>TRANSMITIDO: {resumo?.produtos.porStatus.TRANSMITIDO ?? 0}</li>
+              <li>ERRO: {resumo?.produtos.porStatus.ERRO ?? 0}</li>
             </ul>
           </Card>
 

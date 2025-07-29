@@ -175,7 +175,7 @@ DELIMITER ;
         catalogo_id INT UNSIGNED NOT NULL,
         codigo VARCHAR(50) UNIQUE DEFAULT NULL,
         versao INT NOT NULL DEFAULT 1,
-        status ENUM('RASCUNHO', 'ATIVO', 'INATIVO') DEFAULT 'RASCUNHO',
+        status ENUM('PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO') DEFAULT 'PENDENTE',
         ncm_codigo VARCHAR(8) NOT NULL,
         modalidade VARCHAR(50),
         denominacao VARCHAR(100) NOT NULL,

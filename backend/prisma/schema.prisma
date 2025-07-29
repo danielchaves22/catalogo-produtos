@@ -138,9 +138,11 @@ enum OperadorEstrangeiroStatus {
 }
 // Enum de status de Produto
 enum ProdutoStatus {
-  RASCUNHO
-  ATIVO
-  INATIVO
+  PENDENTE
+  APROVADO
+  PROCESSANDO
+  TRANSMITIDO
+  ERRO
 }
 
 // Tabela de cache de NCM

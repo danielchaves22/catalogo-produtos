@@ -15,7 +15,7 @@ interface Produto {
   id: number;
   codigo: string;
   ncmCodigo: string;
-  status: 'RASCUNHO' | 'ATIVO' | 'INATIVO';
+  status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
   atualizadoEm: string;
   catalogoNumero?: number;
   catalogoNome?: string;
@@ -67,6 +67,23 @@ export default function ProdutosPage() {
   function formatarData(dataString: string) {
     const data = new Date(dataString);
     return data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR');
+  }
+
+  function getStatusClasses(status: string) {
+    switch (status) {
+      case 'PENDENTE':
+        return 'bg-[#e4a8351a] text-[#e4a835] border border-[#e4a835]';
+      case 'APROVADO':
+        return 'bg-[#27f58a1a] text-[#27f58a] border border-[#27f58a]';
+      case 'PROCESSANDO':
+        return 'bg-[#4c82d31a] text-[#4c82d3] border border-[#4c82d3]';
+      case 'TRANSMITIDO':
+        return 'bg-[#4c82d31a] text-[#4c82d3] border border-[#4c82d3]';
+      case 'ERRO':
+        return 'bg-[#f2545f1a] text-[#f2545f] border border-[#f2545f]';
+      default:
+        return 'bg-gray-900/50 text-gray-400 border border-gray-700';
+    }
   }
 
   const produtosFiltrados = produtos.filter(p => {
@@ -165,9 +182,11 @@ export default function ProdutosPage() {
             onChange={e => setFiltros({ ...filtros, status: e.target.value })}
           >
             <option value="TODOS">Todos os status</option>
-            <option value="RASCUNHO">Rascunho</option>
-            <option value="ATIVO">Ativo</option>
-            <option value="INATIVO">Inativo</option>
+            <option value="PENDENTE">Pendente</option>
+            <option value="APROVADO">Aprovado</option>
+            <option value="PROCESSANDO">Processando</option>
+            <option value="TRANSMITIDO">Transmitido</option>
+            <option value="ERRO">Erro</option>
           </select>
           <select
             className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
@@ -239,7 +258,15 @@ export default function ProdutosPage() {
                     <td className="px-4 py-3">{produto.denominacao ?? produto.codigo ?? '-'}</td>
                     <td className="px-4 py-3">{produto.codigoInterno ?? '-'}</td>
                     <td className="px-4 py-3 font-mono">{produto.ncmCodigo}</td>
-                    <td className="px-4 py-3">{produto.status}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClasses(
+                          produto.status
+                        )}`}
+                      >
+                        {produto.status}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">{produto.situacao ?? '-'}</td>
                     <td className="px-4 py-3">{formatarData(produto.atualizadoEm)}</td>
                   </tr>

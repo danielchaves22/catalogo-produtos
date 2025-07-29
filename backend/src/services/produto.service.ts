@@ -20,7 +20,7 @@ export interface CreateProdutoDTO {
 
 export interface UpdateProdutoDTO {
   modalidade?: string;
-  status?: 'RASCUNHO' | 'ATIVO' | 'INATIVO';
+  status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
   denominacao?: string;
   descricao?: string;
   valoresAtributos?: Prisma.InputJsonValue;
@@ -36,7 +36,7 @@ export interface OperadorEstrangeiroProdutoInput {
 }
 
 export interface ListarProdutosFiltro {
-  status?: 'RASCUNHO' | 'ATIVO' | 'INATIVO';
+  status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
   situacao?: string;
   ncm?: string;
 }
@@ -117,7 +117,7 @@ export class ProdutoService {
         data: {
           codigo: data.codigo ?? null,
           versao: 1,
-          status: 'RASCUNHO',
+          status: 'PENDENTE',
           ncmCodigo: data.ncmCodigo,
           modalidade: data.modalidade,
           denominacao: data.denominacao,
