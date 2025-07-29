@@ -145,6 +145,12 @@ enum ProdutoStatus {
   ERRO
 }
 
+enum ProdutoSituacao {
+  RASCUNHO
+  ATIVADO
+  DESATIVADO
+}
+
 // Tabela de cache de NCM
 model NcmCache {
   id                   Int      @id @default(autoincrement()) @map("id")
@@ -183,6 +189,7 @@ model Produto {
   codigo                    String?           @unique @map("codigo")
   versao                    Int               @map("versao")
   status                    ProdutoStatus     @map("status")
+  situacao                 ProdutoSituacao    @default(RASCUNHO) @map("situacao")
   ncmCodigo                 String            @map("ncm_codigo")
   modalidade                String?           @map("modalidade")
   denominacao               String            @map("denominacao")
