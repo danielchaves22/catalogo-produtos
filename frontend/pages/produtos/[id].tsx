@@ -66,6 +66,7 @@ export default function ProdutoPage() {
   const isNew = !id || id === 'novo';
 
   const [attrsFaltando, setAttrsFaltando] = useState<string[] | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Texto do cabeçalho removido conforme novo layout
 
@@ -154,6 +155,13 @@ export default function ProdutoPage() {
 
   function handleNcmChange(valor: string) {
     setNcm(valor);
+    if (errors.ncm) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.ncm;
+        return newErrors;
+      });
+    }
     if (valor.length === 8) {
       carregarEstrutura(valor);
     } else {
@@ -467,7 +475,28 @@ export default function ProdutoPage() {
     return faltantes;
   }
 
+  function validarFormulario(): boolean {
+    const newErrors: Record<string, string> = {};
+
+    if (!catalogoId) {
+      newErrors.catalogoId = 'Catálogo é obrigatório';
+    }
+    if (ncm.length !== 8) {
+      newErrors.ncm = 'NCM é obrigatório';
+    }
+    if (!denominacao.trim()) {
+      newErrors.denominacao = 'Nome do produto é obrigatório';
+    }
+    if (!descricao.trim()) {
+      newErrors.descricao = 'Descrição é obrigatória';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
   async function salvar(force = false) {
+    if (!validarFormulario()) return;
     if (!force) {
       const pendentes = coletarFaltantes(estrutura);
       if (pendentes.length > 0) {
@@ -548,7 +577,18 @@ export default function ProdutoPage() {
               label="Catálogo"
               options={catalogos.map(c => ({ value: String(c.id), label: `${c.nome} - ${formatCPFOrCNPJ(c.cpf_cnpj)}` }))}
               value={catalogoId}
-              onChange={e => setCatalogoId(e.target.value)}
+              onChange={e => {
+                setCatalogoId(e.target.value);
+                if (errors.catalogoId) {
+                  setErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors.catalogoId;
+                    return newErrors;
+                  });
+                }
+              }}
+              error={errors.catalogoId}
+              required
             />
           ) : (
             <Input label="Catálogo" value={catalogoNome} disabled />
@@ -579,6 +619,8 @@ export default function ProdutoPage() {
                   value={ncm}
                   onChange={val => handleNcmChange(val)}
                   className="col-span-1"
+                  error={errors.ncm}
+                  required
                 />
               ) : (
                 <Input label="NCM" value={ncm} disabled className="col-span-1" />
@@ -615,7 +657,17 @@ export default function ProdutoPage() {
                             label="Nome do Produto"
                             className="col-span-3"
                             value={denominacao}
-                            onChange={e => setDenominacao(e.target.value)}
+                            onChange={e => {
+                              setDenominacao(e.target.value);
+                              if (errors.denominacao) {
+                                setErrors(prev => {
+                                  const newErrors = { ...prev };
+                                  delete newErrors.denominacao;
+                                  return newErrors;
+                                });
+                              }
+                            }}
+                            error={errors.denominacao}
                             required
                           />
 
@@ -630,9 +682,21 @@ export default function ProdutoPage() {
                               placeholder="Descrição do Produto"
                               rows={4}
                               value={descricao}
-                              onChange={e => setDescricao(e.target.value)}
+                              onChange={e => {
+                                setDescricao(e.target.value);
+                                if (errors.descricao) {
+                                  setErrors(prev => {
+                                    const newErrors = { ...prev };
+                                    delete newErrors.descricao;
+                                    return newErrors;
+                                  });
+                                }
+                              }}
                               required
                             />
+                            {errors.descricao && (
+                              <p className="mt-1 text-sm text-red-400">{errors.descricao}</p>
+                            )}
                             <div className="mt-2">
                               <Button type="button" size="sm" onClick={() => setActiveTab('dinamicos')}>
                                 <BrainCog size={16} className="inline mr-2" /> Preencher Atributos
