@@ -176,6 +176,7 @@ DELIMITER ;
         codigo VARCHAR(50) UNIQUE DEFAULT NULL,
         versao INT NOT NULL DEFAULT 1,
         status ENUM('PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO') DEFAULT 'PENDENTE',
+        situacao ENUM('RASCUNHO', 'ATIVADO', 'DESATIVADO') NOT NULL DEFAULT 'RASCUNHO',
         ncm_codigo VARCHAR(8) NOT NULL,
         modalidade VARCHAR(50),
         denominacao VARCHAR(100) NOT NULL,
@@ -188,6 +189,7 @@ DELIMITER ;
         versao_estrutura_atributos INT,
         INDEX idx_ncm (ncm_codigo),
         INDEX idx_catalogo (catalogo_id),
+        INDEX idx_situacao (situacao),
         FOREIGN KEY (catalogo_id) REFERENCES catalogo(id),
         UNIQUE KEY uk_codigo_versao (codigo, versao)
     );

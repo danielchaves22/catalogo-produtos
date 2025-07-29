@@ -15,7 +15,8 @@ export const createProdutoSchema = z.object({
     conhecido: z.boolean(),
     operadorEstrangeiroId: z.number().int().optional()
   })).optional(),
-  criadoPor: z.string().optional()
+  criadoPor: z.string().optional(),
+  situacao: z.enum(['RASCUNHO', 'ATIVADO', 'DESATIVADO']).optional()
 });
 
 export const updateProdutoSchema = z.object({
@@ -23,6 +24,7 @@ export const updateProdutoSchema = z.object({
   status: z
     .enum(['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO'])
     .optional(),
+  situacao: z.enum(['RASCUNHO', 'ATIVADO', 'DESATIVADO']).optional(),
   denominacao: z.string().max(100).optional(),
   descricao: z.string().optional(),
   valoresAtributos: z.record(z.any()).optional(),

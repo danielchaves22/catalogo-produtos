@@ -86,6 +86,19 @@ export default function ProdutosPage() {
     }
   }
 
+  function getSituacaoClasses(situacao?: string) {
+    switch (situacao) {
+      case 'ATIVADO':
+        return 'bg-[#27f58a1a] text-[#27f58a] border border-[#27f58a]';
+      case 'DESATIVADO':
+        return 'bg-[#f2545f1a] text-[#f2545f] border border-[#f2545f]';
+      case 'RASCUNHO':
+        return 'bg-[#e4a8351a] text-[#e4a835] border border-[#e4a835]';
+      default:
+        return 'bg-gray-900/50 text-gray-400 border border-gray-700';
+    }
+  }
+
   const produtosFiltrados = produtos.filter(p => {
     const termo = busca.toLowerCase();
     const matchBusca =
@@ -267,7 +280,19 @@ export default function ProdutosPage() {
                         {produto.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{produto.situacao ?? '-'}</td>
+                    <td className="px-4 py-3">
+                      {produto.situacao ? (
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getSituacaoClasses(
+                            produto.situacao
+                          )}`}
+                        >
+                          {produto.situacao}
+                        </span>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
                     <td className="px-4 py-3">{formatarData(produto.atualizadoEm)}</td>
                   </tr>
                 ))}

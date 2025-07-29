@@ -16,7 +16,11 @@ export async function listarProdutos(req: Request, res: Response) {
         | 'TRANSMITIDO'
         | 'ERRO'
         | undefined,
-      situacao: req.query.situacao as string | undefined,
+      situacao: req.query.situacao as
+        | 'RASCUNHO'
+        | 'ATIVADO'
+        | 'DESATIVADO'
+        | undefined,
       ncm: req.query.ncm as string | undefined
     };
     const produtos = await produtoService.listarTodos(filtros);

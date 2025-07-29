@@ -16,11 +16,13 @@ export interface CreateProdutoDTO {
   codigosInternos?: string[];
   operadoresEstrangeiros?: OperadorEstrangeiroProdutoInput[];
   criadoPor?: string;
+  situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
 }
 
 export interface UpdateProdutoDTO {
   modalidade?: string;
   status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
   denominacao?: string;
   descricao?: string;
   valoresAtributos?: Prisma.InputJsonValue;
@@ -37,7 +39,7 @@ export interface OperadorEstrangeiroProdutoInput {
 
 export interface ListarProdutosFiltro {
   status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
-  situacao?: string;
+  situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
   ncm?: string;
 }
 
@@ -47,7 +49,7 @@ export class ProdutoService {
     const where: Prisma.ProdutoWhereInput = {};
     if (filtros.status) where.status = filtros.status;
     if (filtros.ncm) where.ncmCodigo = filtros.ncm;
-    // Situacao não filtrada pois não há campo correspondente no banco
+    if (filtros.situacao) where.situacao = filtros.situacao;
 
     const produtos = await catalogoPrisma.produto.findMany({
       where,
@@ -118,6 +120,7 @@ export class ProdutoService {
           codigo: data.codigo ?? null,
           versao: 1,
           status: 'PENDENTE',
+          situacao: data.situacao ?? undefined,
           ncmCodigo: data.ncmCodigo,
           modalidade: data.modalidade,
           denominacao: data.denominacao,
@@ -187,6 +190,7 @@ export class ProdutoService {
         data: {
           modalidade: data.modalidade,
           status: data.status,
+          situacao: data.situacao,
           denominacao: data.denominacao,
           descricao: data.descricao,
           versaoEstruturaAtributos: atual.versaoEstruturaAtributos
