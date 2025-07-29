@@ -9,7 +9,13 @@ const produtoService = new ProdutoService();
 export async function listarProdutos(req: Request, res: Response) {
   try {
     const filtros = {
-      status: req.query.status as 'RASCUNHO' | 'ATIVO' | 'INATIVO' | undefined,
+      status: req.query.status as
+        | 'PENDENTE'
+        | 'APROVADO'
+        | 'PROCESSANDO'
+        | 'TRANSMITIDO'
+        | 'ERRO'
+        | undefined,
       situacao: req.query.situacao as string | undefined,
       ncm: req.query.ncm as string | undefined
     };

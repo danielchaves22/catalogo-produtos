@@ -20,7 +20,9 @@ export const createProdutoSchema = z.object({
 
 export const updateProdutoSchema = z.object({
   modalidade: z.string().min(1).optional(),
-  status: z.enum(['RASCUNHO', 'ATIVO', 'INATIVO']).optional(),
+  status: z
+    .enum(['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO'])
+    .optional(),
   denominacao: z.string().max(100).optional(),
   descricao: z.string().optional(),
   valoresAtributos: z.record(z.any()).optional(),
