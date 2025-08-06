@@ -114,12 +114,17 @@ export class ProdutoService {
       throw new ValidationError(erros);
     }
 
+    const preencheuObrigatorios = this.todosObrigatoriosPreenchidos(
+      (data.valoresAtributos ?? {}) as Record<string, any>,
+      estrutura
+    );
+
     return catalogoPrisma.$transaction(async (tx) => {
       const produto = await tx.produto.create({
         data: {
           codigo: data.codigo ?? null,
           versao: 1,
-          status: 'PENDENTE',
+          status: preencheuObrigatorios ? 'APROVADO' : 'PENDENTE',
           situacao: data.situacao ?? undefined,
           ncmCodigo: data.ncmCodigo,
           modalidade: data.modalidade,
@@ -184,12 +189,18 @@ export class ProdutoService {
       throw new ValidationError(erros);
     }
 
+    const preencheuObrigatorios = this.todosObrigatoriosPreenchidos(valores, estrutura);
+
     return catalogoPrisma.$transaction(async tx => {
+      let status = data.status;
+      if (atual.status === 'PENDENTE' && preencheuObrigatorios) {
+        status = 'APROVADO';
+      }
       const produto = await tx.produto.update({
         where: { id },
         data: {
           modalidade: data.modalidade,
-          status: data.status,
+          status,
           situacao: data.situacao,
           denominacao: data.denominacao,
           descricao: data.descricao,
@@ -327,6 +338,31 @@ export class ProdutoService {
     const match = attr.descricaoCondicao.match(/valor\s*=\s*'?"?(\w+)"?'?/i);
     if (!match) return true;
     return atual === match[1];
+  }
+
+  private todosObrigatoriosPreenchidos(
+    valores: Record<string, any>,
+    estrutura: AtributoEstruturaDTO[]
+  ): boolean {
+    const todos: AtributoEstruturaDTO[] = [];
+    function coletar(attrs: AtributoEstruturaDTO[]) {
+      for (const a of attrs) {
+        todos.push(a);
+        if (a.subAtributos) coletar(a.subAtributos);
+      }
+    }
+    coletar(estrutura);
+
+    const mapa = new Map<string, AtributoEstruturaDTO>();
+    for (const a of todos) mapa.set(a.codigo, a);
+
+    for (const attr of todos) {
+      if (!attr.obrigatorio) continue;
+      if (!this.condicaoAtendida(attr, valores, mapa)) continue;
+      const v = valores[attr.codigo];
+      if (v === undefined || v === '') return false;
+    }
+    return true;
   }
 
   private validarValores(valores: Record<string, any>, estrutura: AtributoEstruturaDTO[]): Record<string, string> {
