@@ -192,8 +192,10 @@ export class ProdutoService {
     const preencheuObrigatorios = this.todosObrigatoriosPreenchidos(valores, estrutura);
 
     return catalogoPrisma.$transaction(async tx => {
-      let status = data.status;
-      if (atual.status === 'PENDENTE' && preencheuObrigatorios) {
+      let status = data.status ?? atual.status;
+      if (!preencheuObrigatorios) {
+        status = 'PENDENTE';
+      } else if (atual.status === 'PENDENTE') {
         status = 'APROVADO';
       }
       const produto = await tx.produto.update({
