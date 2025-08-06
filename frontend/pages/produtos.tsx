@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { AlertCircle, Plus, Search, Trash2 } from 'lucide-react';
+import { AlertCircle, Plus, Search, Trash2, Pencil } from 'lucide-react';
 import api from '@/lib/api';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -254,10 +254,15 @@ export default function ProdutosPage() {
                 {produtosFiltrados.map((produto) => (
                   <tr
                     key={produto.id}
-                    className="border-b border-gray-700 hover:bg-[#1a1f2b] cursor-pointer transition-colors"
-                    onClick={() => editarProduto(produto.id)}
+                    className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors"
                   >
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-4 py-3 flex gap-2">
+                      <button
+                        className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
+                        onClick={() => editarProduto(produto.id)}
+                      >
+                        <Pencil size={16} />
+                      </button>
                       <button
                         className="p-1 text-gray-300 hover:text-red-500 transition-colors"
                         onClick={() => confirmarExclusao(produto.id)}
