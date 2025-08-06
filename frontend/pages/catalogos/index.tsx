@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
-import { Plus, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, Pencil } from 'lucide-react';
 import { useRouter } from 'next/router';
 import api from '@/lib/api';
 import { formatCPFOrCNPJ } from '@/lib/validation';
@@ -152,13 +152,18 @@ export default function CatalogosPage() {
               </thead>
               <tbody>
                 {catalogos.map((catalogo) => (
-                  <tr 
-                    key={catalogo.id} 
-                    className="border-b border-gray-700 hover:bg-[#1a1f2b] cursor-pointer transition-colors"
-                    onClick={() => editarCatalogo(catalogo.id)}
+                  <tr
+                    key={catalogo.id}
+                    className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors"
                   >
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <button 
+                    <td className="px-4 py-3 flex gap-2">
+                      <button
+                        className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
+                        onClick={() => editarCatalogo(catalogo.id)}
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
                         className="p-1 text-gray-300 hover:text-red-500 transition-colors"
                         onClick={() => confirmarExclusao(catalogo.id)}
                       >
