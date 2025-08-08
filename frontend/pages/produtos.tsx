@@ -34,15 +34,23 @@ export default function ProdutosPage() {
   const [filtros, setFiltros] = useState({
     status: 'TODOS',
     situacao: 'TODOS',
-    ncm: ''
+    ncm: '',
+    catalogoId: ''
   });
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<number | null>(null);
   const router = useRouter();
   const { addToast } = useToast();
 
   useEffect(() => {
+    if (router.isReady && typeof router.query.catalogoId === 'string') {
+      setFiltros(prev => ({ ...prev, catalogoId: router.query.catalogoId as string }));
+    }
+  }, [router.isReady, router.query.catalogoId]);
+
+  useEffect(() => {
+    if (!router.isReady) return;
     carregarProdutos();
-  }, [filtros.status, filtros.situacao, filtros.ncm]);
+  }, [router.isReady, filtros.status, filtros.situacao, filtros.ncm, filtros.catalogoId]);
 
   async function carregarProdutos() {
     try {
@@ -51,6 +59,7 @@ export default function ProdutosPage() {
       if (filtros.status !== 'TODOS') params.append('status', filtros.status);
       if (filtros.situacao !== 'TODOS') params.append('situacao', filtros.situacao);
       if (filtros.ncm) params.append('ncm', filtros.ncm);
+      if (filtros.catalogoId) params.append('catalogoId', filtros.catalogoId);
       const query = params.toString();
       const url = query ? `/produtos?${query}` : '/produtos';
       const response = await api.get(url);
@@ -169,7 +178,7 @@ export default function ProdutosPage() {
 
       {/* Filtros */}
       <Card className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <Search size={18} className="text-gray-400" />
@@ -188,6 +197,13 @@ export default function ProdutosPage() {
             className="px-3 py-2 bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
             value={filtros.ncm}
             onChange={e => setFiltros({ ...filtros, ncm: e.target.value })}
+          />
+          <input
+            type="text"
+            placeholder="Filtrar catálogo"
+            className="px-3 py-2 bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
+            value={filtros.catalogoId}
+            onChange={e => setFiltros({ ...filtros, catalogoId: e.target.value })}
           />
           <select
             className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
