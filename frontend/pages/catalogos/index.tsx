@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
-import { Plus, Trash2, AlertCircle, Pencil } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, Pencil, Eye } from 'lucide-react';
 import { useRouter } from 'next/router';
 import api from '@/lib/api';
 import { formatCPFOrCNPJ } from '@/lib/validation';
@@ -20,11 +20,20 @@ interface Catalogo {
   ultima_alteracao: string;
 }
 
+interface ProdutoResumo {
+  id: number;
+  codigo: string | null;
+  denominacao: string | null;
+  ncmCodigo: string;
+}
+
 export default function CatalogosPage() {
   const [catalogos, setCatalogos] = useState<Catalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [catalogoParaExcluir, setCatalogoParaExcluir] = useState<number | null>(null);
+  const [catalogoVisualizado, setCatalogoVisualizado] = useState<Catalogo | null>(null);
+  const [produtosCatalogo, setProdutosCatalogo] = useState<ProdutoResumo[]>([]);
   const { addToast } = useToast();
   const router = useRouter();
 
@@ -78,6 +87,29 @@ export default function CatalogosPage() {
     } finally {
       setCatalogoParaExcluir(null);
     }
+  }
+
+  async function visualizarCatalogo(id: number) {
+    try {
+      const [catResp, prodResp] = await Promise.all([
+        api.get(`/catalogos/${id}`),
+        api.get(`/produtos?catalogoId=${id}`)
+      ]);
+      setCatalogoVisualizado(catResp.data);
+      setProdutosCatalogo(prodResp.data);
+    } catch (err) {
+      console.error('Erro ao carregar detalhes do catálogo:', err);
+      addToast('Erro ao carregar detalhes do catálogo', 'error');
+    }
+  }
+
+  function fecharVisualizacao() {
+    setCatalogoVisualizado(null);
+    setProdutosCatalogo([]);
+  }
+
+  function editarProduto(id: number) {
+    router.push(`/produtos/${id}`);
   }
 
   function editarCatalogo(id: number) {
@@ -142,7 +174,7 @@ export default function CatalogosPage() {
             <table className="w-full text-sm text-left">
               <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
                 <tr>
-                  <th className="w-16 px-4 py-3 text-center">Ações</th>
+                  <th className="w-24 px-4 py-3 text-center">Ações</th>
                   <th className="px-4 py-3">Número</th>
                   <th className="px-4 py-3">Nome</th>
                   <th className="px-4 py-3">CPF/CNPJ</th>
@@ -157,6 +189,12 @@ export default function CatalogosPage() {
                     className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors"
                   >
                     <td className="px-4 py-3 flex gap-2">
+                      <button
+                        className="p-1 text-gray-300 hover:text-green-500 transition-colors"
+                        onClick={() => visualizarCatalogo(catalogo.id)}
+                      >
+                        <Eye size={16} />
+                      </button>
                       <button
                         className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
                         onClick={() => editarCatalogo(catalogo.id)}
@@ -193,6 +231,50 @@ export default function CatalogosPage() {
           </div>
         )}
       </Card>
+      {catalogoVisualizado && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-3xl w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-4">
+              Catálogo {catalogoVisualizado.numero}
+            </h3>
+            <div className="grid grid-cols-2 gap-2 text-gray-300 mb-4">
+              <div><span className="font-medium">Nome:</span> {catalogoVisualizado.nome}</div>
+              <div><span className="font-medium">CPF/CNPJ:</span> {formatarCpfCnpj(catalogoVisualizado.cpf_cnpj)}</div>
+              <div><span className="font-medium">Status:</span> {catalogoVisualizado.status}</div>
+              <div><span className="font-medium">Última Alteração:</span> {formatarData(catalogoVisualizado.ultima_alteracao)}</div>
+            </div>
+            <div className="max-h-64 overflow-y-auto mb-4">
+              <table className="w-full text-sm text-left">
+                <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
+                  <tr>
+                    <th className="px-4 py-3">Código</th>
+                    <th className="px-4 py-3">Nome do Produto</th>
+                    <th className="px-4 py-3">NCM</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {produtosCatalogo.map(produto => (
+                    <tr
+                      key={produto.id}
+                      className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors cursor-pointer"
+                      onDoubleClick={() => editarProduto(produto.id)}
+                    >
+                      <td className="px-4 py-3 font-mono">{produto.codigo ?? '-'}</td>
+                      <td className="px-4 py-3">{produto.denominacao ?? '-'}</td>
+                      <td className="px-4 py-3 font-mono">{produto.ncmCodigo}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={fecharVisualizacao}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de confirmação para exclusão */}
       {catalogoParaExcluir && (

@@ -41,6 +41,7 @@ export interface ListarProdutosFiltro {
   status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
   situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
   ncm?: string;
+  catalogoId?: number;
 }
 
 export class ProdutoService {
@@ -50,6 +51,7 @@ export class ProdutoService {
     if (filtros.status) where.status = filtros.status;
     if (filtros.ncm) where.ncmCodigo = filtros.ncm;
     if (filtros.situacao) where.situacao = filtros.situacao;
+    if (filtros.catalogoId) where.catalogoId = filtros.catalogoId;
 
     const produtos = await catalogoPrisma.produto.findMany({
       where,

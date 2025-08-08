@@ -21,7 +21,10 @@ export async function listarProdutos(req: Request, res: Response) {
         | 'ATIVADO'
         | 'DESATIVADO'
         | undefined,
-      ncm: req.query.ncm as string | undefined
+      ncm: req.query.ncm as string | undefined,
+      catalogoId: req.query.catalogoId
+        ? Number(req.query.catalogoId)
+        : undefined
     };
     const produtos = await produtoService.listarTodos(filtros);
     res.json(produtos);
