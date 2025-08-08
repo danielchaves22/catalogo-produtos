@@ -34,7 +34,6 @@ export default function ProdutosPage() {
   const [filtros, setFiltros] = useState({
     status: 'TODOS',
     situacao: 'TODOS',
-    ncm: '',
     catalogoId: ''
   });
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<number | null>(null);
@@ -63,7 +62,7 @@ export default function ProdutosPage() {
   useEffect(() => {
     if (!router.isReady) return;
     carregarProdutos();
-  }, [router.isReady, filtros.status, filtros.situacao, filtros.ncm, filtros.catalogoId]);
+  }, [router.isReady, filtros.status, filtros.situacao, filtros.catalogoId]);
 
   async function carregarProdutos() {
     try {
@@ -71,7 +70,6 @@ export default function ProdutosPage() {
       const params = new URLSearchParams();
       if (filtros.status !== 'TODOS') params.append('status', filtros.status);
       if (filtros.situacao !== 'TODOS') params.append('situacao', filtros.situacao);
-      if (filtros.ncm) params.append('ncm', filtros.ncm);
       if (filtros.catalogoId) params.append('catalogoId', filtros.catalogoId);
       const query = params.toString();
       const url = query ? `/produtos?${query}` : '/produtos';
@@ -124,9 +122,8 @@ export default function ProdutosPage() {
   const produtosFiltrados = produtos.filter(p => {
     const termo = busca.toLowerCase();
     const matchBusca =
-      (p.codigo || '').toLowerCase().includes(termo) ||
-      p.ncmCodigo.toLowerCase().includes(termo) ||
-      (p.denominacao && p.denominacao.toLowerCase().includes(termo));
+      (p.denominacao && p.denominacao.toLowerCase().includes(termo)) ||
+      (p.codigoInterno && p.codigoInterno.toLowerCase().includes(termo));
 
     const matchStatus =
       filtros.status === 'TODOS' || p.status === filtros.status;
@@ -134,10 +131,7 @@ export default function ProdutosPage() {
     const matchSituacao =
       filtros.situacao === 'TODOS' || p.situacao === filtros.situacao;
 
-    const matchNcm =
-      filtros.ncm === '' || p.ncmCodigo.includes(filtros.ncm);
-
-    return matchBusca && matchStatus && matchSituacao && matchNcm;
+    return matchBusca && matchStatus && matchSituacao;
   });
 
   if (loading) {
@@ -191,26 +185,19 @@ export default function ProdutosPage() {
 
       {/* Filtros */}
       <Card className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-          <div className="relative">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="relative md:col-span-2">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <Search size={18} className="text-gray-400" />
             </div>
             <input
               type="text"
-              placeholder="Buscar produtos..."
+              placeholder="Buscar produto..."
               className="pl-10 pr-4 py-2 w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
               value={busca}
               onChange={e => setBusca(e.target.value)}
             />
           </div>
-          <input
-            type="text"
-            placeholder="Filtrar NCM"
-            className="px-3 py-2 bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
-            value={filtros.ncm}
-            onChange={e => setFiltros({ ...filtros, ncm: e.target.value })}
-          />
           <select
             className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
             value={filtros.catalogoId}
@@ -273,12 +260,10 @@ export default function ProdutosPage() {
               <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
                 <tr>
                   <th className="w-16 px-4 py-3 text-center">Ações</th>
-                  <th className="px-4 py-3">Nº do Catálogo</th>
-                  <th className="px-4 py-3">Nome Catálogo</th>
-                  <th className="px-4 py-3">CPF/CNPJ</th>
-                  <th className="px-4 py-3">Nome do Produto</th>
-                  <th className="px-4 py-3">Código Interno</th>
-                  <th className="px-4 py-3">NCM</th>
+                  <th className="px-4 py-3">Catálogo</th>
+                  <th className="px-4 py-3">Nome</th>
+                  <th className="px-4 py-3">Cód. Int. (SKU/PN)</th>
+                  <th className="px-4 py-3">Modalidade</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Situação</th>
                   <th className="px-4 py-3">Última Alteração</th>
@@ -306,12 +291,10 @@ export default function ProdutosPage() {
                         <Trash2 size={16} />
                       </button>
                     </td>
-                    <td className="px-4 py-3 font-mono text-[#f59e0b]">{produto.catalogoNumero ?? '-'}</td>
                     <td className="px-4 py-3">{produto.catalogoNome ?? '-'}</td>
-                    <td className="px-4 py-3">{produto.catalogoCpfCnpj ?? '-'}</td>
                     <td className="px-4 py-3">{produto.denominacao ?? produto.codigo ?? '-'}</td>
                     <td className="px-4 py-3">{produto.codigoInterno ?? '-'}</td>
-                    <td className="px-4 py-3 font-mono">{produto.ncmCodigo}</td>
+                    <td className="px-4 py-3">-</td>
                     <td className="px-4 py-3">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClasses(
