@@ -38,6 +38,7 @@ export default function ProdutosPage() {
     catalogoId: ''
   });
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<number | null>(null);
+  const [catalogos, setCatalogos] = useState<{ id: number; numero: number; nome: string }[]>([]);
   const router = useRouter();
   const { addToast } = useToast();
 
@@ -46,6 +47,18 @@ export default function ProdutosPage() {
       setFiltros(prev => ({ ...prev, catalogoId: router.query.catalogoId as string }));
     }
   }, [router.isReady, router.query.catalogoId]);
+
+  useEffect(() => {
+    async function carregarCatalogos() {
+      try {
+        const response = await api.get('/catalogos');
+        setCatalogos(response.data);
+      } catch (err) {
+        console.error('Erro ao carregar catálogos:', err);
+      }
+    }
+    carregarCatalogos();
+  }, []);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -198,13 +211,18 @@ export default function ProdutosPage() {
             value={filtros.ncm}
             onChange={e => setFiltros({ ...filtros, ncm: e.target.value })}
           />
-          <input
-            type="text"
-            placeholder="Filtrar catálogo"
-            className="px-3 py-2 bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
+          <select
+            className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
             value={filtros.catalogoId}
             onChange={e => setFiltros({ ...filtros, catalogoId: e.target.value })}
-          />
+          >
+            <option value="">Todos os catálogos</option>
+            {catalogos.map(catalogo => (
+              <option key={catalogo.id} value={catalogo.id}>
+                {catalogo.numero} - {catalogo.nome}
+              </option>
+            ))}
+          </select>
           <select
             className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
             value={filtros.status}
@@ -276,12 +294,14 @@ export default function ProdutosPage() {
                       <button
                         className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
                         onClick={() => editarProduto(produto.id)}
+                        title="Editar produto"
                       >
                         <Pencil size={16} />
                       </button>
                       <button
                         className="p-1 text-gray-300 hover:text-red-500 transition-colors"
                         onClick={() => confirmarExclusao(produto.id)}
+                        title="Excluir produto"
                       >
                         <Trash2 size={16} />
                       </button>

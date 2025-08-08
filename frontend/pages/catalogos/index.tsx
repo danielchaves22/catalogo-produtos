@@ -160,18 +160,21 @@ export default function CatalogosPage() {
                       <button
                         className="p-1 text-gray-300 hover:text-green-500 transition-colors"
                         onClick={() => router.push(`/produtos?catalogoId=${catalogo.id}`)}
+                        title="Ver produtos"
                       >
                         <FileText size={16} />
                       </button>
                       <button
                         className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
                         onClick={() => editarCatalogo(catalogo.id)}
+                        title="Editar catálogo"
                       >
                         <Pencil size={16} />
                       </button>
                       <button
                         className="p-1 text-gray-300 hover:text-red-500 transition-colors"
                         onClick={() => confirmarExclusao(catalogo.id)}
+                        title="Excluir catálogo"
                       >
                         <Trash2 size={16} />
                       </button>
