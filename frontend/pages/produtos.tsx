@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { AlertCircle, Plus, Search, Trash2, Pencil } from 'lucide-react';
+import { Hint } from '@/components/ui/Hint';
 import api from '@/lib/api';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -22,7 +23,7 @@ interface Produto {
   catalogoCpfCnpj?: string;
   denominacao?: string;
   descricao?: string;
-  codigoInterno?: string;
+  codigosInternos?: string[];
   situacao?: string;
 }
 
@@ -123,7 +124,7 @@ export default function ProdutosPage() {
     const termo = busca.toLowerCase();
     const matchBusca =
       (p.denominacao && p.denominacao.toLowerCase().includes(termo)) ||
-      (p.codigoInterno && p.codigoInterno.toLowerCase().includes(termo));
+      (p.codigosInternos && p.codigosInternos.some(c => c.toLowerCase().includes(termo)));
 
     const matchStatus =
       filtros.status === 'TODOS' || p.status === filtros.status;
@@ -293,7 +294,20 @@ export default function ProdutosPage() {
                     </td>
                     <td className="px-4 py-3">{produto.catalogoNome ?? '-'}</td>
                     <td className="px-4 py-3">{produto.denominacao ?? produto.codigo ?? '-'}</td>
-                    <td className="px-4 py-3">{produto.codigoInterno ?? '-'}</td>
+                    <td className="px-4 py-3">
+                      {produto.codigosInternos && produto.codigosInternos.length > 0 ? (
+                        <div className="flex items-center gap-1">
+                          <span className="truncate max-w-[150px]">
+                            {produto.codigosInternos.join(', ')}
+                          </span>
+                          {produto.codigosInternos.join(', ').length > 20 && (
+                            <Hint text={produto.codigosInternos.join(', ')} />
+                          )}
+                        </div>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
                     <td className="px-4 py-3">-</td>
                     <td className="px-4 py-3">
                       <span

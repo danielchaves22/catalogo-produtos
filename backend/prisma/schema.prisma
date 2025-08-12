@@ -229,6 +229,7 @@ model CodigoInternoProduto {
   codigo    String  @map("codigo")
   produto   Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
 
+  @@unique([produtoId, codigo], name: "uk_produto_codigo")
   @@map("codigo_interno_produto")
 }
 
