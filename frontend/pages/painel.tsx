@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import api from '@/lib/api';
+import { ListaProdutosPainel } from '@/components/dashboard/ListaProdutosPainel';
 
 interface ResumoDashboard {
   catalogos: {
@@ -38,26 +39,30 @@ export default function PainelPage() {
       {loading ? (
         <p className="text-gray-400">Carregando...</p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card headerTitle="Produtos">
-            <p className="text-4xl font-bold text-white mb-4">
-              {resumo?.produtos.total ?? 0}
-            </p>
-            <ul className="text-sm text-gray-300 space-y-1">
-              <li>PENDENTE: {resumo?.produtos.porStatus.PENDENTE ?? 0}</li>
-              <li>APROVADO: {resumo?.produtos.porStatus.APROVADO ?? 0}</li>
-              <li>PROCESSANDO: {resumo?.produtos.porStatus.PROCESSANDO ?? 0}</li>
-              <li>TRANSMITIDO: {resumo?.produtos.porStatus.TRANSMITIDO ?? 0}</li>
-              <li>ERRO: {resumo?.produtos.porStatus.ERRO ?? 0}</li>
-            </ul>
-          </Card>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <Card headerTitle="Produtos">
+              <p className="text-4xl font-bold text-white mb-4">
+                {resumo?.produtos.total ?? 0}
+              </p>
+              <ul className="text-sm text-gray-300 space-y-1">
+                <li>PENDENTE: {resumo?.produtos.porStatus.PENDENTE ?? 0}</li>
+                <li>APROVADO: {resumo?.produtos.porStatus.APROVADO ?? 0}</li>
+                <li>PROCESSANDO: {resumo?.produtos.porStatus.PROCESSANDO ?? 0}</li>
+                <li>TRANSMITIDO: {resumo?.produtos.porStatus.TRANSMITIDO ?? 0}</li>
+                <li>ERRO: {resumo?.produtos.porStatus.ERRO ?? 0}</li>
+              </ul>
+            </Card>
 
-          <Card headerTitle="Catálogos">
-            <p className="text-4xl font-bold text-white">
-              {resumo?.catalogos.total ?? 0}
-            </p>
-          </Card>
-        </div>
+            <Card headerTitle="Catálogos">
+              <p className="text-4xl font-bold text-white">
+                {resumo?.catalogos.total ?? 0}
+              </p>
+            </Card>
+          </div>
+
+          <ListaProdutosPainel />
+        </>
       )}
     </DashboardLayout>
   );
