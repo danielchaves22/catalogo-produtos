@@ -61,7 +61,9 @@ export default function PainelPage() {
             </Card>
           </div>
 
-          <ListaProdutosPainel />
+          <section className="mt-8 bg-[#151921] p-6 rounded-lg border border-gray-700">
+            <ListaProdutosPainel />
+          </section>
         </>
       )}
     </DashboardLayout>
