@@ -44,12 +44,6 @@ export default function ProdutosPage() {
   const { addToast } = useToast();
 
   useEffect(() => {
-    if (router.isReady && typeof router.query.catalogoId === 'string') {
-      setFiltros(prev => ({ ...prev, catalogoId: router.query.catalogoId as string }));
-    }
-  }, [router.isReady, router.query.catalogoId]);
-
-  useEffect(() => {
     async function carregarCatalogos() {
       try {
         const response = await api.get('/catalogos');
@@ -63,8 +57,17 @@ export default function ProdutosPage() {
 
   useEffect(() => {
     if (!router.isReady) return;
+
+    const catalogoIdFromQuery =
+      typeof router.query.catalogoId === 'string' ? router.query.catalogoId : '';
+
+    if (catalogoIdFromQuery && filtros.catalogoId !== catalogoIdFromQuery) {
+      setFiltros(prev => ({ ...prev, catalogoId: catalogoIdFromQuery }));
+      return;
+    }
+
     carregarProdutos();
-  }, [router.isReady, filtros.status, filtros.situacao, filtros.catalogoId]);
+  }, [router.isReady, router.query.catalogoId, filtros.status, filtros.situacao, filtros.catalogoId]);
 
   async function carregarProdutos() {
     try {
