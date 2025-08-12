@@ -63,6 +63,13 @@ export default function ProdutosPage() {
 
     if (catalogoIdFromQuery && filtros.catalogoId !== catalogoIdFromQuery) {
       setFiltros(prev => ({ ...prev, catalogoId: catalogoIdFromQuery }));
+
+      // remove o parâmetro da URL após aplicar o filtro para evitar que
+      // o catálogo seja reatribuído ao alterar o filtro manualmente
+      const { catalogoId, ...rest } = router.query;
+      router.replace({ pathname: router.pathname, query: rest }, undefined, {
+        shallow: true,
+      });
       return;
     }
 
