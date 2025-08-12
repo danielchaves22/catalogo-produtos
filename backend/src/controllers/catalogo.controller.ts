@@ -50,9 +50,11 @@ export async function criarCatalogo(req: Request, res: Response) {
     const catalogo = await catalogoService.criar(req.body);
     return res.status(201).json(catalogo);
   } catch (error: unknown) {
-    return res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'Erro ao criar catálogo' 
-    });
+    const message = error instanceof Error ? error.message : 'Erro ao criar catálogo';
+    if (message.includes('Já existe um catálogo')) {
+      return res.status(400).json({ error: message });
+    }
+    return res.status(500).json({ error: message });
   }
 }
 
@@ -67,13 +69,13 @@ export async function atualizarCatalogo(req: Request, res: Response) {
     const catalogo = await catalogoService.atualizar(Number(id), req.body);
     return res.status(200).json(catalogo);
   } catch (error: unknown) {
-    // Verifica se é erro de "não encontrado" pela mensagem
     const errorMessage = error instanceof Error ? error.message : `Erro ao atualizar catálogo ID ${id}`;
-    
+    if (errorMessage.includes('Já existe um catálogo')) {
+      return res.status(400).json({ error: errorMessage });
+    }
     if (errorMessage.includes('não encontrado')) {
       return res.status(404).json({ error: errorMessage });
     }
-    
     return res.status(500).json({ error: errorMessage });
   }
 }

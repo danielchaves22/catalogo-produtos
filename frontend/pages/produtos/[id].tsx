@@ -182,8 +182,13 @@ export default function ProdutoPage() {
   }
 
   function adicionarCodigoInterno() {
-    if (!novoCodigoInterno.trim()) return;
-    setCodigosInternos(prev => [...prev, novoCodigoInterno.trim()]);
+    const codigo = novoCodigoInterno.trim();
+    if (!codigo) return;
+    if (codigosInternos.some(c => c.toLowerCase() === codigo.toLowerCase())) {
+      addToast('Código interno já incluído', 'error');
+      return;
+    }
+    setCodigosInternos(prev => [...prev, codigo]);
     setNovoCodigoInterno('');
   }
 

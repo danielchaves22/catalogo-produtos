@@ -53,6 +53,12 @@ export class CatalogoService {
    */
   async criar(data: CreateCatalogoDTO): Promise<Catalogo> {
     try {
+      const existente = await catalogoPrisma.catalogo.findFirst({
+        where: { nome: data.nome }
+      });
+      if (existente) {
+        throw new Error('Já existe um catálogo com este nome');
+      }
       return await catalogoPrisma.catalogo.create({
         data: {
           nome: data.nome,
@@ -63,6 +69,9 @@ export class CatalogoService {
         }
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('Já existe')) {
+        throw error;
+      }
       logger.error('Erro ao criar catálogo:', error);
       throw new Error('Falha ao criar catálogo');
     }
@@ -73,8 +82,14 @@ export class CatalogoService {
    */
   async atualizar(id: number, data: UpdateCatalogoDTO): Promise<Catalogo> {
     try {
+      const existente = await catalogoPrisma.catalogo.findFirst({
+        where: { nome: data.nome, id: { not: id } }
+      });
+      if (existente) {
+        throw new Error('Já existe um catálogo com este nome');
+      }
       return await catalogoPrisma.catalogo.update({
-        where: { 
+        where: {
           id: id // Corrigido também
         },
         data: {
@@ -85,14 +100,17 @@ export class CatalogoService {
         }
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('Já existe')) {
+        throw error;
+      }
       logger.error(`Erro ao atualizar catálogo ID ${id}:`, error);
-      
+
       // Verifica se o erro é de registro não encontrado
       const prismaError = error as PrismaError;
       if (prismaError.code === 'P2025') {
         throw new Error(`Catálogo ID ${id} não encontrado`);
       }
-      
+
       throw new Error(`Falha ao atualizar catálogo ID ${id}`);
     }
   }
