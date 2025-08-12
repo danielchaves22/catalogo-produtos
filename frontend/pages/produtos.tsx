@@ -25,6 +25,7 @@ interface Produto {
   descricao?: string;
   codigosInternos?: string[];
   situacao?: string;
+  modalidade?: 'IMPORTACAO' | 'EXPORTACAO';
 }
 
 export default function ProdutosPage() {
@@ -117,6 +118,17 @@ export default function ProdutosPage() {
         return 'bg-[#e4a8351a] text-[#e4a835] border border-[#e4a835]';
       default:
         return 'bg-gray-900/50 text-gray-400 border border-gray-700';
+    }
+  }
+
+  function getModalidadeLabel(modalidade: string) {
+    switch (modalidade) {
+      case 'IMPORTACAO':
+        return 'Importação';
+      case 'EXPORTACAO':
+        return 'Exportação';
+      default:
+        return modalidade;
     }
   }
 
@@ -308,7 +320,11 @@ export default function ProdutosPage() {
                         '-'
                       )}
                     </td>
-                    <td className="px-4 py-3">-</td>
+                    <td className="px-4 py-3">
+                      {produto.modalidade
+                        ? getModalidadeLabel(produto.modalidade)
+                        : '-'}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClasses(

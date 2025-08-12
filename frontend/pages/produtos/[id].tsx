@@ -601,8 +601,8 @@ export default function ProdutoPage() {
           <Select
             label="Modalidade"
             options={[
-              { value: 'IMPORTACAO', label: 'IMPORTACAO' },
-              { value: 'EXPORTACAO', label: 'EXPORTACAO' }
+              { value: 'IMPORTACAO', label: 'Importação' },
+              { value: 'EXPORTACAO', label: 'Exportação' }
             ]}
             value={modalidade}
             onChange={e => setModalidade(e.target.value)}
