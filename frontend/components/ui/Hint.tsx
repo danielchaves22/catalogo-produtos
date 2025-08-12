@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CircleHelp } from 'lucide-react';
 
 interface HintProps {
@@ -7,11 +8,18 @@ interface HintProps {
 
 export function Hint({ text }: HintProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
+      if (
+        triggerRef.current &&
+        !triggerRef.current.contains(event.target as Node) &&
+        tooltipRef.current &&
+        !tooltipRef.current.contains(event.target as Node)
+      ) {
         setOpen(false);
       }
     }
@@ -23,18 +31,36 @@ export function Hint({ text }: HintProps) {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+      });
+    }
+  }, [open]);
+
   return (
-    <div className="relative inline-block ml-1" ref={ref}>
-      <CircleHelp
-        size={14}
-        className="text-[#f59e0b] cursor-pointer"
-        onClick={() => setOpen((v) => !v)}
-      />
-      {open && (
-        <div className="absolute z-50 w-64 p-2 text-xs text-gray-300 bg-[#1e2126] border border-gray-700 rounded-md mt-1">
-          {text}
-        </div>
-      )}
-    </div>
+    <>
+      <div className="inline-block ml-1" ref={triggerRef}>
+        <CircleHelp
+          size={14}
+          className="text-[#f59e0b] cursor-pointer"
+          onClick={() => setOpen((v) => !v)}
+        />
+      </div>
+      {open &&
+        createPortal(
+          <div
+            ref={tooltipRef}
+            className="z-50 w-64 p-2 text-xs text-gray-300 bg-[#1e2126] border border-gray-700 rounded-md"
+            style={{ position: 'absolute', top: coords.top, left: coords.left }}
+          >
+            {text}
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
