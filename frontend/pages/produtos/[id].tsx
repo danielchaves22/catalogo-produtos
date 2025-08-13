@@ -39,14 +39,16 @@ interface AtributoEstrutura {
 export default function ProdutoPage() {
   const [catalogoId, setCatalogoId] = useState('');
   const [catalogoNome, setCatalogoNome] = useState('');
+  const [catalogoCnpj, setCatalogoCnpj] = useState('');
   const [codigo, setCodigo] = useState('');
   const [codigosInternos, setCodigosInternos] = useState<string[]>([]);
   const [novoCodigoInterno, setNovoCodigoInterno] = useState('');
   const [operadores, setOperadores] = useState<Array<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>>([]);
   const [novoOperador, setNovoOperador] = useState<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>({ paisCodigo: '', conhecido: 'nao', operador: undefined });
+  const [operadoresCatalogo, setOperadoresCatalogo] = useState<OperadorEstrangeiro[]>([]);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [operadorErro, setOperadorErro] = useState<{ paisCodigo?: string; operador?: string }>({});
-  const { getPaisOptions, buscarOperadorPorId, getPaisNome } = useOperadorEstrangeiro();
+  const { getPaisOptions, buscarOperadorPorId, getPaisNome, buscarOperadores, extrairCnpjRaiz } = useOperadorEstrangeiro();
   const [catalogos, setCatalogos] = useState<Array<{ id: number; nome: string; cpf_cnpj: string | null }>>([]);
   const [ncm, setNcm] = useState('');
   const [ncmDescricao, setNcmDescricao] = useState('');
@@ -78,6 +80,22 @@ export default function ProdutoPage() {
     }
     carregarCatalogos();
   }, [isNew]);
+
+  useEffect(() => {
+    if (!catalogoCnpj) {
+      setOperadoresCatalogo([]);
+      return;
+    }
+    async function carregarOperadoresCatalogo() {
+      try {
+        const ops = await buscarOperadores({ cnpjRaiz: extrairCnpjRaiz(catalogoCnpj) });
+        setOperadoresCatalogo(ops.filter(op => op.situacao === 'ATIVO'));
+      } catch (err) {
+        console.error('Erro ao carregar operadores do catálogo:', err);
+      }
+    }
+    carregarOperadoresCatalogo();
+  }, [catalogoCnpj]);
 
   const mapaEstrutura = React.useMemo(() => {
     const map = new Map<string, AtributoEstrutura>();
@@ -435,6 +453,7 @@ export default function ProdutoPage() {
       setDescricao(dados.descricao || '');
       setCatalogoNome(dados.catalogo?.nome || '');
       setCatalogoId(String(dados.catalogo?.id || ''));
+      setCatalogoCnpj(dados.catalogo?.cpf_cnpj || '');
       setNcm(dados.ncmCodigo);
       setModalidade(dados.modalidade);
       try {
@@ -584,6 +603,8 @@ export default function ProdutoPage() {
               value={catalogoId}
               onChange={e => {
                 setCatalogoId(e.target.value);
+                const cat = catalogos.find(c => String(c.id) === e.target.value);
+                setCatalogoCnpj(cat?.cpf_cnpj || '');
                 if (errors.catalogoId) {
                   setErrors(prev => {
                     const newErrors = { ...prev };
@@ -786,10 +807,19 @@ export default function ProdutoPage() {
                               />
                               {novoOperador.conhecido === 'sim' && (
                                 <div className="flex items-end gap-2">
-                                  <Input
+                                  <Select
                                     label="Operador"
-                                    value={novoOperador.operador?.nome || ''}
-                                    disabled
+                                    options={operadoresCatalogo.map(op => ({ value: String(op.id), label: op.nome }))}
+                                    value={novoOperador.operador ? String(novoOperador.operador.id) : ''}
+                                    onChange={e => {
+                                      const op = operadoresCatalogo.find(o => String(o.id) === e.target.value);
+                                      setOperadorErro(prev => ({ ...prev, operador: undefined }));
+                                      setNovoOperador(prev => ({
+                                        ...prev,
+                                        operador: op,
+                                        paisCodigo: op?.pais.codigo || ''
+                                      }));
+                                    }}
                                     className="flex-1 mb-0"
                                     error={operadorErro.operador}
                                   />
@@ -876,10 +906,14 @@ export default function ProdutoPage() {
           onSelect={op => {
             setOperadorErro(prev => ({ ...prev, operador: undefined }));
             setNovoOperador(prev => ({ ...prev, operador: op, paisCodigo: op.pais.codigo }));
+            if (!operadoresCatalogo.some(o => o.id === op.id)) {
+              setOperadoresCatalogo(prev => [...prev, op]);
+            }
             setSelectorOpen(false);
           }}
           onCancel={() => setSelectorOpen(false)}
           selectedOperadores={[]}
+          cnpjRaiz={catalogoCnpj ? extrairCnpjRaiz(catalogoCnpj) : undefined}
         />
       )}
 

@@ -1,8 +1,7 @@
 // frontend/components/operador-estrangeiro/OperadorEstrangeiroSelector.tsx
 import React, { useState, useEffect } from 'react';
-import { Search, Globe, Plus, Check } from 'lucide-react';
+import { Search, Globe, Check } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 
@@ -12,6 +11,7 @@ interface OperadorEstrangeiroSelectorProps {
   selectedOperadores?: OperadorEstrangeiro[];
   multiSelect?: boolean;
   title?: string;
+  cnpjRaiz?: string;
 }
 
 export function OperadorEstrangeiroSelector({
@@ -19,22 +19,23 @@ export function OperadorEstrangeiroSelector({
   onCancel,
   selectedOperadores = [],
   multiSelect = false,
-  title = 'Selecionar Operador Estrangeiro'
+  title = 'Selecionar Operador Estrangeiro',
+  cnpjRaiz
 }: OperadorEstrangeiroSelectorProps) {
   const [busca, setBusca] = useState('');
   const [operadores, setOperadores] = useState<OperadorEstrangeiro[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { buscarOperadores, buscarOperadoresPorTin } = useOperadorEstrangeiro();
+  const { buscarOperadores, buscarOperadoresPorTin, extrairCnpjRaiz } = useOperadorEstrangeiro();
 
   useEffect(() => {
     carregarOperadores();
-  }, []);
+  }, [cnpjRaiz]);
 
   async function carregarOperadores() {
     try {
       setLoading(true);
-      const dados = await buscarOperadores();
+      const dados = await buscarOperadores(cnpjRaiz ? { cnpjRaiz } : undefined);
       setOperadores(dados.filter(op => op.situacao === 'ATIVO'));
       setError(null);
     } catch (err) {
@@ -58,10 +59,13 @@ export function OperadorEstrangeiroSelector({
       // Se parece com TIN, buscar por TIN
       if (busca.length >= 5 && /^[A-Z]{2}/.test(busca.toUpperCase())) {
         resultados = await buscarOperadoresPorTin(busca);
+        if (cnpjRaiz) {
+          resultados = resultados.filter(op => extrairCnpjRaiz(op.cnpjRaizResponsavel) === cnpjRaiz);
+        }
       } else {
         // Buscar todos e filtrar localmente
-        const todos = await buscarOperadores();
-        resultados = todos.filter(op => 
+        const todos = await buscarOperadores(cnpjRaiz ? { cnpjRaiz } : undefined);
+        resultados = todos.filter(op =>
           op.situacao === 'ATIVO' && (
             op.nome.toLowerCase().includes(busca.toLowerCase()) ||
             op.tin?.toLowerCase().includes(busca.toLowerCase()) ||
@@ -71,7 +75,7 @@ export function OperadorEstrangeiroSelector({
         );
       }
 
-      setOperadores(resultados);
+      setOperadores(resultados.filter(op => op.situacao === 'ATIVO'));
       setError(null);
     } catch (err) {
       console.error('Erro na busca:', err);
