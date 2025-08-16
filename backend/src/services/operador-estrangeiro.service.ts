@@ -21,6 +21,7 @@ export interface CreateOperadorEstrangeiroDTO {
     numero: string;
     agenciaEmissoraCodigo: string;
   }>;
+  superUserId: number;
 }
 
 export interface UpdateOperadorEstrangeiroDTO extends Partial<CreateOperadorEstrangeiroDTO> {}
@@ -67,19 +68,17 @@ export class OperadorEstrangeiroService {
   /**
    * Lista todos os operadores estrangeiros
    */
-  async listarTodos(cnpjRaiz?: string): Promise<OperadorEstrangeiroCompleto[]> {
+  async listarTodos(cnpjRaiz: string | undefined, superUserId: number): Promise<OperadorEstrangeiroCompleto[]> {
     try {
-      let whereClause = {};
-      
+      const whereClause: any = { superUserId };
+
       if (cnpjRaiz) {
         // Se foi passado um CNPJ raiz (8 dígitos), buscar operadores que começam com esse raiz
-        whereClause = {
-          cnpjRaizResponsavel: {
-            startsWith: cnpjRaiz
-          }
+        whereClause.cnpjRaizResponsavel = {
+          startsWith: cnpjRaiz
         };
       }
-      
+
       return await catalogoPrisma.operadorEstrangeiro.findMany({
         where: whereClause,
         include: {
@@ -102,10 +101,10 @@ export class OperadorEstrangeiroService {
   /**
    * Busca um operador estrangeiro pelo ID
    */
-  async buscarPorId(id: number): Promise<OperadorEstrangeiroCompleto | null> {
+  async buscarPorId(id: number, superUserId: number): Promise<OperadorEstrangeiroCompleto | null> {
     try {
-      return await catalogoPrisma.operadorEstrangeiro.findUnique({
-        where: { id },
+      return await catalogoPrisma.operadorEstrangeiro.findFirst({
+        where: { id, superUserId },
         include: {
           pais: true,
           subdivisao: true,
@@ -125,13 +124,14 @@ export class OperadorEstrangeiroService {
   /**
    * Busca operadores por TIN
    */
-  async buscarPorTin(tin: string): Promise<OperadorEstrangeiroCompleto[]> {
+  async buscarPorTin(tin: string, superUserId: number): Promise<OperadorEstrangeiroCompleto[]> {
     try {
       return await catalogoPrisma.operadorEstrangeiro.findMany({
-        where: { 
+        where: {
           tin: {
             contains: tin
-          }
+          },
+          superUserId
         },
         include: {
           pais: true,
@@ -169,6 +169,7 @@ export class OperadorEstrangeiroService {
           subdivisaoCodigo: data.subdivisaoCodigo || null,
           situacao: data.situacao,
           dataReferencia: data.dataReferencia,
+          superUserId: data.superUserId,
           identificacoesAdicionais: data.identificacoesAdicionais ? {
             create: data.identificacoesAdicionais
           } : undefined
@@ -196,14 +197,14 @@ export class OperadorEstrangeiroService {
    */
   async atualizar(id: number, data: UpdateOperadorEstrangeiroDTO): Promise<OperadorEstrangeiroCompleto> {
     try {
-      const operadorAtual = await this.buscarPorId(id);
+      const operadorAtual = await this.buscarPorId(id, data.superUserId!);
       if (!operadorAtual) {
         throw new Error(`Operador estrangeiro ID ${id} não encontrado`);
       }
 
       // Desativa a versão atual
       await catalogoPrisma.operadorEstrangeiro.update({
-        where: { id },
+        where: { id, superUserId: data.superUserId! },
         data: { situacao: 'INATIVO' }
       });
 
@@ -222,6 +223,7 @@ export class OperadorEstrangeiroService {
           subdivisaoCodigo: data.subdivisaoCodigo !== undefined ? data.subdivisaoCodigo : operadorAtual.subdivisaoCodigo,
           versao: operadorAtual.versao + 1,
           situacao: data.situacao || operadorAtual.situacao,
+          superUserId: data.superUserId!,
           identificacoesAdicionais: data.identificacoesAdicionais ? {
             create: data.identificacoesAdicionais
           } : undefined
@@ -253,10 +255,10 @@ export class OperadorEstrangeiroService {
   /**
    * Remove um operador estrangeiro (desativa)
    */
-  async remover(id: number): Promise<void> {
+  async remover(id: number, superUserId: number): Promise<void> {
     try {
       await catalogoPrisma.operadorEstrangeiro.update({
-        where: { id },
+        where: { id, superUserId },
         data: { situacao: 'DESATIVADO' }
       });
     } catch (error: unknown) {
@@ -326,22 +328,23 @@ export class OperadorEstrangeiroService {
    * Lista CNPJs disponíveis dos catálogos para seleção
    * CORRIGIDO: Retorna CNPJ completo, não apenas a raiz
    */
-  async listarCnpjsCatalogos(): Promise<Array<{ cnpjCompleto: string; nome: string }>> {
-  try {
-    const catalogos = await catalogoPrisma.catalogo.findMany({
-      select: {
-        cpf_cnpj: true,
-        nome: true
-      },
-      where: {
-        cpf_cnpj: {
-          not: null
+  async listarCnpjsCatalogos(superUserId: number): Promise<Array<{ cnpjCompleto: string; nome: string }>> {
+    try {
+      const catalogos = await catalogoPrisma.catalogo.findMany({
+        select: {
+          cpf_cnpj: true,
+          nome: true
+        },
+        where: {
+          cpf_cnpj: {
+            not: null
+          },
+          superUserId
+        },
+        orderBy: {
+          nome: 'asc'
         }
-      },
-      orderBy: {
-        nome: 'asc'
-      }
-    });
+      });
 
     // Processa os dados e remove duplicatas por CNPJ raiz
     const cnpjsUnicos = new Map<string, { cnpjCompleto: string; nome: string }>();

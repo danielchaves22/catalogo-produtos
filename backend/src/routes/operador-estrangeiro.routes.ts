@@ -20,7 +20,12 @@ import { createOperadorEstrangeiroSchema, updateOperadorEstrangeiroSchema } from
 const router = Router();
 
 // Todas as rotas protegidas por autenticação
-router.use(authMiddleware);
+router.use(authMiddleware, (req, res, next) => {
+  if (!req.user?.superUserId) {
+    return res.status(401).json({ error: 'Identificador do superusuário ausente' });
+  }
+  next();
+});
 
 // ========== ROTAS AUXILIARES (devem vir ANTES das rotas principais) ==========
 router.get('/aux/paises', listarPaises);

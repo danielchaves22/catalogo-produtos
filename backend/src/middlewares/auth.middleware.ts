@@ -1,6 +1,7 @@
 // src/middlewares/auth.middleware.ts
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt';
+import { AuthUser } from '../interfaces/auth-user';
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
@@ -18,7 +19,10 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     return res.status(401).json({ error: 'Token mal formatado' });
 
   try {
-    const decoded = verifyToken(token);
+    const decoded = verifyToken(token) as AuthUser;
+    if (!decoded.superUserId) {
+      return res.status(401).json({ error: 'Identificador do superusuário ausente' });
+    }
     req.user = decoded;
     next();
   } catch (error) {

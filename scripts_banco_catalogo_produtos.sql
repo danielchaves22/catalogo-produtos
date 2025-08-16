@@ -98,6 +98,7 @@ DELIMITER ;
     CREATE TABLE IF NOT EXISTS operador_estrangeiro (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
         cnpj_raiz_responsavel VARCHAR(14) NOT NULL,
+        super_user_id INT UNSIGNED NOT NULL,
         
         -- Dados básicos
         pais_codigo VARCHAR(10) NOT NULL,
@@ -127,8 +128,14 @@ DELIMITER ;
         INDEX idx_tin (tin),
         INDEX idx_nome (nome),
         INDEX idx_situacao (situacao),
+        INDEX idx_super_user_id (super_user_id),
         UNIQUE INDEX idx_tin_unique (tin) -- TIN deve ser único quando preenchido
     );
+
+    -- Vincula operadores existentes ao super usuário de seus catálogos
+    UPDATE operador_estrangeiro oe
+    JOIN catalogo c ON SUBSTRING(c.cpf_cnpj,1,8) = oe.cnpj_raiz_responsavel
+    SET oe.super_user_id = c.super_user_id;
 
     -- Tabela para identificações adicionais (DUNS, LEI, etc.)
     CREATE TABLE IF NOT EXISTS identificacao_adicional (
