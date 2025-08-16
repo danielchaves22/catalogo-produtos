@@ -37,8 +37,8 @@ export async function login(req: Request, res: Response) {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
-    // Formata dados do usuário
-    const userData = authService.formatUserData(user);
+    // Remove a senha do objeto
+    const { password: _pwd, ...userData } = user;
 
     // Gera o token JWT
     const token = generateToken(userData);

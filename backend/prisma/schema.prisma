@@ -18,8 +18,21 @@ model User {
   email     String   @unique @map("username")
   password  String   @map("senha")
   name      String   @map("nomecompleto")
-  
+
+  subUsuarios SubUsuario[]
+
   @@map("comex")
+}
+
+model SubUsuario {
+  id          Int   @id @default(autoincrement()) @map("Id")
+  superUserId Int   @map("idv32_comex")
+  email       String @unique @map("email")
+  password    String @map("senha")
+
+  superUser   User  @relation(fields: [superUserId], references: [id])
+
+  @@map("comex_subsessoes")
 }
 
 enum Role {
@@ -37,9 +50,10 @@ model Catalogo {
   id               Int            @id @default(autoincrement()) @map("id")
   nome             String         @map("nome")
   cpf_cnpj         String?        @map("cpf_cnpj")
-  ultima_alteracao DateTime       @map("ultima_alteracao") 
+  ultima_alteracao DateTime       @map("ultima_alteracao")
   numero           Int            @map("numero")
   status           CatalogoStatus @map("status")
+  superUserId      Int            @map("super_user_id")
   produtos         Produto[]
 
   @@map("catalogo")
