@@ -9,8 +9,7 @@ CREATE TABLE IF NOT EXISTS catalogo (
     super_user_id INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
     UNIQUE INDEX idx_numero (numero),
-    INDEX idx_super_user_id (super_user_id),
-    FOREIGN KEY (super_user_id) REFERENCES comex(idv32)
+    INDEX idx_super_user_id (super_user_id)
 );
 
 -- Função para gerar números aleatórios de 6 dígitos
