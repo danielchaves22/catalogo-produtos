@@ -6,8 +6,10 @@ CREATE TABLE IF NOT EXISTS catalogo (
     ultima_alteracao DATETIME NOT NULL,
     numero INT UNSIGNED NOT NULL,
     status ENUM('ATIVO', 'INATIVO') NOT NULL DEFAULT 'ATIVO',
+    super_user_id INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE INDEX idx_numero (numero)
+    UNIQUE INDEX idx_numero (numero),
+    INDEX idx_super_user_id (super_user_id)
 );
 
 -- Função para gerar números aleatórios de 6 dígitos

@@ -2,7 +2,6 @@
 import { Catalogo, CatalogoStatus } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
-import { PrismaError } from '../types/prisma-error';
 
 export interface CreateCatalogoDTO {
   nome: string;
@@ -20,9 +19,10 @@ export class CatalogoService {
   /**
    * Lista todos os catálogos
    */
-  async listarTodos(): Promise<Catalogo[]> {
+  async listarTodos(superUserId: number): Promise<Catalogo[]> {
     try {
       return await catalogoPrisma.catalogo.findMany({
+        where: { superUserId },
         orderBy: { ultima_alteracao: 'desc' }
       });
     } catch (error: unknown) {
@@ -34,13 +34,10 @@ export class CatalogoService {
   /**
    * Busca um catálogo pelo ID
    */
-  async buscarPorId(id: number): Promise<Catalogo | null> {
+  async buscarPorId(id: number, superUserId: number): Promise<Catalogo | null> {
     try {
-      // Correção: é necessário usar um objeto com a propriedade id
-      return await catalogoPrisma.catalogo.findUnique({
-        where: { 
-          id: id // id explícito como chave-valor
-        }
+      return await catalogoPrisma.catalogo.findFirst({
+        where: { id, superUserId }
       });
     } catch (error: unknown) {
       logger.error(`Erro ao buscar catálogo ID ${id}:`, error);
@@ -51,10 +48,10 @@ export class CatalogoService {
   /**
    * Cria um novo catálogo
    */
-  async criar(data: CreateCatalogoDTO): Promise<Catalogo> {
+  async criar(data: CreateCatalogoDTO, superUserId: number): Promise<Catalogo> {
     try {
       const existente = await catalogoPrisma.catalogo.findFirst({
-        where: { nome: data.nome }
+        where: { nome: data.nome, superUserId }
       });
       if (existente) {
         throw new Error('Já existe um catálogo com este nome');
@@ -65,7 +62,8 @@ export class CatalogoService {
           cpf_cnpj: data.cpf_cnpj,
           status: data.status,
           ultima_alteracao: new Date(),
-          numero: 0 // O valor real será gerado pelo trigger no banco
+          numero: 0, // O valor real será gerado pelo trigger no banco
+          superUserId
         }
       });
     } catch (error: unknown) {
@@ -80,18 +78,17 @@ export class CatalogoService {
   /**
    * Atualiza um catálogo existente
    */
-  async atualizar(id: number, data: UpdateCatalogoDTO): Promise<Catalogo> {
+  async atualizar(id: number, data: UpdateCatalogoDTO, superUserId: number): Promise<Catalogo> {
     try {
       const existente = await catalogoPrisma.catalogo.findFirst({
-        where: { nome: data.nome, id: { not: id } }
+        where: { nome: data.nome, superUserId, id: { not: id } }
       });
       if (existente) {
         throw new Error('Já existe um catálogo com este nome');
       }
-      return await catalogoPrisma.catalogo.update({
-        where: {
-          id: id // Corrigido também
-        },
+
+      const atualizado = await catalogoPrisma.catalogo.updateMany({
+        where: { id, superUserId },
         data: {
           nome: data.nome,
           cpf_cnpj: data.cpf_cnpj,
@@ -99,17 +96,17 @@ export class CatalogoService {
           ultima_alteracao: new Date()
         }
       });
+
+      if (atualizado.count === 0) {
+        throw new Error(`Catálogo ID ${id} não encontrado`);
+      }
+
+      return (await catalogoPrisma.catalogo.findFirst({ where: { id, superUserId } }))!;
     } catch (error: unknown) {
       if (error instanceof Error && error.message.includes('Já existe')) {
         throw error;
       }
       logger.error(`Erro ao atualizar catálogo ID ${id}:`, error);
-
-      // Verifica se o erro é de registro não encontrado
-      const prismaError = error as PrismaError;
-      if (prismaError.code === 'P2025') {
-        throw new Error(`Catálogo ID ${id} não encontrado`);
-      }
 
       throw new Error(`Falha ao atualizar catálogo ID ${id}`);
     }
@@ -118,22 +115,17 @@ export class CatalogoService {
   /**
    * Remove um catálogo
    */
-  async remover(id: number): Promise<void> {
+  async remover(id: number, superUserId: number): Promise<void> {
     try {
-      await catalogoPrisma.catalogo.delete({
-        where: { 
-          id: id // Corrigido também
-        }
+      const removido = await catalogoPrisma.catalogo.deleteMany({
+        where: { id, superUserId }
       });
-    } catch (error: unknown) {
-      logger.error(`Erro ao remover catálogo ID ${id}:`, error);
-      
-      // Verifica se o erro é de registro não encontrado
-      const prismaError = error as PrismaError;
-      if (prismaError.code === 'P2025') {
+
+      if (removido.count === 0) {
         throw new Error(`Catálogo ID ${id} não encontrado`);
       }
-      
+    } catch (error: unknown) {
+      logger.error(`Erro ao remover catálogo ID ${id}:`, error);
       throw new Error(`Falha ao remover catálogo ID ${id}`);
     }
   }

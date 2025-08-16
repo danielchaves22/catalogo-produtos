@@ -52,7 +52,9 @@ apiRouter.use('/protected', authMiddleware, (req, res) => {
     user: {
       id: req.user?.id,
       name: req.user?.name,
-      email: req.user?.email
+      email: req.user?.email,
+      superUserId: req.user?.superUserId,
+      role: req.user?.role
     }
   });
 });

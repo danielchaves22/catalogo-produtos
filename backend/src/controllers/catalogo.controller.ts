@@ -10,7 +10,7 @@ const catalogoService = new CatalogoService();
  */
 export async function listarCatalogos(req: Request, res: Response) {
   try {
-    const catalogos = await catalogoService.listarTodos();
+    const catalogos = await catalogoService.listarTodos(req.user!.superUserId);
     return res.status(200).json(catalogos);
   } catch (error: unknown) {
     return res.status(500).json({ 
@@ -27,7 +27,7 @@ export async function obterCatalogo(req: Request, res: Response) {
   const { id } = req.params;
   
   try {
-    const catalogo = await catalogoService.buscarPorId(Number(id));
+    const catalogo = await catalogoService.buscarPorId(Number(id), req.user!.superUserId);
     
     if (!catalogo) {
       return res.status(404).json({ error: 'Catálogo não encontrado' });
@@ -47,7 +47,7 @@ export async function obterCatalogo(req: Request, res: Response) {
  */
 export async function criarCatalogo(req: Request, res: Response) {
   try {
-    const catalogo = await catalogoService.criar(req.body);
+    const catalogo = await catalogoService.criar(req.body, req.user!.superUserId);
     return res.status(201).json(catalogo);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro ao criar catálogo';
@@ -66,7 +66,7 @@ export async function atualizarCatalogo(req: Request, res: Response) {
   const { id } = req.params;
   
   try {
-    const catalogo = await catalogoService.atualizar(Number(id), req.body);
+    const catalogo = await catalogoService.atualizar(Number(id), req.body, req.user!.superUserId);
     return res.status(200).json(catalogo);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : `Erro ao atualizar catálogo ID ${id}`;
@@ -88,7 +88,7 @@ export async function removerCatalogo(req: Request, res: Response) {
   const { id } = req.params;
   
   try {
-    await catalogoService.remover(Number(id));
+    await catalogoService.remover(Number(id), req.user!.superUserId);
     return res.status(204).send();
   } catch (error: unknown) {
     // Verifica se é erro de "não encontrado" pela mensagem

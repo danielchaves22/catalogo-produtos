@@ -1,13 +1,11 @@
 // backend/src/services/auth.service.ts
-import { User } from '@prisma/client';
 import { legacyPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import aprMd5 from 'apache-md5';
+import { AuthUser } from '../interfaces/auth-user';
 
-export interface UserData {
-  id: number;
-  name: string;
-  email: string;
+export interface AuthUserWithPassword extends AuthUser {
+  password: string;
 }
 
 export class AuthService {
@@ -21,11 +19,33 @@ export class AuthService {
   /**
    * Busca um usuário pelo email
    */
-  async findUserByEmail(email: string): Promise<User | null> {
+  async findUserByEmail(email: string): Promise<AuthUserWithPassword | null> {
     try {
-      return await legacyPrisma.user.findUnique({ 
-        where: { email }
-      });
+      const user = await legacyPrisma.user.findUnique({ where: { email } });
+      if (user) {
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          superUserId: user.id,
+          role: 'SUPER',
+          password: user.password
+        };
+      }
+
+      const sub = await legacyPrisma.subUsuario.findUnique({ where: { email } });
+      if (sub) {
+        return {
+          id: sub.id,
+          name: sub.email,
+          email: sub.email,
+          superUserId: sub.superUserId,
+          role: 'SUB',
+          password: sub.password
+        };
+      }
+
+      return null;
     } catch (error: unknown) {
       logger.error(`Erro ao buscar usuário por email: ${email}`, error);
       throw new Error('Falha ao buscar usuário');
@@ -35,11 +55,18 @@ export class AuthService {
   /**
    * Busca um usuário pelo ID
    */
-  async findUserById(id: number): Promise<User | null> {
+  async findUserById(id: number): Promise<AuthUser | null> {
     try {
-      return await legacyPrisma.user.findUnique({
-        where: { id }
-      });
+      const user = await legacyPrisma.user.findUnique({ where: { id } });
+      if (user) {
+        return { id: user.id, name: user.name, email: user.email, superUserId: user.id, role: 'SUPER' };
+      }
+
+      const sub = await legacyPrisma.subUsuario.findUnique({ where: { id } });
+      if (sub) {
+        return { id: sub.id, name: sub.email, email: sub.email, superUserId: sub.superUserId, role: 'SUB' };
+      }
+      return null;
     } catch (error: unknown) {
       logger.error(`Erro ao buscar usuário por ID: ${id}`, error);
       throw new Error('Falha ao buscar usuário');
@@ -68,11 +95,7 @@ export class AuthService {
   /**
    * Formata os dados do usuário para retorno na API
    */
-  formatUserData(user: User): UserData {
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email
-    };
+  formatUserData(user: AuthUser): AuthUser {
+    return { ...user };
   }
 }
