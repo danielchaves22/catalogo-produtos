@@ -46,8 +46,10 @@ export interface ListarProdutosFiltro {
 
 export class ProdutoService {
   private atributosService = new AtributoLegacyService();
-  async listarTodos(filtros: ListarProdutosFiltro = {}) {
-    const where: Prisma.ProdutoWhereInput = {};
+  async listarTodos(filtros: ListarProdutosFiltro = {}, superUserId: number) {
+    const where: Prisma.ProdutoWhereInput = {
+      catalogo: { superUserId }
+    };
     if (filtros.status) where.status = filtros.status;
     if (filtros.ncm) where.ncmCodigo = filtros.ncm;
     if (filtros.situacao) where.situacao = filtros.situacao;
@@ -55,7 +57,12 @@ export class ProdutoService {
 
     const produtos = await catalogoPrisma.produto.findMany({
       where,
-      include: { atributos: true, catalogo: true, codigosInternos: true, operadoresEstrangeiros: { include: { pais: true, operadorEstrangeiro: true } } }
+      include: {
+        atributos: true,
+        catalogo: true,
+        codigosInternos: true,
+        operadoresEstrangeiros: { include: { pais: true, operadorEstrangeiro: true } }
+      }
     });
 
     return produtos.map(p => ({
@@ -74,9 +81,9 @@ export class ProdutoService {
     }));
   }
 
-  async buscarPorId(id: number) {
-    const p = await catalogoPrisma.produto.findUnique({
-      where: { id },
+  async buscarPorId(id: number, superUserId: number) {
+    const p = await catalogoPrisma.produto.findFirst({
+      where: { id, catalogo: { superUserId } },
       include: {
         atributos: true,
         catalogo: true,
@@ -102,7 +109,7 @@ export class ProdutoService {
     };
   }
 
-  async criar(data: CreateProdutoDTO) {
+  async criar(data: CreateProdutoDTO, superUserId: number) {
     const estrutura = await this.obterEstruturaAtributos(
       data.ncmCodigo,
       data.modalidade
@@ -120,6 +127,13 @@ export class ProdutoService {
       (data.valoresAtributos ?? {}) as Record<string, any>,
       estrutura
     );
+
+    const catalogo = await catalogoPrisma.catalogo.findFirst({
+      where: { id: data.catalogoId, superUserId }
+    });
+    if (!catalogo) {
+      throw new Error('Catálogo não encontrado para o superusuário');
+    }
 
     return catalogoPrisma.$transaction(async (tx) => {
       const produto = await tx.produto.create({
@@ -164,9 +178,9 @@ export class ProdutoService {
     });
   }
 
-  async atualizar(id: number, data: UpdateProdutoDTO) {
-    const atual = await catalogoPrisma.produto.findUnique({
-      where: { id },
+  async atualizar(id: number, data: UpdateProdutoDTO, superUserId: number) {
+    const atual = await catalogoPrisma.produto.findFirst({
+      where: { id, catalogo: { superUserId } },
       include: { atributos: true }
     });
     if (!atual) {
@@ -200,8 +214,8 @@ export class ProdutoService {
       } else if (atual.status === 'PENDENTE') {
         status = 'APROVADO';
       }
-      const produto = await tx.produto.update({
-        where: { id },
+      const updated = await tx.produto.updateMany({
+        where: { id, catalogo: { superUserId } },
         data: {
           modalidade: data.modalidade,
           status,
@@ -209,13 +223,19 @@ export class ProdutoService {
           denominacao: data.denominacao,
           descricao: data.descricao,
           versaoEstruturaAtributos: atual.versaoEstruturaAtributos
-        },
+        }
+      });
+      if (updated.count === 0) {
+        throw new Error(`Produto ID ${id} não encontrado`);
+      }
+      const produto = await tx.produto.findFirst({
+        where: { id, catalogo: { superUserId } },
         include: { codigosInternos: true, operadoresEstrangeiros: true }
       });
 
       if (data.valoresAtributos !== undefined) {
         await tx.produtoAtributos.updateMany({
-          where: { produtoId: id },
+          where: { produtoId: id, produto: { catalogo: { superUserId } } },
           data: {
             valoresJson: data.valoresAtributos,
             estruturaSnapshotJson: estrutura as unknown as Prisma.InputJsonValue
@@ -224,14 +244,14 @@ export class ProdutoService {
       }
 
       if (data.codigosInternos) {
-        await tx.codigoInternoProduto.deleteMany({ where: { produtoId: id } });
+        await tx.codigoInternoProduto.deleteMany({ where: { produtoId: id, produto: { catalogo: { superUserId } } } });
         await tx.codigoInternoProduto.createMany({
           data: data.codigosInternos.map(c => ({ codigo: c, produtoId: id }))
         });
       }
 
       if (data.operadoresEstrangeiros) {
-        await tx.operadorEstrangeiroProduto.deleteMany({ where: { produtoId: id } });
+        await tx.operadorEstrangeiroProduto.deleteMany({ where: { produtoId: id, produto: { catalogo: { superUserId } } } });
         await tx.operadorEstrangeiroProduto.createMany({
           data: data.operadoresEstrangeiros.map(o => ({
             paisCodigo: o.paisCodigo,
@@ -246,18 +266,14 @@ export class ProdutoService {
     });
   }
 
-  async remover(id: number) {
-    try {
-      await catalogoPrisma.$transaction(async tx => {
-        await tx.produtoAtributos.deleteMany({ where: { produtoId: id } });
-        await tx.produto.delete({ where: { id } });
-      });
-    } catch (error: any) {
-      const prismaErr = error as Prisma.PrismaClientKnownRequestError;
-      if (prismaErr.code === 'P2025') {
-        throw new Error(`Produto ID ${id} não encontrado`);
-      }
-      throw error;
+  async remover(id: number, superUserId: number) {
+    const deleted = await catalogoPrisma.$transaction(async tx => {
+      await tx.produtoAtributos.deleteMany({ where: { produtoId: id, produto: { catalogo: { superUserId } } } });
+      const res = await tx.produto.deleteMany({ where: { id, catalogo: { superUserId } } });
+      return res.count;
+    });
+    if (deleted === 0) {
+      throw new Error(`Produto ID ${id} não encontrado`);
     }
   }
 

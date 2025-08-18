@@ -34,6 +34,12 @@ Para desenvolvimento separado, utilize os scripts `npm run start:backend` e `npm
 
 Execute `npm test -- --passWithNoTests` na raiz do projeto.
 
+## Segurança
+
+As rotas de produtos utilizam o `superUserId` do usuário autenticado para
+restringir o acesso. Apenas produtos vinculados aos catálogos do próprio
+superusuário podem ser listados ou manipulados.
+
 ---
 
 Consulte a pasta `docs/` para mais informações sobre a modelagem dos atributos dinâmicos e demais guias de implementação.

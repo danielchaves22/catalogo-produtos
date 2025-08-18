@@ -4,7 +4,7 @@ import { catalogoPrisma } from '../../utils/prisma'
 
 jest.mock('../../utils/prisma', () => ({
   catalogoPrisma: {
-    produto: { findUnique: jest.fn() },
+    produto: { findFirst: jest.fn() },
     $transaction: jest.fn()
   }
 }))
@@ -40,7 +40,7 @@ describe('ProdutoService - atualização de status', () => {
 
     jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue(estrutura)
 
-    ;(catalogoPrisma.produto.findUnique as jest.Mock).mockResolvedValue({
+    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
       id: 1,
       status: 'APROVADO',
       ncmCodigo: '001',
@@ -48,17 +48,17 @@ describe('ProdutoService - atualização de status', () => {
       atributos: [{ valoresJson: { A: '1' } }]
     })
 
-    const updateSpy = jest.fn().mockResolvedValue({})
+    const updateSpy = jest.fn().mockResolvedValue({ count: 1 })
     ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
       cb({
-        produto: { update: updateSpy },
+        produto: { updateMany: updateSpy, findFirst: jest.fn().mockResolvedValue({}) },
         produtoAtributos: { updateMany: jest.fn() },
         codigoInternoProduto: { deleteMany: jest.fn(), createMany: jest.fn() },
         operadorEstrangeiroProduto: { deleteMany: jest.fn(), createMany: jest.fn() }
       })
     )
 
-    await service.atualizar(1, { valoresAtributos: {} })
+    await service.atualizar(1, { valoresAtributos: {} }, 1)
 
     expect(updateSpy).toHaveBeenCalledWith(
       expect.objectContaining({

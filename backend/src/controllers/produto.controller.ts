@@ -26,7 +26,10 @@ export async function listarProdutos(req: Request, res: Response) {
         ? Number(req.query.catalogoId)
         : undefined
     };
-    const produtos = await produtoService.listarTodos(filtros);
+    const produtos = await produtoService.listarTodos(
+      filtros,
+      req.user!.superUserId
+    );
     res.json(produtos);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -36,7 +39,10 @@ export async function listarProdutos(req: Request, res: Response) {
 export async function obterProduto(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
-    const produto = await produtoService.buscarPorId(id);
+    const produto = await produtoService.buscarPorId(
+      id,
+      req.user!.superUserId
+    );
     if (!produto) return res.status(404).json({ error: 'Produto não encontrado' });
     res.json(produto);
   } catch (error: any) {
@@ -46,7 +52,10 @@ export async function obterProduto(req: Request, res: Response) {
 
 export async function criarProduto(req: Request, res: Response) {
   try {
-    const produto = await produtoService.criar(req.body);
+    const produto = await produtoService.criar(
+      req.body,
+      req.user!.superUserId
+    );
     res.status(201).json(produto);
   } catch (error: any) {
     if (error instanceof ValidationError) {
@@ -60,7 +69,11 @@ export async function criarProduto(req: Request, res: Response) {
 export async function atualizarProduto(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
-    const produto = await produtoService.atualizar(id, req.body);
+    const produto = await produtoService.atualizar(
+      id,
+      req.body,
+      req.user!.superUserId
+    );
     res.json(produto);
   } catch (error: any) {
     if (error instanceof ValidationError) {
@@ -80,7 +93,7 @@ export async function atualizarProduto(req: Request, res: Response) {
 export async function removerProduto(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
-    await produtoService.remover(id);
+    await produtoService.remover(id, req.user!.superUserId);
     res.status(204).send();
   } catch (error: any) {
     if (error.message?.includes('não encontrado')) {
