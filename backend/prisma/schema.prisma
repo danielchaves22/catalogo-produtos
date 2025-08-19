@@ -20,6 +20,7 @@ model User {
   name      String   @map("nomecompleto")
 
   subUsuarios SubUsuario[]
+  operadoresEstrangeiros OperadorEstrangeiro[]
 
   @@map("comex")
 }
@@ -100,6 +101,9 @@ model Subdivisao {
 model OperadorEstrangeiro {
   id                     Int      @id @default(autoincrement()) @map("id")
   cnpjRaizResponsavel    String   @map("cnpj_raiz_responsavel")
+  superUserId            Int      @map("super_user_id")
+
+  superUser              User     @relation(fields: [superUserId], references: [id])
   
   // Dados básicos
   paisCodigo             String   @map("pais_codigo")
@@ -127,7 +131,8 @@ model OperadorEstrangeiro {
   subdivisao             Subdivisao? @relation(fields: [subdivisaoCodigo], references: [codigo])
   identificacoesAdicionais IdentificacaoAdicional[]
   operadorEstrangeiroProdutos OperadorEstrangeiroProduto[] @relation("OperadorProduto")
-  
+
+  @@index([superUserId], name: "idx_super_user_id")
   @@map("operador_estrangeiro")
 }
 

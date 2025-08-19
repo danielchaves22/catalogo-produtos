@@ -12,7 +12,7 @@ const operadorEstrangeiroService = new OperadorEstrangeiroService();
 export async function listarOperadoresEstrangeiros(req: Request, res: Response) {
   try {
     const cnpjRaiz = req.query.cnpjRaiz as string;
-    const operadores = await operadorEstrangeiroService.listarTodos(cnpjRaiz);
+    const operadores = await operadorEstrangeiroService.listarTodos(cnpjRaiz, req.user!.superUserId);
     return res.status(200).json(operadores);
   } catch (error: unknown) {
     logger.error('Erro ao listar operadores estrangeiros:', error);
@@ -28,9 +28,9 @@ export async function listarOperadoresEstrangeiros(req: Request, res: Response) 
  */
 export async function obterOperadorEstrangeiro(req: Request, res: Response) {
   const { id } = req.params;
-  
+
   try {
-    const operador = await operadorEstrangeiroService.buscarPorId(Number(id));
+    const operador = await operadorEstrangeiroService.buscarPorId(Number(id), req.user!.superUserId);
     
     if (!operador) {
       return res.status(404).json({ error: 'Operador estrangeiro não encontrado' });
@@ -51,9 +51,9 @@ export async function obterOperadorEstrangeiro(req: Request, res: Response) {
  */
 export async function buscarPorTin(req: Request, res: Response) {
   const { tin } = req.params;
-  
+
   try {
-    const operadores = await operadorEstrangeiroService.buscarPorTin(tin);
+    const operadores = await operadorEstrangeiroService.buscarPorTin(tin, req.user!.superUserId);
     return res.status(200).json(operadores);
   } catch (error: unknown) {
     logger.error(`Erro ao buscar operadores por TIN ${tin}:`, error);
@@ -69,7 +69,7 @@ export async function buscarPorTin(req: Request, res: Response) {
  */
 export async function criarOperadorEstrangeiro(req: Request, res: Response) {
   try {
-    const operador = await operadorEstrangeiroService.criar(req.body);
+    const operador = await operadorEstrangeiroService.criar({ ...req.body, superUserId: req.user!.superUserId });
     return res.status(201).json(operador);
   } catch (error: unknown) {
     logger.error('Erro ao criar operador estrangeiro:', error);
@@ -85,9 +85,9 @@ export async function criarOperadorEstrangeiro(req: Request, res: Response) {
  */
 export async function atualizarOperadorEstrangeiro(req: Request, res: Response) {
   const { id } = req.params;
-  
+
   try {
-    const operador = await operadorEstrangeiroService.atualizar(Number(id), req.body);
+    const operador = await operadorEstrangeiroService.atualizar(Number(id), { ...req.body, superUserId: req.user!.superUserId });
     return res.status(200).json(operador);
   } catch (error: unknown) {
     logger.error(`Erro ao atualizar operador estrangeiro ID ${id}:`, error);
@@ -108,9 +108,9 @@ export async function atualizarOperadorEstrangeiro(req: Request, res: Response) 
  */
 export async function removerOperadorEstrangeiro(req: Request, res: Response) {
   const { id } = req.params;
-  
+
   try {
-    await operadorEstrangeiroService.remover(Number(id));
+    await operadorEstrangeiroService.remover(Number(id), req.user!.superUserId);
     return res.status(204).send();
   } catch (error: unknown) {
     logger.error(`Erro ao remover operador estrangeiro ID ${id}:`, error);
@@ -186,7 +186,7 @@ export async function listarSubdivisoes(req: Request, res: Response) {
  */
 export async function listarCnpjsCatalogos(req: Request, res: Response) {
   try {
-    const cnpjs = await operadorEstrangeiroService.listarCnpjsCatalogos();
+    const cnpjs = await operadorEstrangeiroService.listarCnpjsCatalogos(req.user!.superUserId);
     return res.status(200).json(cnpjs);
   } catch (error: unknown) {
     logger.error('Erro ao listar CNPJs dos catálogos:', error);
