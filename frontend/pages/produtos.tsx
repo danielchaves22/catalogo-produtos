@@ -11,6 +11,7 @@ import api from '@/lib/api';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useToast } from '@/components/ui/ToastContext';
+import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 
 interface Produto {
   id: number;
@@ -42,6 +43,7 @@ export default function ProdutosPage() {
   const [catalogos, setCatalogos] = useState<{ id: number; numero: number; nome: string }[]>([]);
   const router = useRouter();
   const { addToast } = useToast();
+  const { workingCatalog } = useWorkingCatalog();
 
   useEffect(() => {
     async function carregarCatalogos() {
@@ -56,25 +58,29 @@ export default function ProdutosPage() {
   }, []);
 
   useEffect(() => {
-    if (!router.isReady) return;
-
-    const catalogoIdFromQuery =
-      typeof router.query.catalogoId === 'string' ? router.query.catalogoId : '';
-
-    if (catalogoIdFromQuery && filtros.catalogoId !== catalogoIdFromQuery) {
-      setFiltros(prev => ({ ...prev, catalogoId: catalogoIdFromQuery }));
-
-      // remove o parâmetro da URL após aplicar o filtro para evitar que
-      // o catálogo seja reatribuído ao alterar o filtro manualmente
-      const { catalogoId, ...rest } = router.query;
-      router.replace({ pathname: router.pathname, query: rest }, undefined, {
-        shallow: true,
-      });
-      return;
+    if (workingCatalog) {
+      if (filtros.catalogoId !== String(workingCatalog.id)) {
+        setFiltros(prev => ({ ...prev, catalogoId: String(workingCatalog.id) }));
+        return;
+      }
+    } else {
+      if (!router.isReady) return;
+      const catalogoIdFromQuery =
+        typeof router.query.catalogoId === 'string' ? router.query.catalogoId : '';
+      if (catalogoIdFromQuery && filtros.catalogoId !== catalogoIdFromQuery) {
+        setFiltros(prev => ({ ...prev, catalogoId: catalogoIdFromQuery }));
+        const { catalogoId, ...rest } = router.query;
+        router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
+        return;
+      }
+      if (!catalogoIdFromQuery && filtros.catalogoId) {
+        setFiltros(prev => ({ ...prev, catalogoId: '' }));
+      }
     }
 
     carregarProdutos();
-  }, [router.isReady, router.query.catalogoId, filtros.status, filtros.situacao, filtros.catalogoId]);
+  }, [router.isReady, router.query.catalogoId, filtros.status, filtros.situacao, filtros.catalogoId, workingCatalog]);
+
 
   async function carregarProdutos() {
     try {
@@ -225,6 +231,7 @@ export default function ProdutosPage() {
             className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
             value={filtros.catalogoId}
             onChange={e => setFiltros({ ...filtros, catalogoId: e.target.value })}
+            disabled={!!workingCatalog}
           >
             <option value="">Todos os catálogos</option>
             {catalogos.map(catalogo => (

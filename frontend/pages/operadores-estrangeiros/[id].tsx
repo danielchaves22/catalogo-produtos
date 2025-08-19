@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/ToastContext';
 import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { isValidCEP, onlyNumbers, validationMessages, formatCPFOrCNPJ } from '@/lib/validation';
+import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 
 interface Pais {
   codigo: string;
@@ -144,11 +145,20 @@ export default function OperadorEstrangeiroFormPage() {
   const { id } = router.query;
   const isNew = !id || id === 'novo';
   const { addToast } = useToast();
+  const { workingCatalog } = useWorkingCatalog();
 
   // Carregar dados auxiliares
   useEffect(() => {
     carregarDadosAuxiliares();
   }, []);
+
+  useEffect(() => {
+    if (isNew && workingCatalog?.cpf_cnpj) {
+      setFormData(prev => ({ ...prev, cnpjRaizResponsavel: workingCatalog.cpf_cnpj || '' }));
+    } else if (isNew && !workingCatalog) {
+      setFormData(prev => ({ ...prev, cnpjRaizResponsavel: '' }));
+    }
+  }, [workingCatalog, isNew]);
 
   // Carregar subdivisões quando país mudar
   useEffect(() => {
@@ -495,7 +505,7 @@ const cnpjOptions = [
             )}
             
             {/* DROPDOWN DE CNPJ - CORRIGIDO */}
-            {isNew ? (
+            {isNew && !workingCatalog ? (
               <CustomSelect
                 label="CNPJ da Empresa Responsável"
                 name="cnpjRaizResponsavel"

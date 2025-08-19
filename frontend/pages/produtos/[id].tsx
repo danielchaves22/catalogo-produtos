@@ -18,6 +18,7 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
 import { Hint } from '@/components/ui/Hint';
+import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 
 interface AtributoEstrutura {
   codigo: string;
@@ -66,6 +67,7 @@ export default function ProdutoPage() {
   const router = useRouter();
   const { id } = router.query;
   const isNew = !id || id === 'novo';
+  const { workingCatalog } = useWorkingCatalog();
 
   const [attrsFaltando, setAttrsFaltando] = useState<string[] | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -73,13 +75,25 @@ export default function ProdutoPage() {
   // Texto do cabeçalho removido conforme novo layout
 
   useEffect(() => {
-    if (!isNew) return;
+    if (!isNew || workingCatalog) return;
     async function carregarCatalogos() {
       const res = await api.get('/catalogos');
       setCatalogos(res.data);
     }
     carregarCatalogos();
-  }, [isNew]);
+  }, [isNew, workingCatalog]);
+
+  useEffect(() => {
+    if (isNew && workingCatalog) {
+      setCatalogoId(String(workingCatalog.id));
+      setCatalogoNome(workingCatalog.nome);
+      setCatalogoCnpj(workingCatalog.cpf_cnpj || '');
+    } else if (isNew && !workingCatalog) {
+      setCatalogoId('');
+      setCatalogoNome('');
+      setCatalogoCnpj('');
+    }
+  }, [workingCatalog, isNew]);
 
   useEffect(() => {
     if (!catalogoCnpj) {
@@ -596,7 +610,7 @@ export default function ProdutoPage() {
 
       <Card className="mb-6">
         <div className="grid grid-cols-4 gap-4">
-          {isNew ? (
+          {isNew && !workingCatalog ? (
             <Select
               label="Catálogo"
               options={catalogos.map(c => ({ value: String(c.id), label: `${c.nome} - ${formatCPFOrCNPJ(c.cpf_cnpj)}` }))}
@@ -617,7 +631,7 @@ export default function ProdutoPage() {
               required
             />
           ) : (
-            <Input label="Catálogo" value={catalogoNome} disabled />
+            <Input label="Catálogo" value={workingCatalog ? workingCatalog.nome : catalogoNome} disabled />
           )}
           <Select
             label="Modalidade"

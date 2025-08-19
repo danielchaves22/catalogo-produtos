@@ -3,6 +3,7 @@ import {
   createContext, useContext, useEffect, useState, ReactNode,
 } from 'react'
 import api from '@/lib/api'
+import { WORKING_CATALOG_STORAGE_KEY } from './WorkingCatalogContext'
 
 interface User {
   id: number;
@@ -108,6 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       removeSecureCookie(COOKIE_NAME); // Apenas nosso cookie específico
       setToken(null);
       setUser(null);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(WORKING_CATALOG_STORAGE_KEY);
+      }
     } catch (error) {
       console.error('Erro ao limpar dados de autenticação:', error);
     }
@@ -126,6 +130,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setToken(newToken);
       setUser(userData);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(WORKING_CATALOG_STORAGE_KEY);
+      }
     } catch (error: any) {
       // Se o erro foi um redirecionamento, não processar
       if (error.message === 'REDIRECT_TO_LOGIN') {
