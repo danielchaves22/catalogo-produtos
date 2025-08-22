@@ -240,7 +240,7 @@ export function OperadorEstrangeiroCard({
             <span className="font-medium">ID:</span> {operador.id}
           </div>
           <div>
-            <span className="font-medium">CNPJ Responsável:</span> {operador.cnpjRaizResponsavel}
+            <span className="font-medium">Catálogo:</span> {operador.catalogo.nome} - {operador.catalogo.cpf_cnpj}
           </div>
           <div>
             <span className="font-medium">Inclusão:</span> {formatarData(operador.dataInclusao)}

@@ -8,11 +8,7 @@ const identificacaoAdicionalSchema = z.object({
 });
 
 export const createOperadorEstrangeiroSchema = z.object({
-  // CORRIGIDO: Agora aceita CNPJ completo (14 dígitos)
-  cnpjRaizResponsavel: z.string()
-    .min(14, { message: 'CNPJ deve ter 14 dígitos' })
-    .max(14, { message: 'CNPJ deve ter 14 dígitos' })
-    .refine(customValidations.cnpj, { message: 'CNPJ inválido' }),
+  catalogoId: z.number({ required_error: 'Catálogo é obrigatório' }),
   paisCodigo: z.string().min(1, { message: 'País é obrigatório' }),
   tin: z.string().optional(),
   nome: z.string().min(1, { message: 'Nome é obrigatório' }),
@@ -30,12 +26,7 @@ export const createOperadorEstrangeiroSchema = z.object({
 });
 
 export const updateOperadorEstrangeiroSchema = z.object({
-  // CORRIGIDO: Também aceita CNPJ completo na atualização
-  cnpjRaizResponsavel: z.string()
-    .min(14, { message: 'CNPJ deve ter 14 dígitos' })
-    .max(14, { message: 'CNPJ deve ter 14 dígitos' })
-    .refine(customValidations.cnpj, { message: 'CNPJ inválido' })
-    .optional(),
+  catalogoId: z.number().optional(),
   paisCodigo: z.string().min(1).optional(),
   tin: z.string().optional(),
   nome: z.string().min(1).optional(),

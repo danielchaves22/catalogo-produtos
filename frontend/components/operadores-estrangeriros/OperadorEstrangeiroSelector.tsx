@@ -11,7 +11,7 @@ interface OperadorEstrangeiroSelectorProps {
   selectedOperadores?: OperadorEstrangeiro[];
   multiSelect?: boolean;
   title?: string;
-  cnpjRaiz?: string;
+  catalogoId?: number;
 }
 
 export function OperadorEstrangeiroSelector({
@@ -20,22 +20,22 @@ export function OperadorEstrangeiroSelector({
   selectedOperadores = [],
   multiSelect = false,
   title = 'Selecionar Operador Estrangeiro',
-  cnpjRaiz
+  catalogoId
 }: OperadorEstrangeiroSelectorProps) {
   const [busca, setBusca] = useState('');
   const [operadores, setOperadores] = useState<OperadorEstrangeiro[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { buscarOperadores, buscarOperadoresPorTin, extrairCnpjRaiz } = useOperadorEstrangeiro();
+  const { buscarOperadores, buscarOperadoresPorTin } = useOperadorEstrangeiro();
 
   useEffect(() => {
     carregarOperadores();
-  }, [cnpjRaiz]);
+  }, [catalogoId]);
 
   async function carregarOperadores() {
     try {
       setLoading(true);
-      const dados = await buscarOperadores(cnpjRaiz ? { cnpjRaiz } : undefined);
+      const dados = await buscarOperadores(catalogoId ? { catalogoId } : undefined);
       setOperadores(dados.filter(op => op.situacao === 'ATIVO'));
       setError(null);
     } catch (err) {
@@ -59,12 +59,12 @@ export function OperadorEstrangeiroSelector({
       // Se parece com TIN, buscar por TIN
       if (busca.length >= 5 && /^[A-Z]{2}/.test(busca.toUpperCase())) {
         resultados = await buscarOperadoresPorTin(busca);
-        if (cnpjRaiz) {
-          resultados = resultados.filter(op => extrairCnpjRaiz(op.cnpjRaizResponsavel) === cnpjRaiz);
+        if (catalogoId) {
+          resultados = resultados.filter(op => op.catalogoId === catalogoId);
         }
       } else {
         // Buscar todos e filtrar localmente
-        const todos = await buscarOperadores(cnpjRaiz ? { cnpjRaiz } : undefined);
+        const todos = await buscarOperadores(catalogoId ? { catalogoId } : undefined);
         resultados = todos.filter(op =>
           op.situacao === 'ATIVO' && (
             op.nome.toLowerCase().includes(busca.toLowerCase()) ||
