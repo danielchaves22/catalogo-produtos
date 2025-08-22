@@ -15,8 +15,7 @@ import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 
 interface OperadorEstrangeiro {
   id: number;
-  catalogoId: number;
-  catalogo: { id: number; cpf_cnpj?: string | null; nome: string };
+  cnpjRaizResponsavel: string;
   tin?: string;
   nome: string;
   email?: string;
@@ -51,7 +50,7 @@ export default function OperadoresEstrangeirosPage() {
   });
   const { addToast } = useToast();
   const router = useRouter();
-  const { buscarOperadores, desativarOperador, getCatalogoNome } = useOperadorEstrangeiro();
+  const { buscarOperadores, desativarOperador, getCnpjCatalogoNome, extrairCnpjRaiz } = useOperadorEstrangeiro();
   const { workingCatalog } = useWorkingCatalog();
 
   useEffect(() => {
@@ -61,8 +60,8 @@ export default function OperadoresEstrangeirosPage() {
   async function carregarOperadores() {
     try {
       setLoading(true);
-      const filtros = workingCatalog?.id
-        ? { catalogoId: workingCatalog.id }
+      const filtros = workingCatalog?.cpf_cnpj
+        ? { cnpjRaiz: extrairCnpjRaiz(workingCatalog.cpf_cnpj) }
         : undefined;
       const dados = await buscarOperadores(filtros);
       setOperadores(dados);
@@ -254,8 +253,8 @@ export default function OperadoresEstrangeirosPage() {
                     <td className="px-4 py-3 font-medium text-white">{operador.nome}</td>
                     <td className="px-4 py-3">
                       <div className="text-sm">
-                        <div className="font-medium text-white">{getCatalogoNome(operador.catalogoId)}</div>
-                        <div className="text-gray-400 font-mono">{formatCPFOrCNPJ(operador.catalogo.cpf_cnpj || '')}</div>
+                        <div className="font-medium text-white">{getCnpjCatalogoNome(operador.cnpjRaizResponsavel)}</div>
+                        <div className="text-gray-400 font-mono">{formatCPFOrCNPJ(operador.cnpjRaizResponsavel)}</div>
                       </div>
                     </td>
                     <td className="px-4 py-3">

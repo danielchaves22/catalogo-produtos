@@ -4,7 +4,7 @@
 
 O módulo **Operador Estrangeiro** permite o cadastro e gerenciamento de fabricantes/produtores estrangeiros conforme especificações do Portal Único Siscomex (PUCOMEX). Este módulo é essencial para operações de importação, permitindo a identificação precisa dos fabricantes dos produtos importados.
 
-Cada operador está associado a um catálogo específico (`catalogo_id`). O superusuário autenticado somente visualiza e gerencia operadores pertencentes aos seus catálogos.
+Cada operador está associado a um superusuário por meio do campo `super_user_id`. Apenas o superusuário autenticado pode listar, criar, alterar ou remover seus próprios operadores.
 
 ## Funcionalidades
 
@@ -30,7 +30,8 @@ Cada operador está associado a um catálogo específico (`catalogo_id`). O supe
 
 #### `operador_estrangeiro`
 - **id**: Identificador único interno
-- **catalogo_id**: Referência para o catálogo ao qual o operador pertence
+- **cnpj_raiz_responsavel**: CNPJ da empresa brasileira responsável
+- **super_user_id**: Identificador do superusuário proprietário
 - **pais_codigo**: Referência para tabela `pais`
 - **tin**: Trader Identification Number (formato: BR12345678000101)
 - **nome**: Razão social do operador estrangeiro
@@ -89,7 +90,6 @@ DELETE /api/v1/operadores-estrangeiros/:id          # Desativar
 GET    /api/v1/operadores-estrangeiros/aux/paises            # Lista de países
 GET    /api/v1/operadores-estrangeiros/aux/subdivisoes       # Lista de subdivisões
 GET    /api/v1/operadores-estrangeiros/aux/agencias-emissoras # Lista de agências
-GET    /api/v1/operadores-estrangeiros/aux/catalogos         # Lista de catálogos do superusuário
 ```
 
 ## Componentes Frontend

@@ -11,13 +11,13 @@ const operadorEstrangeiroService = new OperadorEstrangeiroService();
  */
 export async function listarOperadoresEstrangeiros(req: Request, res: Response) {
   try {
-    const catalogoId = req.query.catalogoId ? Number(req.query.catalogoId) : undefined;
-    const operadores = await operadorEstrangeiroService.listarTodos(catalogoId, req.user!.superUserId);
+    const cnpjRaiz = req.query.cnpjRaiz as string;
+    const operadores = await operadorEstrangeiroService.listarTodos(cnpjRaiz, req.user!.superUserId);
     return res.status(200).json(operadores);
   } catch (error: unknown) {
     logger.error('Erro ao listar operadores estrangeiros:', error);
-    return res.status(500).json({
-      error: error instanceof Error ? error.message : 'Erro ao listar operadores estrangeiros'
+    return res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Erro ao listar operadores estrangeiros' 
     });
   }
 }
@@ -184,14 +184,14 @@ export async function listarSubdivisoes(req: Request, res: Response) {
  * GET /api/operadores-estrangeiros/aux/cnpjs-catalogos
  * Lista CNPJs disponíveis dos catálogos
  */
-export async function listarCatalogos(req: Request, res: Response) {
+export async function listarCnpjsCatalogos(req: Request, res: Response) {
   try {
-    const catalogos = await operadorEstrangeiroService.listarCatalogos(req.user!.superUserId);
-    return res.status(200).json(catalogos);
+    const cnpjs = await operadorEstrangeiroService.listarCnpjsCatalogos(req.user!.superUserId);
+    return res.status(200).json(cnpjs);
   } catch (error: unknown) {
-    logger.error('Erro ao listar catálogos:', error);
-    return res.status(500).json({
-      error: error instanceof Error ? error.message : 'Erro ao listar catálogos'
+    logger.error('Erro ao listar CNPJs dos catálogos:', error);
+    return res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Erro ao listar CNPJs dos catálogos' 
     });
   }
 }

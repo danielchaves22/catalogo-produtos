@@ -25,8 +25,7 @@ export interface AgenciaEmissora {
 
 export interface OperadorEstrangeiro {
   id: number;
-  catalogoId: number;
-  catalogo: { id: number; cpf_cnpj?: string | null; nome: string };
+  cnpjRaizResponsavel: string; // Agora armazena CNPJ completo (14 dígitos)
   tin?: string;
   nome: string;
   email?: string;
@@ -36,12 +35,12 @@ export interface OperadorEstrangeiro {
   situacao: 'ATIVO' | 'INATIVO' | 'DESATIVADO';
   dataInclusao: string;
   dataUltimaAlteracao: string;
-
+  
   // Campos de endereço
   codigoPostal?: string;
   logradouro?: string;
   cidade?: string;
-
+  
   pais: Pais;
   subdivisao?: Subdivisao;
   identificacoesAdicionais?: Array<{
@@ -51,9 +50,8 @@ export interface OperadorEstrangeiro {
   }>;
 }
 
-export interface CatalogoOption {
-  id: number;
-  cpf_cnpj?: string | null;
+export interface CnpjCatalogo {
+  cnpjCompleto: string; // CNPJ com 14 dígitos
   nome: string;
 }
 
@@ -61,7 +59,7 @@ export function useOperadorEstrangeiro() {
   const [paises, setPaises] = useState<Pais[]>([]);
   const [subdivisoes, setSubdivisoes] = useState<Subdivisao[]>([]);
   const [agenciasEmissoras, setAgenciasEmissoras] = useState<AgenciaEmissora[]>([]);
-  const [catalogos, setCatalogos] = useState<CatalogoOption[]>([]);
+  const [cnpjsCatalogos, setCnpjsCatalogos] = useState<CnpjCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,15 +70,15 @@ export function useOperadorEstrangeiro() {
   async function carregarDadosAuxiliares() {
     try {
       setLoading(true);
-      const [paisesRes, agenciasRes, catalogosRes] = await Promise.all([
+      const [paisesRes, agenciasRes, cnpjsRes] = await Promise.all([
         api.get('/operadores-estrangeiros/aux/paises'),
         api.get('/operadores-estrangeiros/aux/agencias-emissoras'),
-        api.get('/operadores-estrangeiros/aux/catalogos')
+        api.get('/operadores-estrangeiros/aux/cnpjs-catalogos')
       ]);
-
+      
       setPaises(paisesRes.data);
       setAgenciasEmissoras(agenciasRes.data);
-      setCatalogos(catalogosRes.data);
+      setCnpjsCatalogos(cnpjsRes.data);
       setSubdivisoes([]);
       setError(null);
     } catch (err) {
@@ -91,13 +89,13 @@ export function useOperadorEstrangeiro() {
     }
   }
 
-  async function buscarOperadores(filtros?: { catalogoId?: number }) {
+  async function buscarOperadores(filtros?: { cnpjRaiz?: string }) {
     try {
       const params = new URLSearchParams();
-      if (filtros?.catalogoId) {
-        params.append('catalogoId', String(filtros.catalogoId));
+      if (filtros?.cnpjRaiz) {
+        params.append('cnpjRaiz', filtros.cnpjRaiz);
       }
-
+      
       const response = await api.get(`/operadores-estrangeiros?${params.toString()}`);
       return response.data as OperadorEstrangeiro[];
     } catch (err) {
@@ -165,12 +163,13 @@ export function useOperadorEstrangeiro() {
     }
   }
 
-  function getCatalogoOptions() {
+  // CORRIGIDO: Função atualizada para trabalhar com CNPJ completo
+  function getCnpjCatalogoOptions() {
     return [
       { value: '', label: 'Selecione uma empresa' },
-      ...catalogos.map(cat => ({
-        value: String(cat.id),
-        label: `${formatCPFOrCNPJ(cat.cpf_cnpj || '')} - ${cat.nome}`
+      ...cnpjsCatalogos.map(cnpj => ({ 
+        value: cnpj.cnpjCompleto, // CNPJ completo como valor
+        label: `${formatCPFOrCNPJ(cnpj.cnpjCompleto)} - ${cnpj.nome}` // CNPJ formatado + nome
       }))
     ];
   }
@@ -224,9 +223,16 @@ export function useOperadorEstrangeiro() {
     return agencia ? agencia.nome : codigo;
   }
 
-  function getCatalogoNome(id: number) {
-    const catalogo = catalogos.find(c => c.id === id);
-    return catalogo ? catalogo.nome : String(id);
+  // CORRIGIDO: Função atualizada para buscar por CNPJ completo
+  function getCnpjCatalogoNome(cnpjCompleto: string) {
+    const cnpj = cnpjsCatalogos.find(c => c.cnpjCompleto === cnpjCompleto);
+    return cnpj ? cnpj.nome : cnpjCompleto;
+  }
+
+  // NOVA FUNÇÃO: Extrai CNPJ raiz do CNPJ completo
+  function extrairCnpjRaiz(cnpjCompleto: string): string {
+    const cnpjLimpo = cnpjCompleto.replace(/\D/g, '');
+    return cnpjLimpo.substring(0, 8);
   }
 
   return {
@@ -234,7 +240,7 @@ export function useOperadorEstrangeiro() {
     paises,
     subdivisoes,
     agenciasEmissoras,
-    catalogos,
+    cnpjsCatalogos,
     loading,
     error,
     
@@ -248,14 +254,15 @@ export function useOperadorEstrangeiro() {
     carregarSubdivisoesPorPais,
     
     // Utilitários
-    getCatalogoOptions,
+    getCnpjCatalogoOptions,
     getPaisOptions,
     getSubdivisaoOptions,
     getAgenciaEmissoraOptions,
-    getCatalogoNome,
+    getCnpjCatalogoNome,
     getPaisNome,
     getSubdivisaoNome,
     getAgenciaEmissoraNome,
+    extrairCnpjRaiz,
     
     // Recarregar dados
     recarregarDados: carregarDadosAuxiliares

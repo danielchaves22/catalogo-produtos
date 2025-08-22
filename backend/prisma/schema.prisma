@@ -20,6 +20,7 @@ model User {
   name      String   @map("nomecompleto")
 
   subUsuarios SubUsuario[]
+  operadoresEstrangeiros OperadorEstrangeiro[]
 
   @@map("comex")
 }
@@ -55,7 +56,6 @@ model Catalogo {
   status           CatalogoStatus @map("status")
   superUserId      Int            @map("super_user_id")
   produtos         Produto[]
-  operadoresEstrangeiros OperadorEstrangeiro[]
 
   @@map("catalogo")
 }
@@ -99,38 +99,40 @@ model Subdivisao {
 
 // Tabela principal do Operador Estrangeiro
 model OperadorEstrangeiro {
-  id                  Int      @id @default(autoincrement()) @map("id")
-  catalogoId          Int      @map("catalogo_id")
+  id                     Int      @id @default(autoincrement()) @map("id")
+  cnpjRaizResponsavel    String   @map("cnpj_raiz_responsavel")
+  superUserId            Int      @map("super_user_id")
 
+  superUser              User     @relation(fields: [superUserId], references: [id])
+  
   // Dados básicos
-  paisCodigo          String   @map("pais_codigo")
-  tin                 String?  @map("tin") // Número de identificação (TIN)
-  nome                String   @map("nome")
-  email               String?  @map("email")
-  codigoInterno       String?  @map("codigo_interno")
-
+  paisCodigo             String   @map("pais_codigo")
+  tin                    String?  @map("tin") // Número de identificação (TIN)
+  nome                   String   @map("nome")
+  email                  String?  @map("email")
+  codigoInterno          String?  @map("codigo_interno")
+  
   // Endereço
-  codigoPostal        String?  @map("codigo_postal")
-  logradouro          String?  @map("logradouro")
-  cidade              String?  @map("cidade")
-  subdivisaoCodigo    String?  @map("subdivisao_codigo")
-
+  codigoPostal           String?  @map("codigo_postal")
+  logradouro             String?  @map("logradouro")
+  cidade                 String?  @map("cidade")
+  subdivisaoCodigo       String?  @map("subdivisao_codigo")
+  
   // Controle do sistema
-  codigo              String?  @map("codigo") // Código gerado pelo SISCOMEX
-  versao              Int      @default(1) @map("versao")
-  situacao            OperadorEstrangeiroStatus @default(ATIVO) @map("situacao")
-  dataInclusao        DateTime @default(now()) @map("data_inclusao")
-  dataUltimaAlteracao DateTime @updatedAt @map("data_ultima_alteracao")
-  dataReferencia      DateTime? @map("data_referencia") // Para inclusão retroativa
-
+  codigo                 String?  @map("codigo") // Código gerado pelo SISCOMEX
+  versao                 Int      @default(1) @map("versao")
+  situacao               OperadorEstrangeiroStatus @default(ATIVO) @map("situacao")
+  dataInclusao           DateTime @default(now()) @map("data_inclusao")
+  dataUltimaAlteracao    DateTime @updatedAt @map("data_ultima_alteracao")
+  dataReferencia         DateTime? @map("data_referencia") // Para inclusão retroativa
+  
   // Relacionamentos
-  catalogo             Catalogo @relation(fields: [catalogoId], references: [id])
-  pais                 Pais     @relation(fields: [paisCodigo], references: [codigo])
-  subdivisao           Subdivisao? @relation(fields: [subdivisaoCodigo], references: [codigo])
-  identificacoesAdicionais     IdentificacaoAdicional[]
-  operadorEstrangeiroProdutos  OperadorEstrangeiroProduto[] @relation("OperadorProduto")
+  pais                   Pais     @relation(fields: [paisCodigo], references: [codigo])
+  subdivisao             Subdivisao? @relation(fields: [subdivisaoCodigo], references: [codigo])
+  identificacoesAdicionais IdentificacaoAdicional[]
+  operadorEstrangeiroProdutos OperadorEstrangeiroProduto[] @relation("OperadorProduto")
 
-  @@index([catalogoId], name: "idx_catalogo_id")
+  @@index([superUserId], name: "idx_super_user_id")
   @@map("operador_estrangeiro")
 }
 

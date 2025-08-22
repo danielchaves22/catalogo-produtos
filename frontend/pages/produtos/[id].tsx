@@ -49,7 +49,7 @@ export default function ProdutoPage() {
   const [operadoresCatalogo, setOperadoresCatalogo] = useState<OperadorEstrangeiro[]>([]);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [operadorErro, setOperadorErro] = useState<{ paisCodigo?: string; operador?: string }>({});
-  const { getPaisOptions, buscarOperadorPorId, getPaisNome, buscarOperadores } = useOperadorEstrangeiro();
+  const { getPaisOptions, buscarOperadorPorId, getPaisNome, buscarOperadores, extrairCnpjRaiz } = useOperadorEstrangeiro();
   const [catalogos, setCatalogos] = useState<Array<{ id: number; nome: string; cpf_cnpj: string | null }>>([]);
   const [ncm, setNcm] = useState('');
   const [ncmDescricao, setNcmDescricao] = useState('');
@@ -102,7 +102,7 @@ export default function ProdutoPage() {
     }
     async function carregarOperadoresCatalogo() {
       try {
-        const ops = await buscarOperadores({ catalogoId: Number(catalogoId) });
+        const ops = await buscarOperadores({ cnpjRaiz: extrairCnpjRaiz(catalogoCnpj) });
         setOperadoresCatalogo(ops.filter(op => op.situacao === 'ATIVO'));
       } catch (err) {
         console.error('Erro ao carregar operadores do catálogo:', err);
@@ -871,7 +871,7 @@ export default function ProdutoPage() {
                                         <td className="px-4 py-1">{op.operador?.pais?.nome || getPaisNome(op.paisCodigo)}</td>
                                         <td className="px-4 py-1">{op.conhecido === 'sim' ? 'Sim' : 'Não'}</td>
                                         <td className="px-4 py-1">
-                                          {op.conhecido === 'sim' ? (op.operador?.tin || formatCPFOrCNPJ(op.operador?.catalogo.cpf_cnpj || '')) : ''}
+                                          {op.conhecido === 'sim' ? (op.operador?.tin || formatCPFOrCNPJ(op.operador?.cnpjRaizResponsavel)) : ''}
                                         </td>
                                         <td className="px-4 py-1">{op.conhecido === 'sim' ? op.operador?.codigo || '' : ''}</td>
                                         <td className="px-4 py-1">{op.conhecido === 'sim' ? op.operador?.codigoInterno || '' : ''}</td>
@@ -927,7 +927,7 @@ export default function ProdutoPage() {
           }}
           onCancel={() => setSelectorOpen(false)}
           selectedOperadores={[]}
-          catalogoId={catalogoId ? Number(catalogoId) : undefined}
+          cnpjRaiz={catalogoCnpj ? extrairCnpjRaiz(catalogoCnpj) : undefined}
         />
       )}
 

@@ -32,9 +32,8 @@ interface AgenciaEmissora {
   nome: string;
 }
 
-interface CatalogoOption {
-  id: number;
-  cpf_cnpj?: string | null;
+interface CnpjCatalogo {
+  cnpjCompleto: string;    // CNPJ raiz com 8 dígitos  
   nome: string;
 }
 
@@ -44,7 +43,7 @@ interface IdentificacaoAdicional {
 }
 
 interface OperadorEstrangeiroFormData {
-  catalogoId: number;
+  cnpjRaizResponsavel: string;
   paisCodigo: string;
   tin?: string;
   nome: string;
@@ -116,7 +115,7 @@ function CustomSelect({ label, name, value, onChange, options, disabled, classNa
 
 export default function OperadorEstrangeiroFormPage() {
   const [formData, setFormData] = useState<OperadorEstrangeiroFormData>({
-    catalogoId: 0,
+    cnpjRaizResponsavel: '',
     paisCodigo: '',
     tin: '',
     nome: '',
@@ -139,7 +138,7 @@ export default function OperadorEstrangeiroFormPage() {
   const [paises, setPaises] = useState<Pais[]>([]);
   const [subdivisoes, setSubdivisoes] = useState<Subdivisao[]>([]);
   const [agenciasEmissoras, setAgenciasEmissoras] = useState<AgenciaEmissora[]>([]);
-  const [catalogos, setCatalogos] = useState<CatalogoOption[]>([]);
+  const [cnpjsCatalogos, setCnpjsCatalogos] = useState<CnpjCatalogo[]>([]);
   const [loadingSubdivisoes, setLoadingSubdivisoes] = useState(false);
   
   const router = useRouter();
@@ -154,10 +153,10 @@ export default function OperadorEstrangeiroFormPage() {
   }, []);
 
   useEffect(() => {
-    if (isNew && workingCatalog) {
-      setFormData(prev => ({ ...prev, catalogoId: workingCatalog.id }));
+    if (isNew && workingCatalog?.cpf_cnpj) {
+      setFormData(prev => ({ ...prev, cnpjRaizResponsavel: workingCatalog.cpf_cnpj || '' }));
     } else if (isNew && !workingCatalog) {
-      setFormData(prev => ({ ...prev, catalogoId: 0 }));
+      setFormData(prev => ({ ...prev, cnpjRaizResponsavel: '' }));
     }
   }, [workingCatalog, isNew]);
 
@@ -181,15 +180,17 @@ export default function OperadorEstrangeiroFormPage() {
 
   async function carregarDadosAuxiliares() {
     try {
-      const [paisesRes, agenciasRes, catalogosRes] = await Promise.all([
+      const [paisesRes, agenciasRes, cnpjsRes] = await Promise.all([
         api.get('/operadores-estrangeiros/aux/paises'),
         api.get('/operadores-estrangeiros/aux/agencias-emissoras'),
-        api.get('/operadores-estrangeiros/aux/catalogos')
+        api.get('/operadores-estrangeiros/aux/cnpjs-catalogos')
       ]);
-
+      
       setPaises(paisesRes.data);
       setAgenciasEmissoras(agenciasRes.data);
-      setCatalogos(catalogosRes.data);
+      setCnpjsCatalogos(cnpjsRes.data);
+      
+      console.log('CNPJs carregados:', cnpjsRes.data); // Debug
     } catch (error) {
       console.error('Erro ao carregar dados auxiliares:', error);
       addToast('Erro ao carregar dados auxiliares', 'error');
@@ -204,7 +205,7 @@ export default function OperadorEstrangeiroFormPage() {
       
       setOperador(data);
       setFormData({
-        catalogoId: data.catalogoId,
+        cnpjRaizResponsavel: data.cnpjRaizResponsavel, // Já vem com 14 dígitos do backend
         paisCodigo: data.paisCodigo,
         tin: data.tin || '',
         nome: data.nome,
@@ -322,9 +323,9 @@ export default function OperadorEstrangeiroFormPage() {
 
   function validarFormulario(): boolean {
     const newErrors: Record<string, string> = {};
-
-    if (!formData.catalogoId || formData.catalogoId === 0) {
-      newErrors.catalogoId = 'Catálogo é obrigatório';
+    
+    if (!formData.cnpjRaizResponsavel.trim()) {
+      newErrors.cnpjRaizResponsavel = 'CNPJ Raiz é obrigatório';
     }
     
     if (!formData.paisCodigo) {
@@ -407,12 +408,15 @@ export default function OperadorEstrangeiroFormPage() {
   }
 
   // OPÇÕES PARA OS DROPDOWNS - CORRIGIDAS
-const catalogoOptions = [
+const cnpjOptions = [
   { value: '', label: 'Selecione uma empresa' },
-  ...catalogos.map(cat => ({
-    value: String(cat.id),
-    label: `${formatCPFOrCNPJ(cat.cpf_cnpj || '')} - ${cat.nome}`
-  }))
+  ...cnpjsCatalogos.map(cnpj => {
+    console.log('🔍 Debug CNPJ:', cnpj); // Debug temporário
+    return {
+      value: cnpj.cnpjCompleto,
+      label: `${formatCPFOrCNPJ(cnpj.cnpjCompleto)} - ${cnpj.nome}`
+    };
+  })
 ];
 
   const paisOptions = [
@@ -500,24 +504,26 @@ const catalogoOptions = [
               </>
             )}
             
-            {/* Seleção de Catálogo */}
+            {/* DROPDOWN DE CNPJ - CORRIGIDO */}
             {isNew && !workingCatalog ? (
               <CustomSelect
-                label="Catálogo Responsável"
-                name="catalogoId"
-                value={String(formData.catalogoId || '')}
-                onChange={(e) => setFormData(prev => ({ ...prev, catalogoId: Number(e.target.value) }))}
-                options={catalogoOptions}
-                error={errors.catalogoId}
+                label="CNPJ da Empresa Responsável"
+                name="cnpjRaizResponsavel"
+                value={formData.cnpjRaizResponsavel}
+                onChange={handleChange}
+                options={cnpjOptions}
+                error={errors.cnpjRaizResponsavel}
                 required
               />
             ) : (
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-1 text-gray-300">
-                  Catálogo Responsável
+                  CNPJ da Empresa Responsável
                 </label>
                 <Input
-                  value={`${formatCPFOrCNPJ((workingCatalog?.cpf_cnpj) || (catalogos.find(c=>c.id===formData.catalogoId)?.cpf_cnpj) || '')} - ${workingCatalog?.nome || catalogos.find(c=>c.id===formData.catalogoId)?.nome || ''}`}
+                  value={`${formatCPFOrCNPJ(formData.cnpjRaizResponsavel)} - ${
+                    cnpjsCatalogos.find(c => c.cnpjCompleto === formData.cnpjRaizResponsavel)?.nome || 'Empresa não encontrada'
+                  }`}
                   readOnly
                   disabled
                   className="bg-[#262b36] cursor-not-allowed"
