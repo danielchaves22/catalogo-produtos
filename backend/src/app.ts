@@ -13,6 +13,7 @@ import operadorEstrangeiroRoutes from './routes/operador-estrangeiro.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import { Router } from 'express';
 import { API_PREFIX } from './config';
+import uploadRoutes from './routes/upload.routes';
 
 const app = express();
 
@@ -28,6 +29,9 @@ const apiRouter = Router();
 
 // Rotas de autenticação (públicas)
 apiRouter.use('/auth', authRoutes);
+
+// Rota de teste de upload (pública)
+apiRouter.use('/upload', uploadRoutes);
 
 // Rotas de catálogos (protegidas)
 apiRouter.use('/catalogos', catalogoRoutes);
