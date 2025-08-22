@@ -11,6 +11,7 @@ import { useOperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { Plus, Trash2, AlertCircle, Search, Globe, Pencil } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { formatCPFOrCNPJ } from '@/lib/validation';
+import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 
 interface OperadorEstrangeiro {
   id: number;
@@ -49,16 +50,20 @@ export default function OperadoresEstrangeirosPage() {
   });
   const { addToast } = useToast();
   const router = useRouter();
-  const { buscarOperadores, desativarOperador, getCnpjCatalogoNome } = useOperadorEstrangeiro();
+  const { buscarOperadores, desativarOperador, getCnpjCatalogoNome, extrairCnpjRaiz } = useOperadorEstrangeiro();
+  const { workingCatalog } = useWorkingCatalog();
 
   useEffect(() => {
     carregarOperadores();
-  }, []);
+  }, [workingCatalog]);
 
   async function carregarOperadores() {
     try {
       setLoading(true);
-      const dados = await buscarOperadores();
+      const filtros = workingCatalog?.cpf_cnpj
+        ? { cnpjRaiz: extrairCnpjRaiz(workingCatalog.cpf_cnpj) }
+        : undefined;
+      const dados = await buscarOperadores(filtros);
       setOperadores(dados);
       setError(null);
     } catch (err) {

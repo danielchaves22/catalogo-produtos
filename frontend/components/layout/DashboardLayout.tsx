@@ -5,7 +5,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from './Sidebar';
-import { User, Home } from 'lucide-react';
+import { User } from 'lucide-react';
+import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
+import { WorkingCatalogModal } from '@/components/catalogos/WorkingCatalogModal';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -15,6 +17,8 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const { workingCatalog } = useWorkingCatalog();
+  const [catalogModalOpen, setCatalogModalOpen] = useState(false);
   
   // Estado para controlar a visibilidade do menu do usuário
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -87,11 +91,13 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
         </div>
 
         <div className="flex items-center space-x-3">
-          {/* Botão Home */}
-          <Link href="/" className="text-white hover:text-gray-300 mr-2" title="Página Inicial">
-            <Home size={20} />
-          </Link>
-          
+          <button
+            className="text-sm text-gray-300 hover:text-white mr-2"
+            onClick={() => setCatalogModalOpen(true)}
+          >
+            {workingCatalog ? `${workingCatalog.numero} - ${workingCatalog.nome}` : 'Todos os catálogos'}
+          </button>
+
           <div className="relative" ref={userMenuRef}>
             <button 
               onClick={toggleUserMenu}
@@ -149,6 +155,10 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
           </main>
         </div>
       </div>
+      <WorkingCatalogModal
+        isOpen={catalogModalOpen}
+        onClose={() => setCatalogModalOpen(false)}
+      />
     </div>
   );
 }

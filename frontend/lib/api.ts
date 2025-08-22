@@ -1,5 +1,6 @@
 // frontend/lib/api.ts - VERSÃO SEGURA COM LOGS PARA DEBUG DOCKER
 import axios from 'axios'
+import { WORKING_CATALOG_STORAGE_KEY } from '@/contexts/WorkingCatalogContext'
 
 // CONSTANTES DE SEGURANÇA - devem coincidir com AuthContext
 const TOKEN_KEY = 'catalogo_produtos_token';
@@ -75,6 +76,17 @@ api.interceptors.request.use(
       
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
+      }
+      if (typeof window !== 'undefined') {
+        const storedCatalog = sessionStorage.getItem(WORKING_CATALOG_STORAGE_KEY);
+        if (storedCatalog && config.headers) {
+          try {
+            const catalog = JSON.parse(storedCatalog);
+            if (catalog?.id) {
+              config.headers['X-Catalogo-Trabalho'] = String(catalog.id);
+            }
+          } catch {}
+        }
       }
     } catch (error) {
       console.error('❌ Request Error:', error);
