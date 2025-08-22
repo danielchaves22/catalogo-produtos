@@ -18,6 +18,7 @@ interface WorkingCatalogModalProps {
 export function WorkingCatalogModal({ isOpen, onClose }: WorkingCatalogModalProps) {
   const { workingCatalog, setWorkingCatalog } = useWorkingCatalog();
   const [catalogos, setCatalogos] = useState<CatalogoResumo[]>([]);
+  const [selectedId, setSelectedId] = useState<string>('');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -30,7 +31,8 @@ export function WorkingCatalogModal({ isOpen, onClose }: WorkingCatalogModalProp
       }
     }
     carregar();
-  }, [isOpen]);
+    setSelectedId(workingCatalog ? String(workingCatalog.id) : '');
+  }, [isOpen, workingCatalog]);
 
   const selecionar = (cat: CatalogoResumo | null) => {
     const selected: WorkingCatalog | null = cat
@@ -40,38 +42,34 @@ export function WorkingCatalogModal({ isOpen, onClose }: WorkingCatalogModalProp
     onClose();
   };
 
+  const handleConfirm = () => {
+    const cat = selectedId ? catalogos.find(c => c.id === Number(selectedId)) || null : null;
+    selecionar(cat);
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[#151921] rounded-lg p-6 border border-gray-700 w-full max-w-md">
+      <div className="bg-[#1e2126] rounded-lg p-6 border border-gray-700 w-full max-w-md text-gray-300">
         <h3 className="text-xl font-semibold text-white mb-4">Selecionar Catálogo</h3>
-        <ul className="max-h-60 overflow-y-auto mb-4">
-          <li className="mb-2">
-            <button
-              className={`w-full text-left px-3 py-2 rounded hover:bg-[#262b36] ${!workingCatalog ? 'bg-[#262b36]' : ''}`}
-              onClick={() => selecionar(null)}
-            >
-              Todos os catálogos
-            </button>
-          </li>
+        <select
+          className="w-full mb-4 px-3 py-2 bg-[#1e2126] border border-gray-700 rounded text-gray-100 focus:outline-none focus:ring focus:border-blue-500"
+          value={selectedId}
+          onChange={e => setSelectedId(e.target.value)}
+        >
+          <option value="">Todos os catálogos</option>
           {catalogos.map(cat => (
-            <li key={cat.id} className="mb-2">
-              <button
-                className={`w-full text-left px-3 py-2 rounded hover:bg-[#262b36] ${
-                  workingCatalog?.id === cat.id ? 'bg-[#262b36]' : ''
-                }`}
-                onClick={() => selecionar(cat)}
-              >
-                {cat.numero} - {cat.nome}
-              </button>
-            </li>
+            <option key={cat.id} value={cat.id}>
+              {cat.numero} - {cat.nome}
+            </option>
           ))}
-        </ul>
-        <div className="flex justify-end">
+        </select>
+        <div className="flex justify-end space-x-2">
           <Button variant="outline" onClick={onClose}>
-            Fechar
+            Cancelar
           </Button>
+          <Button onClick={handleConfirm}>Selecionar</Button>
         </div>
       </div>
     </div>

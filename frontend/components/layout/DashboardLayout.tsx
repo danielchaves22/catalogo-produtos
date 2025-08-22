@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from './Sidebar';
-import { User } from 'lucide-react';
+import { User, RefreshCcw } from 'lucide-react';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { WorkingCatalogModal } from '@/components/catalogos/WorkingCatalogModal';
 
@@ -91,11 +91,16 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
         </div>
 
         <div className="flex items-center space-x-3">
-          <button
-            className="text-sm text-gray-300 hover:text-white mr-2"
-            onClick={() => setCatalogModalOpen(true)}
-          >
+          <span className="text-sm text-gray-300 mr-1">
             {workingCatalog ? `${workingCatalog.numero} - ${workingCatalog.nome}` : 'Todos os catálogos'}
+          </span>
+          <button
+            className="p-1 rounded hover:bg-[#262b36] text-gray-300 hover:text-white"
+            onClick={() => setCatalogModalOpen(true)}
+            title="Trocar catálogo de trabalho"
+            aria-label="Trocar catálogo de trabalho"
+          >
+            <RefreshCcw size={16} />
           </button>
 
           <div className="relative" ref={userMenuRef}>
