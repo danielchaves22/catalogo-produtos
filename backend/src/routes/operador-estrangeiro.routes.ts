@@ -10,7 +10,7 @@ import {
   listarPaises,
   listarSubdivisoes,
   listarAgenciasEmissoras,
-  listarCnpjsCatalogos,
+  listarCatalogos,
   listarSubdivisoesPorPais
 } from '../controllers/operador-estrangeiro.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
@@ -30,7 +30,7 @@ router.use(authMiddleware, (req, res, next) => {
 // ========== ROTAS AUXILIARES (devem vir ANTES das rotas principais) ==========
 router.get('/aux/paises', listarPaises);
 router.get('/aux/agencias-emissoras', listarAgenciasEmissoras);
-router.get('/aux/cnpjs-catalogos', listarCnpjsCatalogos);
+router.get('/aux/catalogos', listarCatalogos);
 router.get('/aux/subdivisoes/:paisCodigo', listarSubdivisoesPorPais);
 router.get('/aux/subdivisoes', listarSubdivisoes);
 
