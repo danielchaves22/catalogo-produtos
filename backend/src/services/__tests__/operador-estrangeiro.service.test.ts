@@ -27,21 +27,21 @@ describe('OperadorEstrangeiroService - superUserId', () => {
     ;(catalogoPrisma.operadorEstrangeiro.findMany as jest.Mock).mockResolvedValue([])
     await service.listarTodos(undefined, 1)
     expect(catalogoPrisma.operadorEstrangeiro.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { superUserId: 1 } })
+      expect.objectContaining({ where: { catalogo: { superUserId: 1 } } })
     )
   })
 
-  it('inclui superUserId ao criar', async () => {
+  it('inclui catalogoId ao criar', async () => {
     ;(catalogoPrisma.operadorEstrangeiro.create as jest.Mock).mockResolvedValue({})
     await service.criar({
-      cnpjRaizResponsavel: '12345678000199',
+      catalogoId: 1,
       paisCodigo: 'BR',
       nome: 'Teste',
       situacao: OperadorEstrangeiroStatus.ATIVO,
       superUserId: 1
     })
     expect(catalogoPrisma.operadorEstrangeiro.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ superUserId: 1 }) })
+      expect.objectContaining({ data: expect.objectContaining({ catalogoId: 1 }) })
     )
   })
 
@@ -49,7 +49,7 @@ describe('OperadorEstrangeiroService - superUserId', () => {
     ;(catalogoPrisma.operadorEstrangeiro.update as jest.Mock).mockResolvedValue({})
     await service.remover(2, 1)
     expect(catalogoPrisma.operadorEstrangeiro.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 2, superUserId: 1 } })
+      expect.objectContaining({ where: { id: 2 } })
     )
   })
 })
