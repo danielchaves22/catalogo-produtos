@@ -97,22 +97,21 @@ DELIMITER ;
     -- Tabela principal do Operador Estrangeiro
     CREATE TABLE IF NOT EXISTS operador_estrangeiro (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-        cnpj_raiz_responsavel VARCHAR(14) NOT NULL,
-        super_user_id INT UNSIGNED NOT NULL,
-        
+        catalogo_id INT UNSIGNED NOT NULL,
+
         -- Dados básicos
         pais_codigo VARCHAR(10) NOT NULL,
         tin VARCHAR(50),
         nome VARCHAR(255) NOT NULL,
         email VARCHAR(255),
         codigo_interno VARCHAR(100),
-        
+
         -- Endereço
         codigo_postal VARCHAR(50),
         logradouro VARCHAR(500),
         cidade VARCHAR(255),
         subdivisao_codigo VARCHAR(20),
-        
+
         -- Controle do sistema
         codigo VARCHAR(50), -- Código gerado pelo SISCOMEX
         versao INT UNSIGNED NOT NULL DEFAULT 1,
@@ -120,22 +119,13 @@ DELIMITER ;
         data_inclusao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         data_ultima_alteracao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         data_referencia DATETIME, -- Para inclusão retroativa
-        
+
         PRIMARY KEY (id),
+        FOREIGN KEY (catalogo_id) REFERENCES catalogo(id),
         FOREIGN KEY (pais_codigo) REFERENCES pais(codigo),
         FOREIGN KEY (subdivisao_codigo) REFERENCES subdivisao(codigo),
-        INDEX idx_cnpj_raiz (cnpj_raiz_responsavel),
-        INDEX idx_tin (tin),
-        INDEX idx_nome (nome),
-        INDEX idx_situacao (situacao),
-        INDEX idx_super_user_id (super_user_id),
-        UNIQUE INDEX idx_tin_unique (tin) -- TIN deve ser único quando preenchido
+        INDEX idx_catalogo_id (catalogo_id)
     );
-
-    -- Vincula operadores existentes ao super usuário de seus catálogos
-    UPDATE operador_estrangeiro oe
-    JOIN catalogo c ON SUBSTRING(c.cpf_cnpj,1,8) = oe.cnpj_raiz_responsavel
-    SET oe.super_user_id = c.super_user_id;
 
     -- Tabela para identificações adicionais (DUNS, LEI, etc.)
     CREATE TABLE IF NOT EXISTS identificacao_adicional (
