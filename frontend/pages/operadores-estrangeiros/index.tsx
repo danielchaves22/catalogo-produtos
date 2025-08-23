@@ -10,7 +10,6 @@ import { useToast } from '@/components/ui/ToastContext';
 import { useOperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { Plus, Trash2, AlertCircle, Search, Globe, Pencil } from 'lucide-react';
 import { useRouter } from 'next/router';
-import { formatCPFOrCNPJ } from '@/lib/validation';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 
 interface OperadorEstrangeiro {
@@ -73,11 +72,6 @@ export default function OperadoresEstrangeirosPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function formatarData(dataString: string) {
-    const data = new Date(dataString);
-    return data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR');
   }
 
   function confirmarExclusao(id: number) {
@@ -224,7 +218,6 @@ export default function OperadoresEstrangeirosPage() {
                   <th className="px-4 py-3">Cidade</th>
                   <th className="px-4 py-3">Situação</th>
                   <th className="px-4 py-3">Versão</th>
-                  <th className="px-4 py-3">Última Alteração</th>
                 </tr>
               </thead>
               <tbody>
@@ -253,10 +246,7 @@ export default function OperadoresEstrangeirosPage() {
                     </td>
                     <td className="px-4 py-3 font-medium text-white">{operador.nome}</td>
                     <td className="px-4 py-3">
-                      <div className="text-sm">
-                        <div className="font-medium text-white">{getCatalogoNome(operador.catalogoId)}</div>
-                        <div className="text-gray-400 font-mono">{formatCPFOrCNPJ(operador.catalogo.cpf_cnpj || '')}</div>
-                      </div>
+                      <div className="text-sm font-medium text-white">{getCatalogoNome(operador.catalogoId)}</div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -279,7 +269,6 @@ export default function OperadoresEstrangeirosPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">{operador.versao}</td>
-                    <td className="px-4 py-3">{formatarData(operador.dataUltimaAlteracao)}</td>
                   </tr>
                 ))}
               </tbody>
