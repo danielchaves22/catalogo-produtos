@@ -17,7 +17,6 @@ interface Catalogo {
   nome: string;
   cpf_cnpj: string | null;
   status: 'ATIVO' | 'INATIVO';
-  ultima_alteracao: string;
 }
 
 export default function CatalogosPage() {
@@ -44,11 +43,6 @@ export default function CatalogosPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function formatarData(dataString: string) {
-    const data = new Date(dataString);
-    return data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR');
   }
 
   // NOVA FUNÇÃO: Formatar CPF/CNPJ para exibição
@@ -147,7 +141,6 @@ export default function CatalogosPage() {
                   <th className="px-4 py-3">Nome</th>
                   <th className="px-4 py-3">CPF/CNPJ</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Última Alteração</th>
                 </tr>
               </thead>
               <tbody>
@@ -194,7 +187,6 @@ export default function CatalogosPage() {
                         {catalogo.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{formatarData(catalogo.ultima_alteracao)}</td>
                   </tr>
                 ))}
               </tbody>
