@@ -33,7 +33,7 @@ export interface OperadorEstrangeiro {
   codigoInterno?: string;
   codigo?: string;
   versao: number;
-  situacao: 'ATIVO' | 'INATIVO' | 'DESATIVADO';
+  situacao: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
   dataInclusao: string;
   dataUltimaAlteracao: string;
 

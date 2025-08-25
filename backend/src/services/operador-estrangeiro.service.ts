@@ -173,10 +173,10 @@ export class OperadorEstrangeiroService {
         throw new Error(`Operador estrangeiro ID ${id} não encontrado`);
       }
 
-      // Desativa a versão atual
+      // Marca a versão atual como rascunho antes de criar a nova versão
       await catalogoPrisma.operadorEstrangeiro.update({
         where: { id },
-        data: { situacao: 'INATIVO' },
+        data: { situacao: 'RASCUNHO' },
       });
 
       // Cria nova versão

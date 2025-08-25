@@ -42,10 +42,15 @@ Cada operador está associado a um catálogo específico (`catalogo_id`). O supe
 - **codigo_postal**: CEP/ZIP Code
 - **codigo**: Código gerado pelo SISCOMEX (quando integrado)
 - **versao**: Controle de versões
-- **situacao**: ATIVO | INATIVO | DESATIVADO
+- **situacao**: RASCUNHO | ATIVADO | DESATIVADO
 - **data_inclusao**: Data de criação
 - **data_ultima_alteracao**: Data da última modificação
 - **data_referencia**: Para inclusões retroativas
+
+#### Situações do Operador
+- **RASCUNHO** (🟡 `#e4a835`): Operador em edição que ainda não foi transmitido ao PUCOMEX
+- **ATIVADO** (🟢 `#27f58a`): Operador transmitido ao PUCOMEX
+- **DESATIVADO** (🔴 `#f2545f`): Operador desativado no PUCOMEX
 
 #### `identificacao_adicional`
 - **id**: Identificador único
@@ -109,7 +114,7 @@ GET    /api/v1/operadores-estrangeiros/aux/catalogos         # Lista de catálog
 ### Filtros Disponíveis
 
 - **Busca por texto**: Nome, TIN, país ou cidade
-- **Situação**: Ativo, Inativo, Desativado
+- **Situação**: Rascunho, Ativado, Desativado
 - **País**: Filtro por país de origem
 
 ## Regras de Negócio

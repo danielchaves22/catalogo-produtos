@@ -37,7 +37,7 @@ describe('OperadorEstrangeiroService - superUserId', () => {
       catalogoId: 1,
       paisCodigo: 'BR',
       nome: 'Teste',
-      situacao: OperadorEstrangeiroStatus.ATIVO,
+      situacao: OperadorEstrangeiroStatus.ATIVADO,
       superUserId: 1
     })
     expect(catalogoPrisma.operadorEstrangeiro.create).toHaveBeenCalledWith(

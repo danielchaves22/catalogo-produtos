@@ -23,7 +23,7 @@ interface OperadorEstrangeiro {
   codigoInterno?: string;
   codigo?: string;
   versao: number;
-  situacao: 'ATIVO' | 'INATIVO' | 'DESATIVADO';
+  situacao: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
   dataInclusao: string;
   dataUltimaAlteracao: string;
   pais: {
@@ -174,8 +174,8 @@ export default function OperadoresEstrangeirosPage() {
             onChange={(e) => setFiltros({...filtros, situacao: e.target.value})}
           >
             <option value="TODOS">Todas as situações</option>
-            <option value="ATIVO">Ativo</option>
-            <option value="INATIVO">Inativo</option>
+            <option value="RASCUNHO">Rascunho</option>
+            <option value="ATIVADO">Ativado</option>
             <option value="DESATIVADO">Desativado</option>
           </select>
 
@@ -263,11 +263,11 @@ export default function OperadoresEstrangeirosPage() {
                     <td className="px-4 py-3 font-mono text-[#f59e0b]">{operador.tin || '-'}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        operador.situacao === 'ATIVO'
-                          ? 'bg-green-900/50 text-green-400 border border-green-700'
-                          : operador.situacao === 'INATIVO'
-                          ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-700'
-                          : 'bg-red-900/50 text-red-400 border border-red-700'
+                        operador.situacao === 'ATIVADO'
+                          ? 'bg-[#27f58a]/20 text-[#27f58a] border border-[#27f58a]'
+                          : operador.situacao === 'RASCUNHO'
+                          ? 'bg-[#e4a835]/20 text-[#e4a835] border border-[#e4a835]'
+                          : 'bg-[#f2545f]/20 text-[#f2545f] border border-[#f2545f]'
                       }`}>
                         {operador.situacao}
                       </span>

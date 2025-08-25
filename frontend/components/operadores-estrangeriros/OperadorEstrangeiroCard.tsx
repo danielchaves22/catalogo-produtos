@@ -28,12 +28,12 @@ export function OperadorEstrangeiroCard({
 
   function getSituacaoColor(situacao: string) {
     switch (situacao) {
-      case 'ATIVO':
-        return 'bg-green-900/50 text-green-400 border-green-700';
-      case 'INATIVO':
-        return 'bg-yellow-900/50 text-yellow-400 border-yellow-700';
+      case 'ATIVADO':
+        return 'bg-[#27f58a]/20 text-[#27f58a] border-[#27f58a]';
+      case 'RASCUNHO':
+        return 'bg-[#e4a835]/20 text-[#e4a835] border-[#e4a835]';
       case 'DESATIVADO':
-        return 'bg-red-900/50 text-red-400 border-red-700';
+        return 'bg-[#f2545f]/20 text-[#f2545f] border-[#f2545f]';
       default:
         return 'bg-gray-900/50 text-gray-400 border-gray-700';
     }

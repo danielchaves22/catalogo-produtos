@@ -36,7 +36,7 @@ export function OperadorEstrangeiroSelector({
     try {
       setLoading(true);
       const dados = await buscarOperadores(catalogoId ? { catalogoId } : undefined);
-      setOperadores(dados.filter(op => op.situacao === 'ATIVO'));
+      setOperadores(dados.filter(op => op.situacao === 'ATIVADO'));
       setError(null);
     } catch (err) {
       console.error('Erro ao carregar operadores:', err);
@@ -66,7 +66,7 @@ export function OperadorEstrangeiroSelector({
         // Buscar todos e filtrar localmente
         const todos = await buscarOperadores(catalogoId ? { catalogoId } : undefined);
         resultados = todos.filter(op =>
-          op.situacao === 'ATIVO' && (
+          op.situacao === 'ATIVADO' && (
             op.nome.toLowerCase().includes(busca.toLowerCase()) ||
             op.tin?.toLowerCase().includes(busca.toLowerCase()) ||
             op.pais.nome.toLowerCase().includes(busca.toLowerCase()) ||
@@ -75,7 +75,7 @@ export function OperadorEstrangeiroSelector({
         );
       }
 
-      setOperadores(resultados.filter(op => op.situacao === 'ATIVO'));
+      setOperadores(resultados.filter(op => op.situacao === 'ATIVADO'));
       setError(null);
     } catch (err) {
       console.error('Erro na busca:', err);

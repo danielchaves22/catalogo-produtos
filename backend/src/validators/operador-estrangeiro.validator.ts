@@ -20,7 +20,8 @@ export const createOperadorEstrangeiroSchema = z.object({
   logradouro: z.string().optional(),
   cidade: z.string().optional(),
   subdivisaoCodigo: z.string().optional().or(z.literal('')),
-  situacao: z.enum(['ATIVO', 'INATIVO', 'DESATIVADO']).default('ATIVO'),
+  // Situação inicial como RASCUNHO até a transmissão ao PUCOMEX
+  situacao: z.enum(['RASCUNHO', 'ATIVADO', 'DESATIVADO']).default('RASCUNHO'),
   dataReferencia: z.string().datetime().optional().transform(val => val ? new Date(val) : undefined),
   identificacoesAdicionais: z.array(identificacaoAdicionalSchema).optional()
 });
@@ -38,7 +39,7 @@ export const updateOperadorEstrangeiroSchema = z.object({
   logradouro: z.string().optional(),
   cidade: z.string().optional(),
   subdivisaoCodigo: z.string().optional().or(z.literal('')),
-  situacao: z.enum(['ATIVO', 'INATIVO', 'DESATIVADO']).optional(),
+  situacao: z.enum(['RASCUNHO', 'ATIVADO', 'DESATIVADO']).optional(),
   dataReferencia: z.string().datetime().optional().transform(val => val ? new Date(val) : undefined),
   identificacoesAdicionais: z.array(identificacaoAdicionalSchema).optional()
 });
