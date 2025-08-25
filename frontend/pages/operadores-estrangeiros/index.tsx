@@ -217,13 +217,13 @@ export default function OperadoresEstrangeirosPage() {
               <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
                 <tr>
                   <th className="w-16 px-4 py-3 text-center">Ações</th>
-                  <th className="px-4 py-3">TIN</th>
+                  <th className="px-4 py-3">Catálogo</th>
+                  <th className="px-4 py-3">CPF/CNPJ</th>
                   <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3">Empresa Responsável</th>
                   <th className="px-4 py-3">País</th>
-                  <th className="px-4 py-3">Cidade</th>
+                  <th className="px-4 py-3">Código</th>
+                  <th className="px-4 py-3">TIN</th>
                   <th className="px-4 py-3">Situação</th>
-                  <th className="px-4 py-3">Versão</th>
                   <th className="px-4 py-3">Última Alteração</th>
                 </tr>
               </thead>
@@ -248,16 +248,9 @@ export default function OperadoresEstrangeirosPage() {
                         <Trash2 size={16} />
                       </button>
                     </td>
-                    <td className="px-4 py-3 font-mono text-[#f59e0b]">
-                      {operador.tin || '-'}
-                    </td>
+                    <td className="px-4 py-3">{getCatalogoNome(operador.catalogoId)}</td>
+                    <td className="px-4 py-3 font-mono">{formatCPFOrCNPJ(operador.catalogo.cpf_cnpj || '')}</td>
                     <td className="px-4 py-3 font-medium text-white">{operador.nome}</td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm">
-                        <div className="font-medium text-white">{getCatalogoNome(operador.catalogoId)}</div>
-                        <div className="text-gray-400 font-mono">{formatCPFOrCNPJ(operador.catalogo.cpf_cnpj || '')}</div>
-                      </div>
-                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xs bg-gray-700 px-2 py-1 rounded">
@@ -266,11 +259,12 @@ export default function OperadoresEstrangeirosPage() {
                         <span>{operador.pais.nome}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">{operador.cidade || '-'}</td>
+                    <td className="px-4 py-3">{operador.codigo || '-'}</td>
+                    <td className="px-4 py-3 font-mono text-[#f59e0b]">{operador.tin || '-'}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        operador.situacao === 'ATIVO' 
-                          ? 'bg-green-900/50 text-green-400 border border-green-700' 
+                        operador.situacao === 'ATIVO'
+                          ? 'bg-green-900/50 text-green-400 border border-green-700'
                           : operador.situacao === 'INATIVO'
                           ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-700'
                           : 'bg-red-900/50 text-red-400 border border-red-700'
@@ -278,7 +272,6 @@ export default function OperadoresEstrangeirosPage() {
                         {operador.situacao}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">{operador.versao}</td>
                     <td className="px-4 py-3">{formatarData(operador.dataUltimaAlteracao)}</td>
                   </tr>
                 ))}
