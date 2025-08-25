@@ -9,7 +9,7 @@ const COOKIE_NAME = 'catalogo_produtos_auth';
 // Detectar ambiente e configurar baseURL
 const getBaseURL = () => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL
-  const defaultUrl = 'http://localhost:3000/api' // CORRIGIDO: era loucahost
+  const defaultUrl = 'http://localhost:3000/api/v1' // CORRIGIDO: era loucahost
   
   const baseURL = envUrl || defaultUrl
   
