@@ -115,7 +115,7 @@ DELIMITER ;
         -- Controle do sistema
         codigo VARCHAR(50), -- Código gerado pelo SISCOMEX
         versao INT UNSIGNED NOT NULL DEFAULT 1,
-        situacao ENUM('ATIVO', 'INATIVO', 'DESATIVADO') NOT NULL DEFAULT 'ATIVO',
+        situacao ENUM('RASCUNHO', 'ATIVADO', 'DESATIVADO') NOT NULL DEFAULT 'RASCUNHO',
         data_inclusao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         data_ultima_alteracao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         data_referencia DATETIME, -- Para inclusão retroativa

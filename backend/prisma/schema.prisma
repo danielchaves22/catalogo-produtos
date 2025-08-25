@@ -118,7 +118,8 @@ model OperadorEstrangeiro {
   // Controle do sistema
   codigo              String?  @map("codigo") // Código gerado pelo SISCOMEX
   versao              Int      @default(1) @map("versao")
-  situacao            OperadorEstrangeiroStatus @default(ATIVO) @map("situacao")
+  // Situação do operador: RASCUNHO (ainda não transmitido), ATIVADO (transmitido) ou DESATIVADO
+  situacao            OperadorEstrangeiroStatus @default(RASCUNHO) @map("situacao")
   dataInclusao        DateTime @default(now()) @map("data_inclusao")
   dataUltimaAlteracao DateTime @updatedAt @map("data_ultima_alteracao")
   dataReferencia      DateTime? @map("data_referencia") // Para inclusão retroativa
@@ -148,9 +149,13 @@ model IdentificacaoAdicional {
   @@map("identificacao_adicional")
 }
 
+// Status possíveis para o operador estrangeiro
+// RASCUNHO: operador em edição não transmitido ao PUCOMEX
+// ATIVADO: operador transmitido ao PUCOMEX
+// DESATIVADO: operador desativado no PUCOMEX
 enum OperadorEstrangeiroStatus {
-  ATIVO
-  INATIVO
+  RASCUNHO
+  ATIVADO
   DESATIVADO
 }
 // Enum de status de Produto

@@ -54,7 +54,7 @@ interface OperadorEstrangeiroFormData {
   logradouro?: string;
   cidade?: string;
   subdivisaoCodigo?: string;
-  situacao: 'ATIVO' | 'INATIVO' | 'DESATIVADO';
+  situacao: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
   identificacoesAdicionais: IdentificacaoAdicional[];
 }
 
@@ -126,7 +126,7 @@ export default function OperadorEstrangeiroFormPage() {
     logradouro: '',
     cidade: '',
     subdivisaoCodigo: '',
-    situacao: 'ATIVO',
+    situacao: 'RASCUNHO',
     identificacoesAdicionais: []
   });
   
@@ -619,8 +619,8 @@ const catalogoOptions = [
               value={formData.situacao}
               onChange={handleChange}
               options={[
-                { value: 'ATIVO', label: 'Ativo' },
-                { value: 'INATIVO', label: 'Inativo' },
+                { value: 'RASCUNHO', label: 'Rascunho' },
+                { value: 'ATIVADO', label: 'Ativado' },
                 { value: 'DESATIVADO', label: 'Desativado' }
               ]}
             />

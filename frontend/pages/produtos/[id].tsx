@@ -103,7 +103,7 @@ export default function ProdutoPage() {
     async function carregarOperadoresCatalogo() {
       try {
         const ops = await buscarOperadores({ catalogoId: Number(catalogoId) });
-        setOperadoresCatalogo(ops.filter(op => op.situacao === 'ATIVO'));
+        setOperadoresCatalogo(ops.filter(op => op.situacao === 'ATIVADO'));
       } catch (err) {
         console.error('Erro ao carregar operadores do catálogo:', err);
       }
