@@ -59,6 +59,7 @@ model Catalogo {
   produtos         Produto[]
   operadoresEstrangeiros OperadorEstrangeiro[]
 
+  @@unique([superUserId, cpf_cnpj], name: "uk_superuser_cpf_cnpj")
   @@map("catalogo")
 }
 

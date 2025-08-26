@@ -71,11 +71,20 @@ export class CatalogoService {
    */
   async criar(data: CreateCatalogoDTO, superUserId: number) {
     try {
-      const existente = await catalogoPrisma.catalogo.findFirst({
+      const existenteNome = await catalogoPrisma.catalogo.findFirst({
         where: { nome: data.nome, superUserId }
       });
-      if (existente) {
+      if (existenteNome) {
         throw new Error('Já existe um catálogo com este nome');
+      }
+
+      if (data.cpf_cnpj) {
+        const existenteCpf = await catalogoPrisma.catalogo.findFirst({
+          where: { cpf_cnpj: data.cpf_cnpj, superUserId }
+        });
+        if (existenteCpf) {
+          throw new Error('Já existe um catálogo com este CPF/CNPJ');
+        }
       }
       return await catalogoPrisma.catalogo.create({
         data: {
@@ -111,11 +120,20 @@ export class CatalogoService {
    */
   async atualizar(id: number, data: UpdateCatalogoDTO, superUserId: number) {
     try {
-      const existente = await catalogoPrisma.catalogo.findFirst({
+      const existenteNome = await catalogoPrisma.catalogo.findFirst({
         where: { nome: data.nome, superUserId, id: { not: id } }
       });
-      if (existente) {
+      if (existenteNome) {
         throw new Error('Já existe um catálogo com este nome');
+      }
+
+      if (data.cpf_cnpj) {
+        const existenteCpf = await catalogoPrisma.catalogo.findFirst({
+          where: { cpf_cnpj: data.cpf_cnpj, superUserId, id: { not: id } }
+        });
+        if (existenteCpf) {
+          throw new Error('Já existe um catálogo com este CPF/CNPJ');
+        }
       }
 
       const atualizado = await catalogoPrisma.catalogo.updateMany({
