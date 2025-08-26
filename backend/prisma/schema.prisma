@@ -54,6 +54,8 @@ model Catalogo {
   numero           Int            @map("numero")
   status           CatalogoStatus @map("status")
   superUserId      Int            @map("super_user_id")
+  certificadoPfxPath String?      @map("certificado_pfx_path")
+  certificadoSenha   String?      @map("certificado_senha")
   produtos         Produto[]
   operadoresEstrangeiros OperadorEstrangeiro[]
 

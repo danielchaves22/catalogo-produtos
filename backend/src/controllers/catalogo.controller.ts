@@ -1,6 +1,8 @@
 // src/controllers/catalogo.controller.ts
 import { Request, Response } from 'express';
 import { CatalogoService } from '../services/catalogo.service';
+import { storageFactory } from '../services/storage.factory';
+import { getBucketName } from '../utils/environment';
 
 const catalogoService = new CatalogoService();
 
@@ -77,6 +79,46 @@ export async function atualizarCatalogo(req: Request, res: Response) {
       return res.status(404).json({ error: errorMessage });
     }
     return res.status(500).json({ error: errorMessage });
+  }
+}
+
+export async function uploadCertificado(req: Request, res: Response) {
+  const { id } = req.params;
+  const { fileContent, password } = req.body as { fileContent: string; password: string };
+
+  if (!fileContent || !password) {
+    return res.status(400).json({ error: 'Parâmetros obrigatórios ausentes' });
+  }
+
+  try {
+    const provider = storageFactory();
+    const base = getBucketName({ identifier: String(req.user!.superUserId), type: 'certificados' });
+    const path = `${base}/catalogo-${id}.pfx`;
+    const buffer = Buffer.from(fileContent, 'base64');
+    await provider.upload(buffer, path);
+    await catalogoService.salvarCertificado(Number(id), password, path, req.user!.superUserId);
+    return res.status(200).json({ path });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Falha ao enviar certificado';
+    return res.status(500).json({ error: message });
+  }
+}
+
+export async function downloadCertificado(req: Request, res: Response) {
+  const { id } = req.params;
+  try {
+    const path = await catalogoService.obterCertificadoPath(Number(id), req.user!.superUserId);
+    if (!path) {
+      return res.status(404).json({ error: 'Certificado não encontrado' });
+    }
+    const provider = storageFactory();
+    const file = await provider.get(path);
+    res.setHeader('Content-Type', 'application/x-pkcs12');
+    res.setHeader('Content-Disposition', `attachment; filename=certificado-${id}.pfx`);
+    return res.send(file);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro ao baixar certificado';
+    return res.status(500).json({ error: message });
   }
 }
 
