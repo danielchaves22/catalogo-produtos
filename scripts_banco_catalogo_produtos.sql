@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS catalogo (
     numero INT UNSIGNED NOT NULL,
     status ENUM('ATIVO', 'INATIVO') NOT NULL DEFAULT 'ATIVO',
     super_user_id INT UNSIGNED NOT NULL,
+    certificado_pfx_path VARCHAR(255),
+    certificado_senha VARCHAR(255),
     PRIMARY KEY (id),
     UNIQUE INDEX idx_numero (numero),
     INDEX idx_super_user_id (super_user_id)

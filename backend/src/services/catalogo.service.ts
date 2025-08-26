@@ -1,7 +1,8 @@
 // backend/src/services/catalogo.service.ts
-import { Catalogo, CatalogoStatus } from '@prisma/client';
+import { CatalogoStatus } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import { encrypt } from '../utils/crypto';
 
 export interface CreateCatalogoDTO {
   nome: string;
@@ -19,11 +20,21 @@ export class CatalogoService {
   /**
    * Lista todos os catálogos
    */
-  async listarTodos(superUserId: number): Promise<Catalogo[]> {
+  async listarTodos(superUserId: number) {
     try {
       return await catalogoPrisma.catalogo.findMany({
         where: { superUserId },
-        orderBy: { ultima_alteracao: 'desc' }
+        orderBy: { ultima_alteracao: 'desc' },
+        select: {
+          id: true,
+          nome: true,
+          cpf_cnpj: true,
+          ultima_alteracao: true,
+          numero: true,
+          status: true,
+          superUserId: true,
+          certificadoPfxPath: true
+        }
       });
     } catch (error: unknown) {
       logger.error('Erro ao listar catálogos:', error);
@@ -34,10 +45,20 @@ export class CatalogoService {
   /**
    * Busca um catálogo pelo ID
    */
-  async buscarPorId(id: number, superUserId: number): Promise<Catalogo | null> {
+  async buscarPorId(id: number, superUserId: number) {
     try {
       return await catalogoPrisma.catalogo.findFirst({
-        where: { id, superUserId }
+        where: { id, superUserId },
+        select: {
+          id: true,
+          nome: true,
+          cpf_cnpj: true,
+          ultima_alteracao: true,
+          numero: true,
+          status: true,
+          superUserId: true,
+          certificadoPfxPath: true
+        }
       });
     } catch (error: unknown) {
       logger.error(`Erro ao buscar catálogo ID ${id}:`, error);
@@ -48,7 +69,7 @@ export class CatalogoService {
   /**
    * Cria um novo catálogo
    */
-  async criar(data: CreateCatalogoDTO, superUserId: number): Promise<Catalogo> {
+  async criar(data: CreateCatalogoDTO, superUserId: number) {
     try {
       const existente = await catalogoPrisma.catalogo.findFirst({
         where: { nome: data.nome, superUserId }
@@ -62,8 +83,18 @@ export class CatalogoService {
           cpf_cnpj: data.cpf_cnpj,
           status: data.status,
           ultima_alteracao: new Date(),
-          numero: 0, // O valor real será gerado pelo trigger no banco
+          numero: 0,
           superUserId
+        },
+        select: {
+          id: true,
+          nome: true,
+          cpf_cnpj: true,
+          ultima_alteracao: true,
+          numero: true,
+          status: true,
+          superUserId: true,
+          certificadoPfxPath: true
         }
       });
     } catch (error: unknown) {
@@ -78,7 +109,7 @@ export class CatalogoService {
   /**
    * Atualiza um catálogo existente
    */
-  async atualizar(id: number, data: UpdateCatalogoDTO, superUserId: number): Promise<Catalogo> {
+  async atualizar(id: number, data: UpdateCatalogoDTO, superUserId: number) {
     try {
       const existente = await catalogoPrisma.catalogo.findFirst({
         where: { nome: data.nome, superUserId, id: { not: id } }
@@ -101,7 +132,19 @@ export class CatalogoService {
         throw new Error(`Catálogo ID ${id} não encontrado`);
       }
 
-      return (await catalogoPrisma.catalogo.findFirst({ where: { id, superUserId } }))!;
+      return (await catalogoPrisma.catalogo.findFirst({
+        where: { id, superUserId },
+        select: {
+          id: true,
+          nome: true,
+          cpf_cnpj: true,
+          ultima_alteracao: true,
+          numero: true,
+          status: true,
+          superUserId: true,
+          certificadoPfxPath: true
+        }
+      }))!;
     } catch (error: unknown) {
       if (error instanceof Error && error.message.includes('Já existe')) {
         throw error;
@@ -128,5 +171,21 @@ export class CatalogoService {
       logger.error(`Erro ao remover catálogo ID ${id}:`, error);
       throw new Error(`Falha ao remover catálogo ID ${id}`);
     }
+  }
+
+  async salvarCertificado(id: number, senha: string, path: string, superUserId: number): Promise<void> {
+    const encrypted = encrypt(senha);
+    await catalogoPrisma.catalogo.updateMany({
+      where: { id, superUserId },
+      data: { certificadoPfxPath: path, certificadoSenha: encrypted }
+    });
+  }
+
+  async obterCertificadoPath(id: number, superUserId: number): Promise<string | null> {
+    const catalogo = await catalogoPrisma.catalogo.findFirst({
+      where: { id, superUserId },
+      select: { certificadoPfxPath: true }
+    });
+    return catalogo?.certificadoPfxPath || null;
   }
 }

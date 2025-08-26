@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/ToastContext';
 import { ArrowLeft, Save } from 'lucide-react';
 import api from '@/lib/api';
 import { onlyNumbers, isValidCPFOrCNPJ } from '@/lib/validation';
+import { Tabs } from '@/components/ui/Tabs';
 
 interface CatalogoFormData {
   nome: string;
@@ -24,6 +25,7 @@ interface CatalogoCompleto extends CatalogoFormData {
   id: number;
   numero: number;
   ultima_alteracao: string;
+  certificadoPfxPath?: string | null;
 }
 
 export default function CatalogoFormPage() {
@@ -37,6 +39,10 @@ export default function CatalogoFormPage() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [uploadMode, setUploadMode] = useState(false);
+  const [certFile, setCertFile] = useState<File | null>(null);
+  const [certPassword, setCertPassword] = useState('');
+  const [uploadingCert, setUploadingCert] = useState(false);
   
   const router = useRouter();
   const { id } = router.query;
@@ -156,6 +162,164 @@ export default function CatalogoFormPage() {
     router.push('/catalogos');
   }
 
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleUploadCertificado() {
+    if (!certFile || !certPassword || !catalogo) return;
+    try {
+      setUploadingCert(true);
+      const fileContent = await fileToBase64(certFile);
+      const res = await api.post(`/catalogos/${catalogo.id}/certificado`, {
+        fileContent,
+        password: certPassword
+      });
+      setCatalogo(prev => (prev ? { ...prev, certificadoPfxPath: res.data.path } : prev));
+      setUploadMode(false);
+      setCertFile(null);
+      setCertPassword('');
+      addToast('Certificado enviado com sucesso', 'success');
+    } catch (error) {
+      console.error('Erro ao enviar certificado:', error);
+      addToast('Erro ao enviar certificado', 'error');
+    } finally {
+      setUploadingCert(false);
+    }
+  }
+
+  async function baixarCertificado() {
+    if (!catalogo) return;
+    try {
+      const res = await api.get(`/catalogos/${catalogo.id}/certificado`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(res.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `certificado-${catalogo.id}.pfx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error('Erro ao baixar certificado:', error);
+      addToast('Erro ao baixar certificado', 'error');
+    }
+  }
+
+  const dadosContent = (
+    <Card>
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-2 gap-4">
+          {!isNew && catalogo && (
+            <>
+              <Input
+                label="Número"
+                value={catalogo.numero.toString()}
+                readOnly
+                disabled
+                className="bg-[#262b36] cursor-not-allowed"
+              />
+              <Input
+                label="Última Alteração"
+                value={formatarData(catalogo.ultima_alteracao)}
+                readOnly
+                disabled
+                className="bg-[#262b36] cursor-not-allowed"
+              />
+            </>
+          )}
+
+          <Input
+            label="Nome"
+            name="nome"
+            value={formData.nome}
+            onChange={handleChange}
+            error={errors.nome}
+            required
+            className="col-span-2"
+          />
+
+          <MaskedInput
+            label="CPF/CNPJ"
+            mask="cpf-cnpj"
+            value={formData.cpf_cnpj}
+            onChange={handleMaskedChange('cpf_cnpj')}
+            error={errors.cpf_cnpj}
+            placeholder="CPF: 000.000.000-00 ou CNPJ: 00.000.000/0000-00"
+          />
+
+          <CustomSelect
+            label="Status"
+            name="status"
+            value={formData.status}
+            onChange={(value) => setFormData(prev => ({ ...prev, status: value as 'ATIVO' | 'INATIVO' }))}
+            options={[
+              { value: 'ATIVO', label: 'Ativo' },
+              { value: 'INATIVO', label: 'Inativo' }
+            ]}
+            required
+            placeholder="Selecione o status"
+          />
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={voltar}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="accent" className="flex items-center gap-2" disabled={submitting}>
+            <Save size={16} />
+            {submitting ? 'Salvando...' : 'Salvar Catálogo'}
+          </Button>
+        </div>
+      </form>
+    </Card>
+  );
+
+  const certificadoContent = (
+    <Card>
+      {catalogo?.certificadoPfxPath && !uploadMode ? (
+        <div className="space-y-4">
+          <p className="text-white">Certificado já enviado.</p>
+          <div className="flex gap-4">
+            <Button type="button" onClick={baixarCertificado}>Baixar</Button>
+            <Button type="button" variant="outline" onClick={() => setUploadMode(true)}>
+              Enviar novo
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <input type="file" accept=".pfx" onChange={e => setCertFile(e.target.files?.[0] || null)} />
+          <Input label="Senha" type="password" value={certPassword} onChange={e => setCertPassword(e.target.value)} />
+          <div className="flex gap-4">
+            {catalogo?.certificadoPfxPath && (
+              <Button type="button" variant="outline" onClick={() => { setUploadMode(false); setCertFile(null); setCertPassword(''); }}>
+                Cancelar
+              </Button>
+            )}
+            <Button type="button" onClick={handleUploadCertificado} disabled={uploadingCert || !certFile || !certPassword}>
+              {uploadingCert ? 'Enviando...' : 'Enviar'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+
+  const tabs = isNew
+    ? [{ id: 'dados', label: 'Dados', content: dadosContent }]
+    : [
+        { id: 'dados', label: 'Dados', content: dadosContent },
+        { id: 'certificado', label: 'Certificado', content: certificadoContent }
+      ];
+
   if (loading) {
     return (
       <DashboardLayout title={isNew ? 'Novo Catálogo' : 'Editar Catálogo'}>
@@ -166,16 +330,16 @@ export default function CatalogoFormPage() {
 
   return (
     <DashboardLayout title={isNew ? 'Novo Catálogo' : 'Editar Catálogo'}>
-      <Breadcrumb 
+      <Breadcrumb
         items={[
           { label: 'Início', href: '/' },
           { label: 'Catálogos', href: '/catalogos' },
           { label: isNew ? 'Novo Catálogo' : 'Editar Catálogo' }
-        ]} 
+        ]}
       />
 
       <div className="mb-6 flex items-center gap-2">
-        <button 
+        <button
           onClick={voltar}
           className="text-gray-400 hover:text-white transition-colors"
         >
@@ -185,85 +349,7 @@ export default function CatalogoFormPage() {
           {isNew ? 'Criar Novo Catálogo' : 'Editar Catálogo'}
         </h1>
       </div>
-
-      <Card>
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-4">
-            {/* Número e Data (somente leitura) */}
-            {!isNew && catalogo && (
-              <>
-                <Input
-                  label="Número"
-                  value={catalogo.numero.toString()}
-                  readOnly
-                  disabled
-                  className="bg-[#262b36] cursor-not-allowed"
-                />
-                <Input
-                  label="Última Alteração"
-                  value={formatarData(catalogo.ultima_alteracao)}
-                  readOnly
-                  disabled
-                  className="bg-[#262b36] cursor-not-allowed"
-                />
-              </>
-            )}
-            
-            {/* Campos editáveis */}
-            <Input
-              label="Nome"
-              name="nome"
-              value={formData.nome}
-              onChange={handleChange}
-              error={errors.nome}
-              required
-              className="col-span-2"
-            />
-            
-            {/* CORRIGIDO: Usando MaskedInput para CPF/CNPJ */}
-            <MaskedInput
-              label="CPF/CNPJ"
-              mask="cpf-cnpj"
-              value={formData.cpf_cnpj}
-              onChange={handleMaskedChange('cpf_cnpj')}
-              error={errors.cpf_cnpj}
-              placeholder="CPF: 000.000.000-00 ou CNPJ: 00.000.000/0000-00"
-            />
-            
-            <CustomSelect
-              label="Status"
-              name="status"
-              value={formData.status}
-              onChange={(value) => setFormData(prev => ({ ...prev, status: value as 'ATIVO' | 'INATIVO' }))}
-              options={[
-                { value: 'ATIVO', label: 'Ativo' },
-                { value: 'INATIVO', label: 'Inativo' }
-              ]}
-              required
-              placeholder="Selecione o status"
-            />            
-          </div>
-          
-          <div className="mt-6 flex justify-end gap-3">
-            <Button 
-              type="button" 
-              variant="outline"
-              onClick={voltar}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              type="submit" 
-              variant="accent"
-              className="flex items-center gap-2"
-              disabled={submitting}
-            >
-              <Save size={16} />
-              {submitting ? 'Salvando...' : 'Salvar Catálogo'}
-            </Button>
-          </div>
-        </form>
-      </Card>
+      <Tabs tabs={tabs} />
     </DashboardLayout>
   );
 }
