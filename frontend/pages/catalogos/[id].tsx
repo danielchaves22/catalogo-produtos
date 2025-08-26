@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { FileInput } from '@/components/ui/FileInput';
 import { MaskedInput } from '@/components/ui/MaskedInput';
 import { Button } from '@/components/ui/Button';
 import { CustomSelect } from '@/components/ui/CustomSelect';
@@ -43,6 +44,22 @@ export default function CatalogoFormPage() {
   const [certFile, setCertFile] = useState<File | null>(null);
   const [certPassword, setCertPassword] = useState('');
   const [uploadingCert, setUploadingCert] = useState(false);
+
+  function handleCertFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      const isPfx =
+        file.name.toLowerCase().endsWith('.pfx') ||
+        file.type === 'application/x-pkcs12';
+      if (!isPfx) {
+        addToast('Apenas arquivos .pfx são permitidos', 'error');
+        e.target.value = '';
+        setCertFile(null);
+        return;
+      }
+    }
+    setCertFile(file || null);
+  }
   
   const router = useRouter();
   const { id } = router.query;
@@ -296,7 +313,7 @@ export default function CatalogoFormPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          <input type="file" accept=".pfx" onChange={e => setCertFile(e.target.files?.[0] || null)} />
+          <FileInput label="Certificado (.pfx)" accept=".pfx" onChange={handleCertFileChange} />
           <Input label="Senha" type="password" value={certPassword} onChange={e => setCertPassword(e.target.value)} />
           <div className="flex gap-4">
             {catalogo?.certificadoPfxPath && (
