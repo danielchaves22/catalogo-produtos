@@ -6,13 +6,13 @@ import {
   criarCatalogo,
   atualizarCatalogo,
   removerCatalogo,
-  uploadCertificado,
-  downloadCertificado
+  downloadCertificado,
+  vincularCertificado
 } from '../controllers/catalogo.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import { createCatalogoSchema, updateCatalogoSchema } from '../validators/catalogo.validator';
-import { uploadCertificadoSchema } from '../validators/catalogo-certificado.validator';
+import { vincularCertificadoSchema } from '../validators/certificado.validator';
 
 const router = Router();
 
@@ -25,7 +25,7 @@ router.get('/:id', obterCatalogo);
 router.post('/', validate(createCatalogoSchema), criarCatalogo);
 router.put('/:id', validate(updateCatalogoSchema), atualizarCatalogo);
 router.delete('/:id', removerCatalogo);
-router.post('/:id/certificado', validate(uploadCertificadoSchema), uploadCertificado);
+router.put('/:id/certificado', validate(vincularCertificadoSchema), vincularCertificado);
 router.get('/:id/certificado', downloadCertificado);
 
 export default router;

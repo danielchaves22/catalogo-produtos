@@ -4,7 +4,6 @@ import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { FileInput } from '@/components/ui/FileInput';
 import { MaskedInput } from '@/components/ui/MaskedInput';
 import { Button } from '@/components/ui/Button';
 import { CustomSelect } from '@/components/ui/CustomSelect';
@@ -14,7 +13,6 @@ import { useToast } from '@/components/ui/ToastContext';
 import { ArrowLeft, Save } from 'lucide-react';
 import api from '@/lib/api';
 import { onlyNumbers, isValidCPFOrCNPJ } from '@/lib/validation';
-import { Tabs } from '@/components/ui/Tabs';
 
 interface CatalogoFormData {
   nome: string;
@@ -26,7 +24,12 @@ interface CatalogoCompleto extends CatalogoFormData {
   id: number;
   numero: number;
   ultima_alteracao: string;
-  certificadoPfxPath?: string | null;
+  certificadoId?: number | null;
+}
+
+interface Certificado {
+  id: number;
+  nome: string;
 }
 
 export default function CatalogoFormPage() {
@@ -40,25 +43,21 @@ export default function CatalogoFormPage() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [uploadMode, setUploadMode] = useState(false);
-  const [certFile, setCertFile] = useState<File | null>(null);
-  const [certPassword, setCertPassword] = useState('');
-  const [uploadingCert, setUploadingCert] = useState(false);
+  const [certificados, setCertificados] = useState<Certificado[]>([]);
+  const [certificadoId, setCertificadoId] = useState<number | null>(null);
+  const [vinculando, setVinculando] = useState(false);
 
-  function handleCertFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) {
-      const isPfx =
-        file.name.toLowerCase().endsWith('.pfx') ||
-        file.type === 'application/x-pkcs12';
-      if (!isPfx) {
-        addToast('Apenas arquivos .pfx são permitidos', 'error');
-        e.target.value = '';
-        setCertFile(null);
-        return;
-      }
+  useEffect(() => {
+    carregarCertificados();
+  }, []);
+
+  async function carregarCertificados() {
+    try {
+      const res = await api.get('/certificados');
+      setCertificados(res.data);
+    } catch (error) {
+      addToast('Erro ao carregar certificados', 'error');
     }
-    setCertFile(file || null);
   }
   
   const router = useRouter();
@@ -80,6 +79,7 @@ export default function CatalogoFormPage() {
       setLoading(true);
       const response = await api.get(`/catalogos/${catalogoId}`);
       setCatalogo(response.data);
+      setCertificadoId(response.data.certificadoId || null);
       setFormData({
         nome: response.data.nome,
         cpf_cnpj: onlyNumbers(response.data.cpf_cnpj || ''), // Armazena apenas números
@@ -91,6 +91,21 @@ export default function CatalogoFormPage() {
       router.push('/catalogos');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function vincularCertificado() {
+    if (!catalogo || !certificadoId) return;
+    try {
+      setVinculando(true);
+      await api.put(`/catalogos/${catalogo.id}/certificado`, { certificadoId });
+      setCatalogo(prev => (prev ? { ...prev, certificadoId } : prev));
+      addToast('Certificado vinculado com sucesso', 'success');
+    } catch (error) {
+      console.error('Erro ao vincular certificado:', error);
+      addToast('Erro ao vincular certificado', 'error');
+    } finally {
+      setVinculando(false);
     }
   }
 
@@ -179,56 +194,6 @@ export default function CatalogoFormPage() {
     router.push('/catalogos');
   }
 
-  function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result.split(',')[1]);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function handleUploadCertificado() {
-    if (!certFile || !certPassword || !catalogo) return;
-    try {
-      setUploadingCert(true);
-      const fileContent = await fileToBase64(certFile);
-      const res = await api.post(`/catalogos/${catalogo.id}/certificado`, {
-        fileContent,
-        password: certPassword
-      });
-      setCatalogo(prev => (prev ? { ...prev, certificadoPfxPath: res.data.path } : prev));
-      setUploadMode(false);
-      setCertFile(null);
-      setCertPassword('');
-      addToast('Certificado enviado com sucesso', 'success');
-    } catch (error) {
-      console.error('Erro ao enviar certificado:', error);
-      addToast('Erro ao enviar certificado', 'error');
-    } finally {
-      setUploadingCert(false);
-    }
-  }
-
-  async function baixarCertificado() {
-    if (!catalogo) return;
-    try {
-      const res = await api.get(`/catalogos/${catalogo.id}/certificado`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(res.data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `certificado-${catalogo.id}.pfx`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      console.error('Erro ao baixar certificado:', error);
-      addToast('Erro ao baixar certificado', 'error');
-    }
-  }
 
   const dadosContent = (
     <Card>
@@ -301,41 +266,21 @@ export default function CatalogoFormPage() {
 
   const certificadoContent = (
     <Card>
-      {catalogo?.certificadoPfxPath && !uploadMode ? (
-        <div className="space-y-4">
-          <p className="text-white">Certificado já enviado.</p>
-          <div className="flex gap-4">
-            <Button type="button" onClick={baixarCertificado}>Baixar</Button>
-            <Button type="button" variant="outline" onClick={() => setUploadMode(true)}>
-              Enviar novo
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <FileInput label="Certificado (.pfx)" accept=".pfx" onChange={handleCertFileChange} />
-          <Input label="Senha" type="password" value={certPassword} onChange={e => setCertPassword(e.target.value)} />
-          <div className="flex gap-4">
-            {catalogo?.certificadoPfxPath && (
-              <Button type="button" variant="outline" onClick={() => { setUploadMode(false); setCertFile(null); setCertPassword(''); }}>
-                Cancelar
-              </Button>
-            )}
-            <Button type="button" onClick={handleUploadCertificado} disabled={uploadingCert || !certFile || !certPassword}>
-              {uploadingCert ? 'Enviando...' : 'Enviar'}
-            </Button>
-          </div>
-        </div>
-      )}
+      <div className="space-y-4">
+        <CustomSelect
+          label="Certificado"
+          name="certificado"
+          value={certificadoId ? String(certificadoId) : ''}
+          onChange={(value) => setCertificadoId(Number(value))}
+          options={certificados.map(c => ({ value: String(c.id), label: c.nome }))}
+          placeholder="Selecione o certificado"
+        />
+        <Button type="button" onClick={vincularCertificado} disabled={!certificadoId || vinculando}>
+          {vinculando ? 'Salvando...' : 'Vincular'}
+        </Button>
+      </div>
     </Card>
   );
-
-  const tabs = isNew
-    ? [{ id: 'dados', label: 'Dados', content: dadosContent }]
-    : [
-        { id: 'dados', label: 'Dados', content: dadosContent },
-        { id: 'certificado', label: 'Certificado', content: certificadoContent }
-      ];
 
   if (loading) {
     return (
@@ -366,7 +311,8 @@ export default function CatalogoFormPage() {
           {isNew ? 'Criar Novo Catálogo' : 'Editar Catálogo'}
         </h1>
       </div>
-      <Tabs tabs={tabs} />
+      {dadosContent}
+      {!isNew && certificadoContent}
     </DashboardLayout>
   );
 }
