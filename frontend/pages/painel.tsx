@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import api from '@/lib/api';
 import { ListaProdutosPainel } from '@/components/dashboard/ListaProdutosPainel';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ResumoDashboard {
   catalogos: {
@@ -18,6 +19,7 @@ interface ResumoDashboard {
 export default function PainelPage() {
   const [resumo, setResumo] = useState<ResumoDashboard | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     async function carregarResumo() {
@@ -40,6 +42,9 @@ export default function PainelPage() {
         <p className="text-gray-400">Carregando...</p>
       ) : (
         <>
+          <h2 className="text-2xl font-semibold text-white mb-6">
+            Bem-vindo{user?.name ? `, ${user.name}` : ''}!
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <Card headerTitle="Produtos">
               <p className="text-4xl font-bold text-white mb-4">
