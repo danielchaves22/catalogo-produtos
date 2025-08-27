@@ -2,7 +2,6 @@
 import { CatalogoStatus } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
-import { encrypt } from '../utils/crypto';
 
 export interface CreateCatalogoDTO {
   nome: string;
@@ -33,7 +32,7 @@ export class CatalogoService {
           numero: true,
           status: true,
           superUserId: true,
-          certificadoPfxPath: true
+          certificadoId: true
         }
       });
     } catch (error: unknown) {
@@ -57,7 +56,7 @@ export class CatalogoService {
           numero: true,
           status: true,
           superUserId: true,
-          certificadoPfxPath: true
+          certificadoId: true
         }
       });
     } catch (error: unknown) {
@@ -103,7 +102,7 @@ export class CatalogoService {
           numero: true,
           status: true,
           superUserId: true,
-          certificadoPfxPath: true
+          certificadoId: true
         }
       });
     } catch (error: unknown) {
@@ -160,7 +159,7 @@ export class CatalogoService {
           numero: true,
           status: true,
           superUserId: true,
-          certificadoPfxPath: true
+          certificadoId: true
         }
       }))!;
     } catch (error: unknown) {
@@ -191,19 +190,18 @@ export class CatalogoService {
     }
   }
 
-  async salvarCertificado(id: number, senha: string, path: string, superUserId: number): Promise<void> {
-    const encrypted = encrypt(senha);
+  async vincularCertificado(id: number, certificadoId: number, superUserId: number): Promise<void> {
     await catalogoPrisma.catalogo.updateMany({
       where: { id, superUserId },
-      data: { certificadoPfxPath: path, certificadoSenha: encrypted }
+      data: { certificadoId }
     });
   }
 
   async obterCertificadoPath(id: number, superUserId: number): Promise<string | null> {
     const catalogo = await catalogoPrisma.catalogo.findFirst({
       where: { id, superUserId },
-      select: { certificadoPfxPath: true }
+      select: { certificado: { select: { pfxPath: true } } }
     });
-    return catalogo?.certificadoPfxPath || null;
+    return catalogo?.certificado?.pfxPath || null;
   }
 }

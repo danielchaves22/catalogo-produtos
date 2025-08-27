@@ -1,4 +1,15 @@
--- Criar o schema catpro-hml
+-- Criar tabela de certificados
+CREATE TABLE IF NOT EXISTS certificado (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    super_user_id INT UNSIGNED NOT NULL,
+    nome VARCHAR(255) NOT NULL,
+    pfx_path VARCHAR(255) NOT NULL,
+    senha VARCHAR(255),
+    criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_cert_super_user_id (super_user_id)
+);
+
 CREATE TABLE IF NOT EXISTS catalogo (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nome VARCHAR(255) NOT NULL,
@@ -7,11 +18,12 @@ CREATE TABLE IF NOT EXISTS catalogo (
     numero INT UNSIGNED NOT NULL,
     status ENUM('ATIVO', 'INATIVO') NOT NULL DEFAULT 'ATIVO',
     super_user_id INT UNSIGNED NOT NULL,
-    certificado_pfx_path VARCHAR(255),
-    certificado_senha VARCHAR(255),
+    certificado_id INT UNSIGNED,
     PRIMARY KEY (id),
     UNIQUE INDEX idx_numero (numero),
-    INDEX idx_super_user_id (super_user_id)
+    INDEX idx_super_user_id (super_user_id),
+    INDEX idx_certificado_id (certificado_id),
+    CONSTRAINT fk_catalogo_certificado FOREIGN KEY (certificado_id) REFERENCES certificado(id)
 );
 
 -- Função para gerar números aleatórios de 6 dígitos

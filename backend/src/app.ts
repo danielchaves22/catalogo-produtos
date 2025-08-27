@@ -5,6 +5,7 @@ import { json, urlencoded } from 'body-parser';
 
 import authRoutes from './routes/auth.routes';
 import catalogoRoutes from './routes/catalogo.routes';
+import certificadoRoutes from './routes/certificado.routes';
 import produtoRoutes from './routes/produto.routes';
 import { authMiddleware } from './middlewares/auth.middleware';
 import { setupSwagger } from './swagger';
@@ -35,6 +36,8 @@ apiRouter.use('/upload', uploadRoutes);
 
 // Rotas de catálogos (protegidas)
 apiRouter.use('/catalogos', catalogoRoutes);
+// Rotas de certificados (protegidas)
+apiRouter.use('/certificados', certificadoRoutes);
 
 // Rotas SISCOMEX (protegidas)
 apiRouter.use('/siscomex', siscomexRoutes);

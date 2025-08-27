@@ -20,6 +20,7 @@ model User {
   name      String   @map("nomecompleto")
 
   subUsuarios SubUsuario[]
+  certificados Certificado[]
 
   @@map("comex")
 }
@@ -33,6 +34,20 @@ model SubUsuario {
   superUser   User  @relation(fields: [superUserId], references: [id])
 
   @@map("comex_subsessoes")
+}
+
+model Certificado {
+  id           Int    @id @default(autoincrement()) @map("id")
+  superUserId  Int    @map("super_user_id")
+  nome         String @map("nome")
+  pfxPath      String @map("pfx_path")
+  senha        String @map("senha")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+
+  superUser    User    @relation(fields: [superUserId], references: [id])
+  catalogos    Catalogo[]
+
+  @@map("certificado")
 }
 
 enum Role {
@@ -54,8 +69,8 @@ model Catalogo {
   numero           Int            @map("numero")
   status           CatalogoStatus @map("status")
   superUserId      Int            @map("super_user_id")
-  certificadoPfxPath String?      @map("certificado_pfx_path")
-  certificadoSenha   String?      @map("certificado_senha")
+  certificadoId   Int?           @map("certificado_id")
+  certificado     Certificado?   @relation(fields: [certificadoId], references: [id])
   produtos         Produto[]
   operadoresEstrangeiros OperadorEstrangeiro[]
 

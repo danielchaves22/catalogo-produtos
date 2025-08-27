@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { 
+import {
   FileText, PieChart, Briefcase, Users,
-  ChevronLeft, ChevronRight, User
+  ChevronLeft, ChevronRight, User, File
 } from 'lucide-react';
 
 // Tipo para submenu - href é opcional para itens não clicáveis
@@ -75,6 +75,13 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       label: 'Catálogos',
       subItems: [
         { label: 'Catálogos', href: '/catalogos', showWhenExpanded: true },
+      ],
+    },
+    {
+      icon: <File size={20} />,
+      label: 'Certificados',
+      subItems: [
+        { label: 'Certificados', href: '/certificados', showWhenExpanded: true },
       ],
     },
     {
