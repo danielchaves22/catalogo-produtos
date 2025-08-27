@@ -67,6 +67,7 @@ export class ProdutoService {
 
     return produtos.map(p => ({
       ...p,
+      numero: p.numero,
       codigosInternos: p.codigosInternos.map(ci => ci.codigo),
       operadoresEstrangeiros: p.operadoresEstrangeiros.map(o => ({
         id: o.id,
@@ -94,6 +95,7 @@ export class ProdutoService {
     if (!p) return null;
     return {
       ...p,
+      numero: p.numero,
       codigosInternos: p.codigosInternos.map(ci => ci.codigo),
       operadoresEstrangeiros: p.operadoresEstrangeiros.map(o => ({
         id: o.id,
@@ -146,6 +148,7 @@ export class ProdutoService {
           modalidade: data.modalidade,
           denominacao: data.denominacao,
           descricao: data.descricao,
+          numero: 0,
           catalogoId: data.catalogoId,
           versaoEstruturaAtributos: 1,
           criadoPor: data.criadoPor || null,
