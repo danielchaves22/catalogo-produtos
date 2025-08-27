@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/Card';
 import { FileInput } from '@/components/ui/FileInput';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
 
@@ -33,6 +34,12 @@ export default function CertificadosPage() {
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
+    if (f && !f.name.toLowerCase().endsWith('.pfx')) {
+      addToast('Apenas arquivos .pfx são permitidos', 'error');
+      e.target.value = '';
+      setFile(null);
+      return;
+    }
     setFile(f || null);
   }
 
@@ -69,6 +76,17 @@ export default function CertificadosPage() {
 
   return (
     <DashboardLayout title="Certificados">
+      <Breadcrumb
+        items={[
+          { label: 'Início', href: '/' },
+          { label: 'Certificados' }
+        ]}
+      />
+
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-white">Certificados</h1>
+      </div>
+
       <Card className="mb-6">
         <div className="space-y-4">
           <FileInput label="Certificado (.pfx)" accept=".pfx" onChange={handleFileChange} />
