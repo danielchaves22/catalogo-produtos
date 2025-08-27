@@ -219,6 +219,7 @@ model Produto {
   modalidade                String?           @map("modalidade")
   denominacao               String            @map("denominacao")
   descricao                 String            @map("descricao")
+  numero                    Int               @unique @map("numero")
   catalogoId                Int               @map("catalogo_id")
   catalogo                  Catalogo          @relation(fields: [catalogoId], references: [id])
   criadoEm                  DateTime          @default(now()) @map("criado_em")

@@ -68,6 +68,50 @@ END$$
 
 DELIMITER ;
 
+-- Função para gerar números aleatórios de 6 dígitos para produtos
+DELIMITER $$;
+
+CREATE FUNCTION IF NOT EXISTS generate_unique_random_produto_numero()
+RETURNS INT UNSIGNED
+BEGIN
+    DECLARE random_num INT UNSIGNED;
+    DECLARE is_unique BOOLEAN;
+    DECLARE max_attempts INT DEFAULT 100;
+    DECLARE attempt_count INT DEFAULT 0;
+
+    SET is_unique = FALSE;
+
+    WHILE NOT is_unique AND attempt_count < max_attempts DO
+        SET random_num = FLOOR(100000 + RAND() * 900000);
+        IF NOT EXISTS (SELECT 1 FROM produto WHERE numero = random_num) THEN
+            SET is_unique = TRUE;
+        END IF;
+        SET attempt_count = attempt_count + 1;
+    END WHILE;
+
+    IF NOT is_unique THEN
+        SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM produto;
+    END IF;
+
+    RETURN random_num;
+END$$
+
+DELIMITER ;
+
+-- Trigger para inserir o número automático antes do INSERT na tabela produto
+DELIMITER $$;
+
+CREATE TRIGGER IF NOT EXISTS before_produto_insert
+BEFORE INSERT ON produto
+FOR EACH ROW
+BEGIN
+    IF NEW.numero IS NULL OR NEW.numero = 0 THEN
+        SET NEW.numero = generate_unique_random_produto_numero();
+    END IF;
+END$$
+
+DELIMITER ;
+
     -- Script SQL - Operador Estrangeiro
     -- Adicionar ao arquivo de criação de tabelas
 
@@ -182,6 +226,7 @@ DELIMITER ;
         modalidade VARCHAR(50),
         denominacao VARCHAR(100) NOT NULL,
         descricao TEXT NOT NULL,
+        numero INT UNSIGNED NOT NULL,
         -- Rastreabilidade
         atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -192,7 +237,8 @@ DELIMITER ;
         INDEX idx_catalogo (catalogo_id),
         INDEX idx_situacao (situacao),
         FOREIGN KEY (catalogo_id) REFERENCES catalogo(id),
-        UNIQUE KEY uk_codigo_versao (codigo, versao)
+        UNIQUE KEY uk_codigo_versao (codigo, versao),
+        UNIQUE INDEX idx_numero (numero)
     );
 
     CREATE TABLE IF NOT EXISTS produto_atributos (
