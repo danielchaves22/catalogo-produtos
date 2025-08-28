@@ -179,7 +179,7 @@ export default function CatalogosPage() {
                         <Trash2 size={16} />
                       </button>
                     </td>
-                    <td className="px-4 py-3 font-mono text-[#f59e0b]">{catalogo.numero}</td>
+                    <td className="px-4 py-3 font-mono text-red-500">{catalogo.numero}</td>
                     <td className="px-4 py-3 font-medium text-white">{catalogo.nome}</td>
                     {/* CORRIGIDO: CPF/CNPJ formatado */}
                     <td className="px-4 py-3 font-mono">
