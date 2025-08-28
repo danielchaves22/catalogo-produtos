@@ -8,6 +8,7 @@ import { Sidebar } from './Sidebar';
 import { User, RefreshCcw } from 'lucide-react';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { WorkingCatalogModal } from '@/components/catalogos/WorkingCatalogModal';
+import { useToast } from '@/components/ui/ToastContext';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -16,6 +17,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
+  const { addToast } = useToast();
   const router = useRouter();
   const { workingCatalog } = useWorkingCatalog();
   const [catalogModalOpen, setCatalogModalOpen] = useState(false);
@@ -23,6 +25,7 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
   // Estado para controlar a visibilidade do menu do usuário
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const welcomeShown = useRef(false);
   
   // Obtém o estado salvo no localStorage ou usa o padrão
   const getSavedCollapsedState = () => {
@@ -72,6 +75,14 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
     setUserMenuOpen(false);
     action();
   };
+
+  // Exibe mensagem de boas-vindas ao usuário autenticado
+  useEffect(() => {
+    if (user && !welcomeShown.current) {
+      addToast(`Bem-vindo, ${user.name}!`);
+      welcomeShown.current = true;
+    }
+  }, [user, addToast]);
 
   return (
     <div className="flex flex-col h-screen bg-[#1e2126]">
