@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
+import { Download, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 
 interface Certificado {
@@ -17,6 +18,9 @@ export default function CertificadosPage() {
   const [certificados, setCertificados] = useState<Certificado[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [password, setPassword] = useState('');
+  const [nome, setNome] = useState('');
+  const [certificadoParaExcluir, setCertificadoParaExcluir] = useState<Certificado | null>(null);
+  const [catalogosVinculados, setCatalogosVinculados] = useState<{ id: number; nome: string }[]>([]);
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -41,6 +45,9 @@ export default function CertificadosPage() {
       return;
     }
     setFile(f || null);
+    if (f) {
+      setNome(f.name.replace(/\.pfx$/i, ''));
+    }
   }
 
   function fileToBase64(file: File): Promise<string> {
@@ -56,21 +63,66 @@ export default function CertificadosPage() {
   }
 
   async function upload() {
-    if (!file || !password) return;
+    if (!file || !password || !nome) return;
     try {
       const fileContent = await fileToBase64(file);
       await api.post('/certificados', {
-        nome: file.name.replace(/\.pfx$/i, ''),
+        nome,
         fileContent,
         password
       });
       setFile(null);
       setPassword('');
+      setNome('');
       addToast('Certificado enviado com sucesso', 'success');
       carregar();
     } catch (error) {
       console.error('Erro ao enviar certificado:', error);
       addToast('Erro ao enviar certificado', 'error');
+    }
+  }
+
+  async function baixarCertificado(id: number, nome: string) {
+    try {
+      const res = await api.get(`/certificados/${id}/download`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${nome}.pfx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      addToast('Erro ao baixar certificado', 'error');
+    }
+  }
+
+  async function confirmarRemocao(cert: Certificado) {
+    try {
+      const res = await api.get(`/certificados/${cert.id}/catalogos`);
+      setCatalogosVinculados(res.data);
+    } catch (error) {
+      addToast('Erro ao carregar catálogos vinculados', 'error');
+      setCatalogosVinculados([]);
+    }
+    setCertificadoParaExcluir(cert);
+  }
+
+  function cancelarRemocao() {
+    setCertificadoParaExcluir(null);
+    setCatalogosVinculados([]);
+  }
+
+  async function removerCertificado() {
+    if (!certificadoParaExcluir) return;
+    try {
+      await api.delete(`/certificados/${certificadoParaExcluir.id}`);
+      setCertificados(certificados.filter(c => c.id !== certificadoParaExcluir.id));
+      addToast('Certificado removido com sucesso', 'success');
+    } catch (error) {
+      addToast('Erro ao remover certificado', 'error');
+    } finally {
+      cancelarRemocao();
     }
   }
 
@@ -89,18 +141,63 @@ export default function CertificadosPage() {
 
       <Card className="mb-6">
         <div className="space-y-4">
+          <Input label="Nome" value={nome} onChange={e => setNome(e.target.value)} />
           <FileInput label="Certificado (.pfx)" accept=".pfx" onChange={handleFileChange} />
           <Input label="Senha" type="password" value={password} onChange={e => setPassword(e.target.value)} />
-          <Button onClick={upload} disabled={!file || !password}>Enviar</Button>
+          <Button onClick={upload} disabled={!file || !password || !nome}>Enviar</Button>
         </div>
       </Card>
       <Card>
         <ul className="space-y-2">
           {certificados.map(c => (
-            <li key={c.id} className="text-white">{c.nome}</li>
+            <li key={c.id} className="text-white flex justify-between items-center">
+              <span>{c.nome}</span>
+              <div className="flex gap-2">
+                <button
+                  className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
+                  onClick={() => baixarCertificado(c.id, c.nome)}
+                  title="Baixar certificado"
+                >
+                  <Download size={16} />
+                </button>
+                <button
+                  className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                  onClick={() => confirmarRemocao(c)}
+                  title="Excluir certificado"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </li>
           ))}
         </ul>
       </Card>
+
+      {certificadoParaExcluir && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-4">Confirmar Exclusão</h3>
+            <p className="text-gray-300 mb-4">
+              O certificado será desvinculado dos seguintes catálogos:
+            </p>
+            <ul className="text-gray-300 mb-6 list-disc list-inside max-h-40 overflow-y-auto">
+              {catalogosVinculados.length > 0 ? (
+                catalogosVinculados.map(cat => <li key={cat.id}>{cat.nome}</li>)
+              ) : (
+                <li>Nenhum catálogo vinculado</li>
+              )}
+            </ul>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={cancelarRemocao}>
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={removerCertificado}>
+                Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

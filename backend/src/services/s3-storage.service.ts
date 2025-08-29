@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
 import { StorageProvider } from './storage.interface';
 import { AppEnv } from '../utils/environment';
@@ -45,5 +45,13 @@ export class S3StorageProvider implements StorageProvider {
       body.on('end', () => resolve(Buffer.concat(chunks)));
       body.on('error', reject);
     });
+  }
+
+  async delete(path: string): Promise<void> {
+    const command = new DeleteObjectCommand({
+      Bucket: this.bucketRoot,
+      Key: path,
+    });
+    await this.client.send(command);
   }
 }

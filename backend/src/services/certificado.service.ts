@@ -29,4 +29,37 @@ export class CertificadoService {
       select: { id: true, nome: true }
     });
   }
+
+  async listarCatalogos(certificadoId: number, superUserId: number) {
+    return catalogoPrisma.catalogo.findMany({
+      where: { certificadoId, superUserId },
+      select: { id: true, nome: true }
+    });
+  }
+
+  async obterArquivo(id: number, superUserId: number) {
+    const cert = await catalogoPrisma.certificado.findFirst({
+      where: { id, superUserId },
+      select: { pfxPath: true, nome: true }
+    });
+    if (!cert) throw new Error('Certificado não encontrado');
+    const provider = storageFactory();
+    const file = await provider.get(cert.pfxPath);
+    return { file, nome: cert.nome };
+  }
+
+  async remover(id: number, superUserId: number) {
+    const cert = await catalogoPrisma.certificado.findFirst({
+      where: { id, superUserId },
+      select: { pfxPath: true }
+    });
+    if (!cert) throw new Error('Certificado não encontrado');
+    const provider = storageFactory();
+    await catalogoPrisma.catalogo.updateMany({
+      where: { certificadoId: id, superUserId },
+      data: { certificadoId: null }
+    });
+    await catalogoPrisma.certificado.delete({ where: { id } });
+    await provider.delete(cert.pfxPath).catch(() => {});
+  }
 }
