@@ -7,3 +7,4 @@ export const DATABASE_URL = process.env.DATABASE_URL || '';
 export const API_VERSION = process.env.API_VERSION || 'v1';
 export const API_PREFIX = `/api/${API_VERSION}`;
 export const APP_ENV = (process.env.APP_ENV || 'local').toLowerCase();
+export const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME || '';

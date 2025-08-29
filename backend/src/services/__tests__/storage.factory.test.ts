@@ -4,6 +4,7 @@ import path from 'path';
 describe('StorageFactory', () => {
   afterEach(async () => {
     delete process.env.APP_ENV;
+    delete process.env.S3_BUCKET_NAME;
     jest.resetModules();
     await fs.rm(path.resolve('uploads'), { recursive: true, force: true });
   });
@@ -22,6 +23,7 @@ describe('StorageFactory', () => {
 
   it('deve usar S3 quando APP_ENV=hml', async () => {
     process.env.APP_ENV = 'hml';
+    process.env.S3_BUCKET_NAME = 'test-bucket';
     const { storageFactory } = await import('../storage.factory');
     const { S3StorageProvider } = await import('../s3-storage.service');
     const provider = storageFactory();

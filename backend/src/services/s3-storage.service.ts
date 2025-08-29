@@ -1,14 +1,17 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
 import { StorageProvider } from './storage.interface';
-import { AppEnv } from '../utils/environment';
+import { S3_BUCKET_NAME } from '../config';
 
 export class S3StorageProvider implements StorageProvider {
   private client: S3Client;
   private bucketRoot: string;
 
-  constructor(env: AppEnv) {
-    this.bucketRoot = env === 'prod' ? 'catprod-prd' : 'catprod-hml';
+  constructor() {
+    this.bucketRoot = S3_BUCKET_NAME;
+    if (!this.bucketRoot) {
+      throw new Error('S3_BUCKET_NAME não configurado');
+    }
     this.client = new S3Client({
       region: process.env.AWS_REGION || 'us-east-1',
       credentials:

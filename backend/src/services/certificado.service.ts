@@ -1,7 +1,7 @@
 import { catalogoPrisma } from '../utils/prisma';
 import { encrypt } from '../utils/crypto';
 import { storageFactory } from './storage.factory';
-import { getBucketName } from '../utils/environment';
+import { getStoragePath } from '../utils/environment';
 
 export interface UploadCertificadoDTO {
   nome: string;
@@ -19,7 +19,7 @@ export class CertificadoService {
 
   async criar(data: UploadCertificadoDTO, superUserId: number) {
     const provider = storageFactory();
-    const base = getBucketName({ identifier: String(superUserId), type: 'certificados' });
+    const base = getStoragePath({ identifier: String(superUserId), type: 'certificados' });
     const path = `${base}/${data.nome}.pfx`;
     const buffer = Buffer.from(data.fileContent, 'base64');
     await provider.upload(buffer, path);

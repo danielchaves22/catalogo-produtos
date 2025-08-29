@@ -1,25 +1,29 @@
 import { Router } from 'express';
 import { storageFactory } from '../services/storage.factory';
-import { getBucketName } from '../utils/environment';
+import { getStoragePath } from '../utils/environment';
 
 const router = Router();
 
 router.post('/', async (req, res) => {
-  const { fileName, fileContent, identifier, catalogo, type } = req.body as {
+  const { fileName, fileContent, identifier, catalogo, produto, type } = req.body as {
     fileName?: string;
     fileContent?: string;
     identifier?: string;
     catalogo?: string;
+    produto?: string;
     type?: 'certificados' | 'anexos';
   };
 
   if (!fileName || !fileContent || !identifier || !type) {
     return res.status(400).json({ error: 'Parâmetros obrigatórios ausentes' });
   }
+  if (type === 'anexos' && (!catalogo || !produto)) {
+    return res.status(400).json({ error: 'catalogo e produto são obrigatórios para anexos' });
+  }
 
   try {
     const provider = storageFactory();
-    const base = getBucketName({ identifier, catalogo, type });
+    const base = getStoragePath({ identifier, catalogo, produto, type });
     const path = `${base}/${fileName}`;
     const buffer = Buffer.from(fileContent, 'base64');
     await provider.upload(buffer, path);
