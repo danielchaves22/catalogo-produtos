@@ -7,5 +7,5 @@ export function storageFactory(): StorageProvider {
   if (APP_ENV === 'local') {
     return new LocalStorageProvider();
   }
-  return new S3StorageProvider(APP_ENV as any);
+  return new S3StorageProvider();
 }

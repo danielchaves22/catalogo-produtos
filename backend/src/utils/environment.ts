@@ -6,28 +6,21 @@ export const isLocal = (): boolean => APP_ENV === 'local';
 export const isHml = (): boolean => APP_ENV === 'hml';
 export const isProd = (): boolean => APP_ENV === 'prod';
 
-interface BucketParams {
+interface StoragePathParams {
   identifier: string; // id_superuser ou cnpj
   catalogo?: string; // codigo do catalogo
+  produto?: string; // numero do produto
   type: 'certificados' | 'anexos';
-  env?: AppEnv;
 }
 
-export function getBucketName({ identifier, catalogo, type, env = APP_ENV as AppEnv }: BucketParams): string {
-  if (env === 'local') {
-    const base = type === 'certificados'
-      ? `${identifier}/certificados`
-      : `${identifier}/${catalogo}/anexos`;
-    return base;
-  }
-  const root = env === 'prod' ? 'catprod-prd' : 'catprod-hml';
+export function getStoragePath({ identifier, catalogo, produto, type }: StoragePathParams): string {
   if (type === 'certificados') {
-    return `${root}/${identifier}/certificados`;
+    return `${identifier}/certificados`;
   }
-  if (!catalogo) {
-    throw new Error('catalogo é obrigatório para anexos');
+  if (!catalogo || !produto) {
+    throw new Error('catalogo e produto são obrigatórios para anexos');
   }
-  return `${root}/${identifier}/${catalogo}/anexos`;
+  return `${identifier}/${catalogo}/${produto}`;
 }
 
 export type { AppEnv };
