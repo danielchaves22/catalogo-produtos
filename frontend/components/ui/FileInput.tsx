@@ -20,7 +20,7 @@ export function FileInput({ label, error, hint, className = '', ...props }: File
       <input
         id={props.id}
         type="file"
-        className="w-full text-sm text-gray-300 bg-[#1e2126] border border-gray-700 rounded-md file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+        className="w-full text-sm text-gray-300 bg-[#1e2126] border border-gray-700 rounded-md file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600"
         {...props}
       />
       {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
