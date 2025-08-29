@@ -89,6 +89,21 @@ export function ListaProdutosPainel() {
     }
   }
 
+  function formatarNCM(ncm?: string) {
+    if (!ncm) return '-';
+    const digits = ncm.replace(/\D/g, '').slice(0, 8);
+    if (!digits) return '-';
+    let formatted = digits;
+    if (digits.length <= 4) {
+      formatted = digits;
+    } else if (digits.length <= 6) {
+      formatted = digits.replace(/(\d{4})(\d{1,2})/, '$1.$2');
+    } else {
+      formatted = digits.replace(/(\d{4})(\d{2})(\d{1,2})/, '$1.$2.$3');
+    }
+    return `${formatted}`;
+  }
+
   function getModalidadeLabel(modalidade: string) {
     switch (modalidade) {
       case 'IMPORTACAO':
@@ -204,10 +219,11 @@ export function ListaProdutosPainel() {
               <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
                 <tr>
                   <th className="w-16 px-4 py-3 text-center">Ações</th>
+                  <th className="px-4 py-3">Nº CATÁLOGO</th>
                   <th className="px-4 py-3">Catálogo</th>
                   <th className="px-4 py-3">Nome</th>
                   <th className="px-4 py-3">Cód. Int. (SKU/PN)</th>
-                  <th className="px-4 py-3">Modalidade</th>
+                  <th className="px-4 py-3">NCM</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Situação</th>
                   <th className="px-4 py-3">Última Alteração</th>
@@ -235,6 +251,7 @@ export function ListaProdutosPainel() {
                         <Trash2 size={16} />
                       </button>
                     </td>
+                    <td className="px-4 py-3">{produto.catalogoNumero ?? '-'}</td>
                     <td className="px-4 py-3">{produto.catalogoNome ?? '-'}</td>
                     <td className="px-4 py-3">{produto.denominacao ?? produto.codigo ?? '-'}</td>
                     <td className="px-4 py-3">
@@ -251,9 +268,7 @@ export function ListaProdutosPainel() {
                         '-'
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      {produto.modalidade ? getModalidadeLabel(produto.modalidade) : '-'}
-                    </td>
+                    <td className="px-4 py-3">{formatarNCM(produto.ncmCodigo)}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClasses(
