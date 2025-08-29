@@ -26,3 +26,38 @@ export async function uploadCertificado(req: Request, res: Response) {
     return res.status(500).json({ error: message });
   }
 }
+
+export async function listarCatalogosCertificado(req: Request, res: Response) {
+  const { id } = req.params;
+  try {
+    const catalogos = await certificadoService.listarCatalogos(Number(id), req.user!.superUserId);
+    return res.status(200).json(catalogos);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro ao listar catálogos do certificado';
+    return res.status(500).json({ error: message });
+  }
+}
+
+export async function downloadCertificado(req: Request, res: Response) {
+  const { id } = req.params;
+  try {
+    const { file, nome } = await certificadoService.obterArquivo(Number(id), req.user!.superUserId);
+    res.setHeader('Content-Type', 'application/x-pkcs12');
+    res.setHeader('Content-Disposition', `attachment; filename=${nome}.pfx`);
+    return res.send(file);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro ao baixar certificado';
+    return res.status(500).json({ error: message });
+  }
+}
+
+export async function removerCertificado(req: Request, res: Response) {
+  const { id } = req.params;
+  try {
+    await certificadoService.remover(Number(id), req.user!.superUserId);
+    return res.status(204).send();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro ao remover certificado';
+    return res.status(500).json({ error: message });
+  }
+}
