@@ -51,6 +51,17 @@ export async function downloadCertificado(req: Request, res: Response) {
   }
 }
 
+export async function extrairInformacoes(req: Request, res: Response) {
+  const { id } = req.params;
+  try {
+    const info = await certificadoService.extrairInformacoes(Number(id), req.user!.superUserId);
+    return res.status(200).json(info);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro ao extrair informações do certificado';
+    return res.status(500).json({ error: message });
+  }
+}
+
 export async function removerCertificado(req: Request, res: Response) {
   const { id } = req.params;
   try {

@@ -1,7 +1,15 @@
 import { catalogoPrisma } from '../utils/prisma';
-import { encrypt } from '../utils/crypto';
+import { encrypt, decrypt } from '../utils/crypto';
 import { storageFactory } from './storage.factory';
 import { getStoragePath } from '../utils/environment';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { tmpdir } from 'os';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import { X509Certificate } from 'crypto';
+
+const execFileAsync = promisify(execFile);
 
 export interface UploadCertificadoDTO {
   nome: string;
@@ -46,6 +54,41 @@ export class CertificadoService {
     const provider = storageFactory();
     const file = await provider.get(cert.pfxPath);
     return { file, nome: cert.nome };
+  }
+
+  async extrairInformacoes(id: number, superUserId: number) {
+    const cert = await catalogoPrisma.certificado.findFirst({
+      where: { id, superUserId },
+      select: { pfxPath: true, senha: true }
+    });
+    if (!cert) throw new Error('Certificado não encontrado');
+    const provider = storageFactory();
+    const buffer = await provider.get(cert.pfxPath);
+    const senha = decrypt(cert.senha);
+
+    const tmpDir = await fs.mkdtemp(path.join(tmpdir(), 'pfx-'));
+    const pfxPath = path.join(tmpDir, 'cert.pfx');
+    const certPath = path.join(tmpDir, 'cert.pem');
+    await fs.writeFile(pfxPath, buffer);
+
+    try {
+      await execFileAsync('openssl', ['pkcs12', '-in', pfxPath, '-passin', `pass:${senha}`, '-nokeys', '-clcerts', '-out', certPath]);
+      const pemRaw = await fs.readFile(certPath, 'utf8');
+      const match = pemRaw.match(/-----BEGIN CERTIFICATE-----[\s\S]*-----END CERTIFICATE-----/);
+      if (!match) throw new Error('Certificado inválido');
+      const x509 = new X509Certificate(match[0]);
+      return {
+        subject: x509.subject,
+        issuer: x509.issuer,
+        validFrom: x509.validFrom,
+        validTo: x509.validTo,
+        serialNumber: x509.serialNumber
+      };
+    } catch (error) {
+      throw new Error('Falha ao ler certificado: senha inválida ou arquivo corrompido');
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    }
   }
 
   async remover(id: number, superUserId: number) {

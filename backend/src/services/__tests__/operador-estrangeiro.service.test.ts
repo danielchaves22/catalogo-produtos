@@ -46,6 +46,7 @@ describe('OperadorEstrangeiroService - superUserId', () => {
   })
 
   it('usa superUserId ao remover', async () => {
+    ;(catalogoPrisma.operadorEstrangeiro.findFirst as jest.Mock).mockResolvedValue({ id: 2 })
     ;(catalogoPrisma.operadorEstrangeiro.update as jest.Mock).mockResolvedValue({})
     await service.remover(2, 1)
     expect(catalogoPrisma.operadorEstrangeiro.update).toHaveBeenCalledWith(

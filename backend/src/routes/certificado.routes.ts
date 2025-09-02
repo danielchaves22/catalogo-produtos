@@ -5,6 +5,7 @@ import {
   listarCatalogosCertificado,
   removerCertificado,
   downloadCertificado,
+  extrairInformacoes,
 } from '../controllers/certificado.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
@@ -17,6 +18,7 @@ router.get('/', listarCertificados);
 router.post('/', validate(uploadCertificadoSchema), uploadCertificado);
 router.get('/:id/catalogos', listarCatalogosCertificado);
 router.get('/:id/download', downloadCertificado);
+router.get('/:id/info', extrairInformacoes);
 router.delete('/:id', removerCertificado);
 
 export default router;

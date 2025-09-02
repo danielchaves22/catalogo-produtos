@@ -6,12 +6,20 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
-import { Download, Trash2 } from 'lucide-react';
+import { Eye, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 
 interface Certificado {
   id: number;
   nome: string;
+}
+
+interface CertificadoInfo {
+  subject: string;
+  issuer: string;
+  validFrom: string;
+  validTo: string;
+  serialNumber: string;
 }
 
 export default function CertificadosPage() {
@@ -21,6 +29,7 @@ export default function CertificadosPage() {
   const [nome, setNome] = useState('');
   const [certificadoParaExcluir, setCertificadoParaExcluir] = useState<Certificado | null>(null);
   const [catalogosVinculados, setCatalogosVinculados] = useState<{ id: number; nome: string }[]>([]);
+  const [visualizando, setVisualizando] = useState<{ cert: Certificado; info?: CertificadoInfo } | null>(null);
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -82,18 +91,14 @@ export default function CertificadosPage() {
     }
   }
 
-  async function baixarCertificado(id: number, nome: string) {
+  async function visualizarCertificado(cert: Certificado) {
     try {
-      const res = await api.get(`/certificados/${id}/download`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${nome}.pfx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      setVisualizando({ cert });
+      const res = await api.get(`/certificados/${cert.id}/info`);
+      setVisualizando({ cert, info: res.data });
     } catch (error) {
-      addToast('Erro ao baixar certificado', 'error');
+      addToast('Erro ao carregar informações do certificado', 'error');
+      setVisualizando(null);
     }
   }
 
@@ -155,10 +160,10 @@ export default function CertificadosPage() {
               <div className="flex gap-2">
                 <button
                   className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
-                  onClick={() => baixarCertificado(c.id, c.nome)}
-                  title="Baixar certificado"
+                  onClick={() => visualizarCertificado(c)}
+                  title="Visualizar dados do certificado"
                 >
-                  <Download size={16} />
+                  <Eye size={16} />
                 </button>
                 <button
                   className="p-1 text-gray-300 hover:text-red-500 transition-colors"
@@ -198,6 +203,47 @@ export default function CertificadosPage() {
           </div>
         </div>
       )}
+      {visualizando && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-lg w-full p-6 border border-gray-700 text-gray-300">
+            <h3 className="text-xl font-semibold text-white mb-4">
+              Dados do Certificado — {visualizando.cert.nome}
+            </h3>
+            {!visualizando.info ? (
+              <p className="text-gray-400">Carregando informações…</p>
+            ) : (
+              <div className="space-y-2">
+                <div>
+                  <span className="text-gray-400">Subject: </span>
+                  <span className="text-gray-100 break-all">{visualizando.info.subject}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Issuer: </span>
+                  <span className="text-gray-100 break-all">{visualizando.info.issuer}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Válido de: </span>
+                  <span className="text-gray-100">{visualizando.info.validFrom}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Válido até: </span>
+                  <span className="text-gray-100">{visualizando.info.validTo}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Número de série: </span>
+                  <span className="text-gray-100 break-all">{visualizando.info.serialNumber}</span>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-3 mt-6">
+              <Button variant="outline" onClick={() => setVisualizando(null)}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </DashboardLayout>
   );
 }
