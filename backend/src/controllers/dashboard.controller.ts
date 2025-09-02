@@ -3,12 +3,33 @@ import { catalogoPrisma } from '../utils/prisma';
 
 export async function obterResumoDashboard(req: Request, res: Response) {
   try {
-    const totalCatalogos = await catalogoPrisma.catalogo.count();
-    const totalProdutos = await catalogoPrisma.produto.count();
+    const superUserId = req.user!.superUserId;
+    const headerCatalogId = req.headers['x-catalogo-trabalho'];
+    const queryCatalogId = req.query.catalogoId as string | undefined;
+    const catalogoId = queryCatalogId
+      ? Number(queryCatalogId)
+      : (typeof headerCatalogId === 'string' ? Number(headerCatalogId) : undefined);
+
+    // Garantir filtro por superUser sempre
+    const catalogoWhere: any = { superUserId };
+    if (catalogoId && !Number.isNaN(catalogoId)) {
+      catalogoWhere.id = catalogoId;
+    }
+
+    const totalCatalogos = await catalogoPrisma.catalogo.count({ where: catalogoWhere });
+
+    // Filtros de produto por relação com catálogo do usuário e opcionalmente por catálogo específico
+    const produtoWhere: any = { catalogo: { superUserId } };
+    if (catalogoId && !Number.isNaN(catalogoId)) {
+      produtoWhere.catalogoId = catalogoId;
+    }
+
+    const totalProdutos = await catalogoPrisma.produto.count({ where: produtoWhere });
 
     const porStatusRaw = await catalogoPrisma.produto.groupBy({
       by: ['status'],
-      _count: { status: true }
+      _count: { status: true },
+      where: produtoWhere
     });
 
     const porStatus: Record<string, number> = {};

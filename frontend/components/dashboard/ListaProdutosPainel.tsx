@@ -6,6 +6,7 @@ import { Search, Pencil, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { useRouter } from 'next/router';
 import { useToast } from '@/components/ui/ToastContext';
+import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 
 interface Produto {
   id: number;
@@ -35,15 +36,17 @@ export function ListaProdutosPainel() {
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<number | null>(null);
   const router = useRouter();
   const { addToast } = useToast();
+  const { workingCatalog } = useWorkingCatalog();
 
   useEffect(() => {
     carregarProdutos();
-  }, []);
+  }, [workingCatalog]);
 
   async function carregarProdutos() {
     try {
       setLoading(true);
-      const response = await api.get('/produtos');
+      const params = workingCatalog?.id ? { catalogoId: workingCatalog.id } : undefined;
+      const response = await api.get('/produtos', { params });
       setProdutos(response.data);
       setError(null);
     } catch (err) {

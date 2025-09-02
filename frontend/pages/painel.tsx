@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import api from '@/lib/api';
 import { ListaProdutosPainel } from '@/components/dashboard/ListaProdutosPainel';
+import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 
 interface ResumoDashboard {
   catalogos: {
@@ -18,11 +19,13 @@ interface ResumoDashboard {
 export default function PainelPage() {
   const [resumo, setResumo] = useState<ResumoDashboard | null>(null);
   const [loading, setLoading] = useState(true);
+  const { workingCatalog } = useWorkingCatalog();
 
   useEffect(() => {
     async function carregarResumo() {
       try {
-        const response = await api.get('/dashboard/resumo');
+        const params = workingCatalog?.id ? { catalogoId: workingCatalog.id } : undefined;
+        const response = await api.get('/dashboard/resumo', { params });
         setResumo(response.data);
       } catch (error) {
         console.error('Erro ao carregar resumo do painel:', error);
@@ -32,7 +35,7 @@ export default function PainelPage() {
     }
 
     carregarResumo();
-  }, []);
+  }, [workingCatalog]);
 
   return (
     <DashboardLayout title="Painel">
