@@ -1,3 +1,18 @@
+-- Criar tabela de registro de usuários autenticados
+CREATE TABLE IF NOT EXISTS usuario_catalogo (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    legacy_id INT UNSIGNED NOT NULL,
+    username VARCHAR(255) NOT NULL,
+    nome VARCHAR(255) NOT NULL,
+    super_user_id INT UNSIGNED NOT NULL,
+    role VARCHAR(10) NOT NULL,
+    ultimo_login DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE INDEX uk_usuario_catalogo_username (username)
+);
+
 -- Criar tabela de certificados
 CREATE TABLE IF NOT EXISTS certificado (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -434,3 +449,19 @@ DELIMITER ;
     ('ISO', 'ISO', 'International Organization for Standardization'),
     ('WTO', 'WTO', 'World Trade Organization'),
     ('WCO', 'WCO', 'World Customs Organization');
+
+-- Atualização para bases existentes
+-- Execute o bloco abaixo em bancos já criados para registrar usuários autenticados
+-- CREATE TABLE usuario_catalogo (
+--     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+--     legacy_id INT UNSIGNED NOT NULL,
+--     username VARCHAR(255) NOT NULL,
+--     nome VARCHAR(255) NOT NULL,
+--     super_user_id INT UNSIGNED NOT NULL,
+--     role VARCHAR(10) NOT NULL,
+--     ultimo_login DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+--     PRIMARY KEY (id),
+--     UNIQUE INDEX uk_usuario_catalogo_username (username)
+-- );

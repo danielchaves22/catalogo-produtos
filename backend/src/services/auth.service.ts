@@ -1,5 +1,5 @@
 // backend/src/services/auth.service.ts
-import { legacyPrisma } from '../utils/prisma';
+import { legacyPrisma, catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import aprMd5 from 'apache-md5';
 import { AuthUser } from '../interfaces/auth-user';
@@ -97,5 +97,33 @@ export class AuthService {
    */
   formatUserData(user: AuthUser): AuthUser {
     return { ...user };
+  }
+
+  /**
+   * Registra ou atualiza os dados do usuário no catálogo após login
+   */
+  async registerUserLogin(user: AuthUser): Promise<void> {
+    try {
+      await catalogoPrisma.usuarioCatalogo.upsert({
+        where: { username: user.email },
+        update: {
+          nome: user.name,
+          legacyId: user.id,
+          superUserId: user.superUserId,
+          role: user.role,
+          ultimoLogin: new Date(),
+        },
+        create: {
+          username: user.email,
+          nome: user.name,
+          legacyId: user.id,
+          superUserId: user.superUserId,
+          role: user.role,
+          ultimoLogin: new Date(),
+        },
+      });
+    } catch (error: unknown) {
+      logger.error(`Erro ao registrar usuário no catálogo: ${user.email}`, error);
+    }
   }
 }

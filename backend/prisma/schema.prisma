@@ -50,6 +50,20 @@ model Certificado {
   @@map("certificado")
 }
 
+model UsuarioCatalogo {
+  id          Int      @id @default(autoincrement()) @map("id")
+  legacyId    Int      @map("legacy_id")
+  username    String   @unique @map("username")
+  nome        String   @map("nome")
+  superUserId Int      @map("super_user_id")
+  role        String   @map("role")
+  ultimoLogin DateTime @default(now()) @map("ultimo_login")
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  @@map("usuario_catalogo")
+}
+
 enum Role {
   ADMIN
   SUPERUSER

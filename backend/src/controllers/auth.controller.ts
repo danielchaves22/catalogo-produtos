@@ -40,6 +40,9 @@ export async function login(req: Request, res: Response) {
     // Remove a senha do objeto
     const { password: _pwd, ...userData } = user;
 
+    // Registra/atualiza o usuário no catálogo
+    await authService.registerUserLogin(userData);
+
     // Gera o token JWT
     const token = generateToken(userData);
 
