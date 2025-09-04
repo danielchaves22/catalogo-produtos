@@ -12,6 +12,7 @@ import { setupSwagger } from './swagger';
 import siscomexRoutes from './routes/siscomex.routes';
 import operadorEstrangeiroRoutes from './routes/operador-estrangeiro.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import usuarioRoutes from './routes/usuario.routes';
 import { Router } from 'express';
 import { API_PREFIX } from './config';
 import uploadRoutes from './routes/upload.routes';
@@ -47,6 +48,9 @@ apiRouter.use('/operadores-estrangeiros', operadorEstrangeiroRoutes);
 
 // Rotas de produtos (protegidas)
 apiRouter.use('/produtos', produtoRoutes);
+
+// Rotas de usuários (protegidas)
+apiRouter.use('/usuarios', usuarioRoutes);
 
 // Rotas de painel (protegidas)
 apiRouter.use('/dashboard', dashboardRoutes);

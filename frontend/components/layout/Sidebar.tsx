@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import {
   FileText, PieChart, Briefcase, Users,
-  ChevronLeft, ChevronRight, User, Key
+  ChevronLeft, ChevronRight, User, Key, UserCog
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Tipo para submenu - href é opcional para itens não clicáveis
 type SubMenuItem = {
@@ -61,6 +62,8 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
     localStorage.setItem('sidebarCollapsed', JSON.stringify(collapsed));
   }, [collapsed]);
 
+  const { user } = useAuth();
+
   // Menu com páginas existentes - Dashboard aponta para /
   const menuItems: SidebarItem[] = [
     {
@@ -98,14 +101,25 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
         { label: 'Produtos', href: '/produtos', showWhenExpanded: true },
       ],
     },
-    {
-      icon: <User size={20} />,
-      label: 'Perfil',
-      subItems: [
-        { label: 'Perfil', href: '/perfil', showWhenExpanded: true },
-      ],
-    },
   ];
+
+  if (user?.role === 'SUPER') {
+    menuItems.push({
+      icon: <UserCog size={20} />,
+      label: 'Usuários',
+      subItems: [
+        { label: 'Usuários', href: '/usuarios', showWhenExpanded: true },
+      ],
+    });
+  }
+
+  menuItems.push({
+    icon: <User size={20} />,
+    label: 'Perfil',
+    subItems: [
+      { label: 'Perfil', href: '/perfil', showWhenExpanded: true },
+    ],
+  });
 
   const toggleSidebar = () => {
     const newCollapsedState = !collapsed;
