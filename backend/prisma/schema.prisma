@@ -61,7 +61,20 @@ model UsuarioCatalogo {
   criadoEm    DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
+  permissoes UsuarioPermissao[]
+
   @@map("usuario_catalogo")
+}
+
+model UsuarioPermissao {
+  id                Int  @id @default(autoincrement()) @map("id")
+  usuarioCatalogoId Int  @map("usuario_catalogo_id")
+  codigo            String @map("codigo")
+
+  usuario UsuarioCatalogo @relation(fields: [usuarioCatalogoId], references: [id])
+
+  @@unique([usuarioCatalogoId, codigo], name: "uk_usuario_codigo")
+  @@map("usuario_permissao")
 }
 
 enum Role {
