@@ -13,6 +13,16 @@ CREATE TABLE IF NOT EXISTS usuario_catalogo (
     UNIQUE INDEX uk_usuario_catalogo_username (username)
 );
 
+-- Tabela de permissões de subusuários
+CREATE TABLE IF NOT EXISTS usuario_permissao (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    usuario_catalogo_id INT UNSIGNED NOT NULL,
+    codigo VARCHAR(255) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE INDEX uk_usuario_codigo (usuario_catalogo_id, codigo),
+    CONSTRAINT fk_usuario_permissao_usuario FOREIGN KEY (usuario_catalogo_id) REFERENCES usuario_catalogo(id) ON DELETE CASCADE
+);
+
 -- Criar tabela de certificados
 CREATE TABLE IF NOT EXISTS certificado (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,

@@ -9,6 +9,8 @@ interface User {
   id: number;
   name: string;
   email: string;
+  superUserId: number;
+  role: 'SUPER' | 'SUB';
 }
 
 interface AuthContextData {
