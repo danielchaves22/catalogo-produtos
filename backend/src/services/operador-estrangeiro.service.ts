@@ -1,4 +1,4 @@
-// backend/src/services/operador-estrangeiro.service.ts - CORRIGIDO
+// backend/src/services/operador-estrangeiro.service.ts
 import { OperadorEstrangeiro, OperadorEstrangeiroStatus, Pais, Subdivisao, AgenciaEmissora, Catalogo } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
@@ -38,16 +38,11 @@ export interface OperadorEstrangeiroCompleto extends OperadorEstrangeiro {
 }
 
 export class OperadorEstrangeiroService {
-
-  /**
-   * Lista todos os operadores estrangeiros
-   */
+  // Lista todos
   async listarTodos(catalogoId: number | undefined, superUserId: number): Promise<OperadorEstrangeiroCompleto[]> {
     try {
       const whereClause: any = { catalogo: { superUserId } };
-      if (catalogoId) {
-        whereClause.catalogoId = catalogoId;
-      }
+      if (catalogoId) whereClause.catalogoId = catalogoId;
 
       return await catalogoPrisma.operadorEstrangeiro.findMany({
         where: whereClause,
@@ -55,11 +50,7 @@ export class OperadorEstrangeiroService {
           catalogo: true,
           pais: true,
           subdivisao: true,
-          identificacoesAdicionais: {
-            include: {
-              agenciaEmissora: true
-            }
-          }
+          identificacoesAdicionais: { include: { agenciaEmissora: true } }
         },
         orderBy: { dataUltimaAlteracao: 'desc' }
       });
@@ -69,9 +60,7 @@ export class OperadorEstrangeiroService {
     }
   }
 
-  /**
-   * Busca um operador estrangeiro pelo ID
-   */
+  // Buscar por ID
   async buscarPorId(id: number, superUserId: number): Promise<OperadorEstrangeiroCompleto | null> {
     try {
       return await catalogoPrisma.operadorEstrangeiro.findFirst({
@@ -80,11 +69,7 @@ export class OperadorEstrangeiroService {
           catalogo: true,
           pais: true,
           subdivisao: true,
-          identificacoesAdicionais: {
-            include: {
-              agenciaEmissora: true
-            }
-          }
+          identificacoesAdicionais: { include: { agenciaEmissora: true } }
         }
       });
     } catch (error: unknown) {
@@ -93,25 +78,16 @@ export class OperadorEstrangeiroService {
     }
   }
 
-  /**
-   * Busca operadores por TIN
-   */
+  // Buscar por TIN
   async buscarPorTin(tin: string, superUserId: number): Promise<OperadorEstrangeiroCompleto[]> {
     try {
       return await catalogoPrisma.operadorEstrangeiro.findMany({
-        where: {
-          tin: { contains: tin },
-          catalogo: { superUserId }
-        },
+        where: { tin: { contains: tin }, catalogo: { superUserId } },
         include: {
           catalogo: true,
           pais: true,
           subdivisao: true,
-          identificacoesAdicionais: {
-            include: {
-              agenciaEmissora: true
-            }
-          }
+          identificacoesAdicionais: { include: { agenciaEmissora: true } }
         }
       });
     } catch (error: unknown) {
@@ -120,10 +96,7 @@ export class OperadorEstrangeiroService {
     }
   }
 
-  /**
-   * Cria um novo operador estrangeiro
-   * CORRIGIDO: Agora aceita CNPJ completo
-   */
+  // Criar
   async criar(data: CreateOperadorEstrangeiroDTO): Promise<OperadorEstrangeiroCompleto> {
     try {
       const operador = await catalogoPrisma.operadorEstrangeiro.create({
@@ -140,19 +113,13 @@ export class OperadorEstrangeiroService {
           subdivisaoCodigo: data.subdivisaoCodigo || null,
           situacao: data.situacao,
           dataReferencia: data.dataReferencia,
-          identificacoesAdicionais: data.identificacoesAdicionais ? {
-            create: data.identificacoesAdicionais
-          } : undefined
+          identificacoesAdicionais: data.identificacoesAdicionais ? { create: data.identificacoesAdicionais } : undefined
         },
         include: {
           catalogo: true,
           pais: true,
           subdivisao: true,
-          identificacoesAdicionais: {
-            include: {
-              agenciaEmissora: true
-            }
-          }
+          identificacoesAdicionais: { include: { agenciaEmissora: true } }
         }
       });
 
@@ -163,55 +130,47 @@ export class OperadorEstrangeiroService {
     }
   }
 
-  /**
-   * Atualiza um operador estrangeiro existente (gera nova versão)
-   */
+  // Atualizar (sem nova versão)
   async atualizar(id: number, data: UpdateOperadorEstrangeiroDTO): Promise<OperadorEstrangeiroCompleto> {
     try {
-      const operadorAtual = await this.buscarPorId(id, data.superUserId!);
-      if (!operadorAtual) {
-        throw new Error(`Operador estrangeiro ID ${id} não encontrado`);
-      }
+      const atual = await this.buscarPorId(id, data.superUserId!);
+      if (!atual) throw new Error(`Operador estrangeiro ID ${id} não encontrado`);
 
-      // Marca a versão atual como rascunho antes de criar a nova versão
-      await catalogoPrisma.operadorEstrangeiro.update({
+      const opt = (v: unknown) => (v === '' ? null : (v as any));
+
+      const atualizado = await catalogoPrisma.operadorEstrangeiro.update({
         where: { id },
-        data: { situacao: 'RASCUNHO' },
-      });
-
-      // Cria nova versão
-      const novaVersao = await catalogoPrisma.operadorEstrangeiro.create({
         data: {
-          catalogoId: data.catalogoId || operadorAtual.catalogoId,
-          paisCodigo: data.paisCodigo || operadorAtual.paisCodigo,
-          tin: data.tin !== undefined ? data.tin : operadorAtual.tin,
-          nome: data.nome || operadorAtual.nome,
-          email: data.email !== undefined ? data.email : operadorAtual.email,
-          codigoInterno: data.codigoInterno !== undefined ? data.codigoInterno : operadorAtual.codigoInterno,
-          codigoPostal: data.codigoPostal !== undefined ? data.codigoPostal : operadorAtual.codigoPostal,
-          logradouro: data.logradouro !== undefined ? data.logradouro : operadorAtual.logradouro,
-          cidade: data.cidade !== undefined ? data.cidade : operadorAtual.cidade,
-          subdivisaoCodigo: data.subdivisaoCodigo !== undefined ? data.subdivisaoCodigo : operadorAtual.subdivisaoCodigo,
-          versao: operadorAtual.versao + 1,
-          situacao: data.situacao || operadorAtual.situacao,
-          dataReferencia: data.dataReferencia,
-          identificacoesAdicionais: data.identificacoesAdicionais ? {
-            create: data.identificacoesAdicionais
-          } : undefined
+          catalogoId: (data.catalogoId ?? undefined),
+          paisCodigo: (data.paisCodigo ?? undefined),
+          tin: (data.tin ?? undefined),
+          nome: (data.nome ?? undefined),
+          email: (data.email ?? undefined),
+          codigoInterno: (data.codigoInterno ?? undefined),
+          codigoPostal: (data.codigoPostal ?? undefined),
+          logradouro: (data.logradouro ?? undefined),
+          cidade: (data.cidade ?? undefined),
+          subdivisaoCodigo: (opt(data.subdivisaoCodigo) ?? undefined),
+          situacao: (data.situacao ?? undefined),
+          dataReferencia: (data.dataReferencia ?? undefined),
+          ...(data.identificacoesAdicionais !== undefined
+            ? {
+                identificacoesAdicionais: {
+                  deleteMany: {},
+                  ...(data.identificacoesAdicionais.length > 0 ? { create: data.identificacoesAdicionais } : {})
+                }
+              }
+            : {})
         },
         include: {
           catalogo: true,
           pais: true,
           subdivisao: true,
-          identificacoesAdicionais: {
-            include: {
-              agenciaEmissora: true
-            }
-          }
+          identificacoesAdicionais: { include: { agenciaEmissora: true } }
         }
       });
 
-      return novaVersao;
+      return atualizado;
     } catch (error: unknown) {
       logger.error(`Erro ao atualizar operador estrangeiro ID ${id}:`, error);
 
@@ -224,20 +183,13 @@ export class OperadorEstrangeiroService {
     }
   }
 
-  /**
-   * Remove um operador estrangeiro (desativa)
-   */
+  // Remover (desativar)
   async remover(id: number, superUserId: number): Promise<void> {
     try {
       const operador = await this.buscarPorId(id, superUserId);
-      if (!operador) {
-        throw new Error(`Operador estrangeiro ID ${id} não encontrado`);
-      }
+      if (!operador) throw new Error(`Operador estrangeiro ID ${id} não encontrado`);
 
-      await catalogoPrisma.operadorEstrangeiro.update({
-        where: { id },
-        data: { situacao: 'DESATIVADO' }
-      });
+      await catalogoPrisma.operadorEstrangeiro.update({ where: { id }, data: { situacao: 'DESATIVADO' } });
     } catch (error: unknown) {
       logger.error(`Erro ao remover operador estrangeiro ID ${id}:`, error);
 
@@ -250,35 +202,19 @@ export class OperadorEstrangeiroService {
     }
   }
 
-  // ========== SERVIÇOS PARA TABELAS AUXILIARES ==========
-
-  /**
-   * Lista todos os países
-   */
+  // ====== Auxiliares ======
   async listarPaises(): Promise<Pais[]> {
     try {
-      return await catalogoPrisma.pais.findMany({
-        orderBy: { nome: 'asc' }
-      });
+      return await catalogoPrisma.pais.findMany({ orderBy: { nome: 'asc' } });
     } catch (error: unknown) {
       logger.error('Erro ao listar países:', error);
       throw new Error('Falha ao listar países');
     }
   }
 
-  /**
-   * Lista subdivisões por país
-   */
   async listarSubdivisoesPorPais(paisCodigo: string): Promise<Subdivisao[]> {
     try {
-      console.log(`Service: Buscando subdivisões para país ${paisCodigo}`);
-      
-      const subdivisoes = await catalogoPrisma.subdivisao.findMany({
-        where: { paisCodigo },
-        orderBy: { nome: 'asc' }
-      });
-      
-      console.log(`Service: Encontradas ${subdivisoes.length} subdivisões`);
+      const subdivisoes = await catalogoPrisma.subdivisao.findMany({ where: { paisCodigo }, orderBy: { nome: 'asc' } });
       return subdivisoes;
     } catch (error: unknown) {
       logger.error(`Erro ao listar subdivisões do país ${paisCodigo}:`, error);
@@ -286,39 +222,21 @@ export class OperadorEstrangeiroService {
     }
   }
 
-  /**
-   * Lista todas as subdivisões
-   */
   async listarSubdivisoes(): Promise<Subdivisao[]> {
     try {
-      return await catalogoPrisma.subdivisao.findMany({
-        include: { pais: true },
-        orderBy: { nome: 'asc' }
-      });
+      return await catalogoPrisma.subdivisao.findMany({ include: { pais: true }, orderBy: { nome: 'asc' } });
     } catch (error: unknown) {
       logger.error('Erro ao listar subdivisões:', error);
       throw new Error('Falha ao listar subdivisões');
     }
   }
 
-  /**
-   * Lista CNPJs disponíveis dos catálogos para seleção
-   * CORRIGIDO: Retorna CNPJ completo, não apenas a raiz
-   */
   async listarCatalogos(superUserId: number): Promise<Array<{ id: number; cpf_cnpj: string | null; nome: string }>> {
     try {
       return await catalogoPrisma.catalogo.findMany({
-        select: {
-          id: true,
-          cpf_cnpj: true,
-          nome: true
-        },
-        where: {
-          superUserId
-        },
-        orderBy: {
-          nome: 'asc'
-        }
+        select: { id: true, cpf_cnpj: true, nome: true },
+        where: { superUserId },
+        orderBy: { nome: 'asc' }
       });
     } catch (error: unknown) {
       logger.error('Erro ao listar catálogos:', error);
@@ -326,19 +244,13 @@ export class OperadorEstrangeiroService {
     }
   }
 
-
-  /**
-   * Lista agências emissoras
-   */
   async listarAgenciasEmissoras(): Promise<AgenciaEmissora[]> {
     try {
-      return await catalogoPrisma.agenciaEmissora.findMany({
-        orderBy: { nome: 'asc' }
-      });
+      return await catalogoPrisma.agenciaEmissora.findMany({ orderBy: { nome: 'asc' } });
     } catch (error: unknown) {
       logger.error('Erro ao listar agências emissoras:', error);
       throw new Error('Falha ao listar agências emissoras');
     }
   }
-
 }
+
