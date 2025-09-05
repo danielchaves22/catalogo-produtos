@@ -5,6 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Toggle } from '@/components/ui/Toggle';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
@@ -95,14 +96,13 @@ export default function EditarUsuarioPage() {
             <div key={grupo.titulo} className="mb-4">
               <h3 className="font-medium text-white mb-2">{grupo.titulo}</h3>
               {grupo.permissoes.map(p => (
-                <label key={p.codigo} className="flex items-center gap-2 text-gray-300 mb-1">
-                  <input
-                    type="checkbox"
+                <div key={p.codigo} className="flex items-center justify-between text-gray-300 mb-1">
+                  <span>{p.descricao}</span>
+                  <Toggle
                     checked={selecionadas.includes(p.codigo)}
                     onChange={() => togglePermissao(p.codigo)}
-                    className="form-checkbox h-4 w-4"/>
-                  <span>{p.descricao}</span>
-                </label>
+                  />
+                </div>
               ))}
             </div>
           ))}
