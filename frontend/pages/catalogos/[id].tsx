@@ -163,6 +163,19 @@ export default function CatalogoFormPage() {
     return Object.keys(newErrors).length === 0;
   }
 
+  function handleApiError(error: any) {
+    if (error.response?.status === 400 && error.response?.data?.details) {
+      const details = error.response.data.details
+        .map((d: any) => `${d.field}: ${d.message}`)
+        .join('; ');
+      addToast(`Erro de validação: ${details}`, 'error');
+    } else if (error.response?.data?.error) {
+      addToast(error.response.data.error, 'error');
+    } else {
+      addToast('Erro ao salvar catálogo', 'error');
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     
@@ -182,9 +195,9 @@ export default function CatalogoFormPage() {
       }
       
       router.push('/catalogos');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar catálogo:', error);
-      addToast('Erro ao salvar catálogo', 'error');
+      handleApiError(error);
     } finally {
       setSubmitting(false);
     }
