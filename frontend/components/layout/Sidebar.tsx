@@ -81,13 +81,6 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       ],
     },
     {
-      icon: <Key size={20} />,
-      label: 'Certificados',
-      subItems: [
-        { label: 'Certificados', href: '/certificados', showWhenExpanded: true },
-      ],
-    },
-    {
       icon: <Users size={20} />,
       label: 'Operadores Estrangeiros',
       subItems: [
@@ -99,6 +92,13 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       label: 'Produtos',
       subItems: [
         { label: 'Produtos', href: '/produtos', showWhenExpanded: true },
+      ],
+    },
+    {
+      icon: <Key size={20} />,
+      label: 'Certificados',
+      subItems: [
+        { label: 'Certificados', href: '/certificados', showWhenExpanded: true },
       ],
     },
   ];
