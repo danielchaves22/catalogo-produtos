@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Hint } from '@/components/ui/Hint';
 import { Search, Pencil, Trash2 } from 'lucide-react';
+import { MultiSelect } from '@/components/ui/MultiSelect';
 import api from '@/lib/api';
 import { useRouter } from 'next/router';
 import { useToast } from '@/components/ui/ToastContext';
@@ -31,7 +32,7 @@ export function ListaProdutosPainel() {
   const [busca, setBusca] = useState('');
   const [filtros, setFiltros] = useState({
     status: 'TODOS',
-    situacao: 'TODOS'
+    situacoes: ['RASCUNHO', 'ATIVADO'] as Array<'ATIVADO' | 'DESATIVADO' | 'RASCUNHO'>
   });
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<number | null>(null);
   const router = useRouter();
@@ -126,7 +127,7 @@ export function ListaProdutosPainel() {
       (p.ncmCodigo && p.ncmCodigo.toLowerCase().includes(termo));
 
     const matchStatus = filtros.status === 'TODOS' || p.status === filtros.status;
-    const matchSituacao = filtros.situacao === 'TODOS' || p.situacao === filtros.situacao;
+    const matchSituacao = filtros.situacoes.length === 0 || (p.situacao ? filtros.situacoes.includes(p.situacao as any) : true);
 
     return matchBusca && matchStatus && matchSituacao;
   });
@@ -162,39 +163,54 @@ export function ListaProdutosPainel() {
       <Card className="mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative md:col-span-2">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <label className="block text-sm font-medium mb-2 text-gray-300">Buscar por nome, catálogo ou NCM</label>
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 pl-3 pointer-events-none">
               <Search size={18} className="text-gray-400" />
             </div>
             <input
               type="text"
-              placeholder="Buscar produto..."
               className="pl-10 pr-4 py-2 w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
               value={busca}
               onChange={e => setBusca(e.target.value)}
+              aria-label="Buscar por nome, catálogo ou NCM"
             />
           </div>
-          <select
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Status</label>
+            <select
+              className="w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
+              value={filtros.status}
+              onChange={e => setFiltros({ ...filtros, status: e.target.value })}
+            >
+              <option value="TODOS">Todos os status</option>
+              <option value="PENDENTE">Pendente</option>
+              <option value="APROVADO">Aprovado</option>
+              <option value="PROCESSANDO">Processando</option>
+              <option value="TRANSMITIDO">Transmitido</option>
+              <option value="ERRO">Erro</option>
+            </select>
+          </div>
+          <MultiSelect
+            label="Situação"
+            options={[
+              { value: 'ATIVADO', label: 'Ativado' },
+              { value: 'DESATIVADO', label: 'Desativado' },
+              { value: 'RASCUNHO', label: 'Rascunho' },
+            ]}
+            values={filtros.situacoes}
+            onChange={(vals) => setFiltros(prev => ({ ...prev, situacoes: vals as Array<'ATIVADO'|'DESATIVADO'|'RASCUNHO'> }))}
+            placeholder="Situação"
+          />
+          {false && ( <select
             className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
-            value={filtros.status}
-            onChange={e => setFiltros({ ...filtros, status: e.target.value })}
-          >
-            <option value="TODOS">Todos os status</option>
-            <option value="PENDENTE">Pendente</option>
-            <option value="APROVADO">Aprovado</option>
-            <option value="PROCESSANDO">Processando</option>
-            <option value="TRANSMITIDO">Transmitido</option>
-            <option value="ERRO">Erro</option>
-          </select>
-          <select
-            className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
-            value={filtros.situacao}
-            onChange={e => setFiltros({ ...filtros, situacao: e.target.value })}
+            value={''}
+            onChange={() => {}}
           >
             <option value="TODOS">Todas as situações</option>
             <option value="ATIVADO">Ativado</option>
             <option value="DESATIVADO">Desativado</option>
             <option value="RASCUNHO">Rascunho</option>
-          </select>
+          </select> ) }
           <div className="text-sm text-gray-400 self-center">
             Exibindo {produtosFiltrados.length} de {produtos.length} produtos
           </div>
