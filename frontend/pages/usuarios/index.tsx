@@ -13,6 +13,7 @@ interface Usuario {
   id: number;
   username: string;
   nome: string;
+  isLegacy?: boolean;
 }
 
 export default function UsuariosPage() {
@@ -51,6 +52,9 @@ export default function UsuariosPage() {
   return (
     <DashboardLayout title="Usuários">
       <Breadcrumb items={[{ label: 'Início', href: '/' }, { label: 'Usuários' }]} />
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-white">Lista de Usuários</h1>
+      </div>
       <Card>
         <table className="w-full text-sm text-left">
           <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
@@ -66,7 +70,13 @@ export default function UsuariosPage() {
                 <td className="px-4 py-3 text-center">
                   <button
                     className="p-1 text-gray-300 hover:text-blue-500"
-                    onClick={() => router.push(`/usuarios/${u.id}`)}
+                    onClick={() => {
+                      if (u.isLegacy) {
+                        router.push(`/usuarios/${u.id}?legacy=1`);
+                      } else {
+                        router.push(`/usuarios/${u.id}`);
+                      }
+                    }}
                     title="Editar"
                   >
                     <Pencil size={16} />
@@ -82,3 +92,4 @@ export default function UsuariosPage() {
     </DashboardLayout>
   );
 }
+

@@ -5,6 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { ArrowLeft } from 'lucide-react';
 import { Toggle } from '@/components/ui/Toggle';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,7 +23,7 @@ interface Usuario {
 export default function EditarUsuarioPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const { id } = router.query;
+  const { id, legacy } = router.query;
   const { addToast } = useToast();
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [selecionadas, setSelecionadas] = useState<string[]>([]);
@@ -40,7 +41,9 @@ export default function EditarUsuarioPage() {
 
   async function carregar() {
     try {
-      const res = await api.get(`/usuarios/${id}`);
+      const res = await api.get(`/usuarios/${id}`,
+        legacy ? { params: { legacy } } : undefined
+      );
       setUsuario(res.data);
       setSelecionadas(res.data.permissoes);
     } finally {
@@ -55,14 +58,18 @@ export default function EditarUsuarioPage() {
   }
 
   async function salvar() {
-    if (!id) return;
+    if (!usuario) return;
     try {
-      await api.put(`/usuarios/${id}/permissoes`, { permissoes: selecionadas });
+      await api.put(`/usuarios/${usuario.id}/permissoes`, { permissoes: selecionadas });
       addToast('Permissões atualizadas', 'success');
       router.push('/usuarios');
     } catch {
       addToast('Erro ao salvar permissões', 'error');
     }
+  }
+
+  function voltar() {
+    router.push('/usuarios');
   }
 
   if (loading || !usuario) {
@@ -76,6 +83,13 @@ export default function EditarUsuarioPage() {
   return (
     <DashboardLayout title="Usuários">
       <Breadcrumb items={[{ label: 'Início', href: '/' }, { label: 'Usuários', href: '/usuarios' }, { label: usuario.nome }]} />
+
+      <div className="mb-6 flex items-center gap-2">
+        <button onClick={voltar} className="text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft size={20} />
+        </button>
+        <h1 className="text-2xl font-semibold text-white">Editar Usuário</h1>
+      </div>
 
       <div className="space-y-6">
         <Card>
@@ -112,3 +126,4 @@ export default function EditarUsuarioPage() {
     </DashboardLayout>
   );
 }
+
