@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
-import { FileInput } from '@/components/ui/FileInput';
-import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
-import { Eye, Trash2 } from 'lucide-react';
+import { Eye, Trash2, Download, Plus, Search } from 'lucide-react';
 import api from '@/lib/api';
+import { useRouter } from 'next/router';
 
 interface Certificado {
   id: number;
@@ -24,13 +23,12 @@ interface CertificadoInfo {
 
 export default function CertificadosPage() {
   const [certificados, setCertificados] = useState<Certificado[]>([]);
-  const [file, setFile] = useState<File | null>(null);
-  const [password, setPassword] = useState('');
-  const [nome, setNome] = useState('');
   const [certificadoParaExcluir, setCertificadoParaExcluir] = useState<Certificado | null>(null);
   const [catalogosVinculados, setCatalogosVinculados] = useState<{ id: number; nome: string }[]>([]);
   const [visualizando, setVisualizando] = useState<{ cert: Certificado; info?: CertificadoInfo } | null>(null);
+  const [filtro, setFiltro] = useState('');
   const { addToast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     carregar();
@@ -42,52 +40,6 @@ export default function CertificadosPage() {
       setCertificados(res.data);
     } catch (error) {
       addToast('Erro ao carregar certificados', 'error');
-    }
-  }
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (f && !f.name.toLowerCase().endsWith('.pfx')) {
-      addToast('Apenas arquivos .pfx são permitidos', 'error');
-      e.target.value = '';
-      setFile(null);
-      return;
-    }
-    setFile(f || null);
-    if (f) {
-      setNome(f.name.replace(/\.pfx$/i, ''));
-    }
-  }
-
-  function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result.split(',')[1]);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function upload() {
-    if (!file || !password || !nome) return;
-    try {
-      const fileContent = await fileToBase64(file);
-      await api.post('/certificados', {
-        nome,
-        fileContent,
-        password
-      });
-      setFile(null);
-      setPassword('');
-      setNome('');
-      addToast('Certificado enviado com sucesso', 'success');
-      carregar();
-    } catch (error) {
-      console.error('Erro ao enviar certificado:', error);
-      addToast('Erro ao enviar certificado', 'error');
     }
   }
 
@@ -131,6 +83,17 @@ export default function CertificadosPage() {
     }
   }
 
+  function baixarCertificado(cert: Certificado) {
+    const url = `${api.defaults.baseURL}/certificados/${cert.id}/download`;
+    window.open(url, '_blank');
+  }
+
+  const certificadosFiltrados = useMemo(() => {
+    const termo = filtro.trim().toLowerCase();
+    if (!termo) return certificados;
+    return certificados.filter(c => c.nome.toLowerCase().includes(termo));
+  }, [filtro, certificados]);
+
   return (
     <DashboardLayout title="Certificados">
       <Breadcrumb
@@ -140,42 +103,96 @@ export default function CertificadosPage() {
         ]}
       />
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-white">Certificados</h1>
+      <div className="mb-6 flex justify-between items-center">
+        <h1 className="text-2xl font-semibold text-white">Lista de Certificados</h1>
+        <Button
+          variant="accent"
+          className="flex items-center gap-2"
+          onClick={() => router.push('/certificados/novo')}
+        >
+          <Plus size={16} />
+          <span>Novo Certificado</span>
+        </Button>
       </div>
 
       <Card className="mb-6">
-        <div className="space-y-4">
-          <Input label="Nome" value={nome} onChange={e => setNome(e.target.value)} />
-          <FileInput label="Certificado (.pfx)" accept=".pfx" onChange={handleFileChange} />
-          <Input label="Senha" type="password" value={password} onChange={e => setPassword(e.target.value)} />
-          <Button onClick={upload} disabled={!file || !password || !nome}>Enviar</Button>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div className="relative md:col-span-2">
+            <label className="block text-sm font-medium mb-2 text-gray-300">Buscar por nome</label>
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 pl-3 pointer-events-none">
+              <Search size={18} className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="pl-10 pr-4 py-2 w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
+              value={filtro}
+              onChange={(e) => setFiltro(e.target.value)}
+              aria-label="Buscar por nome"
+            />
+          </div>
+          <div className="text-sm text-gray-400">Exibindo {certificadosFiltrados.length} de {certificados.length} certificados</div>
         </div>
       </Card>
+
       <Card>
-        <ul className="space-y-2">
-          {certificados.map(c => (
-            <li key={c.id} className="text-white flex justify-between items-center">
-              <span>{c.nome}</span>
-              <div className="flex gap-2">
-                <button
-                  className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
-                  onClick={() => visualizarCertificado(c)}
-                  title="Visualizar dados do certificado"
-                >
-                  <Eye size={16} />
-                </button>
-                <button
-                  className="p-1 text-gray-300 hover:text-red-500 transition-colors"
-                  onClick={() => confirmarRemocao(c)}
-                  title="Excluir certificado"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        {certificados.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-gray-400 mb-4">Não há certificados cadastrados.</p>
+            <Button
+              variant="primary"
+              className="inline-flex items-center gap-2"
+              onClick={() => router.push('/certificados/novo')}
+            >
+              <Plus size={16} />
+              <span>Cadastrar Primeiro Certificado</span>
+            </Button>
+          </div>
+        ) : certificadosFiltrados.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-gray-400">Nenhum certificado encontrado com os filtros aplicados.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
+                <tr>
+                  <th className="w-20 px-4 py-3 text-center">Ações</th>
+                  <th className="px-4 py-3">Nome</th>
+                </tr>
+              </thead>
+              <tbody>
+                {certificadosFiltrados.map((c) => (
+                  <tr key={c.id} className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors">
+                    <td className="px-4 py-3 flex gap-2">
+                      <button
+                        className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
+                        onClick={() => visualizarCertificado(c)}
+                        title="Visualizar dados do certificado"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        className="p-1 text-gray-300 hover:text-green-500 transition-colors"
+                        onClick={() => baixarCertificado(c)}
+                        title="Baixar arquivo do certificado"
+                      >
+                        <Download size={16} />
+                      </button>
+                      <button
+                        className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                        onClick={() => confirmarRemocao(c)}
+                        title="Excluir certificado"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-white">{c.nome}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       {certificadoParaExcluir && (
@@ -203,6 +220,7 @@ export default function CertificadosPage() {
           </div>
         </div>
       )}
+
       {visualizando && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-[#151921] rounded-lg max-w-lg w-full p-6 border border-gray-700 text-gray-300">
@@ -247,3 +265,4 @@ export default function CertificadosPage() {
     </DashboardLayout>
   );
 }
+
