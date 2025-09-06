@@ -118,6 +118,11 @@ api.interceptors.response.use(
   (error) => {
     const status = error.response?.status;
     const errorMessage = error.response?.data?.error;
+    const requestUrl: string | undefined = error.config?.url;
+    // Se erro for no endpoint de login, não redirecionar; deixar o componente exibir o feedback
+    if (requestUrl && requestUrl.includes('/auth/login')) {
+      return Promise.reject(error);
+    }
     
     // Log detalhado de erro
     if (process.env.NODE_ENV === 'development') {

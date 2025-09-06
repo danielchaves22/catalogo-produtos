@@ -13,15 +13,20 @@ export class AuthService {
 
   constructor() {
     // Lê o salt do arquivo .env com fallback para o valor original
-    this.LEGACY_SALT = process.env.LEGACY_PASSWORD_SALT || "$1$Legicex$";
+    this.LEGACY_SALT = process.env.LEGACY_PASSWORD_SALT || '$1$Legicex$';
   }
 
   /**
-   * Busca um usuário pelo email
+   * Busca um usuário pelo identificador (email/username)
    */
   async findUserByEmail(email: string): Promise<AuthUserWithPassword | null> {
+    const identifier = (email ?? '').trim();
     try {
-      const user = await legacyPrisma.user.findUnique({ where: { email } });
+      // SUPER (tabela comex): campo "email" mapeia para coluna "username" no legado
+      const user = await legacyPrisma.user.findFirst({
+        // Em MySQL, sensibilidade a maiúsculas depende da collation da coluna
+        where: { email: { equals: identifier } },
+      });
       if (user) {
         return {
           id: user.id,
@@ -29,11 +34,14 @@ export class AuthService {
           email: user.email,
           superUserId: user.id,
           role: 'SUPER',
-          password: user.password
+          password: user.password,
         };
       }
 
-      const sub = await legacyPrisma.subUsuario.findUnique({ where: { email } });
+      // SUB (tabela comex_subsessoes): identificador armazenado em "email" (pode não ser um email real)
+      const sub = await legacyPrisma.subUsuario.findFirst({
+        where: { email: { equals: identifier } },
+      });
       if (sub) {
         return {
           id: sub.id,
@@ -41,13 +49,13 @@ export class AuthService {
           email: sub.email,
           superUserId: sub.superUserId,
           role: 'SUB',
-          password: sub.password
+          password: sub.password,
         };
       }
 
       return null;
     } catch (error: unknown) {
-      logger.error(`Erro ao buscar usuário por email: ${email}`, error);
+      logger.error(`Erro ao buscar usuário por identificador: ${identifier}`, error);
       throw new Error('Falha ao buscar usuário');
     }
   }
@@ -59,12 +67,24 @@ export class AuthService {
     try {
       const user = await legacyPrisma.user.findUnique({ where: { id } });
       if (user) {
-        return { id: user.id, name: user.name, email: user.email, superUserId: user.id, role: 'SUPER' };
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          superUserId: user.id,
+          role: 'SUPER',
+        };
       }
 
       const sub = await legacyPrisma.subUsuario.findUnique({ where: { id } });
       if (sub) {
-        return { id: sub.id, name: sub.email, email: sub.email, superUserId: sub.superUserId, role: 'SUB' };
+        return {
+          id: sub.id,
+          name: sub.email,
+          email: sub.email,
+          superUserId: sub.superUserId,
+          role: 'SUB',
+        };
       }
       return null;
     } catch (error: unknown) {
@@ -78,12 +98,12 @@ export class AuthService {
    */
   verifyPassword(inputPassword: string, hashedPassword: string): boolean {
     try {
-      // Reconstruindo o hash completo (salt + parte armazenada)
+      // Reconstrói o hash completo (salt + parte armazenada)
       const fullHash = this.LEGACY_SALT + hashedPassword;
-      
+
       // Gera o hash com o salt específico
       const calculatedHash = aprMd5(inputPassword, this.LEGACY_SALT);
-      
+
       // Compara o hash gerado com o hash completo
       return calculatedHash === fullHash;
     } catch (error: unknown) {

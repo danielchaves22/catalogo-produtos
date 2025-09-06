@@ -12,20 +12,22 @@ const authService = new AuthService();
  * Autenticação com Apache Md5Crypt para banco legado
  */
 export async function login(req: Request, res: Response) {
+  // No payload, o campo "email" representa o identificador do usuário (pode não ser um e-mail)
   const { email, password } = req.body;
+  const usuario = email as string;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email e password são obrigatórios.' });
+  if (!usuario || !password) {
+    return res.status(400).json({ error: 'Usuário e senha são obrigatórios.' });
   }
 
-  logger.info(`Tentativa de login para ${email} - IP: ${req.ip}`);
+  logger.info(`Tentativa de login para usuário ${usuario} - IP: ${req.ip}`);
 
   try {
-    // Busca o usuário pelo email
-    const user = await authService.findUserByEmail(email);
+    // Busca o usuário pelo identificador (email/username) na base legada
+    const user = await authService.findUserByEmail(usuario);
 
     if (!user) {
-      logger.warn(`Login falhou para ${email} - usuário não encontrado - IP: ${req.ip}`);
+      logger.warn(`Login falhou para usuário ${usuario} - não encontrado - IP: ${req.ip}`);
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
@@ -33,7 +35,7 @@ export async function login(req: Request, res: Response) {
     const isValid = authService.verifyPassword(password, user.password);
 
     if (!isValid) {
-      logger.warn(`Login falhou para ${email} - senha incorreta - IP: ${req.ip}`);
+      logger.warn(`Login falhou para usuário ${usuario} - senha incorreta - IP: ${req.ip}`);
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
@@ -46,7 +48,7 @@ export async function login(req: Request, res: Response) {
     // Gera o token JWT
     const token = generateToken(userData);
 
-    logger.info(`Login bem-sucedido para ${email} - IP: ${req.ip}`);
+    logger.info(`Login bem-sucedido para usuário ${usuario} - IP: ${req.ip}`);
     return res.status(200).json({
       token,
       user: userData,
@@ -87,3 +89,4 @@ export async function getAuthUser(req: Request, res: Response) {
     return res.status(500).json({ error: 'Erro interno ao buscar usuário' });
   }
 }
+

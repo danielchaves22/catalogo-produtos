@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Schema para registro (manter, mesmo que self‑signup esteja bloqueado)
+// Schema para registro (manter, mesmo que self-signup esteja bloqueado)
 export const registerSchema = z.object({
   email: z.string().email({ message: 'Email inválido.' }),
   password: z.string().min(6, { message: 'Password mínimo de 6 caracteres.' }),
@@ -9,6 +9,11 @@ export const registerSchema = z.object({
 
 // Schema para login
 export const loginSchema = z.object({
-  email: z.string().email({ message: 'Email inválido.' }),
+  // Permitir username que pode não ser um email (legado)
+  email: z
+    .string()
+    .min(1, { message: 'Usuário é obrigatório.' })
+    .max(255, { message: 'Usuário muito longo.' }),
   password: z.string().min(1, { message: 'Password é obrigatório.' })
 });
+
