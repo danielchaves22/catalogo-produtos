@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
-import { Plus, Trash2, AlertCircle, Pencil, FileText } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, Pencil, FileText, Copy } from 'lucide-react';
 import { useRouter } from 'next/router';
 import api from '@/lib/api';
 import { formatCPFOrCNPJ } from '@/lib/validation';
@@ -88,6 +88,19 @@ export default function CatalogosPage() {
     router.push('/catalogos/novo');
   }
 
+  async function clonarCatalogo(id: number) {
+    const cpfCnpj = prompt('Informe o novo CNPJ para o catálogo');
+    if (!cpfCnpj) return;
+    try {
+      await api.post(`/catalogos/${id}/clonar`, { cpf_cnpj: cpfCnpj });
+      addToast('Catálogo clonado com sucesso', 'success');
+      await carregarCatalogos();
+    } catch (err: any) {
+      const mensagem = err.response?.data?.error || 'Erro ao clonar catálogo';
+      addToast(mensagem, 'error');
+    }
+  }
+
   if (loading) {
     return (
       <DashboardLayout title="Catálogos">
@@ -163,6 +176,13 @@ export default function CatalogosPage() {
                         title="Ver produtos"
                       >
                         <FileText size={16} />
+                      </button>
+                      <button
+                        className="p-1 text-gray-300 hover:text-purple-500 transition-colors"
+                        onClick={() => clonarCatalogo(catalogo.id)}
+                        title="Clonar catálogo"
+                      >
+                        <Copy size={16} />
                       </button>
                       <button
                         className="p-1 text-gray-300 hover:text-blue-500 transition-colors"

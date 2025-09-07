@@ -18,10 +18,16 @@ export const updateCatalogoSchema = z.object({
   nome: z.string().min(1, { message: 'Nome é obrigatório' }),
   cpf_cnpj: z.string()
     .optional()
-    .refine((val) => !val || customValidations.cpfOrCnpj(val), { 
-      message: 'CPF ou CNPJ inválido' 
+    .refine((val) => !val || customValidations.cpfOrCnpj(val), {
+      message: 'CPF ou CNPJ inválido'
     }),
   status: z.enum(['ATIVO', 'INATIVO'], {
     message: 'Status deve ser ATIVO ou INATIVO'
+  })
+});
+
+export const cloneCatalogoSchema = z.object({
+  cpf_cnpj: z.string().refine((val) => customValidations.cpfOrCnpj(val), {
+    message: 'CPF ou CNPJ inválido'
   })
 });
