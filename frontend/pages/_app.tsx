@@ -23,6 +23,7 @@ export default function App(props: AppProps) {
     <>
       <Head>
         <title>Catálogo de Produtos</title>
+        <link rel="icon" href="/assets/images/icone_comexdez.png" />
       </Head>
       <AuthProvider>
         <WorkingCatalogProvider>
