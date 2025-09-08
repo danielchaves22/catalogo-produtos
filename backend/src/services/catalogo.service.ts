@@ -190,12 +190,19 @@ export class CatalogoService {
     }
   }
 
-  async clonar(id: number, cpf_cnpj: string, superUserId: number) {
-    const existente = await catalogoPrisma.catalogo.findFirst({
+  async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
+    const existenteCpf = await catalogoPrisma.catalogo.findFirst({
       where: { cpf_cnpj, superUserId }
     });
-    if (existente) {
+    if (existenteCpf) {
       throw new Error('CNPJ já esta vinculado a um catálogo !!');
+    }
+
+    const existenteNome = await catalogoPrisma.catalogo.findFirst({
+      where: { nome, superUserId }
+    });
+    if (existenteNome) {
+      throw new Error('Já existe um catálogo com este nome');
     }
 
     const original = await catalogoPrisma.catalogo.findFirst({
@@ -221,7 +228,7 @@ export class CatalogoService {
     return await catalogoPrisma.$transaction(async (tx) => {
       const novo = await tx.catalogo.create({
         data: {
-          nome: original.nome,
+          nome,
           cpf_cnpj,
           status: original.status,
           ultima_alteracao: new Date(),

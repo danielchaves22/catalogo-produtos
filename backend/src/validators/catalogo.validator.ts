@@ -27,6 +27,7 @@ export const updateCatalogoSchema = z.object({
 });
 
 export const cloneCatalogoSchema = z.object({
+  nome: z.string().min(1, { message: 'Nome é obrigatório' }),
   cpf_cnpj: z.string().refine((val) => customValidations.cpfOrCnpj(val), {
     message: 'CPF ou CNPJ inválido'
   })

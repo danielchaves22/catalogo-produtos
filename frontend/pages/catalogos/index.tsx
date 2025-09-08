@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
+import { Input } from '@/components/ui/Input';
+import { MaskedInput } from '@/components/ui/MaskedInput';
 import { Plus, Trash2, AlertCircle, Pencil, FileText, Copy } from 'lucide-react';
 import { useRouter } from 'next/router';
 import api from '@/lib/api';
@@ -25,6 +27,9 @@ export default function CatalogosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [catalogoParaExcluir, setCatalogoParaExcluir] = useState<number | null>(null);
+  const [catalogoParaClonar, setCatalogoParaClonar] = useState<number | null>(null);
+  const [novoCpfCnpj, setNovoCpfCnpj] = useState('');
+  const [novoNome, setNovoNome] = useState('');
   const { addToast } = useToast();
   const router = useRouter();
 
@@ -88,12 +93,27 @@ export default function CatalogosPage() {
     router.push('/catalogos/novo');
   }
 
-  async function clonarCatalogo(id: number) {
-    const cpfCnpj = prompt('Informe o novo CNPJ para o catálogo');
-    if (!cpfCnpj) return;
+  function abrirModalClonar(id: number) {
+    setCatalogoParaClonar(id);
+    setNovoCpfCnpj('');
+    setNovoNome('');
+  }
+
+  function cancelarClonagem() {
+    setCatalogoParaClonar(null);
+    setNovoCpfCnpj('');
+    setNovoNome('');
+  }
+
+  async function confirmarClonagem() {
+    if (!catalogoParaClonar) return;
     try {
-      await api.post(`/catalogos/${id}/clonar`, { cpf_cnpj: cpfCnpj });
+      await api.post(`/catalogos/${catalogoParaClonar}/clonar`, {
+        cpf_cnpj: novoCpfCnpj,
+        nome: novoNome
+      });
       addToast('Catálogo clonado com sucesso', 'success');
+      cancelarClonagem();
       await carregarCatalogos();
     } catch (err: any) {
       const mensagem = err.response?.data?.error || 'Erro ao clonar catálogo';
@@ -179,7 +199,7 @@ export default function CatalogosPage() {
                       </button>
                       <button
                         className="p-1 text-gray-300 hover:text-purple-500 transition-colors"
-                        onClick={() => clonarCatalogo(catalogo.id)}
+                        onClick={() => abrirModalClonar(catalogo.id)}
                         title="Clonar catálogo"
                       >
                         <Copy size={16} />
@@ -237,6 +257,36 @@ export default function CatalogosPage() {
               </Button>
               <Button variant="danger" onClick={excluirCatalogo}>
                 Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para clonagem de catálogo */}
+      {catalogoParaClonar && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-4">Clonar Catálogo</h3>
+            <Input
+              label="Novo nome"
+              value={novoNome}
+              onChange={(e) => setNovoNome(e.target.value)}
+              required
+            />
+            <MaskedInput
+              label="Novo CNPJ"
+              mask="cnpj"
+              value={novoCpfCnpj}
+              onChange={(val) => setNovoCpfCnpj(val)}
+              required
+            />
+            <div className="flex justify-end gap-3 mt-2">
+              <Button variant="outline" onClick={cancelarClonagem}>
+                Cancelar
+              </Button>
+              <Button variant="primary" onClick={confirmarClonagem}>
+                Clonar
               </Button>
             </div>
           </div>
