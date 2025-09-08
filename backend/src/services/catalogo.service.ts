@@ -1,5 +1,5 @@
 // backend/src/services/catalogo.service.ts
-import { CatalogoStatus } from '@prisma/client';
+import { CatalogoStatus, Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
@@ -188,6 +188,132 @@ export class CatalogoService {
       logger.error(`Erro ao remover catálogo ID ${id}:`, error);
       throw new Error(`Falha ao remover catálogo ID ${id}`);
     }
+  }
+
+  async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
+    const existenteCpf = await catalogoPrisma.catalogo.findFirst({
+      where: { cpf_cnpj, superUserId }
+    });
+    if (existenteCpf) {
+      throw new Error('CNPJ já esta vinculado a um catálogo !!');
+    }
+
+    const existenteNome = await catalogoPrisma.catalogo.findFirst({
+      where: { nome, superUserId }
+    });
+    if (existenteNome) {
+      throw new Error('Já existe um catálogo com este nome');
+    }
+
+    const original = await catalogoPrisma.catalogo.findFirst({
+      where: { id, superUserId },
+      include: {
+        produtos: {
+          include: {
+            atributos: true,
+            codigosInternos: true,
+            operadoresEstrangeiros: true
+          }
+        },
+        operadoresEstrangeiros: {
+          include: { identificacoesAdicionais: true }
+        }
+      }
+    });
+
+    if (!original) {
+      throw new Error(`Catálogo ID ${id} não encontrado`);
+    }
+
+    return await catalogoPrisma.$transaction(async (tx) => {
+      const novo = await tx.catalogo.create({
+        data: {
+          nome,
+          cpf_cnpj,
+          status: original.status,
+          ultima_alteracao: new Date(),
+          numero: 0,
+          superUserId
+        }
+      });
+
+      const opMap = new Map<number, number>();
+      for (const op of original.operadoresEstrangeiros) {
+        const novoOp = await tx.operadorEstrangeiro.create({
+          data: {
+            catalogoId: novo.id,
+            paisCodigo: op.paisCodigo,
+            tin: op.tin,
+            nome: op.nome,
+            email: op.email,
+            codigoInterno: op.codigoInterno,
+            codigoPostal: op.codigoPostal,
+            logradouro: op.logradouro,
+            cidade: op.cidade,
+            subdivisaoCodigo: op.subdivisaoCodigo,
+            situacao: op.situacao,
+            dataReferencia: op.dataReferencia,
+            identificacoesAdicionais: op.identificacoesAdicionais.length
+              ? {
+                  create: op.identificacoesAdicionais.map((i) => ({
+                    numero: i.numero,
+                    agenciaEmissoraCodigo: i.agenciaEmissoraCodigo
+                  }))
+                }
+              : undefined
+          }
+        });
+        opMap.set(op.id, novoOp.id);
+      }
+
+      for (const prod of original.produtos) {
+        const attr = prod.atributos[0];
+        await tx.produto.create({
+          data: {
+            codigo: prod.codigo,
+            versao: prod.versao,
+            status: prod.status,
+            situacao: prod.situacao,
+            ncmCodigo: prod.ncmCodigo,
+            modalidade: prod.modalidade,
+            denominacao: prod.denominacao,
+            descricao: prod.descricao,
+            numero: 0,
+            catalogoId: novo.id,
+            versaoEstruturaAtributos: prod.versaoEstruturaAtributos,
+            criadoPor: prod.criadoPor,
+            atributos: attr
+              ? {
+                  create: {
+                    valoresJson: attr.valoresJson as Prisma.InputJsonValue,
+                    estruturaSnapshotJson: attr.estruturaSnapshotJson as Prisma.InputJsonValue,
+                    validadoEm: attr.validadoEm,
+                    errosValidacao: attr.errosValidacao as Prisma.InputJsonValue
+                  }
+                }
+              : undefined,
+            codigosInternos: prod.codigosInternos.length
+              ? {
+                  create: prod.codigosInternos.map((ci) => ({ codigo: ci.codigo }))
+                }
+              : undefined,
+            operadoresEstrangeiros: prod.operadoresEstrangeiros.length
+              ? {
+                  create: prod.operadoresEstrangeiros.map((oe) => ({
+                    paisCodigo: oe.paisCodigo,
+                    conhecido: oe.conhecido,
+                    operadorEstrangeiroId: oe.operadorEstrangeiroId
+                      ? opMap.get(oe.operadorEstrangeiroId) || null
+                      : null
+                  }))
+                }
+              : undefined
+          }
+        });
+      }
+
+      return novo;
+    });
   }
 
   async vincularCertificado(id: number, certificadoId: number, superUserId: number): Promise<void> {

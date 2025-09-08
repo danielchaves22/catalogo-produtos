@@ -111,6 +111,32 @@ export async function vincularCertificado(req: Request, res: Response) {
   }
 }
 
+export async function clonarCatalogo(req: Request, res: Response) {
+  const { id } = req.params;
+  const { cpf_cnpj, nome } = req.body as { cpf_cnpj: string; nome: string };
+  try {
+    const catalogo = await catalogoService.clonar(
+      Number(id),
+      nome,
+      cpf_cnpj,
+      req.user!.superUserId
+    );
+    return res.status(201).json(catalogo);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : `Erro ao clonar catálogo ID ${id}`;
+    if (message.includes('vinculado a um catálogo')) {
+      return res.status(400).json({ error: message });
+    }
+    if (message.includes('Já existe um catálogo')) {
+      return res.status(400).json({ error: message });
+    }
+    if (message.includes('não encontrado')) {
+      return res.status(404).json({ error: message });
+    }
+    return res.status(500).json({ error: message });
+  }
+}
+
 /**
  * DELETE /api/catalogos/:id
  * Remove um catálogo
