@@ -1,6 +1,7 @@
 // frontend/pages/_app.tsx
 import '@/styles/globals.css'
 import { AppProps } from 'next/app'
+import Head from 'next/head'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { WorkingCatalogProvider } from '@/contexts/WorkingCatalogContext'
 import { ToastProvider } from '@/components/ui/ToastContext'
@@ -19,13 +20,18 @@ function AppContent({ Component, pageProps }: AppProps) {
 
 export default function App(props: AppProps) {
   return (
-    <AuthProvider>
-      <WorkingCatalogProvider>
-        <ToastProvider>
-          <PageTransition />
-          <AppContent {...props} />
-        </ToastProvider>
-      </WorkingCatalogProvider>
-    </AuthProvider>
+    <>
+      <Head>
+        <title>Catálogo de Produtos</title>
+      </Head>
+      <AuthProvider>
+        <WorkingCatalogProvider>
+          <ToastProvider>
+            <PageTransition />
+            <AppContent {...props} />
+          </ToastProvider>
+        </WorkingCatalogProvider>
+      </AuthProvider>
+    </>
   )
 }
