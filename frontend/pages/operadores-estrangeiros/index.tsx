@@ -274,7 +274,7 @@ export default function OperadoresEstrangeirosPage() {
           <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
             <h3 className="text-xl font-semibold text-white mb-4">Confirmar Desativação</h3>
             <p className="text-gray-300 mb-6">
-              Tem certeza que deseja desativar este operador estrangeiro? Esta ação irá desvinculá-lo de todos os produtos relacionados.
+              A desativação deste Operador Estrangeiro ação irá desvincular o fabricante de todos os produtos relacionados. Deseja continuar?
             </p>
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={cancelarExclusao}>
