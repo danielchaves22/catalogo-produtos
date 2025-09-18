@@ -177,15 +177,48 @@ export class CatalogoService {
    */
   async remover(id: number, superUserId: number): Promise<void> {
     try {
-      const removido = await catalogoPrisma.catalogo.deleteMany({
-        where: { id, superUserId }
-      });
+      await catalogoPrisma.$transaction(async (tx) => {
+        const catalogo = await tx.catalogo.findFirst({
+          where: { id, superUserId },
+          select: { id: true }
+        });
 
-      if (removido.count === 0) {
-        throw new Error(`Catálogo ID ${id} não encontrado`);
-      }
+        if (!catalogo) {
+          throw new Error(`Catálogo ID ${id} não encontrado`);
+        }
+
+        const produtos = await tx.produto.findMany({
+          where: { catalogoId: catalogo.id },
+          select: { id: true }
+        });
+        const produtoIds = produtos.map((produto) => produto.id);
+
+        if (produtoIds.length > 0) {
+          await tx.produtoAtributos.deleteMany({ where: { produtoId: { in: produtoIds } } });
+          await tx.codigoInternoProduto.deleteMany({ where: { produtoId: { in: produtoIds } } });
+          await tx.operadorEstrangeiroProduto.deleteMany({ where: { produtoId: { in: produtoIds } } });
+          await tx.produto.deleteMany({ where: { id: { in: produtoIds } } });
+        }
+
+        const operadores = await tx.operadorEstrangeiro.findMany({
+          where: { catalogoId: catalogo.id },
+          select: { id: true }
+        });
+        const operadorIds = operadores.map((operador) => operador.id);
+
+        if (operadorIds.length > 0) {
+          await tx.identificacaoAdicional.deleteMany({ where: { operadorEstrangeiroId: { in: operadorIds } } });
+          await tx.operadorEstrangeiroProduto.deleteMany({ where: { operadorEstrangeiroId: { in: operadorIds } } });
+          await tx.operadorEstrangeiro.deleteMany({ where: { id: { in: operadorIds } } });
+        }
+
+        await tx.catalogo.delete({ where: { id: catalogo.id } });
+      });
     } catch (error: unknown) {
       logger.error(`Erro ao remover catálogo ID ${id}:`, error);
+      if (error instanceof Error && error.message.includes('não encontrado')) {
+        throw error;
+      }
       throw new Error(`Falha ao remover catálogo ID ${id}`);
     }
   }

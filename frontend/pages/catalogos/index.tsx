@@ -249,7 +249,7 @@ export default function CatalogosPage() {
           <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
             <h3 className="text-xl font-semibold text-white mb-4">Confirmar Exclusão</h3>
             <p className="text-gray-300 mb-6">
-              Tem certeza que deseja excluir este catálogo? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir este catálogo? Essa ação também removerá todos os produtos e fabricantes vinculados e não poderá ser desfeita.
             </p>
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={cancelarExclusao}>
