@@ -74,9 +74,6 @@ export default function ProdutosPage() {
         router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
         return;
       }
-      if (!catalogoIdFromQuery && filtros.catalogoId) {
-        setFiltros(prev => ({ ...prev, catalogoId: '' }));
-      }
     }
 
     carregarProdutos();
