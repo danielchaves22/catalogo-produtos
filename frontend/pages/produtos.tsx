@@ -8,7 +8,9 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { AlertCircle, Plus, Search, Trash2, Pencil } from 'lucide-react';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Hint } from '@/components/ui/Hint';
+import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
 import api from '@/lib/api';
+import { produtoStatusLegend, produtoSituacaoLegend } from '@/constants/statusLegends';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useToast } from '@/components/ui/ToastContext';
@@ -311,8 +313,26 @@ export default function ProdutosPage() {
                   <th className="px-4 py-3">Nome</th>
                   <th className="px-4 py-3">Cód. Int. (SKU/PN)</th>
                   <th className="px-4 py-3">Modalidade</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Situação</th>
+                  <th className="px-4 py-3">
+                    <span className="inline-flex items-center gap-1">
+                      Status
+                      <LegendInfoModal
+                        title="Status dos Produtos"
+                        legend={produtoStatusLegend}
+                        triggerAriaLabel="Ver detalhes sobre os status dos produtos"
+                      />
+                    </span>
+                  </th>
+                  <th className="px-4 py-3">
+                    <span className="inline-flex items-center gap-1">
+                      Situação
+                      <LegendInfoModal
+                        title="Situação dos Produtos"
+                        legend={produtoSituacaoLegend}
+                        triggerAriaLabel="Ver detalhes sobre as situações dos produtos"
+                      />
+                    </span>
+                  </th>
                   <th className="px-4 py-3">Última Alteração</th>
                 </tr>
               </thead>

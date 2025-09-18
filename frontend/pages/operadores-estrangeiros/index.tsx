@@ -9,9 +9,11 @@ import { useToast } from '@/components/ui/ToastContext';
 import { useOperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { AlertCircle, Globe, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { MultiSelect } from '@/components/ui/MultiSelect';
+import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
 import { useRouter } from 'next/router';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
+import { operadorStatusLegend } from '@/constants/statusLegends';
 
 type Situacao = 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
 
@@ -212,7 +214,16 @@ export default function OperadoresEstrangeirosPage() {
                   <th className="px-4 py-3">País</th>
                   <th className="px-4 py-3">Código</th>
                   <th className="px-4 py-3">TIN</th>
-                  <th className="px-4 py-3">Situação</th>
+                  <th className="px-4 py-3">
+                    <span className="inline-flex items-center gap-1">
+                      Status
+                      <LegendInfoModal
+                        title="Status dos Operadores Estrangeiros"
+                        legend={operadorStatusLegend}
+                        triggerAriaLabel="Ver detalhes sobre os status dos operadores estrangeiros"
+                      />
+                    </span>
+                  </th>
                   <th className="px-4 py-3">Última Alteração</th>
                 </tr>
               </thead>
