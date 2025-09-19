@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
-import { useOperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
+import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { AlertCircle, Globe, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
@@ -17,33 +17,6 @@ import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { operadorStatusLegend } from '@/constants/statusLegends';
 
 type Situacao = 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
-
-interface OperadorEstrangeiro {
-  id: number;
-  catalogoId: number;
-  catalogo: { id: number; cpf_cnpj?: string | null; nome: string; ambiente: 'HOMOLOGACAO' | 'PRODUCAO' };
-  tin?: string;
-  nome: string;
-  email?: string;
-  codigoInterno?: string;
-  codigo?: string;
-  versao: number;
-  situacao: Situacao;
-  dataInclusao: string;
-  dataUltimaAlteracao: string;
-  pais: {
-    codigo: string;
-    sigla: string;
-    nome: string;
-  };
-  subdivisao?: {
-    codigo: string;
-    sigla: string;
-    nome: string;
-  };
-  cidade?: string;
-  logradouro?: string;
-}
 
 export default function OperadoresEstrangeirosPage() {
   const [operadores, setOperadores] = useState<OperadorEstrangeiro[]>([]);

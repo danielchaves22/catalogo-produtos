@@ -26,7 +26,12 @@ export interface AgenciaEmissora {
 export interface OperadorEstrangeiro {
   id: number;
   catalogoId: number;
-  catalogo: { id: number; cpf_cnpj?: string | null; nome: string };
+  catalogo: {
+    id: number;
+    cpf_cnpj?: string | null;
+    nome: string;
+    ambiente: 'HOMOLOGACAO' | 'PRODUCAO';
+  };
   tin?: string;
   nome: string;
   email?: string;
