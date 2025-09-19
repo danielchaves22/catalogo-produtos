@@ -20,6 +20,10 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
   const router = useRouter();
   const { workingCatalog } = useWorkingCatalog();
   const [catalogModalOpen, setCatalogModalOpen] = useState(false);
+
+  const catalogLabel = workingCatalog
+    ? [workingCatalog.numero, workingCatalog.nome].filter(Boolean).join(' - ')
+    : 'Todos os catálogos';
   
   // Estado para controlar a visibilidade do menu do usuário
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -92,9 +96,17 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
         </div>
 
         <div className="flex items-center space-x-3">
-          <span className="text-sm text-gray-300 mr-1">
-            {workingCatalog ? `${workingCatalog.numero} - ${workingCatalog.nome}` : 'Todos os catálogos'}
-          </span>
+          <div className="flex items-center text-sm text-gray-300 space-x-2 mr-1">
+            <span className="text-gray-400">Catálogo de trabalho:</span>
+            <span className="text-gray-100">{catalogLabel}</span>
+            {workingCatalog?.ambiente && (
+              <EnvironmentBadge
+                ambiente={workingCatalog.ambiente}
+                size="sm"
+                className="font-bold"
+              />
+            )}
+          </div>
           <button
             className="p-1 rounded hover:bg-[#262b36] text-gray-300 hover:text-white"
             onClick={() => setCatalogModalOpen(true)}
