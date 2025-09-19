@@ -88,6 +88,11 @@ enum CatalogoStatus {
   INATIVO
 }
 
+enum CatalogoAmbiente {
+  HOMOLOGACAO
+  PRODUCAO
+}
+
 model Catalogo {
   id               Int            @id @default(autoincrement()) @map("id")
   nome             String         @map("nome")
@@ -95,6 +100,7 @@ model Catalogo {
   ultima_alteracao DateTime       @map("ultima_alteracao")
   numero           Int            @map("numero")
   status           CatalogoStatus @map("status")
+  ambiente        CatalogoAmbiente @default(HOMOLOGACAO) @map("ambiente")
   superUserId      Int            @map("super_user_id")
   certificadoId   Int?           @map("certificado_id")
   certificado     Certificado?   @relation(fields: [certificadoId], references: [id])

@@ -48,8 +48,8 @@ const ATRIBUTOS_COLORS = {
 };
 
 const ATRIBUTOS_LABELS = {
-  PENDENTES: 'Obrigatórios Pendentes',
-  VALIDOS: 'Válidos para Transmissão',
+  PENDENTES: 'Pendentes',
+  VALIDOS: 'Válidos',
   TOTAL: 'Total de Atributos'
 };
 
@@ -159,13 +159,13 @@ export default function PainelPage() {
     
     const dados = [
       {
-        name: 'Obrigatórios Pendentes',
+        name: 'Pendentes',
         value: resumo.atributos.obrigatoriosPendentes,
         status: 'PENDENTES',
         color: ATRIBUTOS_COLORS.PENDENTES
       },
       {
-        name: 'Válidos para Transmissão',
+        name: 'Válidos',
         value: resumo.atributos.validosTransmissao,
         status: 'VALIDOS',
         color: ATRIBUTOS_COLORS.VALIDOS
@@ -181,13 +181,13 @@ export default function PainelPage() {
     
     return [
       {
-        name: 'Obrigatórios Pendentes',
+        name: 'Pendentes',
         value: resumo.atributos.obrigatoriosPendentes,
         status: 'PENDENTES',
         color: ATRIBUTOS_COLORS.PENDENTES
       },
       {
-        name: 'Válidos para Transmissão',
+        name: 'Válidos',
         value: resumo.atributos.validosTransmissao,
         status: 'VALIDOS',
         color: ATRIBUTOS_COLORS.VALIDOS
@@ -282,7 +282,7 @@ export default function PainelPage() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             {/* Card de Produtos com Gráfico de Rosca */}
-            <Card headerTitle="Produtos por Status">
+            <Card headerTitle="Produtos">
               <div className="py-2">
                 {resumo && resumo.produtos.total > 0 ? (
                   <div className="grid grid-cols-2 gap-4 items-center min-h-[120px]">
@@ -352,7 +352,7 @@ export default function PainelPage() {
             </Card>
 
             {/* Card de Catálogos com Gráfico de Rosca */}
-            <Card headerTitle="Catálogos por Status">
+            <Card headerTitle="Catálogos">
               <div className="py-2">
                 {resumo && resumo.catalogos.total > 0 ? (
                   <div className="grid grid-cols-2 gap-4 items-center min-h-[120px]">
@@ -422,7 +422,7 @@ export default function PainelPage() {
             </Card>
 
             {/* Card de Atributos com Gráfico de Rosca */}
-            <Card headerTitle="Atributos por Status">
+            <Card headerTitle="Atributos">
               <div className="py-2">
                 {resumo && resumo.atributos.total > 0 ? (
                   <div className="grid grid-cols-2 gap-4 items-center min-h-[120px]">

@@ -9,6 +9,7 @@ import { AlertCircle, Plus, Search, Trash2, Pencil } from 'lucide-react';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Hint } from '@/components/ui/Hint';
 import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
+import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
 import api from '@/lib/api';
 import { produtoStatusLegend, produtoSituacaoLegend } from '@/constants/statusLegends';
 import Link from 'next/link';
@@ -25,6 +26,7 @@ interface Produto {
   catalogoNumero?: number;
   catalogoNome?: string;
   catalogoCpfCnpj?: string;
+  catalogoAmbiente?: 'HOMOLOGACAO' | 'PRODUCAO';
   denominacao?: string;
   descricao?: string;
   codigosInternos?: string[];
@@ -334,6 +336,7 @@ export default function ProdutosPage() {
                     </span>
                   </th>
                   <th className="px-4 py-3">Última Alteração</th>
+                  <th className="px-4 py-3">Ambiente</th>
                 </tr>
               </thead>
               <tbody>
@@ -402,6 +405,13 @@ export default function ProdutosPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">{formatarData(produto.atualizadoEm)}</td>
+                    <td className="px-4 py-3">
+                      {produto.catalogoAmbiente ? (
+                        <EnvironmentBadge ambiente={produto.catalogoAmbiente} size="sm" />
+                      ) : (
+                        '-'
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

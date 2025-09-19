@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS catalogo (
     ultima_alteracao DATETIME NOT NULL,
     numero INT UNSIGNED NOT NULL,
     status ENUM('ATIVO', 'INATIVO') NOT NULL DEFAULT 'ATIVO',
+    ambiente ENUM('HOMOLOGACAO', 'PRODUCAO') NOT NULL DEFAULT 'HOMOLOGACAO',
     super_user_id INT UNSIGNED NOT NULL,
     certificado_id INT UNSIGNED,
     PRIMARY KEY (id),
@@ -460,6 +461,11 @@ DELIMITER ;
     ('WTO', 'WTO', 'World Trade Organization'),
     ('WCO', 'WCO', 'World Customs Organization');
 
+
+
+-- Atualização para adicionar coluna de ambiente (executar em bancos já existentes)
+ALTER TABLE catalogo
+  ADD COLUMN ambiente ENUM('HOMOLOGACAO', 'PRODUCAO') NOT NULL DEFAULT 'HOMOLOGACAO' AFTER status;
 -- Atualização para bases existentes
 -- Execute o bloco abaixo em bancos já criados para registrar usuários autenticados
 -- CREATE TABLE usuario_catalogo (

@@ -231,10 +231,10 @@ export class OperadorEstrangeiroService {
     }
   }
 
-  async listarCatalogos(superUserId: number): Promise<Array<{ id: number; cpf_cnpj: string | null; nome: string }>> {
+  async listarCatalogos(superUserId: number): Promise<Array<{ id: number; cpf_cnpj: string | null; nome: string; ambiente: Catalogo['ambiente'] }>> {
     try {
       return await catalogoPrisma.catalogo.findMany({
-        select: { id: true, cpf_cnpj: true, nome: true },
+        select: { id: true, cpf_cnpj: true, nome: true, ambiente: true },
         where: { superUserId },
         orderBy: { nome: 'asc' }
       });

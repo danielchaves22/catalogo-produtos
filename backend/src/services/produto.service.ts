@@ -78,7 +78,8 @@ export class ProdutoService {
       })),
       catalogoNumero: p.catalogo?.numero,
       catalogoNome: p.catalogo?.nome,
-      catalogoCpfCnpj: p.catalogo?.cpf_cnpj
+      catalogoCpfCnpj: p.catalogo?.cpf_cnpj,
+      catalogoAmbiente: p.catalogo?.ambiente,
     }));
   }
 
@@ -107,7 +108,8 @@ export class ProdutoService {
       })),
       catalogoNumero: p.catalogo?.numero,
       catalogoNome: p.catalogo?.nome,
-      catalogoCpfCnpj: p.catalogo?.cpf_cnpj
+      catalogoCpfCnpj: p.catalogo?.cpf_cnpj,
+      catalogoAmbiente: p.catalogo?.ambiente,
     };
   }
 

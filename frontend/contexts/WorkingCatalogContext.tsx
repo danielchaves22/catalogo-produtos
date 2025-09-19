@@ -5,6 +5,7 @@ export interface WorkingCatalog {
   numero?: number;
   nome: string;
   cpf_cnpj?: string | null;
+  ambiente?: 'HOMOLOGACAO' | 'PRODUCAO';
 }
 
 interface WorkingCatalogContextData {

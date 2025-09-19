@@ -10,6 +10,7 @@ import { useOperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { AlertCircle, Globe, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
+import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
 import { useRouter } from 'next/router';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
@@ -20,7 +21,7 @@ type Situacao = 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
 interface OperadorEstrangeiro {
   id: number;
   catalogoId: number;
-  catalogo: { id: number; cpf_cnpj?: string | null; nome: string };
+  catalogo: { id: number; cpf_cnpj?: string | null; nome: string; ambiente: 'HOMOLOGACAO' | 'PRODUCAO' };
   tin?: string;
   nome: string;
   email?: string;
@@ -225,6 +226,7 @@ export default function OperadoresEstrangeirosPage() {
                     </span>
                   </th>
                   <th className="px-4 py-3">Última Alteração</th>
+                  <th className="px-4 py-3">Ambiente</th>
                 </tr>
               </thead>
               <tbody>
@@ -272,6 +274,9 @@ export default function OperadoresEstrangeirosPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">{formatarData(operador.dataUltimaAlteracao)}</td>
+                    <td className="px-4 py-3">
+                      <EnvironmentBadge ambiente={operador.catalogo.ambiente as 'HOMOLOGACAO' | 'PRODUCAO'} size="sm" />
+                    </td>
                   </tr>
                 ))}
               </tbody>

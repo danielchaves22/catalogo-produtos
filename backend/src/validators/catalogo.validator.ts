@@ -32,3 +32,10 @@ export const cloneCatalogoSchema = z.object({
     message: 'CPF ou CNPJ inválido'
   })
 });
+
+export const updateCatalogoAmbienteSchema = z.object({
+  ambiente: z.enum(['HOMOLOGACAO', 'PRODUCAO'], {
+    message: 'Ambiente deve ser HOMOLOGACAO ou PRODUCAO'
+  })
+});
+

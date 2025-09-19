@@ -1,5 +1,5 @@
-// backend/src/services/catalogo.service.ts
-import { CatalogoStatus, Prisma } from '@prisma/client';
+﻿// backend/src/services/catalogo.service.ts
+import { CatalogoStatus, CatalogoAmbiente, Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
@@ -31,6 +31,7 @@ export class CatalogoService {
           ultima_alteracao: true,
           numero: true,
           status: true,
+          ambiente: true,
           superUserId: true,
           certificadoId: true
         }
@@ -55,6 +56,7 @@ export class CatalogoService {
           ultima_alteracao: true,
           numero: true,
           status: true,
+          ambiente: true,
           superUserId: true,
           certificadoId: true
         }
@@ -90,6 +92,7 @@ export class CatalogoService {
           nome: data.nome,
           cpf_cnpj: data.cpf_cnpj,
           status: data.status,
+          ambiente: CatalogoAmbiente.HOMOLOGACAO,
           ultima_alteracao: new Date(),
           numero: 0,
           superUserId
@@ -101,6 +104,7 @@ export class CatalogoService {
           ultima_alteracao: true,
           numero: true,
           status: true,
+          ambiente: true,
           superUserId: true,
           certificadoId: true
         }
@@ -158,6 +162,7 @@ export class CatalogoService {
           ultima_alteracao: true,
           numero: true,
           status: true,
+          ambiente: true,
           superUserId: true,
           certificadoId: true
         }
@@ -175,179 +180,238 @@ export class CatalogoService {
   /**
    * Remove um catálogo
    */
-  async remover(id: number, superUserId: number): Promise<void> {
+
+
+
+
+  async alterarAmbiente(id: number, ambiente: CatalogoAmbiente, superUserId: number) {
     try {
-      await catalogoPrisma.$transaction(async (tx) => {
-        const catalogo = await tx.catalogo.findFirst({
-          where: { id, superUserId },
-          select: { id: true }
-        });
-
-        if (!catalogo) {
-          throw new Error(`Catálogo ID ${id} não encontrado`);
-        }
-
-        const produtos = await tx.produto.findMany({
-          where: { catalogoId: catalogo.id },
-          select: { id: true }
-        });
-        const produtoIds = produtos.map((produto) => produto.id);
-
-        if (produtoIds.length > 0) {
-          await tx.produtoAtributos.deleteMany({ where: { produtoId: { in: produtoIds } } });
-          await tx.codigoInternoProduto.deleteMany({ where: { produtoId: { in: produtoIds } } });
-          await tx.operadorEstrangeiroProduto.deleteMany({ where: { produtoId: { in: produtoIds } } });
-          await tx.produto.deleteMany({ where: { id: { in: produtoIds } } });
-        }
-
-        const operadores = await tx.operadorEstrangeiro.findMany({
-          where: { catalogoId: catalogo.id },
-          select: { id: true }
-        });
-        const operadorIds = operadores.map((operador) => operador.id);
-
-        if (operadorIds.length > 0) {
-          await tx.identificacaoAdicional.deleteMany({ where: { operadorEstrangeiroId: { in: operadorIds } } });
-          await tx.operadorEstrangeiroProduto.deleteMany({ where: { operadorEstrangeiroId: { in: operadorIds } } });
-          await tx.operadorEstrangeiro.deleteMany({ where: { id: { in: operadorIds } } });
-        }
-
-        await tx.catalogo.delete({ where: { id: catalogo.id } });
+      const atual = await catalogoPrisma.catalogo.findFirst({
+        where: { id, superUserId },
+        select: { ambiente: true }
       });
+
+      if (!atual) {
+        throw new Error(`Catalogo ID ${id} nao encontrado`);
+      }
+
+      if (atual.ambiente === CatalogoAmbiente.PRODUCAO) {
+        throw new Error('Catalogo em PRODUCAO nao pode retornar para HOMOLOGACAO');
+      }
+
+      if (atual.ambiente === ambiente) {
+        return (await this.buscarPorId(id, superUserId))!;
+      }
+
+      if (ambiente !== CatalogoAmbiente.PRODUCAO) {
+        throw new Error('Somente a promocao para PRODUCAO e permitida');
+      }
+
+      const atualizado = await catalogoPrisma.catalogo.updateMany({
+        where: { id, superUserId },
+        data: {
+          ambiente,
+          ultima_alteracao: new Date()
+        }
+      });
+
+      if (atualizado.count === 0) {
+        throw new Error(`Catalogo ID ${id} nao encontrado`);
+      }
+
+      return (await this.buscarPorId(id, superUserId))!;
     } catch (error: unknown) {
-      logger.error(`Erro ao remover catálogo ID ${id}:`, error);
-      if (error instanceof Error && error.message.includes('não encontrado')) {
+      if (
+        error instanceof Error && (
+          error.message.includes('nao encontrado') ||
+          error.message.includes('nao pode retornar') ||
+          error.message.includes('promocao')
+        )
+      ) {
         throw error;
       }
-      throw new Error(`Falha ao remover catálogo ID ${id}`);
+
+      logger.error(`Erro ao alterar ambiente do catalogo ID ${id}:`, error);
+      throw new Error(`Falha ao alterar ambiente do catalogo ID ${id}`);
     }
   }
 
-  async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
-    const existenteCpf = await catalogoPrisma.catalogo.findFirst({
-      where: { cpf_cnpj, superUserId }
-    });
-    if (existenteCpf) {
-      throw new Error('CNPJ já esta vinculado a um catálogo !!');
-    }
 
-    const existenteNome = await catalogoPrisma.catalogo.findFirst({
-      where: { nome, superUserId }
-    });
-    if (existenteNome) {
-      throw new Error('Já existe um catálogo com este nome');
-    }
 
-    const original = await catalogoPrisma.catalogo.findFirst({
-      where: { id, superUserId },
-      include: {
-        produtos: {
-          include: {
-            atributos: true,
-            codigosInternos: true,
-            operadoresEstrangeiros: true
-          }
-        },
-        operadoresEstrangeiros: {
-          include: { identificacoesAdicionais: true }
-        }
-      }
-    });
-
-    if (!original) {
-      throw new Error(`Catálogo ID ${id} não encontrado`);
-    }
-
-    return await catalogoPrisma.$transaction(async (tx) => {
-      const novo = await tx.catalogo.create({
-        data: {
-          nome,
-          cpf_cnpj,
-          status: original.status,
-          ultima_alteracao: new Date(),
-          numero: 0,
-          superUserId
-        }
+async remover(id: number, superUserId: number): Promise<void> {
+  try {
+    await catalogoPrisma.$transaction(async (tx) => {
+      const catalogo = await tx.catalogo.findFirst({
+        where: { id, superUserId },
+        select: { id: true }
       });
 
-      const opMap = new Map<number, number>();
-      for (const op of original.operadoresEstrangeiros) {
-        const novoOp = await tx.operadorEstrangeiro.create({
-          data: {
-            catalogoId: novo.id,
-            paisCodigo: op.paisCodigo,
-            tin: op.tin,
-            nome: op.nome,
-            email: op.email,
-            codigoInterno: op.codigoInterno,
-            codigoPostal: op.codigoPostal,
-            logradouro: op.logradouro,
-            cidade: op.cidade,
-            subdivisaoCodigo: op.subdivisaoCodigo,
-            situacao: op.situacao,
-            dataReferencia: op.dataReferencia,
-            identificacoesAdicionais: op.identificacoesAdicionais.length
-              ? {
-                  create: op.identificacoesAdicionais.map((i) => ({
-                    numero: i.numero,
-                    agenciaEmissoraCodigo: i.agenciaEmissoraCodigo
-                  }))
-                }
-              : undefined
-          }
-        });
-        opMap.set(op.id, novoOp.id);
+      if (!catalogo) {
+        throw new Error(`Catalogo ID ${id} nao encontrado`);
       }
 
-      for (const prod of original.produtos) {
-        const attr = prod.atributos[0];
-        await tx.produto.create({
-          data: {
-            codigo: prod.codigo,
-            versao: prod.versao,
-            status: prod.status,
-            situacao: prod.situacao,
-            ncmCodigo: prod.ncmCodigo,
-            modalidade: prod.modalidade,
-            denominacao: prod.denominacao,
-            descricao: prod.descricao,
-            numero: 0,
-            catalogoId: novo.id,
-            versaoEstruturaAtributos: prod.versaoEstruturaAtributos,
-            criadoPor: prod.criadoPor,
-            atributos: attr
-              ? {
-                  create: {
-                    valoresJson: attr.valoresJson as Prisma.InputJsonValue,
-                    estruturaSnapshotJson: attr.estruturaSnapshotJson as Prisma.InputJsonValue,
-                    validadoEm: attr.validadoEm,
-                    errosValidacao: attr.errosValidacao as Prisma.InputJsonValue
-                  }
-                }
-              : undefined,
-            codigosInternos: prod.codigosInternos.length
-              ? {
-                  create: prod.codigosInternos.map((ci) => ({ codigo: ci.codigo }))
-                }
-              : undefined,
-            operadoresEstrangeiros: prod.operadoresEstrangeiros.length
-              ? {
-                  create: prod.operadoresEstrangeiros.map((oe) => ({
-                    paisCodigo: oe.paisCodigo,
-                    conhecido: oe.conhecido,
-                    operadorEstrangeiroId: oe.operadorEstrangeiroId
-                      ? opMap.get(oe.operadorEstrangeiroId) || null
-                      : null
-                  }))
-                }
-              : undefined
-          }
-        });
+      const produtos = await tx.produto.findMany({
+        where: { catalogoId: catalogo.id },
+        select: { id: true }
+      });
+      const produtoIds = produtos.map((produto) => produto.id);
+
+      if (produtoIds.length > 0) {
+        await tx.produtoAtributos.deleteMany({ where: { produtoId: { in: produtoIds } } });
+        await tx.codigoInternoProduto.deleteMany({ where: { produtoId: { in: produtoIds } } });
+        await tx.operadorEstrangeiroProduto.deleteMany({ where: { produtoId: { in: produtoIds } } });
+        await tx.produto.deleteMany({ where: { id: { in: produtoIds } } });
       }
 
-      return novo;
+      const operadores = await tx.operadorEstrangeiro.findMany({
+        where: { catalogoId: catalogo.id },
+        select: { id: true }
+      });
+      const operadorIds = operadores.map((operador) => operador.id);
+
+      if (operadorIds.length > 0) {
+        await tx.identificacaoAdicional.deleteMany({ where: { operadorEstrangeiroId: { in: operadorIds } } });
+        await tx.operadorEstrangeiroProduto.deleteMany({ where: { operadorEstrangeiroId: { in: operadorIds } } });
+        await tx.operadorEstrangeiro.deleteMany({ where: { id: { in: operadorIds } } });
+      }
+
+      await tx.catalogo.delete({ where: { id: catalogo.id } });
     });
+  } catch (error: unknown) {
+    logger.error(`Erro ao remover catalogo ID ${id}:`, error);
+    if (error instanceof Error && error.message.includes('nao encontrado')) {
+      throw error;
+    }
+    throw new Error(`Falha ao remover catalogo ID ${id}`);
   }
+}
+
+async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
+  const existenteCpf = await catalogoPrisma.catalogo.findFirst({
+    where: { cpf_cnpj, superUserId }
+  });
+  if (existenteCpf) {
+    throw new Error('CNPJ ja esta vinculado a um catalogo !!');
+  }
+
+  const existenteNome = await catalogoPrisma.catalogo.findFirst({
+    where: { nome, superUserId }
+  });
+  if (existenteNome) {
+    throw new Error('Ja existe um catalogo com este nome');
+  }
+
+  const original = await catalogoPrisma.catalogo.findFirst({
+    where: { id, superUserId },
+    include: {
+      produtos: {
+        include: {
+          atributos: true,
+          codigosInternos: true,
+          operadoresEstrangeiros: true
+        }
+      },
+      operadoresEstrangeiros: {
+        include: { identificacoesAdicionais: true }
+      }
+    }
+  });
+
+  if (!original) {
+    throw new Error(`Catalogo ID ${id} nao encontrado`);
+  }
+
+  return await catalogoPrisma.$transaction(async (tx) => {
+    const novo = await tx.catalogo.create({
+      data: {
+        nome,
+        cpf_cnpj,
+        status: original.status,
+        ambiente: CatalogoAmbiente.HOMOLOGACAO,
+        ultima_alteracao: new Date(),
+        numero: 0,
+        superUserId
+      }
+    });
+
+    const opMap = new Map<number, number>();
+    for (const op of original.operadoresEstrangeiros) {
+      const novoOp = await tx.operadorEstrangeiro.create({
+        data: {
+          catalogoId: novo.id,
+          paisCodigo: op.paisCodigo,
+          tin: op.tin,
+          nome: op.nome,
+          email: op.email,
+          codigoInterno: op.codigoInterno,
+          codigoPostal: op.codigoPostal,
+          logradouro: op.logradouro,
+          cidade: op.cidade,
+          subdivisaoCodigo: op.subdivisaoCodigo,
+          situacao: op.situacao,
+          dataReferencia: op.dataReferencia,
+          identificacoesAdicionais: op.identificacoesAdicionais.length
+            ? {
+                create: op.identificacoesAdicionais.map((i) => ({
+                  numero: i.numero,
+                  agenciaEmissoraCodigo: i.agenciaEmissoraCodigo
+                }))
+              }
+            : undefined
+        }
+      });
+      opMap.set(op.id, novoOp.id);
+    }
+
+    for (const prod of original.produtos) {
+      const attr = prod.atributos[0];
+      await tx.produto.create({
+        data: {
+          codigo: prod.codigo,
+          versao: prod.versao,
+          status: prod.status,
+          situacao: prod.situacao,
+          ncmCodigo: prod.ncmCodigo,
+          modalidade: prod.modalidade,
+          denominacao: prod.denominacao,
+          descricao: prod.descricao,
+          numero: 0,
+          catalogoId: novo.id,
+          versaoEstruturaAtributos: prod.versaoEstruturaAtributos,
+          criadoPor: prod.criadoPor,
+          atributos: attr
+            ? {
+                create: {
+                  valoresJson: attr.valoresJson as Prisma.InputJsonValue,
+                  estruturaSnapshotJson: attr.estruturaSnapshotJson as Prisma.InputJsonValue,
+                  validadoEm: attr.validadoEm,
+                  errosValidacao: attr.errosValidacao as Prisma.InputJsonValue
+                }
+              }
+            : undefined,
+          codigosInternos: prod.codigosInternos.length
+            ? {
+                create: prod.codigosInternos.map((ci) => ({ codigo: ci.codigo }))
+              }
+            : undefined,
+          operadoresEstrangeiros: prod.operadoresEstrangeiros.length
+            ? {
+                create: prod.operadoresEstrangeiros.map((oe) => ({
+                  paisCodigo: oe.paisCodigo,
+                  conhecido: oe.conhecido,
+                  operadorEstrangeiroId: oe.operadorEstrangeiroId
+                    ? opMap.get(oe.operadorEstrangeiroId) || null
+                    : null
+                }))
+              }
+            : undefined
+        }
+      });
+    }
+
+    return novo;
+  });
+}
 
   async vincularCertificado(id: number, certificadoId: number, superUserId: number): Promise<void> {
     await catalogoPrisma.catalogo.updateMany({

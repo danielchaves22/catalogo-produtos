@@ -1,14 +1,16 @@
-// frontend/pages/catalogos/[id].tsx (CORRIGIDO com MaskedInput)
+// frontend/pages/catalogos/[id].tsx
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { MaskedInput } from '@/components/ui/MaskedInput';
+import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
 import { Button } from '@/components/ui/Button';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
+import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { useToast } from '@/components/ui/ToastContext';
 import { ArrowLeft, Save } from 'lucide-react';
 import api from '@/lib/api';
@@ -24,6 +26,7 @@ interface CatalogoCompleto extends CatalogoFormData {
   id: number;
   numero: number;
   ultima_alteracao: string;
+  ambiente: 'HOMOLOGACAO' | 'PRODUCAO';
   certificadoId?: number | null;
 }
 
@@ -38,7 +41,7 @@ export default function CatalogoFormPage() {
     cpf_cnpj: '',
     status: 'ATIVO'
   });
-  
+
   const [catalogo, setCatalogo] = useState<CatalogoCompleto | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -46,6 +49,14 @@ export default function CatalogoFormPage() {
   const [certificados, setCertificados] = useState<Certificado[]>([]);
   const [certificadoId, setCertificadoId] = useState<number | null>(null);
   const [vinculando, setVinculando] = useState(false);
+  const [ambienteModalAberto, setAmbienteModalAberto] = useState(false);
+  const [alterandoAmbiente, setAlterandoAmbiente] = useState(false);
+
+  const router = useRouter();
+  const { id } = router.query;
+  const isNew = !id || id === 'novo';
+  const { addToast } = useToast();
+  const { workingCatalog, setWorkingCatalog } = useWorkingCatalog();
 
   useEffect(() => {
     carregarCertificados();
@@ -59,16 +70,10 @@ export default function CatalogoFormPage() {
       addToast('Erro ao carregar certificados', 'error');
     }
   }
-  
-  const router = useRouter();
-  const { id } = router.query;
-  const isNew = !id || id === 'novo';
-  const { addToast } = useToast();
 
-  // Carregar dados do catálogo se estiver editando
   useEffect(() => {
     if (!router.isReady) return;
-    
+
     if (!isNew && typeof id === 'string') {
       carregarCatalogo(id);
     }
@@ -77,14 +82,17 @@ export default function CatalogoFormPage() {
   async function carregarCatalogo(catalogoId: string) {
     try {
       setLoading(true);
-      const response = await api.get(`/catalogos/${catalogoId}`);
+      const response = await api.get<CatalogoCompleto>(`/catalogos/${catalogoId}`);
       setCatalogo(response.data);
       setCertificadoId(response.data.certificadoId || null);
       setFormData({
         nome: response.data.nome,
-        cpf_cnpj: onlyNumbers(response.data.cpf_cnpj || ''), // Armazena apenas números
+        cpf_cnpj: onlyNumbers(response.data.cpf_cnpj || ''),
         status: response.data.status
       });
+
+      if (workingCatalog && workingCatalog.id === response.data.id && workingCatalog.ambiente !== response.data.ambiente) {
+        setWorkingCatalog({ ...workingCatalog, ambiente: response.data.ambiente });
     } catch (error) {
       console.error('Erro ao carregar catálogo:', error);
       addToast('Erro ao carregar dados do catálogo', 'error');
@@ -109,11 +117,33 @@ export default function CatalogoFormPage() {
     }
   }
 
+  async function promoverParaProducao() {
+    if (!catalogo) return;
+    try {
+      setAlterandoAmbiente(true);
+      const response = await api.patch<CatalogoCompleto>(`/catalogos/${catalogo.id}/ambiente`, {
+        ambiente: 'PRODUCAO'
+      });
+      addToast('Catalogo promovido para producao', 'success');
+
+      if (workingCatalog && workingCatalog.id === response.data.id) {
+        setWorkingCatalog({ ...workingCatalog, ambiente: response.data.ambiente });
+      }
+
+      setAmbienteModalAberto(false);
+      router.push('/catalogos');
+    } catch (error) {
+      console.error('Erro ao alterar ambiente do catalogo:', error);
+      addToast('Erro ao promover catalogo para producao', 'error');
+    } finally {
+      setAlterandoAmbiente(false);
+    }
+  }
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Limpa o erro do campo quando o valor muda
+
     if (errors[name]) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -123,12 +153,10 @@ export default function CatalogoFormPage() {
     }
   }
 
-  // Handler específico para MaskedInput
   function handleMaskedChange(name: string) {
-    return (cleanValue: string, formattedValue: string) => {
+    return (cleanValue: string) => {
       setFormData(prev => ({ ...prev, [name]: cleanValue }));
-      
-      // Limpa erro quando valor muda
+
       if (errors[name]) {
         setErrors(prev => {
           const newErrors = { ...prev };
@@ -146,19 +174,18 @@ export default function CatalogoFormPage() {
 
   function validarFormulario(): boolean {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.nome.trim()) {
       newErrors.nome = 'O nome é obrigatório';
     }
-    
-    // Validação de CPF/CNPJ se preenchido
+
     if (formData.cpf_cnpj) {
       const validacao = isValidCPFOrCNPJ(formData.cpf_cnpj);
       if (!validacao.valid) {
         newErrors.cpf_cnpj = validacao.message || 'CPF ou CNPJ inválido';
       }
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -178,22 +205,20 @@ export default function CatalogoFormPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
+
     if (!validarFormulario()) return;
-    
+
     try {
       setSubmitting(true);
-      
+
       if (isNew) {
-        // Criar novo catálogo
         await api.post('/catalogos', formData);
         addToast('Catálogo criado com sucesso!', 'success');
       } else {
-        // Atualizar catálogo existente
-        await api.put(`/catalogos/${id}`, formData);
+        await api.put(/catalogos/, formData);
         addToast('Catálogo atualizado com sucesso!', 'success');
       }
-      
+
       router.push('/catalogos');
     } catch (error: any) {
       console.error('Erro ao salvar catálogo:', error);
@@ -207,13 +232,31 @@ export default function CatalogoFormPage() {
     router.push('/catalogos');
   }
 
-
   const dadosContent = (
     <Card>
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-2 gap-4">
           {!isNew && catalogo && (
             <>
+              <div className="col-span-2 flex flex-wrap items-start justify-between gap-4 rounded-md border border-gray-700 bg-[#262b36] px-4 py-3">
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm text-gray-300">Ambiente atual</span>
+                  <EnvironmentBadge ambiente={catalogo.ambiente} size="sm" />
+                </div>
+                {catalogo.ambiente === 'HOMOLOGACAO' ? (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => setAmbienteModalAberto(true)}
+                    disabled={alterandoAmbiente}
+                  >
+                    {alterandoAmbiente ? 'Promovendo...' : 'Promover para produção'}
+                  </Button>
+                ) : (
+                  <span className="text-xs font-semibold text-emerald-300">Catálogo em produção</span>
+                )}
+              </div>
+
               <Input
                 label="Número"
                 value={catalogo.numero.toString()}
@@ -304,28 +347,52 @@ export default function CatalogoFormPage() {
   }
 
   return (
-    <DashboardLayout title={isNew ? 'Novo Catálogo' : 'Editar Catálogo'}>
-      <Breadcrumb
-        items={[
-          { label: 'Início', href: '/' },
-          { label: 'Catálogos', href: '/catalogos' },
-          { label: isNew ? 'Novo Catálogo' : 'Editar Catálogo' }
-        ]}
-      />
+    <>
+      <DashboardLayout title={isNew ? 'Novo Catálogo' : 'Editar Catálogo'}>
+        <Breadcrumb
+          items={[
+            { label: 'Início', href: '/' },
+            { label: 'Catálogos', href: '/catalogos' },
+            { label: isNew ? 'Novo Catálogo' : 'Editar Catálogo' }
+          ]}
+        />
 
-      <div className="mb-6 flex items-center gap-2">
-        <button
-          onClick={voltar}
-          className="text-gray-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <h1 className="text-2xl font-semibold text-white">
-          {isNew ? 'Criar Novo Catálogo' : 'Editar Catálogo'}
-        </h1>
-      </div>
-      {dadosContent}
-      {!isNew && certificadoContent}
-    </DashboardLayout>
+        <div className="mb-6 flex items-center gap-2">
+          <button
+            onClick={voltar}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-2xl font-semibold text-white">
+            {isNew ? 'Criar Novo Catálogo' : 'Editar Catálogo'}
+          </h1>
+        </div>
+        {dadosContent}
+        {!isNew && certificadoContent}
+      </DashboardLayout>
+
+      {ambienteModalAberto && catalogo && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-3">Confirmar promoção</h3>
+            <p className="text-gray-300 mb-3">
+              Ao promover o catálogo para produção, todas as alterações passarão a valer para o ambiente oficial e não será possível retornar para homologação.
+            </p>
+            <p className="text-gray-400 mb-6">
+              Caso precise voltar a testar no ambiente de homologação, será necessário clonar o catálogo.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setAmbienteModalAberto(false)} disabled={alterandoAmbiente}>
+                Cancelar
+              </Button>
+              <Button variant="accent" onClick={promoverParaProducao} disabled={alterandoAmbiente}>
+                {alterandoAmbiente ? 'Promovendo...' : 'Promover'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

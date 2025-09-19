@@ -1,5 +1,6 @@
 // src/controllers/catalogo.controller.ts
 import { Request, Response } from 'express';
+import { CatalogoAmbiente } from '@prisma/client';
 import { CatalogoService } from '../services/catalogo.service';
 import { storageFactory } from '../services/storage.factory';
 
@@ -70,7 +71,7 @@ export async function atualizarCatalogo(req: Request, res: Response) {
     const catalogo = await catalogoService.atualizar(Number(id), req.body, req.user!.superUserId);
     return res.status(200).json(catalogo);
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : `Erro ao atualizar catálogo ID ${id}`;
+    const errorMessage = error instanceof Error ? error.message : `Erro ao atualizar catalogo ID ${id}`;
     if (errorMessage.includes('Já existe um catálogo')) {
       return res.status(400).json({ error: errorMessage });
     }
@@ -78,6 +79,35 @@ export async function atualizarCatalogo(req: Request, res: Response) {
       return res.status(404).json({ error: errorMessage });
     }
     return res.status(500).json({ error: errorMessage });
+  }
+}
+
+
+export async function alterarAmbienteCatalogo(req: Request, res: Response) {
+  const { id } = req.params;
+
+  try {
+    const { ambiente } = req.body as { ambiente: CatalogoAmbiente };
+    const catalogo = await catalogoService.alterarAmbiente(
+      Number(id),
+      ambiente,
+      req.user!.superUserId
+    );
+    return res.status(200).json(catalogo);
+  } catch (error: unknown) {
+    const message = error instanceof Error
+      ? error.message
+      : `Erro ao alterar ambiente do catalogo ID ${id}`;
+
+    if (message.includes('nao encontrado')) {
+      return res.status(404).json({ error: message });
+    }
+
+    if (message.includes('retornar') || message.includes('permitida')) {
+      return res.status(400).json({ error: message });
+    }
+
+    return res.status(500).json({ error: message });
   }
 }
 
