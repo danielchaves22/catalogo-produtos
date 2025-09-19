@@ -32,10 +32,21 @@ export function ListaProdutosPainel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
-  const [filtros, setFiltros] = useState({
-    status: 'TODOS',
-    situacoes: ['RASCUNHO', 'ATIVADO'] as Array<'ATIVADO' | 'DESATIVADO' | 'RASCUNHO'>
-  });
+  const statusOptions = [
+    { value: 'PENDENTE', label: 'Pendente' },
+    { value: 'APROVADO', label: 'Aprovado' },
+    { value: 'PROCESSANDO', label: 'Processando' },
+    { value: 'TRANSMITIDO', label: 'Transmitido' },
+    { value: 'ERRO', label: 'Erro' }
+  ] satisfies Array<{ value: Produto['status']; label: string }>;
+
+  const [filtros, setFiltros] = useState<{
+    status: Produto['status'][];
+    situacoes: Array<'ATIVADO' | 'DESATIVADO' | 'RASCUNHO'>;
+  }>(() => ({
+    status: [],
+    situacoes: ['RASCUNHO', 'ATIVADO']
+  }));
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<number | null>(null);
   const router = useRouter();
   const { addToast } = useToast();
@@ -128,7 +139,8 @@ export function ListaProdutosPainel() {
       (p.catalogoNome && p.catalogoNome.toLowerCase().includes(termo)) ||
       (p.ncmCodigo && p.ncmCodigo.toLowerCase().includes(termo));
 
-    const matchStatus = filtros.status === 'TODOS' || p.status === filtros.status;
+    const matchStatus =
+      filtros.status.length === 0 || filtros.status.includes(p.status);
     const matchSituacao = filtros.situacoes.length === 0 || (p.situacao ? filtros.situacoes.includes(p.situacao as any) : true);
 
     return matchBusca && matchStatus && matchSituacao;
@@ -177,21 +189,18 @@ export function ListaProdutosPainel() {
               aria-label="Buscar por nome, catálogo ou NCM"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300">Status</label>
-            <select
-              className="w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
-              value={filtros.status}
-              onChange={e => setFiltros({ ...filtros, status: e.target.value })}
-            >
-              <option value="TODOS">Todos os status</option>
-              <option value="PENDENTE">Pendente</option>
-              <option value="APROVADO">Aprovado</option>
-              <option value="PROCESSANDO">Processando</option>
-              <option value="TRANSMITIDO">Transmitido</option>
-              <option value="ERRO">Erro</option>
-            </select>
-          </div>
+          <MultiSelect
+            label="Status"
+            options={statusOptions}
+            values={filtros.status}
+            onChange={vals =>
+              setFiltros(prev => ({
+                ...prev,
+                status: vals as Produto['status'][]
+              }))
+            }
+            placeholder="Status"
+          />
           <MultiSelect
             label="Situação"
             options={[
