@@ -34,16 +34,28 @@ interface Produto {
   modalidade?: 'IMPORTACAO' | 'EXPORTACAO';
 }
 
+const statusOptions = [
+  { value: 'PENDENTE', label: 'Pendente' },
+  { value: 'APROVADO', label: 'Aprovado' },
+  { value: 'PROCESSANDO', label: 'Processando' },
+  { value: 'TRANSMITIDO', label: 'Transmitido' },
+  { value: 'ERRO', label: 'Erro' }
+] satisfies Array<{ value: Produto['status']; label: string }>;
+
 export default function ProdutosPage() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
-  const [filtros, setFiltros] = useState({
-    status: 'TODOS',
-    situacoes: ['RASCUNHO', 'ATIVADO'] as Array<'ATIVADO' | 'DESATIVADO' | 'RASCUNHO'>,
+  const [filtros, setFiltros] = useState<{
+    status: Produto['status'][];
+    situacoes: Array<'ATIVADO' | 'DESATIVADO' | 'RASCUNHO'>;
+    catalogoId: string;
+  }>(() => ({
+    status: [],
+    situacoes: ['RASCUNHO', 'ATIVADO'],
     catalogoId: ''
-  });
+  }));
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<number | null>(null);
   const [catalogos, setCatalogos] = useState<{ id: number; numero: number; nome: string }[]>([]);
   const router = useRouter();
@@ -88,7 +100,7 @@ export default function ProdutosPage() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (filtros.status !== 'TODOS') params.append('status', filtros.status);
+      if (filtros.status.length === 1) params.append('status', filtros.status[0]);
       // Enviar somente se houver exatamente 1 situação selecionada
       if (filtros.situacoes.length === 1) params.append('situacao', filtros.situacoes[0]);
       if (filtros.catalogoId) params.append('catalogoId', filtros.catalogoId);
@@ -158,7 +170,7 @@ export default function ProdutosPage() {
       (p.codigosInternos && p.codigosInternos.some(c => c.toLowerCase().includes(termo)));
 
     const matchStatus =
-      filtros.status === 'TODOS' || p.status === filtros.status;
+      filtros.status.length === 0 || filtros.status.includes(p.status);
 
     const matchSituacao =
       filtros.situacoes.length === 0 || (p.situacao ? filtros.situacoes.includes(p.situacao as any) : true);
@@ -247,21 +259,18 @@ export default function ProdutosPage() {
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300">Status</label>
-            <select
-              className="w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
-              value={filtros.status}
-              onChange={e => setFiltros({ ...filtros, status: e.target.value })}
-            >
-              <option value="TODOS">Todos os status</option>
-              <option value="PENDENTE">Pendente</option>
-              <option value="APROVADO">Aprovado</option>
-              <option value="PROCESSANDO">Processando</option>
-              <option value="TRANSMITIDO">Transmitido</option>
-              <option value="ERRO">Erro</option>
-            </select>
-          </div>
+          <MultiSelect
+            label="Status"
+            options={statusOptions}
+            values={filtros.status}
+            onChange={vals =>
+              setFiltros(prev => ({
+                ...prev,
+                status: vals as Produto['status'][]
+              }))
+            }
+            placeholder="Status"
+          />
           {false && ( <select style={{ display: 'none' }}
             className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
             value={''}
