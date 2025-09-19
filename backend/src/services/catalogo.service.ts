@@ -367,7 +367,7 @@ async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
       const attr = prod.atributos[0];
       await tx.produto.create({
         data: {
-          codigo: prod.codigo,
+          codigo: null,
           versao: prod.versao,
           status: prod.status,
           situacao: prod.situacao,
