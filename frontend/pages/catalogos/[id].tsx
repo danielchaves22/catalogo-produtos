@@ -90,9 +90,11 @@ export default function CatalogoFormPage() {
         cpf_cnpj: onlyNumbers(response.data.cpf_cnpj || ''),
         status: response.data.status
       });
+      
 
       if (workingCatalog && workingCatalog.id === response.data.id && workingCatalog.ambiente !== response.data.ambiente) {
         setWorkingCatalog({ ...workingCatalog, ambiente: response.data.ambiente });
+      }
     } catch (error) {
       console.error('Erro ao carregar catálogo:', error);
       addToast('Erro ao carregar dados do catálogo', 'error');
@@ -215,7 +217,7 @@ export default function CatalogoFormPage() {
         await api.post('/catalogos', formData);
         addToast('Catálogo criado com sucesso!', 'success');
       } else {
-        await api.put(/catalogos/, formData);
+        await api.put('/catalogos/', formData);
         addToast('Catálogo atualizado com sucesso!', 'success');
       }
 
