@@ -45,6 +45,7 @@ const statusOptions = [
 export default function ProdutosPage() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
   const [filtros, setFiltros] = useState<{
@@ -114,6 +115,7 @@ export default function ProdutosPage() {
       setError('Não foi possível carregar os produtos.');
     } finally {
       setLoading(false);
+      setHasLoadedOnce(true);
     }
   }
 
@@ -178,7 +180,7 @@ export default function ProdutosPage() {
     return matchBusca && matchStatus && matchSituacao;
   });
 
-  if (loading) {
+  if (loading && !hasLoadedOnce) {
     return (
       <DashboardLayout title="Produtos">
         <PageLoader message="Carregando produtos..." />
@@ -296,6 +298,9 @@ export default function ProdutosPage() {
             Exibindo {produtosFiltrados.length} de {produtos.length} produtos
           </div>
         </div>
+        {loading && hasLoadedOnce && (
+          <div className="mt-2 text-xs text-gray-400">Atualizando lista de produtos...</div>
+        )}
       </Card>
 
       {error && (
