@@ -280,7 +280,7 @@ export default function PainelPage() {
         <p className="text-gray-400">Carregando...</p>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-3">
             {/* Card de Produtos com Gráfico de Rosca */}
             <Card headerTitle="Produtos">
               <div className="py-2">
@@ -492,7 +492,7 @@ export default function PainelPage() {
             </Card>
           </div>
 
-          <section className="mt-8 bg-[#151921] p-6 rounded-lg border border-gray-700">
+          <section className="bg-[#151921] rounded-lg border border-gray-700">
             <ListaProdutosPainel />
           </section>
         </>

@@ -174,7 +174,7 @@ export function ListaProdutosPainel() {
 
   return (
     <>
-      <Card className="mb-6">
+      <Card >
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative md:col-span-2">
             <label className="block text-sm font-medium mb-2 text-gray-300">Buscar por nome, catálogo ou NCM</label>
@@ -222,9 +222,7 @@ export function ListaProdutosPainel() {
             <option value="DESATIVADO">Desativado</option>
             <option value="RASCUNHO">Rascunho</option>
           </select> ) }
-          <div className="text-sm text-gray-400 self-center">
-            Exibindo {produtosFiltrados.length} de {produtos.length} produtos
-          </div>
+          
         </div>
       </Card>
 
