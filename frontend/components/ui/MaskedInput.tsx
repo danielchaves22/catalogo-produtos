@@ -1,11 +1,19 @@
 // frontend/components/ui/MaskedInput.tsx (CORRIGIDO)
 import React, { useState, useEffect } from 'react';
+import { Hint } from './Hint';
+import {
+  formatValueWithPattern,
+  getPatternMaxLength,
+  getPatternPlaceholder,
+} from '@/lib/masks';
 
 interface MaskedInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   label?: string;
   error?: string;
-  mask: 'cpf' | 'cnpj' | 'cpf-cnpj' | 'cep' | 'ncm';
+  hint?: string;
+  mask?: 'cpf' | 'cnpj' | 'cpf-cnpj' | 'cep' | 'ncm';
+  pattern?: string;
   value: string | undefined;
   onChange: (value: string, formattedValue: string) => void;
 }
@@ -82,10 +90,10 @@ function applyCPFOrCNPJMask(value: string): string {
 /**
  * Aplica a máscara apropriada
  */
-function applyMask(value: string, mask: MaskedInputProps['mask']): string {
-  // Se value for falsy, retorna string vazia
+function applyMask(value: string, mask?: MaskedInputProps['mask']): string {
   if (!value) return '';
-  
+  if (!mask) return value;
+
   switch (mask) {
     case 'cpf':
       return applyCPFMask(value);
@@ -105,7 +113,7 @@ function applyMask(value: string, mask: MaskedInputProps['mask']): string {
 /**
  * Obtém placeholder baseado na máscara
  */
-function getPlaceholder(mask: MaskedInputProps['mask']): string {
+function getPlaceholder(mask?: MaskedInputProps['mask']): string {
   switch (mask) {
     case 'cpf':
       return '000.000.000-00';
@@ -125,7 +133,7 @@ function getPlaceholder(mask: MaskedInputProps['mask']): string {
 /**
  * Obtém tamanho máximo baseado na máscara
  */
-function getMaxLength(mask: MaskedInputProps['mask']): number | undefined {
+function getMaxLength(mask?: MaskedInputProps['mask']): number | undefined {
   switch (mask) {
     case 'cpf':
       return 14; // 000.000.000-00
@@ -145,7 +153,9 @@ function getMaxLength(mask: MaskedInputProps['mask']): number | undefined {
 export function MaskedInput({
   label,
   error,
+  hint,
   mask,
+  pattern,
   value,
   onChange,
   className = '',
@@ -158,18 +168,33 @@ export function MaskedInput({
   useEffect(() => {
     // Garantir que value seja uma string antes de aplicar a máscara
     const safeValue = value || '';
-    const masked = applyMask(safeValue, mask);
-    setDisplayValue(masked);
-  }, [value, mask]);
+    if (pattern) {
+      const { formatted } = formatValueWithPattern(safeValue, pattern);
+      setDisplayValue(formatted);
+    } else {
+      const masked = applyMask(safeValue, mask);
+      setDisplayValue(masked);
+    }
+  }, [value, mask, pattern]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
-    const maskedValue = applyMask(inputValue, mask);
-    const cleanValue = onlyNumbers(inputValue);
-    
-    setDisplayValue(maskedValue);
-    onChange(cleanValue, maskedValue);
+    if (pattern) {
+      const { formatted, clean } = formatValueWithPattern(inputValue, pattern);
+      setDisplayValue(formatted);
+      onChange(clean, formatted);
+    } else {
+      const maskedValue = applyMask(inputValue, mask);
+      const cleanValue = onlyNumbers(inputValue);
+
+      setDisplayValue(maskedValue);
+      onChange(cleanValue, maskedValue);
+    }
   };
+
+  const resolvedPlaceholder =
+    placeholder || (pattern ? getPatternPlaceholder(pattern) : getPlaceholder(mask));
+  const resolvedMaxLength = pattern ? getPatternMaxLength(pattern) : getMaxLength(mask);
 
   return (
     <div className={`mb-4 ${className}`}>
@@ -177,6 +202,7 @@ export function MaskedInput({
         <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor={props.id}>
           {label}
           {props.required && <span className="text-red-400 ml-1">*</span>}
+          {hint && <Hint text={hint} />}
         </label>
       )}
       <input
@@ -184,8 +210,8 @@ export function MaskedInput({
         type="text"
         value={displayValue}
         onChange={handleChange}
-        placeholder={placeholder || getPlaceholder(mask)}
-        maxLength={getMaxLength(mask)}
+        placeholder={resolvedPlaceholder}
+        maxLength={resolvedMaxLength}
         className={`w-full px-2 py-1 bg-[#1e2126] border rounded-md focus:outline-none focus:ring focus:border-blue-500 text-white ${
           error ? 'border-red-500' : 'border-gray-700'
         }`}
