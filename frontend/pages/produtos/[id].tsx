@@ -28,6 +28,7 @@ interface AtributoEstrutura {
   dominio?: { codigo: string; descricao: string }[];
   validacoes?: {
     tamanho_maximo?: number;
+    mascara?: string;
     [key: string]: any;
   };
   descricaoCondicao?: string;
@@ -393,6 +394,27 @@ export default function ProdutoPage() {
       default:
         if (attr.tipo === 'TEXTO') {
           const max = attr.validacoes?.tamanho_maximo ?? 0;
+          const pattern = attr.validacoes?.mascara;
+
+          if (pattern) {
+            let span = 'col-span-1';
+            if (max > 30 && max <= 60) span = 'col-span-2';
+            else if (max > 60) span = 'col-span-3';
+
+            return (
+              <MaskedInput
+                key={attr.codigo}
+                label={attr.nome}
+                hint={attr.orientacaoPreenchimento}
+                required={attr.obrigatorio}
+                value={value}
+                pattern={pattern}
+                onChange={(valorLimpo, _formatado) => handleValor(attr.codigo, valorLimpo)}
+                className={span}
+              />
+            );
+          }
+
           if (max >= 100) {
             return (
               <div key={attr.codigo} className="col-span-3 mb-4">
