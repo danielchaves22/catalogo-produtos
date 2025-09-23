@@ -31,6 +31,82 @@ describe('ProdutoService - atributos obrigatórios', () => {
   })
 })
 
+describe('ProdutoService - atributos multivalorados', () => {
+  it('considera arrays vazios como não preenchidos', () => {
+    const service = new ProdutoService()
+    const estrutura: AtributoEstruturaDTO[] = [
+      {
+        codigo: 'M',
+        nome: 'Multi',
+        tipo: 'LISTA_ESTATICA',
+        obrigatorio: true,
+        multivalorado: true,
+        validacoes: {},
+        dominio: [
+          { codigo: '1', descricao: 'Um' },
+          { codigo: '2', descricao: 'Dois' }
+        ]
+      }
+    ]
+
+    expect((service as any).todosObrigatoriosPreenchidos({ M: ['1'] }, estrutura)).toBe(true)
+    expect((service as any).todosObrigatoriosPreenchidos({ M: [] }, estrutura)).toBe(false)
+  })
+
+  it('avalia condições com qualquer valor selecionado', () => {
+    const service = new ProdutoService()
+    const estrutura: AtributoEstruturaDTO[] = [
+      {
+        codigo: 'M',
+        nome: 'Multi',
+        tipo: 'LISTA_ESTATICA',
+        obrigatorio: true,
+        multivalorado: true,
+        validacoes: {},
+        dominio: [
+          { codigo: '1', descricao: 'Um' },
+          { codigo: '2', descricao: 'Dois' }
+        ]
+      },
+      {
+        codigo: 'D',
+        nome: 'Dependente',
+        tipo: 'TEXTO',
+        obrigatorio: true,
+        multivalorado: false,
+        validacoes: {},
+        parentCodigo: 'M',
+        condicao: { operador: '==', valor: '2' }
+      }
+    ]
+
+    expect((service as any).todosObrigatoriosPreenchidos({ M: ['1', '2'], D: 'ok' }, estrutura)).toBe(true)
+    expect((service as any).todosObrigatoriosPreenchidos({ M: ['1', '2'] }, estrutura)).toBe(false)
+    expect((service as any).todosObrigatoriosPreenchidos({ M: ['1'] }, estrutura)).toBe(true)
+  })
+
+  it('valida cada item do array contra o domínio', () => {
+    const service = new ProdutoService()
+    const estrutura: AtributoEstruturaDTO[] = [
+      {
+        codigo: 'M',
+        nome: 'Multi',
+        tipo: 'LISTA_ESTATICA',
+        obrigatorio: true,
+        multivalorado: true,
+        validacoes: {},
+        dominio: [
+          { codigo: '1', descricao: 'Um' },
+          { codigo: '2', descricao: 'Dois' }
+        ]
+      }
+    ]
+
+    expect((service as any).validarValores({ M: ['1', '2'] }, estrutura)).toEqual({})
+    expect((service as any).validarValores({ M: ['1', '3'] }, estrutura)).toEqual({ M: 'Valor fora do domínio' })
+  })
+})
+
 describe('ProdutoService - atualização de status', () => {
   it('marca como PENDENTE quando faltam atributos obrigatórios', async () => {
     const service = new ProdutoService()

@@ -5,7 +5,8 @@
     "scripts": {
         "dev": "next dev -p 3001",
         "build": "next build",
-        "start": "next start"
+        "start": "next start",
+        "test": "../backend/node_modules/.bin/ts-node --esm ./lib/__tests__/atributos.test.ts"
     },
     "dependencies": {
         "axios": "^1.8.4",

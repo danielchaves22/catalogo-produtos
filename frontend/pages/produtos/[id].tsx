@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { MaskedInput } from '@/components/ui/MaskedInput';
 import { Select } from '@/components/ui/Select';
+import { MultiSelect } from '@/components/ui/MultiSelect';
 import { RadioGroup } from '@/components/ui/RadioGroup';
 import { Button } from '@/components/ui/Button';
 import { Tabs } from '@/components/ui/Tabs';
@@ -13,6 +14,12 @@ import { useRouter } from 'next/router';
 import api from '@/lib/api';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { formatCPFOrCNPJ, formatCEP } from '@/lib/validation';
+import {
+  algumValorIgual,
+  algumValorSatisfazCondicao,
+  isValorPreenchido,
+  normalizarValoresMultivalorados
+} from '@/lib/atributos';
 import { Trash2, BrainCog, ArrowLeft } from 'lucide-react';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
@@ -25,6 +32,7 @@ interface AtributoEstrutura {
   nome: string;
   tipo: string;
   obrigatorio: boolean;
+  multivalorado?: boolean;
   dominio?: { codigo: string; descricao: string }[];
   validacoes?: {
     tamanho_maximo?: number;
@@ -34,6 +42,7 @@ interface AtributoEstrutura {
   descricaoCondicao?: string;
   condicao?: any;
   parentCodigo?: string;
+  condicionanteCodigo?: string;
   orientacaoPreenchimento?: string;
   subAtributos?: AtributoEstrutura[];
 }
@@ -59,7 +68,7 @@ export default function ProdutoPage() {
   const [denominacao, setDenominacao] = useState('');
   const [descricao, setDescricao] = useState('');
   const [estrutura, setEstrutura] = useState<AtributoEstrutura[]>([]);
-  const [valores, setValores] = useState<Record<string, string>>({});
+  const [valores, setValores] = useState<Record<string, string | string[]>>({});
   const [loadingEstrutura, setLoadingEstrutura] = useState(false);
   const [estruturaCarregada, setEstruturaCarregada] = useState(false);
   const [activeTab, setActiveTab] = useState('informacoes');
@@ -210,7 +219,7 @@ export default function ProdutoPage() {
     }
   }, [modalidade]);
 
-  function handleValor(codigo: string, valor: string) {
+  function handleValor(codigo: string, valor: string | string[]) {
     setValores(prev => ({ ...prev, [codigo]: valor }));
   }
 
@@ -264,50 +273,20 @@ export default function ProdutoPage() {
     return op.codigoPostal ? `${endereco} - ${formatCEP(op.codigoPostal)}` : endereco;
   }
 
-  function avaliarExpressao(cond: any, valor: string): boolean {
-    if (!cond) return true;
-    const esperado = cond.valor;
-    let ok = true;
-    switch (cond.operador) {
-      case '==':
-        ok = valor === esperado;
-        break;
-      case '!=':
-        ok = valor !== esperado;
-        break;
-      case '>':
-        ok = Number(valor) > Number(esperado);
-        break;
-      case '>=':
-        ok = Number(valor) >= Number(esperado);
-        break;
-      case '<':
-        ok = Number(valor) < Number(esperado);
-        break;
-      case '<=':
-        ok = Number(valor) <= Number(esperado);
-        break;
-    }
-    if (cond.condicao) {
-      const next = avaliarExpressao(cond.condicao, valor);
-      return cond.composicao === '||' ? ok || next : ok && next;
-    }
-    return ok;
-  }
-
   // A visibilidade dos atributos condicionados é verificada a cada alteração
   // pois o componente re-renderiza sempre que 'valores' é atualizado.
   function condicaoAtendida(attr: AtributoEstrutura): boolean {
-    if (!attr.parentCodigo) return true;
+    const codigoCondicionante = attr.condicionanteCodigo || attr.parentCodigo;
+    if (!codigoCondicionante) return true;
 
-    const pai = mapaEstrutura.get(attr.parentCodigo);
+    const pai = mapaEstrutura.get(codigoCondicionante);
     if (pai && !condicaoAtendida(pai)) return false;
 
-    const atual = valores[attr.parentCodigo];
-    if (atual === undefined || atual === '') return false;
+    const atual = valores[codigoCondicionante];
+    if (!isValorPreenchido(atual)) return false;
 
     if (attr.condicao) {
-      return avaliarExpressao(attr.condicao, String(atual));
+      return algumValorSatisfazCondicao(attr.condicao, atual);
     }
 
     if (!attr.descricaoCondicao) return true;
@@ -315,16 +294,36 @@ export default function ProdutoPage() {
     const match = attr.descricaoCondicao.match(regex);
     if (!match) return true;
     const esperado = match[1];
-    return atual === esperado;
+    return algumValorIgual(atual, esperado);
   }
 
   function renderCampo(attr: AtributoEstrutura): React.ReactNode {
     if (!condicaoAtendida(attr)) return null;
 
-    const value = valores[attr.codigo] || '';
+    const rawValue = valores[attr.codigo];
+    const value = rawValue !== undefined && !Array.isArray(rawValue) ? String(rawValue) : '';
 
     switch (attr.tipo) {
       case 'LISTA_ESTATICA':
+        if (attr.multivalorado) {
+          return (
+            <MultiSelect
+              key={attr.codigo}
+              label={attr.nome}
+              hint={attr.orientacaoPreenchimento}
+              required={attr.obrigatorio}
+              options={
+                attr.dominio?.map(d => ({
+                  value: d.codigo,
+                  label: `${d.codigo} - ${d.descricao}`
+                })) || []
+              }
+              placeholder="Selecione..."
+              values={normalizarValoresMultivalorados(rawValue)}
+              onChange={vals => handleValor(attr.codigo, vals)}
+            />
+          );
+        }
         return (
           <Select
             key={attr.codigo}
@@ -505,7 +504,7 @@ export default function ProdutoPage() {
       const estr = dados.atributos?.[0]?.estruturaSnapshotJson || [];
       setEstrutura(ordenarAtributos(estr));
       setEstruturaCarregada(true);
-      setValores(dados.atributos?.[0]?.valoresJson || {});
+      setValores((dados.atributos?.[0]?.valoresJson || {}) as Record<string, string | string[]>);
     } catch (error) {
       console.error('Erro ao carregar produto:', error);
       addToast('Erro ao carregar produto', 'error');
@@ -528,7 +527,7 @@ export default function ProdutoPage() {
       if (!condicaoAtendida(a)) continue;
       if (a.subAtributos && a.tipo === 'COMPOSTO') {
         faltantes.push(...coletarFaltantes(a.subAtributos));
-      } else if (a.obrigatorio && (!valores[a.codigo] || valores[a.codigo] === '')) {
+      } else if (a.obrigatorio && !isValorPreenchido(valores[a.codigo])) {
         faltantes.push(a);
       }
     }

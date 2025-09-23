@@ -344,6 +344,18 @@ export class ProdutoService {
     return ok;
   }
 
+  private valoresComoArray(valor: any): string[] {
+    if (Array.isArray(valor)) {
+      return valor.reduce<string[]>(
+        (acc, item) => acc.concat(this.valoresComoArray(item)),
+        []
+      );
+    }
+    if (valor === undefined || valor === null) return [];
+    const texto = String(valor);
+    return texto.trim() === '' ? [] : [texto];
+  }
+
   private condicaoAtendida(
     attr: AtributoEstruturaDTO,
     valores: Record<string, any>,
@@ -355,14 +367,18 @@ export class ProdutoService {
     const pai = mapa.get(codigoCondicionante);
     if (pai && !this.condicaoAtendida(pai, valores, mapa)) return false;
 
-    const atual = valores[codigoCondicionante];
-    if (atual === undefined || atual === '') return false;
-    const atualStr = String(atual);
-    if (attr.condicao) return this.avaliarExpressao(attr.condicao, atualStr);
+    const valoresCondicionante = this.valoresComoArray(valores[codigoCondicionante]);
+    if (valoresCondicionante.length === 0) return false;
+
+    if (attr.condicao) {
+      return valoresCondicionante.some(v => this.avaliarExpressao(attr.condicao, v));
+    }
+
     if (!attr.descricaoCondicao) return true;
     const match = attr.descricaoCondicao.match(/valor\s*=\s*'?"?(\w+)"?'?/i);
     if (!match) return true;
-    return atual === match[1];
+    const esperado = match[1];
+    return valoresCondicionante.some(v => v === esperado);
   }
 
   private todosObrigatoriosPreenchidos(
@@ -385,7 +401,7 @@ export class ProdutoService {
       if (!attr.obrigatorio) continue;
       if (!this.condicaoAtendida(attr, valores, mapa)) continue;
       const v = valores[attr.codigo];
-      if (v === undefined || v === '') return false;
+      if (this.valoresComoArray(v).length === 0) return false;
     }
     return true;
   }
@@ -408,26 +424,36 @@ export class ProdutoService {
     for (const attr of todos) {
       if (!this.condicaoAtendida(attr, valores, mapa)) continue;
       const v = valores[attr.codigo];
-      if (v === undefined || v === '') continue;
+      const valoresAttr = this.valoresComoArray(v);
+      if (valoresAttr.length === 0) continue;
 
-      if (attr.validacoes?.tamanho_maximo && String(v).length > attr.validacoes.tamanho_maximo) {
+      if (attr.validacoes?.tamanho_maximo && valoresAttr.some(item => item.length > attr.validacoes.tamanho_maximo)) {
         erros[attr.codigo] = 'Tamanho máximo excedido';
         continue;
       }
       switch (attr.tipo) {
         case 'NUMERO_INTEIRO':
-          if (!/^[-]?\d+$/.test(String(v))) erros[attr.codigo] = 'Número inteiro inválido';
+          if (valoresAttr.some(item => !/^[-]?\d+$/.test(item))) {
+            erros[attr.codigo] = 'Número inteiro inválido';
+          }
           break;
         case 'NUMERO_REAL':
-          if (isNaN(Number(v))) erros[attr.codigo] = 'Número real inválido';
+          if (valoresAttr.some(item => isNaN(Number(item)))) {
+            erros[attr.codigo] = 'Número real inválido';
+          }
           break;
         case 'LISTA_ESTATICA':
-          if (attr.dominio && !attr.dominio.some(d => d.codigo == v)) {
+          if (
+            attr.dominio &&
+            !valoresAttr.every(item => attr.dominio!.some(d => String(d.codigo) === item))
+          ) {
             erros[attr.codigo] = 'Valor fora do domínio';
           }
           break;
         case 'BOOLEANO':
-          if (v !== 'true' && v !== 'false') erros[attr.codigo] = 'Valor booleano inválido';
+          if (valoresAttr.some(item => item !== 'true' && item !== 'false')) {
+            erros[attr.codigo] = 'Valor booleano inválido';
+          }
           break;
       }
     }
