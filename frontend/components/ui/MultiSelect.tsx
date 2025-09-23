@@ -2,6 +2,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
+import { Hint } from './Hint';
 
 export interface MultiOption {
   value: string;
@@ -17,6 +18,8 @@ interface MultiSelectProps {
   disabled?: boolean;
   error?: string;
   className?: string;
+  hint?: string;
+  required?: boolean;
 }
 
 export function MultiSelect({
@@ -28,6 +31,8 @@ export function MultiSelect({
   disabled = false,
   error,
   className = '',
+  hint,
+  required,
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -91,7 +96,11 @@ export function MultiSelect({
   return (
     <div className={`mb-4 ${className}`} ref={containerRef}>
       {label && (
-        <label className="block text-sm font-medium mb-2 text-gray-300">{label}</label>
+        <label className="block text-sm font-medium mb-2 text-gray-300">
+          {label}
+          {required && <span className="text-red-400 ml-1">*</span>}
+          {hint && <Hint text={hint} />}
+        </label>
       )}
       <div className="relative">
         <button
