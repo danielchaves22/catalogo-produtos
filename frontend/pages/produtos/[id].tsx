@@ -26,6 +26,7 @@ import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperador
 import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
 import { Hint } from '@/components/ui/Hint';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
+import useDebounce from '@/hooks/useDebounce';
 
 interface AtributoEstrutura {
   codigo: string;
@@ -81,6 +82,10 @@ export default function ProdutoPage() {
 
   const [attrsFaltando, setAttrsFaltando] = useState<string[] | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [ncmSugestoes, setNcmSugestoes] = useState<Array<{ codigo: string; descricao: string | null }>>([]);
+  const [mostrarSugestoesNcm, setMostrarSugestoesNcm] = useState(false);
+  const [carregandoSugestoesNcm, setCarregandoSugestoesNcm] = useState(false);
+  const debouncedNcm = useDebounce(ncm, 1000);
 
   // Texto do cabeçalho removido conforme novo layout
 
@@ -204,6 +209,11 @@ export default function ProdutoPage() {
         return newErrors;
       });
     }
+    if (valor.length < 4 || valor.length >= 8) {
+      setNcmSugestoes([]);
+      setMostrarSugestoesNcm(false);
+      setCarregandoSugestoesNcm(false);
+    }
     if (valor.length === 8) {
       carregarEstrutura(valor);
     } else {
@@ -213,11 +223,55 @@ export default function ProdutoPage() {
     }
   }
 
+  function selecionarSugestaoNcm(sugestao: { codigo: string; descricao: string | null }) {
+    setNcmDescricao(sugestao.descricao || '');
+    setUnidadeMedida('');
+    setMostrarSugestoesNcm(false);
+    setNcmSugestoes([]);
+    handleNcmChange(sugestao.codigo);
+  }
+
   useEffect(() => {
     if (ncm.length === 8) {
       carregarEstrutura(ncm);
     }
   }, [modalidade]);
+
+  useEffect(() => {
+    if (debouncedNcm.length >= 4 && debouncedNcm.length < 8) {
+      let ativo = true;
+      setCarregandoSugestoesNcm(true);
+      setMostrarSugestoesNcm(true);
+
+      api
+        .get('/siscomex/ncm/sugestoes', { params: { prefixo: debouncedNcm } })
+        .then(response => {
+          if (!ativo) return;
+          const lista = (response.data?.dados as Array<{ codigo: string; descricao: string | null }> | undefined) || [];
+          setNcmSugestoes(lista);
+          setMostrarSugestoesNcm(true);
+        })
+        .catch(error => {
+          if (!ativo) return;
+          console.error('Erro ao buscar sugestões de NCM:', error);
+          addToast('Erro ao buscar sugestões de NCM', 'error');
+          setMostrarSugestoesNcm(false);
+          setNcmSugestoes([]);
+        })
+        .finally(() => {
+          if (!ativo) return;
+          setCarregandoSugestoesNcm(false);
+        });
+
+      return () => {
+        ativo = false;
+      };
+    }
+
+    setNcmSugestoes([]);
+    setMostrarSugestoesNcm(false);
+    setCarregandoSugestoesNcm(false);
+  }, [debouncedNcm, addToast]);
 
   function handleValor(codigo: string, valor: string | string[]) {
     setValores(prev => ({ ...prev, [codigo]: valor }));
@@ -674,15 +728,52 @@ export default function ProdutoPage() {
           <>
             <div className="grid grid-cols-5 gap-4 mt-4">
               {isNew ? (
-                <MaskedInput
-                  label="NCM"
-                  mask="ncm"
-                  value={ncm}
-                  onChange={val => handleNcmChange(val)}
-                  className="col-span-1"
-                  error={errors.ncm}
-                  required
-                />
+                <div className="col-span-1">
+                  <div className="relative">
+                    <MaskedInput
+                      label="NCM"
+                      mask="ncm"
+                      value={ncm}
+                      onChange={val => handleNcmChange(val)}
+                      className="mb-0"
+                      error={errors.ncm}
+                      required
+                      onFocus={() => {
+                        if (ncm.length >= 4 && ncm.length < 8 && ncmSugestoes.length > 0) {
+                          setMostrarSugestoesNcm(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setMostrarSugestoesNcm(false), 100);
+                      }}
+                      autoComplete="off"
+                    />
+                    {(carregandoSugestoesNcm || mostrarSugestoesNcm) && (
+                      <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-md border border-gray-700 bg-[#1e2126] shadow-lg">
+                        {carregandoSugestoesNcm ? (
+                          <div className="px-3 py-2 text-sm text-gray-400">Buscando sugestões...</div>
+                        ) : ncmSugestoes.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-gray-400">Nenhuma sugestão encontrada</div>
+                        ) : (
+                          ncmSugestoes.map(sugestao => (
+                            <button
+                              key={sugestao.codigo}
+                              type="button"
+                              className="flex w-full flex-col items-start px-3 py-2 text-left text-sm text-gray-100 hover:bg-gray-700"
+                              onMouseDown={event => event.preventDefault()}
+                              onClick={() => selecionarSugestaoNcm(sugestao)}
+                            >
+                              <span className="font-medium">{sugestao.codigo}</span>
+                              {sugestao.descricao && (
+                                <span className="text-xs text-gray-400">{sugestao.descricao}</span>
+                              )}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               ) : (
                 <Input label="NCM" value={ncm} disabled className="col-span-1" />
               )}
