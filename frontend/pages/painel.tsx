@@ -25,8 +25,8 @@ interface ResumoDashboard {
 
 // Mapeamento de cores para cada status (mesmo padrão da listagem)
 const STATUS_COLORS = {
-  PENDENTE: '#e4a835',
-  APROVADO: '#27f58a', 
+  PENDENTE: '#ff9900',
+  APROVADO: '#01aa4d', 
   PROCESSANDO: '#4c82d3',
   TRANSMITIDO: '#4c82d3',
   ERRO: '#f2545f'
@@ -42,8 +42,8 @@ const STATUS_LABELS = {
 
 // Cores para atributos
 const ATRIBUTOS_COLORS = {
-  PENDENTES: '#e4a835',
-  VALIDOS: '#27f58a',
+  PENDENTES: '#ff9900',
+  VALIDOS: '#01aa4d',
   TOTAL: '#4c82d3'
 };
 
