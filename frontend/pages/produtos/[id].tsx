@@ -271,7 +271,7 @@ export default function ProdutoPage() {
     setNcmSugestoes([]);
     setMostrarSugestoesNcm(false);
     setCarregandoSugestoesNcm(false);
-  }, [debouncedNcm, addToast]);
+  }, [debouncedNcm]);
 
   function handleValor(codigo: string, valor: string | string[]) {
     setValores(prev => ({ ...prev, [codigo]: valor }));
@@ -683,7 +683,7 @@ export default function ProdutoPage() {
         </h1>
       </div>
 
-      <Card className="mb-6">
+      <Card className="mb-6 overflow-visible">
         <div className="grid grid-cols-4 gap-4">
           {isNew && !workingCatalog ? (
             <Select
