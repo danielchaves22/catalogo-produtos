@@ -87,6 +87,15 @@ export default function ProdutoPage() {
   const [carregandoSugestoesNcm, setCarregandoSugestoesNcm] = useState(false);
   const debouncedNcm = useDebounce(ncm, 1000);
 
+  // Format NCM code for display (9999.99.99)
+  function formatarNCMExibicao(codigo?: string) {
+    if (!codigo) return '';
+    const digits = String(codigo).replace(/\D/g, '').slice(0, 8);
+    if (digits.length <= 4) return digits;
+    if (digits.length <= 6) return digits.replace(/(\d{4})(\d{1,2})/, '$1.$2');
+    return digits.replace(/(\d{4})(\d{2})(\d{1,2})/, '$1.$2.$3');
+  }
+
   // Texto do cabeçalho removido conforme novo layout
 
   useEffect(() => {
@@ -763,7 +772,7 @@ export default function ProdutoPage() {
                               onMouseDown={event => event.preventDefault()}
                               onClick={() => selecionarSugestaoNcm(sugestao)}
                             >
-                              <span className="font-medium">{sugestao.codigo}</span>
+                              <span className="font-medium">{formatarNCMExibicao(sugestao.codigo)}</span>
                               {sugestao.descricao && (
                                 <span className="text-xs text-gray-400">{sugestao.descricao}</span>
                               )}
