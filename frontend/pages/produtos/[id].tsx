@@ -758,7 +758,7 @@ export default function ProdutoPage() {
                       autoComplete="off"
                     />
                     {(carregandoSugestoesNcm || mostrarSugestoesNcm) && (
-                      <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-md border border-gray-700 bg-[#1e2126] shadow-lg">
+                      <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 md:max-h-80 overflow-y-auto rounded-md border border-gray-700 bg-[#1e2126] shadow-lg">
                         {carregandoSugestoesNcm ? (
                           <div className="px-3 py-2 text-sm text-gray-400">Buscando sugestões...</div>
                         ) : ncmSugestoes.length === 0 ? (
