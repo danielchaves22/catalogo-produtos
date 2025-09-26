@@ -7,6 +7,7 @@ import {
   detalharVersaoProduto,
   exportarCatalogo,
   consultarAtributosPorNcm,
+  listarSugestoesNcm,
   verificarStatus
 } from '../controllers/siscomex.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
@@ -15,6 +16,28 @@ const router = Router();
 
 // Todas as rotas SISCOMEX são protegidas por autenticação
 router.use(authMiddleware);
+
+/**
+ * @swagger
+ * /api/v1/siscomex/ncm/sugestoes:
+ *   get:
+ *     summary: Lista sugestões de códigos NCM
+ *     tags: [SISCOMEX]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: prefixo
+ *         required: true
+ *         schema:
+ *           type: string
+ *           minLength: 4
+ *           maxLength: 7
+ *     responses:
+ *       200:
+ *         description: Lista de sugestões de NCM
+ */
+router.get('/ncm/sugestoes', listarSugestoesNcm);
 
 /**
  * @swagger

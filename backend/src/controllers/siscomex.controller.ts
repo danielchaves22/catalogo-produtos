@@ -11,6 +11,41 @@ const atributoLegacyService = new AtributoLegacyService();
 const ncmLegacyService = new NcmLegacyService();
 
 /**
+ * GET /api/siscomex/ncm/sugestoes
+ * Lista sugestões de NCM filtrando por prefixo
+ */
+export async function listarSugestoesNcm(req: Request, res: Response) {
+  try {
+    const prefixo = ((req.query.prefixo as string) || '').trim();
+
+    if (!prefixo) {
+      return res.status(400).json({ error: 'Prefixo é obrigatório' });
+    }
+
+    if (!/^\d+$/.test(prefixo)) {
+      return res.status(400).json({ error: 'Prefixo deve conter apenas números' });
+    }
+
+    if (prefixo.length < 4 || prefixo.length > 7) {
+      return res.status(400).json({ error: 'Prefixo deve ter entre 4 e 7 dígitos' });
+    }
+
+    const sugestoes = await ncmLegacyService.buscarSugestoes(prefixo);
+
+    return res.status(200).json({
+      sucesso: true,
+      total: sugestoes.length,
+      dados: sugestoes
+    });
+  } catch (error: unknown) {
+    logger.error('Erro ao listar sugestões de NCM:', error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro interno ao listar sugestões de NCM'
+    });
+  }
+}
+
+/**
  * GET /api/siscomex/produtos
  * Consulta produtos no SISCOMEX
  */

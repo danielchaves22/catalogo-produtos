@@ -25,6 +25,31 @@ describe('NcmLegacyService', () => {
     expect(resultado).toEqual({ descricao: 'Produto Teste', unidadeMedida: 'KG' })
   })
 
+  it('buscarSugestoes deve retornar lista do legado', async () => {
+    mockedLegacy.$queryRaw.mockResolvedValueOnce([
+      { codigo: '12345678', descricao: 'Teste 1' },
+      { codigo: '12349999', descricao: 'Teste 2' }
+    ])
+
+    const service = new NcmLegacyService()
+    const resultado = await service.buscarSugestoes('1234')
+
+    expect(mockedLegacy.$queryRaw).toHaveBeenCalledTimes(1)
+    expect(resultado).toEqual([
+      { codigo: '12345678', descricao: 'Teste 1' },
+      { codigo: '12349999', descricao: 'Teste 2' }
+    ])
+  })
+
+  it('buscarSugestoes deve retornar lista vazia quando não houver dados', async () => {
+    mockedLegacy.$queryRaw.mockResolvedValueOnce([])
+
+    const service = new NcmLegacyService()
+    const resultado = await service.buscarSugestoes('9876')
+
+    expect(resultado).toEqual([])
+  })
+
   it('sincronizarNcm deve gravar no cache', async () => {
     mockedLegacy.$queryRaw.mockResolvedValueOnce([
       { descricao: 'Produto Teste', unidade_medida: 'KG' }
