@@ -28,8 +28,8 @@ const STATUS_COLORS = {
   PENDENTE: '#ff9900',
   APROVADO: '#01aa4d', 
   PROCESSANDO: '#4c82d3',
-  TRANSMITIDO: '#0d99ff',
-  ERRO: '#e7191f'
+  TRANSMITIDO: '#5e17eb',
+  ERRO: '#ff5757'
 };
 
 const STATUS_LABELS = {

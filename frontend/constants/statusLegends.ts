@@ -45,12 +45,12 @@ export const produtoStatusLegend: LegendItem[] = [
   {
     label: 'Transmitido',
     description: 'Transmitido com sucesso ao PUCOMEX.',
-    badgeClass: chip('bg-[#0d99ff1a] text-[#0d99ff] border-[#0d99ff]'),
+    badgeClass: chip('bg-[#5e17eb1a] text-[#5e17eb] border-[#5e17eb]'),
   },
   {
     label: 'Erro',
     description: 'Erro ao transmitir; ver detalhes em "Logs".',
-    badgeClass: chip('bg-[#e7191f1a] text-[#e7191f] border-[#e7191f]'),
+    badgeClass: chip('bg-[#ff57571a] text-[#ff5757] border-[#ff5757]'),
   },
 ];
 

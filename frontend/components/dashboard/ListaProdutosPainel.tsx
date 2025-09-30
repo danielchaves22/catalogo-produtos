@@ -85,9 +85,9 @@ export function ListaProdutosPainel() {
       case 'PROCESSANDO':
         return 'bg-[#4c82d31a] text-[#4c82d3] border border-[#4c82d3]';
       case 'TRANSMITIDO':
-        return 'bg-[#0d99ff1a] text-[#0d99ff] border border-[#0d99ff]';
+        return 'bg-[#5e17eb1a] text-[#5e17eb] border border-[#5e17eb]';
       case 'ERRO':
-        return 'bg-[#e7191f1a] text-[#e7191f] border border-[#e7191f]';
+        return 'bg-[#ff57571a] text-[#ff5757] border border-[#ff5757]';
       default:
         return 'bg-gray-900/50 text-gray-400 border border-gray-700';
     }
