@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import {
   FileText, PieChart, Briefcase, Users,
-  ChevronLeft, ChevronRight, User, Key, UserCog
+  ChevronLeft, ChevronRight, User, Key, UserCog, Mail
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -71,6 +71,13 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       label: 'Painel',
       subItems: [
         { label: 'Painel', href: '/', showWhenExpanded: true },
+      ],
+    },
+    {
+      icon: <Mail size={20} />,
+      label: 'Mensagens',
+      subItems: [
+        { label: 'Mensagens', href: '/mensagens', showWhenExpanded: true },
       ],
     },
     {

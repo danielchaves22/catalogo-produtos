@@ -16,6 +16,7 @@ import usuarioRoutes from './routes/usuario.routes';
 import { Router } from 'express';
 import { API_PREFIX } from './config';
 import uploadRoutes from './routes/upload.routes';
+import mensagemRoutes from './routes/mensagem.routes';
 
 const app = express();
 
@@ -54,6 +55,9 @@ apiRouter.use('/usuarios', usuarioRoutes);
 
 // Rotas de painel (protegidas)
 apiRouter.use('/dashboard', dashboardRoutes);
+
+// Rotas de mensagens (protegidas)
+apiRouter.use('/mensagens', mensagemRoutes);
 
 // Middleware de autenticação para rotas protegidas
 apiRouter.use('/protected', authMiddleware, (req, res) => {

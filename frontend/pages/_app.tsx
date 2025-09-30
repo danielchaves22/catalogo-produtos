@@ -4,6 +4,7 @@ import { AppProps } from 'next/app'
 import Head from 'next/head'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { WorkingCatalogProvider } from '@/contexts/WorkingCatalogContext'
+import { MessagesProvider } from '@/contexts/MessagesContext'
 import { ToastProvider } from '@/components/ui/ToastContext'
 import { LoadingScreen } from '@/components/ui/LoadingScreen'
 import { PageTransition } from '@/components/ui/PageTransition'
@@ -27,10 +28,12 @@ export default function App(props: AppProps) {
       </Head>
       <AuthProvider>
         <WorkingCatalogProvider>
-          <ToastProvider>
-            <PageTransition />
-            <AppContent {...props} />
-          </ToastProvider>
+          <MessagesProvider>
+            <ToastProvider>
+              <PageTransition />
+              <AppContent {...props} />
+            </ToastProvider>
+          </MessagesProvider>
         </WorkingCatalogProvider>
       </AuthProvider>
     </>
