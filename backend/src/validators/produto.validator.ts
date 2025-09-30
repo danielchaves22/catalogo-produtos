@@ -46,3 +46,14 @@ export const updateProdutoSchema = z.object({
   })).optional(),
   atualizadoPor: z.string().optional()
 });
+
+export const cloneProdutoSchema = z.object({
+  catalogoId: z.number().int(),
+  denominacao: z.string().max(100).min(1),
+  codigosInternos: z
+    .array(z.string().max(50))
+    .optional()
+    .refine(arr => !arr || new Set(arr).size === arr.length, {
+      message: 'Códigos internos duplicados não são permitidos'
+    })
+});

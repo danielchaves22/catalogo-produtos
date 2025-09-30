@@ -103,3 +103,27 @@ export async function removerProduto(req: Request, res: Response) {
     res.status(500).json({ error: error.message });
   }
 }
+
+export async function clonarProduto(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const produto = await produtoService.clonar(
+      id,
+      req.body,
+      req.user!.superUserId
+    );
+    res.status(201).json(produto);
+  } catch (error: any) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, details: error.details });
+    }
+    if (error.message?.includes('não encontrado')) {
+      return res.status(404).json({ error: error.message });
+    }
+    if (error.message?.includes('Catálogo de destino')) {
+      return res.status(400).json({ error: error.message });
+    }
+    logger.error('Erro ao clonar produto:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
