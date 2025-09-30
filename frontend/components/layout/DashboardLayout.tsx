@@ -5,10 +5,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from './Sidebar';
-import { User, RefreshCcw } from 'lucide-react';
+import { User, RefreshCcw, Mail } from 'lucide-react';
 import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { WorkingCatalogModal } from '@/components/catalogos/WorkingCatalogModal';
+import { useMessages } from '@/contexts/MessagesContext';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -27,7 +28,10 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
   
   // Estado para controlar a visibilidade do menu do usuário
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [messagesMenuOpen, setMessagesMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const messagesMenuRef = useRef<HTMLDivElement>(null);
+  const { unreadMessages, unreadCount, markAsRead, refreshUnread } = useMessages();
   
   // Obtém o estado salvo no localStorage ou usa o padrão
   const getSavedCollapsedState = () => {
@@ -51,25 +55,56 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
   // Efeito para detectar cliques fora do menu do usuário
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (userMenuRef.current && !userMenuRef.current.contains(target)) {
         setUserMenuOpen(false);
+      }
+      if (messagesMenuRef.current && !messagesMenuRef.current.contains(target)) {
+        setMessagesMenuOpen(false);
       }
     };
 
-    // Adiciona o listener quando o menu está aberto
-    if (userMenuOpen) {
+    if (userMenuOpen || messagesMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
-    // Cleanup
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [userMenuOpen]);
+  }, [userMenuOpen, messagesMenuOpen]);
 
   // Função para alternar o menu do usuário
   const toggleUserMenu = () => {
-    setUserMenuOpen(!userMenuOpen);
+    setUserMenuOpen((prev) => {
+      const novoEstado = !prev;
+      if (novoEstado) {
+        setMessagesMenuOpen(false);
+      }
+      return novoEstado;
+    });
+  };
+
+  const toggleMessagesMenu = () => {
+    const novoEstado = !messagesMenuOpen;
+    setMessagesMenuOpen(novoEstado);
+    if (novoEstado) {
+      setUserMenuOpen(false);
+    }
+    if (novoEstado) {
+      refreshUnread();
+    }
+  };
+
+  const handleMessageClick = async (mensagemId: number) => {
+    try {
+      await markAsRead(mensagemId);
+    } finally {
+      setMessagesMenuOpen(false);
+      router.push({
+        pathname: '/mensagens',
+        query: { mensagem: mensagemId },
+      });
+    }
   };
 
   // Função para fechar o menu e executar ação
@@ -116,8 +151,74 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
             <RefreshCcw size={16} />
           </button>
 
+          <div className="relative" ref={messagesMenuRef}>
+            <button
+              onClick={toggleMessagesMenu}
+              className={`relative p-1 rounded hover:bg-[#262b36] ${
+                unreadCount > 0 ? 'text-[#f59e0b]' : 'text-gray-300 hover:text-white'
+              }`}
+              aria-label="Mensagens"
+              title={unreadCount > 0 ? `${unreadCount} mensagem(ns) não lida(s)` : 'Mensagens'}
+            >
+              <Mail size={18} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#f59e0b] text-xs font-semibold text-black rounded-full px-1 min-w-[18px] text-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {messagesMenuOpen && (
+              <div className="absolute right-0 mt-2 w-80 bg-[#1e2126] shadow-lg rounded-md z-20 border border-gray-700">
+                <div className="px-4 py-2 border-b border-gray-700 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-200">Mensagens não lidas</span>
+                  <span className="text-xs text-gray-400">{unreadCount} no total</span>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {unreadMessages.length === 0 ? (
+                    <p className="text-sm text-gray-400 px-4 py-3">
+                      Nenhuma mensagem não lida no momento.
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-gray-700">
+                      {unreadMessages.map((mensagem) => (
+                        <li key={mensagem.id}>
+                          <button
+                            onClick={() => handleMessageClick(mensagem.id)}
+                            className="w-full text-left px-4 py-3 hover:bg-[#262b36]"
+                          >
+                            <p className="text-sm font-semibold text-gray-200 truncate">
+                              {mensagem.titulo}
+                            </p>
+                            <p className="text-xs text-gray-400 truncate mt-1">
+                              {new Date(mensagem.criadaEm).toLocaleString('pt-BR')}
+                            </p>
+                            <p className="text-xs text-gray-400 truncate mt-1">
+                              {mensagem.conteudo}
+                            </p>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="px-4 py-2 border-t border-gray-700 text-right">
+                  <button
+                    onClick={() => {
+                      setMessagesMenuOpen(false);
+                      router.push('/mensagens');
+                    }}
+                    className="text-sm text-[#f59e0b] hover:text-[#f97316]"
+                  >
+                    Ver todas as mensagens
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="relative" ref={userMenuRef}>
-            <button 
+            <button
               onClick={toggleUserMenu}
               className="flex items-center space-x-1 focus:outline-none"
             >
