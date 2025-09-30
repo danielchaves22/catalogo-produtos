@@ -37,6 +37,12 @@ export interface OperadorEstrangeiroProdutoInput {
   operadorEstrangeiroId?: number;
 }
 
+export interface CloneProdutoDTO {
+  catalogoId: number;
+  denominacao: string;
+  codigosInternos?: string[];
+}
+
 export interface ListarProdutosFiltro {
   status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
   situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
@@ -280,6 +286,96 @@ export class ProdutoService {
     if (deleted === 0) {
       throw new Error(`Produto ID ${id} não encontrado`);
     }
+  }
+
+  async clonar(id: number, data: CloneProdutoDTO, superUserId: number) {
+    const original = await catalogoPrisma.produto.findFirst({
+      where: { id, catalogo: { superUserId } },
+      include: {
+        atributos: true,
+        codigosInternos: true,
+        operadoresEstrangeiros: true
+      }
+    });
+
+    if (!original) {
+      throw new Error(`Produto ID ${id} não encontrado`);
+    }
+
+    const catalogoDestino = await catalogoPrisma.catalogo.findFirst({
+      where: { id: data.catalogoId, superUserId }
+    });
+
+    if (!catalogoDestino) {
+      throw new Error('Catálogo de destino não encontrado para o superusuário');
+    }
+
+    const skus = (data.codigosInternos ?? [])
+      .map(codigo => codigo.trim())
+      .filter(codigo => codigo.length > 0);
+
+    if (new Set(skus).size !== skus.length) {
+      throw new ValidationError({
+        codigosInternos: 'Códigos internos duplicados não são permitidos'
+      });
+    }
+
+    const attr = original.atributos[0];
+
+    const novoId = await catalogoPrisma.$transaction(async (tx) => {
+      const novo = await tx.produto.create({
+        data: {
+          codigo: null,
+          versao: original.versao,
+          status: original.status,
+          situacao: original.situacao,
+          ncmCodigo: original.ncmCodigo,
+          modalidade: original.modalidade,
+          denominacao: data.denominacao.trim(),
+          descricao: original.descricao,
+          numero: 0,
+          catalogoId: data.catalogoId,
+          versaoEstruturaAtributos: original.versaoEstruturaAtributos,
+          criadoPor: original.criadoPor,
+          atributos: attr
+            ? {
+                create: {
+                  valoresJson: attr.valoresJson as Prisma.InputJsonValue,
+                  estruturaSnapshotJson: attr.estruturaSnapshotJson as Prisma.InputJsonValue,
+                  validadoEm: attr.validadoEm,
+                  errosValidacao: attr.errosValidacao as Prisma.InputJsonValue
+                }
+              }
+            : undefined,
+          codigosInternos: skus.length
+            ? {
+                create: skus.map(codigo => ({ codigo }))
+              }
+            : undefined,
+          operadoresEstrangeiros: original.operadoresEstrangeiros.length
+            ? {
+                create: original.operadoresEstrangeiros.map((oe) => ({
+                  paisCodigo: oe.paisCodigo,
+                  conhecido: oe.conhecido,
+                  operadorEstrangeiroId:
+                    data.catalogoId === original.catalogoId
+                      ? oe.operadorEstrangeiroId ?? null
+                      : null
+                }))
+              }
+            : undefined
+        }
+      });
+
+      return novo.id;
+    });
+
+    const produto = await this.buscarPorId(novoId, superUserId);
+    if (!produto) {
+      throw new Error('Falha ao carregar produto clonado');
+    }
+
+    return produto;
   }
 
   private async obterEstruturaAtributos(

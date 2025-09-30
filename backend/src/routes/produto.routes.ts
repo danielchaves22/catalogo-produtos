@@ -5,11 +5,16 @@ import {
   obterProduto,
   criarProduto,
   atualizarProduto,
-  removerProduto
+  removerProduto,
+  clonarProduto
 } from '../controllers/produto.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
-import { createProdutoSchema, updateProdutoSchema } from '../validators/produto.validator';
+import {
+  createProdutoSchema,
+  updateProdutoSchema,
+  cloneProdutoSchema
+} from '../validators/produto.validator';
 
 const router = Router();
 
@@ -19,6 +24,7 @@ router.get('/', listarProdutos);
 router.get('/:id', obterProduto);
 router.post('/', validate(createProdutoSchema), criarProduto);
 router.put('/:id', validate(updateProdutoSchema), atualizarProduto);
+router.post('/:id/clonar', validate(cloneProdutoSchema), clonarProduto);
 router.delete('/:id', removerProduto);
 
 export default router;

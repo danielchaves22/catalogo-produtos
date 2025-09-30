@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { AlertCircle, Plus, Search, Trash2, Pencil } from 'lucide-react';
+import { AlertCircle, Plus, Search, Trash2, Pencil, Copy, X } from 'lucide-react';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Hint } from '@/components/ui/Hint';
 import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useToast } from '@/components/ui/ToastContext';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
+import { Input } from '@/components/ui/Input';
 
 interface Produto {
   id: number;
@@ -27,6 +28,7 @@ interface Produto {
   catalogoNome?: string;
   catalogoCpfCnpj?: string;
   catalogoAmbiente?: 'HOMOLOGACAO' | 'PRODUCAO';
+  catalogoId?: number;
   denominacao?: string;
   descricao?: string;
   codigosInternos?: string[];
@@ -59,6 +61,12 @@ export default function ProdutosPage() {
   }));
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<number | null>(null);
   const [catalogos, setCatalogos] = useState<{ id: number; numero: number; nome: string }[]>([]);
+  const [produtoParaClonar, setProdutoParaClonar] = useState<Produto | null>(null);
+  const [cloneCatalogoId, setCloneCatalogoId] = useState('');
+  const [cloneNome, setCloneNome] = useState('');
+  const [cloneSkus, setCloneSkus] = useState<string[]>([]);
+  const [cloneErrors, setCloneErrors] = useState<{ nome?: string; catalogo?: string }>({});
+  const [clonandoProduto, setClonandoProduto] = useState(false);
   const router = useRouter();
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
@@ -214,6 +222,73 @@ export default function ProdutosPage() {
     }
   }
 
+  function abrirModalClonar(produto: Produto) {
+    setProdutoParaClonar(produto);
+    setCloneCatalogoId(produto.catalogoId ? String(produto.catalogoId) : '');
+    const nomeBase = produto.denominacao ?? '';
+    const sugestao = nomeBase && nomeBase.length <= 90 ? `${nomeBase} (cópia)` : nomeBase;
+    setCloneNome(sugestao);
+    setCloneSkus([]);
+    setCloneErrors({});
+  }
+
+  function cancelarClonagem() {
+    setProdutoParaClonar(null);
+    setCloneCatalogoId('');
+    setCloneNome('');
+    setCloneSkus([]);
+    setCloneErrors({});
+    setClonandoProduto(false);
+  }
+
+  function adicionarSku() {
+    setCloneSkus(prev => [...prev, '']);
+  }
+
+  function atualizarSku(index: number, valor: string) {
+    setCloneSkus(prev => prev.map((sku, i) => (i === index ? valor : sku)));
+  }
+
+  function removerSku(index: number) {
+    setCloneSkus(prev => prev.filter((_, i) => i !== index));
+  }
+
+  async function confirmarClonagem() {
+    if (!produtoParaClonar) return;
+
+    const erros: { nome?: string; catalogo?: string } = {};
+    if (!cloneNome.trim()) {
+      erros.nome = 'Nome é obrigatório';
+    }
+    const catalogoSelecionado = cloneCatalogoId || (produtoParaClonar.catalogoId ? String(produtoParaClonar.catalogoId) : '');
+    if (!catalogoSelecionado) {
+      erros.catalogo = 'Selecione um catálogo';
+    }
+
+    if (Object.keys(erros).length > 0) {
+      setCloneErrors(erros);
+      return;
+    }
+
+    const codigos = cloneSkus.map(sku => sku.trim()).filter(sku => sku.length > 0);
+
+    try {
+      setClonandoProduto(true);
+      await api.post(`/produtos/${produtoParaClonar.id}/clonar`, {
+        catalogoId: Number(catalogoSelecionado),
+        denominacao: cloneNome.trim(),
+        codigosInternos: codigos.length > 0 ? codigos : undefined
+      });
+      addToast('Produto clonado com sucesso', 'success');
+      cancelarClonagem();
+      await carregarProdutos();
+    } catch (err: any) {
+      const mensagem = err?.response?.data?.error || 'Erro ao clonar produto';
+      addToast(mensagem, 'error');
+      setClonandoProduto(false);
+    }
+  }
+
   return (
     <DashboardLayout title="Produtos">
       <Breadcrumb items={[{ label: 'Início', href: '/' }, { label: 'Produtos' }]} />
@@ -324,7 +399,7 @@ export default function ProdutosPage() {
             <table className="w-full text-sm text-left">
               <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
                 <tr>
-                  <th className="w-16 px-4 py-3 text-center">Ações</th>
+                  <th className="w-24 px-4 py-3 text-center">Ações</th>
                   <th className="px-4 py-3">Catálogo</th>
                   <th className="px-4 py-3">Nome</th>
                   <th className="px-4 py-3">Cód. Int. (SKU/PN)</th>
@@ -360,6 +435,13 @@ export default function ProdutosPage() {
                     className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors"
                   >
                     <td className="px-4 py-3 flex gap-2">
+                      <button
+                        className="p-1 text-gray-300 hover:text-purple-500 transition-colors"
+                        onClick={() => abrirModalClonar(produto)}
+                        title="Clonar produto"
+                      >
+                        <Copy size={16} />
+                      </button>
                       <button
                         className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
                         onClick={() => editarProduto(produto.id)}
@@ -447,6 +529,109 @@ export default function ProdutosPage() {
               </Button>
               <Button variant="danger" onClick={excluirProduto}>
                 Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {produtoParaClonar && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-lg w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-4">Clonar Produto</h3>
+            <Input
+              label="Nome do novo produto"
+              value={cloneNome}
+              onChange={(e) => {
+                setCloneNome(e.target.value);
+                if (cloneErrors.nome) {
+                  setCloneErrors(prev => ({ ...prev, nome: undefined }));
+                }
+              }}
+              required
+              error={cloneErrors.nome}
+              placeholder="Informe o nome do produto clonado"
+            />
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1 text-gray-300">
+                Catálogo de destino
+                <span className="text-red-400 ml-1">*</span>
+              </label>
+              <select
+                className="w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
+                value={cloneCatalogoId || (produtoParaClonar.catalogoId ? String(produtoParaClonar.catalogoId) : '')}
+                onChange={(e) => {
+                  setCloneCatalogoId(e.target.value);
+                  if (cloneErrors.catalogo) {
+                    setCloneErrors(prev => ({ ...prev, catalogo: undefined }));
+                  }
+                }}
+              >
+                <option value="" disabled={Boolean(produtoParaClonar.catalogoId)}>
+                  Selecione um catálogo
+                </option>
+                {catalogos.map(catalogo => (
+                  <option key={catalogo.id} value={catalogo.id}>
+                    {catalogo.numero} - {catalogo.nome}
+                  </option>
+                ))}
+              </select>
+              {cloneErrors.catalogo && (
+                <p className="mt-1 text-sm text-red-400">{cloneErrors.catalogo}</p>
+              )}
+            </div>
+
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-300">Novos códigos internos (SKU/PN)</span>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  type="button"
+                  onClick={adicionarSku}
+                  disabled={clonandoProduto}
+                >
+                  Adicionar SKU
+                </Button>
+              </div>
+              <p className="text-xs text-gray-400 mb-3">
+                Os códigos informados substituirão os do produto original. Deixe vazio para não copiar nenhum SKU.
+              </p>
+              {cloneSkus.length === 0 ? (
+                <p className="text-sm text-gray-400">Nenhum SKU será copiado.</p>
+              ) : (
+                <div className="space-y-2">
+                  {cloneSkus.map((sku, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        className="flex-1 px-3 py-2 bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
+                        value={sku}
+                        onChange={(e) => atualizarSku(index, e.target.value)}
+                        placeholder={`SKU ${index + 1}`}
+                        maxLength={50}
+                      />
+                      <button
+                        type="button"
+                        className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                        onClick={() => removerSku(index)}
+                        aria-label={`Remover SKU ${index + 1}`}
+                        disabled={clonandoProduto}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={cancelarClonagem} disabled={clonandoProduto}>
+                Cancelar
+              </Button>
+              <Button variant="primary" onClick={confirmarClonagem} disabled={clonandoProduto || catalogos.length === 0}>
+                {clonandoProduto ? 'Clonando...' : 'Clonar'}
               </Button>
             </div>
           </div>
