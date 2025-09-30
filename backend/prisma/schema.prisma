@@ -93,6 +93,10 @@ enum CatalogoAmbiente {
   PRODUCAO
 }
 
+enum MensagemCategoria {
+  ATUALIZACAO_SISCOMEX
+}
+
 model Catalogo {
   id               Int            @id @default(autoincrement()) @map("id")
   nome             String         @map("nome")
@@ -109,6 +113,19 @@ model Catalogo {
 
   @@unique([superUserId, cpf_cnpj], name: "uk_superuser_cpf_cnpj")
   @@map("catalogo")
+}
+
+model Mensagem {
+  id          Int                @id @default(autoincrement()) @map("id")
+  superUserId Int                @map("super_user_id")
+  titulo      String             @map("titulo")
+  conteudo    String             @map("conteudo")
+  categoria   MensagemCategoria  @map("categoria")
+  lida        Boolean            @default(false) @map("lida")
+  criadaEm    DateTime           @default(now()) @map("criada_em")
+  lidaEm      DateTime?          @map("lida_em")
+
+  @@map("mensagem")
 }
 
 model Pais {
