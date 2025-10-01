@@ -8,7 +8,7 @@ import { PageLoader } from '@/components/ui/PageLoader';
 import api from '@/lib/api';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 import { useToast } from '@/components/ui/ToastContext';
-import { ArrowRight, PlusCircle, RefreshCcw } from 'lucide-react';
+import { Eye, PlusCircle, RefreshCcw, Trash, Trash2 } from 'lucide-react';
 
 interface ImportacaoResumo {
   id: number;
@@ -113,6 +113,47 @@ function traduzModalidade(modalidade: string) {
 export default function ImportacoesPage() {
   const router = useRouter();
   const { dados, carregando, erro, recarregar } = useImportacoes();
+  const [excluindoId, setExcluindoId] = useState<number | null>(null);
+  const [limpandoHistorico, setLimpandoHistorico] = useState(false);
+
+  const { addToast } = useToast();
+
+  const removerImportacao = useCallback(
+    async (id: number) => {
+      const confirmado = window.confirm('Deseja realmente excluir esta importação?');
+      if (!confirmado) return;
+
+      try {
+        setExcluindoId(id);
+        await api.delete(`/produtos/importacoes/${id}`);
+        addToast('Importação removida com sucesso.', 'success');
+        await recarregar();
+      } catch (error) {
+        console.error('Erro ao remover importação', error);
+        addToast('Não foi possível remover a importação.', 'error');
+      } finally {
+        setExcluindoId(null);
+      }
+    },
+    [addToast, recarregar]
+  );
+
+  const limparHistorico = useCallback(async () => {
+    const confirmado = window.confirm('Tem certeza que deseja remover todo o histórico de importações?');
+    if (!confirmado) return;
+
+    try {
+      setLimpandoHistorico(true);
+      await api.delete('/produtos/importacoes');
+      addToast('Histórico de importações limpo.', 'success');
+      await recarregar();
+    } catch (error) {
+      console.error('Erro ao limpar histórico de importações', error);
+      addToast('Não foi possível limpar o histórico de importações.', 'error');
+    } finally {
+      setLimpandoHistorico(false);
+    }
+  }, [addToast, recarregar]);
 
   if (carregando && dados.length === 0) {
     return (
@@ -126,26 +167,36 @@ export default function ImportacoesPage() {
     <DashboardLayout title="Importar Produto">
       <Breadcrumb
         items={[
+          { label: 'Início', href: '/' },
           { label: 'Automação' },
           { label: 'Importar Produto' }
         ]}
       />
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">Importações de Produto</h1>
-          <p className="text-sm text-gray-400">Acompanhe o histórico de importações realizadas via planilha Excel.</p>
-        </div>
-        <div className="flex gap-2">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-semibold text-white">Importações de Produto</h1>
+        <div className="flex flex-wrap gap-2 sm:justify-end">
           <Button
             variant="outline"
             onClick={() => recarregar()}
             title="Recarregar lista"
             className="flex items-center gap-2"
+            disabled={carregando}
           >
             <RefreshCcw size={16} />
             Atualizar
           </Button>
+          {dados.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={limparHistorico}
+              className="flex items-center gap-2 border-red-500/60 text-red-300 hover:bg-red-500/10"
+              disabled={limpandoHistorico}
+            >
+              <Trash size={16} />
+              Limpar histórico
+            </Button>
+          )}
           <Button
             onClick={() => router.push('/automacao/importar-produto/nova')}
             className="flex items-center gap-2"
@@ -175,23 +226,43 @@ export default function ImportacoesPage() {
             <table className="min-w-full text-sm">
               <thead className="bg-[#1f2430] text-xs uppercase text-gray-400">
                 <tr>
+                  <th className="px-4 py-3 text-left">Ações</th>
                   <th className="px-4 py-3 text-left">Arquivo</th>
                   <th className="px-4 py-3 text-left">Catálogo</th>
                   <th className="px-4 py-3 text-left">Modalidade</th>
                   <th className="px-4 py-3 text-left">Situação</th>
                   <th className="px-4 py-3 text-left">Resultado</th>
                   <th className="px-4 py-3 text-left">Registros</th>
-                  <th className="px-4 py-3 text-left">Criados</th>
-                  <th className="px-4 py-3 text-left">Com Atenção</th>
-                  <th className="px-4 py-3 text-left">Com Erro</th>
                   <th className="px-4 py-3 text-left">Iniciado em</th>
                   <th className="px-4 py-3 text-left">Concluído em</th>
-                  <th className="px-4 py-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {dados.map(importacao => (
                   <tr key={importacao.id} className="border-b border-slate-800/60 hover:bg-slate-800/40">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/automacao/importar-produto/${importacao.id}`)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 bg-slate-800/60 text-gray-200 transition hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          title="Ver detalhes"
+                          aria-label="Ver detalhes da importação"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removerImportacao(importacao.id)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-500/40 bg-red-500/10 text-red-200 transition hover:bg-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                          title="Excluir importação"
+                          aria-label="Excluir importação"
+                          disabled={excluindoId === importacao.id || limpandoHistorico}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-gray-200">
                       {importacao.nomeArquivo || `Importação #${importacao.id}`}
                     </td>
@@ -213,23 +284,8 @@ export default function ImportacoesPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-200">{importacao.totalRegistros}</td>
-                    <td className="px-4 py-3 text-gray-200">{importacao.totalCriados}</td>
-                    <td className="px-4 py-3 text-amber-300">{importacao.totalComAtencao}</td>
-                    <td className="px-4 py-3 text-red-300">{importacao.totalComErro}</td>
                     <td className="px-4 py-3 text-gray-200">{formatarData(importacao.iniciadoEm)}</td>
                     <td className="px-4 py-3 text-gray-200">{formatarData(importacao.finalizadoEm)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="outline"
-                        className="text-sm text-blue-300 hover:text-white"
-                        onClick={() => router.push(`/automacao/importar-produto/${importacao.id}`)}
-                      >
-                        <span className="inline-flex items-center gap-2">
-                          Detalhes
-                          <ArrowRight size={16} />
-                        </span>
-                      </Button>
-                    </td>
                   </tr>
                 ))}
               </tbody>

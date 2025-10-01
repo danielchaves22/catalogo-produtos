@@ -277,6 +277,26 @@ export class ProdutoImportacaoService {
     });
   }
 
+  async removerImportacao(id: number, superUserId: number) {
+    const existente = await catalogoPrisma.importacaoProduto.findFirst({
+      where: { id, superUserId },
+      select: { id: true }
+    });
+
+    if (!existente) {
+      return false;
+    }
+
+    await catalogoPrisma.importacaoProduto.delete({ where: { id: existente.id } });
+    return true;
+  }
+
+  async limparHistorico(superUserId: number) {
+    await catalogoPrisma.importacaoProduto.deleteMany({
+      where: { superUserId }
+    });
+  }
+
   private converterBase64(base64: string): Buffer {
     const limpo = base64.replace(/^data:[^;]+;base64,/, '').trim();
     return Buffer.from(limpo, 'base64');

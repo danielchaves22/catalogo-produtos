@@ -11,7 +11,9 @@ import {
 import {
   importarProdutosPorPlanilha,
   listarImportacoes,
-  obterDetalhesImportacao
+  obterDetalhesImportacao,
+  removerImportacao,
+  limparImportacoes
 } from '../controllers/produto-importacao.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
@@ -28,6 +30,8 @@ router.use(authMiddleware);
 router.get('/importacoes', listarImportacoes);
 router.get('/importacoes/:id', obterDetalhesImportacao);
 router.post('/importacao', importarProdutosPorPlanilha);
+router.delete('/importacoes/:id', removerImportacao);
+router.delete('/importacoes', limparImportacoes);
 
 router.get('/', listarProdutos);
 router.get('/:id', obterProduto);
