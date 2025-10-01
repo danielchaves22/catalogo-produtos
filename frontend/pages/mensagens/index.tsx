@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Mensagem, MensagemCategoria, MensagemStatusFiltro, useMessages } from '@/contexts/MessagesContext';
 
 const STATUS_FILTROS: { label: string; valor: MensagemStatusFiltro }[] = [
@@ -201,9 +202,15 @@ export default function MensagensPage() {
 
   return (
     <DashboardLayout title="Mensagens">
+      <Breadcrumb items={[{ label: 'Início', href: '/' }, { label: 'Mensagens' }]} />
+
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-white">Mensagens</h1>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
         <section className="lg:col-span-1 bg-[#151921] border border-gray-800 rounded-lg flex flex-col">
-          <header className="border-b border-gray-800 px-4 py-3">
+          <header className="hidden">
             <h2 className="text-lg font-semibold text-gray-100">Caixa de entrada</h2>
             <p className="text-sm text-gray-400">Gerencie as mensagens importantes para o seu catálogo.</p>
           </header>
@@ -265,18 +272,34 @@ export default function MensagensPage() {
                           selecionada ? 'bg-[#2a2f3a] border-l-4 border-[#f59e0b]' : 'hover:bg-[#1e232d]'
                         }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-semibold text-gray-100 truncate">{mensagem.titulo}</h3>
-                          <span className="text-xs text-gray-400 ml-4">
+                        {/* Linha única: indicador, título (com reticências), categoria e data */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          {/* Indicador de leitura */}
+                          <span
+                            aria-hidden
+                            className={`h-2 w-2 rounded-full ${mensagem.lida ? 'bg-gray-600' : 'bg-[#f59e0b]'}`}
+                          />
+
+                          {/* Título responsivo com reticências */}
+                          <h3
+                            className={`flex-1 min-w-0 truncate text-sm ${
+                              mensagem.lida ? 'text-gray-300' : 'text-gray-100 font-semibold'
+                            }`}
+                            title={mensagem.titulo}
+                          >
+                            {mensagem.titulo}
+                          </h3>
+
+                          {/* Categoria (não corta) */}
+                          <span className="ml-2 shrink-0 text-[11px] uppercase tracking-wide text-[#f59e0b] bg-[#2a2f3a] px-2 py-1 rounded-full">
+                            {CATEGORIA_LABELS[mensagem.categoria] ?? mensagem.categoria}
+                          </span>
+
+                          {/* Data (não corta) */}
+                          <span className="ml-2 shrink-0 whitespace-nowrap text-xs text-gray-400">
                             {new Date(mensagem.criadaEm).toLocaleDateString('pt-BR')}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-400 mt-2 overflow-hidden text-ellipsis whitespace-normal max-h-12 leading-5">
-                          {mensagem.conteudo}
-                        </p>
-                        <span className="inline-block mt-3 text-[11px] uppercase tracking-wide text-[#f59e0b] bg-[#2a2f3a] px-2 py-1 rounded-full">
-                          {CATEGORIA_LABELS[mensagem.categoria] ?? mensagem.categoria}
-                        </span>
                       </button>
                     </li>
                   );

@@ -151,16 +151,17 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
 
   const handleMouseEnter = (item: MenuItem, event: React.MouseEvent) => {
     // No modo colapsado, sempre mostrar o submenu flutuante
-    // No modo expandido, mostrar apenas para itens com mais de um subitem
-    if (collapsed || hasMultipleClickableSubItems(item)) {
+    // No modo expandido, mostrar quando houver ao menos um subitem visível (não hiddenWhenExpanded)
+    const hasVisibleExpandedSubItems = item.subItems.some(subItem => !subItem.hideWhenExpanded);
+    if (collapsed || hasVisibleExpandedSubItems) {
       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-      
+
       // Posição diferente dependendo do modo
-      setSubmenuPosition({ 
-        top: rect.top, 
+      setSubmenuPosition({
+        top: rect.top,
         left: collapsed ? 64 : 208 // 16px ou 52px + um espaço
       });
-      
+
       setActiveSubmenu(item.label);
     }
   };
@@ -219,6 +220,8 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
 
             const menuItem = item as MenuItem;
             const hasMultipleSubItems = hasMultipleClickableSubItems(menuItem);
+            // Verifica se existem subitens visíveis no modo expandido (não hiddenWhenExpanded)
+            const hasVisibleExpandedSubItems = menuItem.subItems.some(subItem => !subItem.hideWhenExpanded);
             const firstClickableSubItem = getFirstClickableSubItem(menuItem);
             const href = firstClickableSubItem?.href || '#';
             
@@ -269,49 +272,10 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
                         <span>{menuItem.label}</span>
                       </div>
                       
-                      {hasMultipleSubItems && <ChevronRight size={16} className="ml-2" />}
+                      {(hasVisibleExpandedSubItems) && <ChevronRight size={16} className="ml-2" />}
                     </Link>
 
-                    {/* Submenu normais para modo expandido - apenas visíveis quando o item está ativo */}
-                    {hasMultipleSubItems && (
-                      <div className={`pl-10 bg-[#111419] overflow-hidden transition-all duration-300 ease-in-out ${
-                        isActive ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'
-                      }`}>
-                        {menuItem.subItems
-                          // Filtra apenas os que devem ser mostrados quando expandido
-                          .filter(subItem => !subItem.hideWhenExpanded || collapsed)
-                          .map((subItem, subIndex) => {
-                            // Determina se deve renderizar como categoria de destaque
-                            const isSingleItem = menuItem.subItems.length === 1;
-                            const renderAsCategory = !subItem.href || isSingleItem;
-                            
-                            return renderAsCategory ? (
-                              <div 
-                                key={subIndex}
-                                className="block py-2 pl-2 pr-4 text-gray-300"
-                                onClick={() => {
-                                  if (subItem.href) {
-                                    router.push(subItem.href);
-                                  }
-                                }}
-                                style={{ cursor: subItem.href ? 'pointer' : 'default' }}
-                              >
-                                {subItem.label}
-                              </div>
-                            ) : (
-                              <Link
-                                key={subIndex}
-                                href={subItem.href || '#'}
-                                className={`block py-2 pl-2 pr-4 hover:bg-[#1e2126] text-sm ${
-                                  router.pathname === subItem.href ? 'text-[#f59e0b]' : 'text-gray-400'
-                                }`}
-                              >
-                                {subItem.label}
-                              </Link>
-                            );
-                          })}
-                      </div>
-                    )}
+                    {/* Submenu inline removido: manter apenas o flutuante no hover */}
                   </div>
                 )}
               </div>
@@ -334,35 +298,37 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
           onMouseLeave={handleMouseLeave}
         >
           <div className="py-1">
-            {activeMenu.subItems
-              .map((subItem, index) => {
-                // Determina se deve renderizar como categoria de destaque
-                const isSingleItem = activeMenu.subItems.length === 1;
-                const renderAsCategory = !subItem.href || isSingleItem;
-                
-                return renderAsCategory ? (
-                  <div 
-                    key={index}
-                    className="block px-4 py-2 text-gray-300 whitespace-nowrap"
-                    onClick={() => {
-                      if (subItem.href) {
-                        router.push(subItem.href);
-                      }
-                    }}
-                    style={{ cursor: subItem.href ? 'pointer' : 'default' }}
-                  >
-                    {subItem.label}
-                  </div>
-                ) : (
-                  <Link
-                    key={index}
-                    href={subItem.href || '#'}
-                    className="block px-4 py-2 hover:bg-[#262b36] text-gray-300 text-sm whitespace-nowrap"
-                  >
-                    {subItem.label}
-                  </Link>
-                );
-              })}
+            {(activeMenu.subItems
+              // No expandido, esconder itens marcados com hideWhenExpanded; no colapsado, mostrar todos
+              .filter(subItem => collapsed || !subItem.hideWhenExpanded)
+            ).map((subItem, index) => {
+              // Determina se deve renderizar como categoria de destaque
+              const isSingleItem = activeMenu.subItems.length === 1;
+              const renderAsCategory = !subItem.href || isSingleItem;
+              
+              return renderAsCategory ? (
+                <div 
+                  key={index}
+                  className="block px-4 py-2 text-gray-300 whitespace-nowrap"
+                  onClick={() => {
+                    if (subItem.href) {
+                      router.push(subItem.href);
+                    }
+                  }}
+                  style={{ cursor: subItem.href ? 'pointer' : 'default' }}
+                >
+                  {subItem.label}
+                </div>
+              ) : (
+                <Link
+                  key={index}
+                  href={subItem.href || '#'}
+                  className="block px-4 py-2 hover:bg-[#262b36] text-gray-300 text-sm whitespace-nowrap"
+                >
+                  {subItem.label}
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
