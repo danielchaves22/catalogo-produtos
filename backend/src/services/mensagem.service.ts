@@ -9,6 +9,7 @@ export interface MensagemDTO {
   titulo: string;
   conteudo: string;
   categoria: MensagemCategoria;
+  metadados?: Record<string, unknown> | null;
   lida: boolean;
   criadaEm: Date;
   lidaEm?: Date | null;
@@ -26,6 +27,7 @@ export class MensagemService {
       titulo: mensagem.titulo,
       conteudo: mensagem.conteudo,
       categoria: mensagem.categoria,
+      metadados: (mensagem.metadados as Record<string, unknown> | null) ?? null,
       lida: mensagem.lida,
       criadaEm: mensagem.criadaEm,
       lidaEm: mensagem.lidaEm ?? null,

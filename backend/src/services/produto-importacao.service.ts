@@ -1,4 +1,9 @@
-import { ImportacaoProdutoItemResultado, ImportacaoResultado, Prisma } from '@prisma/client';
+import {
+  ImportacaoProdutoItemResultado,
+  ImportacaoResultado,
+  MensagemCategoria,
+  Prisma,
+} from '@prisma/client';
 import { promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import { tmpdir } from 'os';
@@ -220,6 +225,20 @@ export class ProdutoImportacaoService {
         }
       });
 
+      await this.registrarConclusaoImportacao({
+        importacaoId: importacao.id,
+        superUserId,
+        catalogo,
+        usuarioCatalogoId,
+        totais: {
+          totalRegistros,
+          totalCriados,
+          totalComAtencao,
+          totalComErro,
+        },
+        resultado: resultadoFinal,
+      });
+
       return this.obterImportacao(importacao.id, superUserId);
     } catch (error) {
       logger.error('Falha ao processar planilha de importação:', error);
@@ -235,6 +254,20 @@ export class ProdutoImportacaoService {
           totalComErro: totalComErro || (totalRegistros - totalCriados),
           finalizadoEm: new Date()
         }
+      });
+
+      await this.registrarConclusaoImportacao({
+        importacaoId: importacao.id,
+        superUserId,
+        catalogo,
+        usuarioCatalogoId,
+        totais: {
+          totalRegistros,
+          totalCriados,
+          totalComAtencao,
+          totalComErro: totalComErro || (totalRegistros - totalCriados),
+        },
+        resultado: 'ATENCAO',
       });
 
       throw error;
@@ -351,5 +384,63 @@ export class ProdutoImportacaoService {
       }
       throw error;
     }
+  }
+
+  private async registrarConclusaoImportacao(params: {
+    importacaoId: number;
+    superUserId: number;
+    catalogo: { id: number; nome: string; numero: number; cpf_cnpj: string | null } | null;
+    usuarioCatalogoId: number | null;
+    totais: {
+      totalRegistros: number;
+      totalCriados: number;
+      totalComAtencao: number;
+      totalComErro: number;
+    };
+    resultado: ImportacaoResultado;
+  }) {
+    const {
+      importacaoId,
+      superUserId,
+      catalogo,
+      usuarioCatalogoId,
+      totais: { totalRegistros, totalCriados, totalComAtencao, totalComErro },
+      resultado,
+    } = params;
+
+    const tituloBase = catalogo?.nome ? `Importação do catálogo ${catalogo.nome} concluída` : 'Importação de produtos concluída';
+    const descricaoResultado = resultado === 'SUCESSO' ? 'Sucesso' : resultado === 'ATENCAO' ? 'Atenção' : resultado;
+
+    const conteudoResumo = [
+      `Resultado: ${descricaoResultado}`,
+      `Total de registros: ${totalRegistros}`,
+      `Produtos criados: ${totalCriados}`,
+      `Com atenção: ${totalComAtencao}`,
+      `Com erro: ${totalComErro}`,
+    ].join('\n');
+
+    const metadados: Prisma.InputJsonValue = {
+      tipo: MensagemCategoria.IMPORTACAO_CONCLUIDA,
+      importacaoId,
+      catalogoId: catalogo?.id ?? null,
+      usuarioCatalogoId,
+      resultado,
+      totais: {
+        totalRegistros,
+        totalCriados,
+        totalComAtencao,
+        totalComErro,
+      },
+    };
+
+    await catalogoPrisma.mensagem.create({
+      data: {
+        superUserId,
+        titulo: tituloBase,
+        conteudo: conteudoResumo,
+        categoria: MensagemCategoria.IMPORTACAO_CONCLUIDA,
+        metadados,
+      },
+    });
   }
 }
