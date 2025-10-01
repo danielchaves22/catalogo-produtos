@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import {
   FileText, PieChart, Briefcase, Users,
-  ChevronLeft, ChevronRight, User, Key, UserCog, Mail
+  ChevronLeft, ChevronRight, User, Key, UserCog, Mail, Settings
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -13,7 +13,7 @@ type SubMenuItem = {
   label: string;
   href?: string;
   isHeader?: boolean; // Para identificar itens que atuam como categorias
-  showWhenExpanded?: boolean; // Controla visibilidade no modo expandido
+  hideWhenExpanded?: boolean; // Controla visibilidade no modo expandido
 };
 
 // Tipo para item de menu
@@ -70,42 +70,46 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       icon: <PieChart size={20} />,
       label: 'Painel',
       subItems: [
-        { label: 'Painel', href: '/', showWhenExpanded: true },
-      ],
-    },
-    {
-      icon: <Mail size={20} />,
-      label: 'Mensagens',
-      subItems: [
-        { label: 'Mensagens', href: '/mensagens', showWhenExpanded: true },
+        { label: 'Painel', href: '/', hideWhenExpanded: true },
       ],
     },
     {
       icon: <FileText size={20} />,
       label: 'Catálogos',
       subItems: [
-        { label: 'Catálogos', href: '/catalogos', showWhenExpanded: true },
+        { label: 'Catálogos', href: '/catalogos', hideWhenExpanded: true  },
       ],
     },
     {
       icon: <Users size={20} />,
       label: 'Operadores Estrangeiros',
       subItems: [
-        { label: 'Operadores Estrangeiros', href: '/operadores-estrangeiros', showWhenExpanded: true },
+        { label: 'Operadores Estrangeiros', href: '/operadores-estrangeiros', hideWhenExpanded: true  },
       ],
     },
     {
       icon: <Briefcase size={20} />,
       label: 'Produtos',
       subItems: [
-        { label: 'Produtos', href: '/produtos', showWhenExpanded: true },
+        { label: 'Produtos', href: '/produtos', hideWhenExpanded: true  },
       ],
     },
     {
       icon: <Key size={20} />,
       label: 'Certificados',
       subItems: [
-        { label: 'Certificados', href: '/certificados', showWhenExpanded: true },
+        { label: 'Certificados', href: '/certificados', hideWhenExpanded: true  },
+      ],
+    },
+    {
+      icon: <Settings size={20} />,
+      label: 'Automação',
+      subItems: [
+        { label: 'Automação', hideWhenExpanded: true },
+        { label: 'Importar produto', href: '/automacao/importar-produto' },
+        { label: 'Preencher Atributos em Massa', href: '/automacao/preencher-atributos-em-massa' },
+        { label: 'Ajuste de Produtos em Massa', href: '/automacao/ajuste-de-produtos-em-massa' },
+        { label: 'Definir Valor de Atributo Padrão', href: '/automacao/definir-valor-de-atributo-padrao' },
       ],
     },
   ];
@@ -115,18 +119,18 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       icon: <UserCog size={20} />,
       label: 'Usuários',
       subItems: [
-        { label: 'Usuários', href: '/usuarios', showWhenExpanded: true },
+        { label: 'Usuários', href: '/usuarios', hideWhenExpanded: true  },
       ],
     });
   }
 
-  menuItems.push({
-    icon: <User size={20} />,
-    label: 'Perfil',
-    subItems: [
-      { label: 'Perfil', href: '/perfil', showWhenExpanded: true },
-    ],
-  });
+  menuItems.push(    {
+      icon: <Mail size={20} />,
+      label: 'Mensagens',
+      subItems: [
+        { label: 'Mensagens', href: '/mensagens', hideWhenExpanded: true  },
+      ],
+    });
 
   const toggleSidebar = () => {
     const newCollapsedState = !collapsed;
@@ -275,7 +279,7 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
                       }`}>
                         {menuItem.subItems
                           // Filtra apenas os que devem ser mostrados quando expandido
-                          .filter(subItem => subItem.showWhenExpanded !== false)
+                          .filter(subItem => !subItem.hideWhenExpanded || collapsed)
                           .map((subItem, subIndex) => {
                             // Determina se deve renderizar como categoria de destaque
                             const isSingleItem = menuItem.subItems.length === 1;
