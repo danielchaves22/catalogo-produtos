@@ -98,6 +98,7 @@ enum CatalogoAmbiente {
 
 enum MensagemCategoria {
   ATUALIZACAO_SISCOMEX
+  IMPORTACAO_CONCLUIDA
 }
 
 model Catalogo {
@@ -126,6 +127,7 @@ model Mensagem {
   titulo      String             @map("titulo")
   conteudo    String             @map("conteudo")
   categoria   MensagemCategoria  @map("categoria")
+  metadados   Json?              @map("metadados")
   lida        Boolean            @default(false) @map("lida")
   criadaEm    DateTime           @default(now()) @map("criada_em")
   lidaEm      DateTime?          @map("lida_em")

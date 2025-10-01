@@ -1,5 +1,5 @@
 // frontend/pages/mensagens/index.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Mensagem, MensagemCategoria, MensagemStatusFiltro, useMessages } from '@/contexts/MessagesContext';
@@ -12,7 +12,28 @@ const STATUS_FILTROS: { label: string; valor: MensagemStatusFiltro }[] = [
 
 const CATEGORIA_LABELS: Record<MensagemCategoria, string> = {
   ATUALIZACAO_SISCOMEX: 'Atualização do SISCOMEX',
+  IMPORTACAO_CONCLUIDA: 'Importação concluída',
 };
+
+function extrairImportacaoId(metadados: Mensagem['metadados']): number | null {
+  if (!metadados || typeof metadados !== 'object') {
+    return null;
+  }
+
+  const registro = metadados as Record<string, unknown>;
+  const valor = registro.importacaoId;
+
+  if (typeof valor === 'number' && Number.isFinite(valor)) {
+    return valor;
+  }
+
+  if (typeof valor === 'string') {
+    const convertido = Number(valor);
+    return Number.isFinite(convertido) ? convertido : null;
+  }
+
+  return null;
+}
 
 export default function MensagensPage() {
   const router = useRouter();
@@ -25,6 +46,20 @@ export default function MensagensPage() {
   const [categoriasDisponiveis, setCategoriasDisponiveis] = useState<MensagemCategoria[]>([]);
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
+
+  const importacaoIdAcao = useMemo(() => {
+    if (!mensagemSelecionada || mensagemSelecionada.categoria !== 'IMPORTACAO_CONCLUIDA') {
+      return null;
+    }
+    return extrairImportacaoId(mensagemSelecionada.metadados);
+  }, [mensagemSelecionada]);
+
+  const abrirDetalhesImportacao = useCallback(() => {
+    if (importacaoIdAcao === null) {
+      return;
+    }
+    void router.push(`/automacao/importar-produto/${importacaoIdAcao}`);
+  }, [importacaoIdAcao, router]);
 
   const categoriaOptions = useMemo(() => {
     const items = categoriasDisponiveis.map((categoria) => ({
@@ -120,11 +155,19 @@ export default function MensagensPage() {
           console.error('Erro ao marcar mensagem como lida:', error);
         }
 
+        const mensagemFinal = mensagem;
         setMensagens((prev) => {
           if (statusFiltro === 'NAO_LIDAS') {
             return prev.filter((item) => item.id !== id);
           }
-          return prev.map((item) => (item.id === id ? { ...item, lida: true, lidaEm: mensagem?.lidaEm ?? new Date().toISOString() } : item));
+          if (!mensagemFinal) {
+            return prev.map((item) => (
+              item.id === id
+                ? { ...item, lida: true, lidaEm: new Date().toISOString() }
+                : item
+            ));
+          }
+          return prev.map((item) => (item.id === id ? { ...item, ...mensagemFinal } : item));
         });
       }
 
@@ -272,6 +315,20 @@ export default function MensagensPage() {
                   {mensagemSelecionada.conteudo}
                 </p>
               </div>
+
+              {importacaoIdAcao !== null && (
+                <section className="mt-6 border-t border-gray-800 pt-4">
+                  <h2 className="text-sm font-semibold text-gray-200 mb-3">Ações</h2>
+                  <button
+                    type="button"
+                    onClick={abrirDetalhesImportacao}
+                    className="inline-flex items-center px-4 py-2 rounded-md bg-[#f59e0b] text-[#151921] font-semibold hover:bg-[#d97706] transition-colors"
+                    aria-label="Abrir detalhes da importação"
+                  >
+                    Abrir detalhes da importação
+                  </button>
+                </section>
+              )}
             </article>
           )}
         </section>

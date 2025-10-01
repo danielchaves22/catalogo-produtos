@@ -3,14 +3,17 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import api from '@/lib/api';
 import { useAuth } from './AuthContext';
 
-export type MensagemCategoria = 'ATUALIZACAO_SISCOMEX';
+export type MensagemCategoria = 'ATUALIZACAO_SISCOMEX' | 'IMPORTACAO_CONCLUIDA';
 export type MensagemStatusFiltro = 'TODAS' | 'LIDAS' | 'NAO_LIDAS';
+
+export type MensagemMetadados = Record<string, unknown> | null | undefined;
 
 export interface Mensagem {
   id: number;
   titulo: string;
   conteudo: string;
   categoria: MensagemCategoria;
+  metadados?: MensagemMetadados;
   lida: boolean;
   criadaEm: string;
   lidaEm?: string | null;
