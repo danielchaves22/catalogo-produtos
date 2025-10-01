@@ -152,7 +152,8 @@ export default function NovaImportacaoPage() {
     <DashboardLayout title="Nova Importação de Produtos">
       <Breadcrumb
         items={[
-          { label: 'Automação', href: '/automacao/importar-produto' },
+          { label: 'Início', href: '/' },
+          { label: 'Automação' },
           { label: 'Importar Produto', href: '/automacao/importar-produto' },
           { label: 'Nova Importação' }
         ]}
@@ -160,9 +161,6 @@ export default function NovaImportacaoPage() {
 
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-white">Nova Importação de Produtos</h1>
-        <p className="mt-2 text-sm text-gray-400">
-          Escolha a modalidade desejada e informe os dados necessários para iniciar a importação do catálogo.
-        </p>
       </div>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2">

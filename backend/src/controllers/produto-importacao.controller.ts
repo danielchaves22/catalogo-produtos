@@ -88,3 +88,36 @@ export async function obterDetalhesImportacao(req: Request, res: Response) {
     return res.status(500).json({ error: 'Erro ao obter detalhes da importação' });
   }
 }
+
+export async function removerImportacao(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ error: 'Identificador inválido' });
+    }
+
+    const removida = await produtoImportacaoService.removerImportacao(
+      id,
+      req.user!.superUserId
+    );
+
+    if (!removida) {
+      return res.status(404).json({ error: 'Importação não encontrada' });
+    }
+
+    return res.status(204).send();
+  } catch (error) {
+    logger.error('Erro ao remover importação:', error);
+    return res.status(500).json({ error: 'Erro ao remover importação' });
+  }
+}
+
+export async function limparImportacoes(req: Request, res: Response) {
+  try {
+    await produtoImportacaoService.limparHistorico(req.user!.superUserId);
+    return res.status(204).send();
+  } catch (error) {
+    logger.error('Erro ao limpar histórico de importação:', error);
+    return res.status(500).json({ error: 'Erro ao limpar histórico de importação' });
+  }
+}
