@@ -360,7 +360,7 @@ export class ProdutoImportacaoService {
   private async lerPlanilha(buffer: Buffer): Promise<string[][]> {
     const dirTemporario = await fs.mkdtemp(join(tmpdir(), 'import-produto-'));
     const arquivoTemporario = join(dirTemporario, `${randomUUID()}.xlsx`);
-    const caminhoScript = resolve(process.cwd(), 'backend/scripts/parse_excel.py');
+    const caminhoScript = resolve(process.cwd(), 'scripts/parse_excel.py');
 
     try {
       await fs.writeFile(arquivoTemporario, buffer);

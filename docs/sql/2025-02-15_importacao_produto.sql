@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS importacao_produto_item (
     mensagens JSON NULL,
     possui_erro_impeditivo TINYINT(1) NOT NULL DEFAULT 0,
     possui_alerta TINYINT(1) NOT NULL DEFAULT 0,
-    produto_id INT UNSIGNED NULL,
+    produto_id INT,
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     INDEX idx_importacao_item_importacao (importacao_id),
