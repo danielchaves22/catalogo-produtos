@@ -22,6 +22,7 @@ model User {
   subUsuarios SubUsuario[]
   certificados Certificado[]
   mensagens    Mensagem[]
+  importacoes  ImportacaoProduto[]
 
   @@map("comex")
 }
@@ -62,7 +63,8 @@ model UsuarioCatalogo {
   criadoEm    DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
-  permissoes UsuarioPermissao[]
+  permissoes  UsuarioPermissao[]
+  importacoes ImportacaoProduto[]
 
   @@map("usuario_catalogo")
 }
@@ -111,6 +113,7 @@ model Catalogo {
   certificado     Certificado?   @relation(fields: [certificadoId], references: [id])
   produtos         Produto[]
   operadoresEstrangeiros OperadorEstrangeiro[]
+  importacoes      ImportacaoProduto[]
 
   @@unique([superUserId, cpf_cnpj], name: "uk_superuser_cpf_cnpj")
   @@map("catalogo")
@@ -231,6 +234,23 @@ enum OperadorEstrangeiroStatus {
   ATIVADO
   DESATIVADO
 }
+
+enum ImportacaoSituacao {
+  EM_ANDAMENTO
+  CONCLUIDA
+}
+
+enum ImportacaoResultado {
+  PENDENTE
+  SUCESSO
+  ATENCAO
+}
+
+enum ImportacaoProdutoItemResultado {
+  SUCESSO
+  ATENCAO
+  ERRO
+}
 // Enum de status de Produto
 enum ProdutoStatus {
   PENDENTE
@@ -299,6 +319,7 @@ model Produto {
   atributos                 ProdutoAtributos[]
   codigosInternos           CodigoInternoProduto[]
   operadoresEstrangeiros    OperadorEstrangeiroProduto[]
+  importacaoItens           ImportacaoProdutoItem[] @relation("ProdutoImportacaoItens")
 
   @@index([ncmCodigo], name: "idx_ncm")
   @@index([catalogoId], name: "idx_catalogo")
@@ -341,4 +362,52 @@ model OperadorEstrangeiroProduto {
   produto               Produto               @relation(fields: [produtoId], references: [id], onDelete: Cascade)
 
   @@map("operador_estrangeiro_produto")
+}
+
+model ImportacaoProduto {
+  id                 Int                 @id @default(autoincrement()) @map("id")
+  superUserId        Int                 @map("super_user_id")
+  usuarioCatalogoId  Int?                @map("usuario_catalogo_id")
+  catalogoId         Int                 @map("catalogo_id")
+  modalidade         String              @map("modalidade")
+  nomeArquivo        String?             @map("nome_arquivo")
+  situacao           ImportacaoSituacao  @default(EM_ANDAMENTO) @map("situacao")
+  resultado          ImportacaoResultado @default(PENDENTE) @map("resultado")
+  totalRegistros     Int                 @default(0) @map("total_registros")
+  totalCriados       Int                 @default(0) @map("total_criados")
+  totalComAtencao    Int                 @default(0) @map("total_com_atencao")
+  totalComErro       Int                 @default(0) @map("total_com_erro")
+  iniciadoEm         DateTime            @default(now()) @map("iniciado_em")
+  finalizadoEm       DateTime?           @map("finalizado_em")
+
+  superUser        User                @relation(fields: [superUserId], references: [id])
+  catalogo         Catalogo         @relation(fields: [catalogoId], references: [id])
+  usuarioCatalogo  UsuarioCatalogo? @relation(fields: [usuarioCatalogoId], references: [id])
+  itens            ImportacaoProdutoItem[]
+
+  @@index([superUserId], map: "idx_importacao_super_user")
+  @@index([catalogoId], map: "idx_importacao_catalogo")
+  @@map("importacao_produto")
+}
+
+model ImportacaoProdutoItem {
+  id                   Int                               @id @default(autoincrement()) @map("id")
+  importacaoId         Int                               @map("importacao_id")
+  linhaPlanilha        Int                               @map("linha_planilha")
+  ncm                  String?                           @map("ncm")
+  denominacao          String?                           @map("denominacao")
+  codigosInternos      String?                           @map("codigos_internos") @db.Text
+  resultado            ImportacaoProdutoItemResultado    @map("resultado")
+  mensagens            Json?                             @map("mensagens")
+  possuiErroImpeditivo Boolean                           @default(false) @map("possui_erro_impeditivo")
+  possuiAlerta         Boolean                           @default(false) @map("possui_alerta")
+  produtoId            Int?                              @map("produto_id")
+  criadoEm             DateTime                          @default(now()) @map("criado_em")
+
+  importacao ImportacaoProduto @relation(fields: [importacaoId], references: [id], onDelete: Cascade)
+  produto    Produto?          @relation("ProdutoImportacaoItens", fields: [produtoId], references: [id])
+
+  @@index([importacaoId], map: "idx_importacao_item_importacao")
+  @@index([resultado], map: "idx_importacao_item_resultado")
+  @@map("importacao_produto_item")
 }

@@ -8,6 +8,11 @@ import {
   removerProduto,
   clonarProduto
 } from '../controllers/produto.controller';
+import {
+  importarProdutosPorPlanilha,
+  listarImportacoes,
+  obterDetalhesImportacao
+} from '../controllers/produto-importacao.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import {
@@ -19,6 +24,10 @@ import {
 const router = Router();
 
 router.use(authMiddleware);
+
+router.get('/importacoes', listarImportacoes);
+router.get('/importacoes/:id', obterDetalhesImportacao);
+router.post('/importacao', importarProdutosPorPlanilha);
 
 router.get('/', listarProdutos);
 router.get('/:id', obterProduto);
