@@ -107,9 +107,9 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       subItems: [
         { label: 'Automação', hideWhenExpanded: true },
         { label: 'Importar produto', href: '/automacao/importar-produto' },
-        { label: 'Preencher Atributos em Massa', href: '/automacao/preencher-atributos-em-massa' },
-        { label: 'Ajuste de Produtos em Massa', href: '/automacao/ajuste-de-produtos-em-massa' },
-        { label: 'Definir Valor de Atributo Padrão', href: '/automacao/definir-valor-de-atributo-padrao' },
+        // { label: 'Preencher Atributos em Massa', href: '/automacao/preencher-atributos-em-massa' },
+        // { label: 'Ajuste de Produtos em Massa', href: '/automacao/ajuste-de-produtos-em-massa' },
+        // { label: 'Definir Valor de Atributo Padrão', href: '/automacao/definir-valor-de-atributo-padrao' },
       ],
     },
   ];
