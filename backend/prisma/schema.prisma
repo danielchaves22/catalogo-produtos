@@ -23,6 +23,7 @@ model User {
   certificados Certificado[]
   mensagens    Mensagem[]
   importacoes  ImportacaoProduto[]
+  ncmValoresPadrao NcmValoresPadrao[]
 
   @@map("comex")
 }
@@ -340,6 +341,24 @@ model ProdutoAtributos {
   produto               Produto   @relation(fields: [produtoId], references: [id])
 
   @@map("produto_atributos")
+}
+
+model NcmValoresPadrao {
+  id                    Int      @id @default(autoincrement()) @map("id")
+  superUserId           Int      @map("super_user_id")
+  ncmCodigo             String   @map("ncm_codigo")
+  modalidade            String?  @map("modalidade")
+  valoresJson           Json     @map("valores_json")
+  estruturaSnapshotJson Json?    @map("estrutura_snapshot_json")
+  criadoEm              DateTime @default(now()) @map("criado_em")
+  atualizadoEm          DateTime @updatedAt @map("atualizado_em")
+  criadoPor             String?  @map("criado_por")
+  atualizadoPor         String?  @map("atualizado_por")
+
+  superUser User @relation(fields: [superUserId], references: [id])
+
+  @@unique([superUserId, ncmCodigo], name: "uk_superuser_ncm")
+  @@map("ncm_valores_padrao")
 }
 
 model CodigoInternoProduto {

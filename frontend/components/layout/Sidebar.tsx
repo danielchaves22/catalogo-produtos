@@ -92,6 +92,7 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       label: 'Produtos',
       subItems: [
         { label: 'Produtos', href: '/produtos', hideWhenExpanded: true  },
+        { label: 'Valores Padrão por NCM', href: '/produtos/valores-padrao' },
       ],
     },
     {

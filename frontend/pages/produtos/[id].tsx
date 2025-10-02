@@ -192,6 +192,9 @@ export default function ProdutoPage() {
         setNcmDescricao('');
         setUnidadeMedida('');
         setEstrutura([]);
+        if (isNew) {
+          setValores({});
+        }
         return;
       }
 
@@ -199,6 +202,21 @@ export default function ProdutoPage() {
       setNcmDescricao(response.data.descricaoNcm);
       setUnidadeMedida(response.data.unidadeMedida || '');
       setEstrutura(ordenarAtributos(dados));
+      if (isNew) {
+        try {
+          const templateResponse = await api.get(
+            `/ncm-valores-padrao/ncm/${ncmCodigo}`,
+            { params: { modalidade } }
+          );
+          const valoresPadrao = (templateResponse.data?.valoresJson || {}) as Record<string, string | string[]>;
+          setValores(valoresPadrao);
+        } catch (error: any) {
+          if (error?.response?.status !== 404) {
+            console.error('Erro ao carregar valores padrão da NCM:', error);
+          }
+          setValores({});
+        }
+      }
       setEstruturaCarregada(true);
     } catch (error) {
       console.error('Erro ao carregar atributos:', error);
@@ -224,6 +242,9 @@ export default function ProdutoPage() {
       setCarregandoSugestoesNcm(false);
     }
     if (valor.length === 8) {
+      if (isNew) {
+        setValores({});
+      }
       carregarEstrutura(valor);
     } else {
       setNcmDescricao('');
