@@ -17,6 +17,7 @@ import { Router } from 'express';
 import { API_PREFIX } from './config';
 import uploadRoutes from './routes/upload.routes';
 import mensagemRoutes from './routes/mensagem.routes';
+import ncmValoresPadraoRoutes from './routes/ncm-valores-padrao.routes';
 
 const app = express();
 
@@ -49,6 +50,9 @@ apiRouter.use('/operadores-estrangeiros', operadorEstrangeiroRoutes);
 
 // Rotas de produtos (protegidas)
 apiRouter.use('/produtos', produtoRoutes);
+
+// Rotas de valores padrão por NCM (protegidas)
+apiRouter.use('/ncm-valores-padrao', ncmValoresPadraoRoutes);
 
 // Rotas de usuários (protegidas)
 apiRouter.use('/usuarios', usuarioRoutes);
