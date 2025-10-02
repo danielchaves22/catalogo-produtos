@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS ncm_valores_padrao (
     criado_por VARCHAR(255) NULL,
     atualizado_por VARCHAR(255) NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_superuser_ncm (super_user_id, ncm_codigo),
+    UNIQUE KEY uk_superuser_ncm_modalidade (super_user_id, ncm_codigo, modalidade),
     -- Integridade com o superusuário mantida via aplicação, pois a tabela comex está em outro schema
     INDEX idx_ncm_valores_padrao_super_user (super_user_id)
 );

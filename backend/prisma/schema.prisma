@@ -357,7 +357,7 @@ model NcmValoresPadrao {
 
   superUser User @relation(fields: [superUserId], references: [id])
 
-  @@unique([superUserId, ncmCodigo], name: "uk_superuser_ncm")
+  @@unique([superUserId, ncmCodigo, modalidade], name: "uk_superuser_ncm_modalidade")
   @@map("ncm_valores_padrao")
 }
 

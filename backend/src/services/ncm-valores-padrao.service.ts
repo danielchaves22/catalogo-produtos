@@ -30,9 +30,14 @@ export class NcmValoresPadraoService {
     });
   }
 
-  async buscarPorNcm(ncmCodigo: string, superUserId: number) {
+  async buscarPorNcm(ncmCodigo: string, superUserId: number, modalidade?: string | null) {
+    const modalidadeNormalizada = modalidade?.toUpperCase() ?? null;
     return catalogoPrisma.ncmValoresPadrao.findFirst({
-      where: { ncmCodigo, superUserId }
+      where: {
+        ncmCodigo,
+        superUserId,
+        modalidade: modalidadeNormalizada
+      }
     });
   }
 
@@ -41,18 +46,23 @@ export class NcmValoresPadraoService {
     superUserId: number,
     usuario?: { nome?: string }
   ) {
+    const modalidadeNormalizada = dados.modalidade?.toUpperCase() ?? null;
     const existente = await catalogoPrisma.ncmValoresPadrao.findFirst({
-      where: { ncmCodigo: dados.ncmCodigo, superUserId }
+      where: {
+        ncmCodigo: dados.ncmCodigo,
+        superUserId,
+        modalidade: modalidadeNormalizada
+      }
     });
     if (existente) {
-      throw new Error('Já existe um valor padrão cadastrado para esta NCM');
+      throw new Error('Já existe um valor padrão cadastrado para esta NCM e modalidade');
     }
 
     return catalogoPrisma.ncmValoresPadrao.create({
       data: {
         superUserId,
         ncmCodigo: dados.ncmCodigo,
-        modalidade: dados.modalidade ?? null,
+        modalidade: modalidadeNormalizada,
         valoresJson: (dados.valoresAtributos ?? {}) as Prisma.InputJsonValue,
         estruturaSnapshotJson: dados.estruturaSnapshot ?? Prisma.JsonNull,
         criadoPor: usuario?.nome || null,
@@ -78,7 +88,7 @@ export class NcmValoresPadraoService {
       throw new Error('Não é permitido alterar a NCM do valor padrão');
     }
 
-    if (dados.modalidade && dados.modalidade !== existente.modalidade) {
+    if (dados.modalidade && dados.modalidade.toUpperCase() !== existente.modalidade) {
       throw new Error('Não é permitido alterar a modalidade do valor padrão');
     }
 
