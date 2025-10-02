@@ -313,7 +313,7 @@ DELIMITER ;
         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
         super_user_id INT UNSIGNED NOT NULL,
         ncm_codigo VARCHAR(8) NOT NULL,
-        modalidade VARCHAR(20) NULL,
+        modalidade VARCHAR(10) NULL,
         valores_json JSON NOT NULL,
         estrutura_snapshot_json JSON NULL,
         criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

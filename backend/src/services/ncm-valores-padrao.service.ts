@@ -2,8 +2,15 @@
 import { Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 
-export interface NcmValoresPadraoInput {
+export interface NcmValoresPadraoCreateInput {
   ncmCodigo: string;
+  modalidade?: string | null;
+  valoresAtributos?: Prisma.InputJsonValue;
+  estruturaSnapshot?: Prisma.InputJsonValue;
+}
+
+export interface NcmValoresPadraoUpdateInput {
+  ncmCodigo?: string;
   modalidade?: string | null;
   valoresAtributos?: Prisma.InputJsonValue;
   estruturaSnapshot?: Prisma.InputJsonValue;
@@ -30,7 +37,7 @@ export class NcmValoresPadraoService {
   }
 
   async criar(
-    dados: NcmValoresPadraoInput,
+    dados: NcmValoresPadraoCreateInput,
     superUserId: number,
     usuario?: { nome?: string }
   ) {
@@ -56,7 +63,7 @@ export class NcmValoresPadraoService {
 
   async atualizar(
     id: number,
-    dados: NcmValoresPadraoInput,
+    dados: NcmValoresPadraoUpdateInput,
     superUserId: number,
     usuario?: { nome?: string }
   ) {
@@ -68,23 +75,16 @@ export class NcmValoresPadraoService {
     }
 
     if (dados.ncmCodigo && dados.ncmCodigo !== existente.ncmCodigo) {
-      const duplicado = await catalogoPrisma.ncmValoresPadrao.findFirst({
-        where: {
-          superUserId,
-          ncmCodigo: dados.ncmCodigo,
-          NOT: { id }
-        }
-      });
-      if (duplicado) {
-        throw new Error('Já existe um valor padrão cadastrado para esta NCM');
-      }
+      throw new Error('Não é permitido alterar a NCM do valor padrão');
+    }
+
+    if (dados.modalidade && dados.modalidade !== existente.modalidade) {
+      throw new Error('Não é permitido alterar a modalidade do valor padrão');
     }
 
     return catalogoPrisma.ncmValoresPadrao.update({
       where: { id },
       data: {
-        ncmCodigo: dados.ncmCodigo,
-        modalidade: dados.modalidade ?? null,
         valoresJson: (dados.valoresAtributos ?? {}) as Prisma.InputJsonValue,
         estruturaSnapshotJson: dados.estruturaSnapshot ?? Prisma.JsonNull,
         atualizadoPor: usuario?.nome || null

@@ -9,7 +9,7 @@ export const createNcmValoresPadraoSchema = z.object({
 });
 
 export const updateNcmValoresPadraoSchema = z.object({
-  ncmCodigo: z.string().length(8),
+  ncmCodigo: z.string().length(8).optional(),
   modalidade: z.string().min(1).optional(),
   valoresAtributos: z.record(z.any()).optional(),
   estruturaSnapshot: z.any().optional()

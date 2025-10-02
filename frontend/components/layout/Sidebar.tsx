@@ -92,7 +92,6 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       label: 'Produtos',
       subItems: [
         { label: 'Produtos', href: '/produtos', hideWhenExpanded: true  },
-        { label: 'Valores Padrão por NCM', href: '/produtos/valores-padrao' },
       ],
     },
     {
@@ -108,9 +107,9 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       subItems: [
         { label: 'Automação', hideWhenExpanded: true },
         { label: 'Importar Produto', href: '/automacao/importar-produto' },
+        { label: 'Definir Valor de Atributo Padrão', href: '/produtos/valores-padrao' },
         // { label: 'Preencher Atributos em Massa', href: '/automacao/preencher-atributos-em-massa' },
         // { label: 'Ajuste de Produtos em Massa', href: '/automacao/ajuste-de-produtos-em-massa' },
-        // { label: 'Definir Valor de Atributo Padrão', href: '/produtos/valores-padrao' },
       ],
     },
   ];
