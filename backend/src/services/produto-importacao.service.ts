@@ -19,6 +19,7 @@ import {
   ProdutoImportacaoJobData,
   registerProdutoImportacaoProcessor,
 } from '../jobs/produto-importacao.job';
+import { NcmValoresPadraoService } from './ncm-valores-padrao.service';
 
 const execFileAsync = promisify(execFile);
 
@@ -40,6 +41,7 @@ interface MensagensItemImportacao {
 
 export class ProdutoImportacaoService {
   private produtoService = new ProdutoService();
+  private valoresPadraoService = new NcmValoresPadraoService();
 
   async importarPlanilhaExcel(
     dados: NovaImportacaoPlanilhaInput,
@@ -140,6 +142,8 @@ export class ProdutoImportacaoService {
         throw new Error('A planilha não possui dados para importação');
       }
 
+      const cacheValoresPadrao = new Map<string, Prisma.JsonValue | null>();
+
       for (let index = 1; index < linhas.length; index++) {
         const linha = linhas[index];
         const linhaPlanilha = index + 1;
@@ -196,6 +200,18 @@ export class ProdutoImportacaoService {
         let produtoId: number | null = null;
 
         if (mensagens.impeditivos.length === 0 && ncmNormalizada && denominacao) {
+          const chaveTemplate = `${dados.superUserId}::${ncmNormalizada}::${dados.modalidade}`;
+          if (!cacheValoresPadrao.has(chaveTemplate)) {
+            const template = await this.valoresPadraoService.buscarPorNcm(
+              ncmNormalizada,
+              dados.superUserId,
+              dados.modalidade
+            );
+            cacheValoresPadrao.set(chaveTemplate, template?.valoresJson ?? null);
+          }
+
+          const valoresPadrao = cacheValoresPadrao.get(chaveTemplate) ?? null;
+
           try {
             const produto = await this.produtoService.criar(
               {
@@ -204,6 +220,9 @@ export class ProdutoImportacaoService {
                 catalogoId: dados.catalogoId,
                 denominacao,
                 descricao: denominacao,
+                valoresAtributos: (valoresPadrao ?? undefined) as
+                  | Prisma.InputJsonValue
+                  | undefined,
                 codigosInternos
               },
               dados.superUserId
