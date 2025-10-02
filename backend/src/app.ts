@@ -23,8 +23,17 @@ const app = express();
 
 // Middleware básicos
 app.use(cors());
-app.use(json());
-app.use(urlencoded({ extended: true }));
+app.use(
+  json({
+    limit: '5mb'
+  })
+);
+app.use(
+  urlencoded({
+    extended: true,
+    limit: '5mb'
+  })
+);
 
 // Swagger para documentação da API
 setupSwagger(app);
