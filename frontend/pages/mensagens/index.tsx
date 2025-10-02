@@ -1,6 +1,7 @@
 // frontend/pages/mensagens/index.tsx
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
+import { Trash2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Mensagem, MensagemCategoria, MensagemStatusFiltro, useMessages } from '@/contexts/MessagesContext';
@@ -38,7 +39,7 @@ function extrairImportacaoId(metadados: Mensagem['metadados']): number | null {
 
 export default function MensagensPage() {
   const router = useRouter();
-  const { listMessages, getMessage, markAsRead, listarCategorias } = useMessages();
+  const { listMessages, getMessage, markAsRead, listarCategorias, removerMensagem } = useMessages();
 
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [mensagemSelecionada, setMensagemSelecionada] = useState<Mensagem | null>(null);
@@ -47,6 +48,7 @@ export default function MensagensPage() {
   const [categoriasDisponiveis, setCategoriasDisponiveis] = useState<MensagemCategoria[]>([]);
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
+  const [removendoMensagemId, setRemovendoMensagemId] = useState<number | null>(null);
 
   const importacaoIdAcao = useMemo(() => {
     if (!mensagemSelecionada || mensagemSelecionada.categoria !== 'IMPORTACAO_CONCLUIDA') {
@@ -189,6 +191,58 @@ export default function MensagensPage() {
     }
   }
 
+  const handleRemoverMensagem = useCallback(
+    async (id: number) => {
+      if (typeof window !== 'undefined') {
+        const confirmado = window.confirm('Deseja remover esta mensagem?');
+        if (!confirmado) {
+          return;
+        }
+      }
+
+      setRemovendoMensagemId(id);
+
+      try {
+        const removida = await removerMensagem(id);
+        if (!removida) {
+          return;
+        }
+
+        const eraSelecionada = mensagemSelecionada?.id === id;
+        let novaSelecionada: Mensagem | null = mensagemSelecionada ?? null;
+
+        setMensagens((prev) => {
+          const atualizadas = prev.filter((item) => item.id !== id);
+          if (eraSelecionada) {
+            novaSelecionada = atualizadas[0] ?? null;
+          }
+          return atualizadas;
+        });
+
+        if (eraSelecionada) {
+          setMensagemSelecionada(novaSelecionada);
+          if (novaSelecionada) {
+            void router.replace(
+              {
+                pathname: '/mensagens',
+                query: { mensagem: novaSelecionada.id },
+              },
+              undefined,
+              { shallow: true },
+            );
+          } else {
+            void router.replace({ pathname: '/mensagens' }, undefined, { shallow: true });
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao remover mensagem:', error);
+      } finally {
+        setRemovendoMensagemId((atual) => (atual === id ? null : atual));
+      }
+    },
+    [removerMensagem, mensagemSelecionada, router],
+  );
+
   const dataFormatada = useMemo(() => {
     if (!mensagemSelecionada) return '';
     return new Intl.DateTimeFormat('pt-BR', {
@@ -215,41 +269,43 @@ export default function MensagensPage() {
             <p className="text-sm text-gray-400">Gerencie as mensagens importantes para o seu catálogo.</p>
           </header>
 
-          <div className="px-4 py-3 border-b border-gray-800 flex flex-wrap gap-2">
-            {STATUS_FILTROS.map((filtro) => (
-              <button
-                key={filtro.valor}
-                onClick={() => setStatusFiltro(filtro.valor)}
-                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
-                  statusFiltro === filtro.valor
-                    ? 'border-[#f59e0b] text-[#f59e0b] bg-[#2a2f3a]'
-                    : 'border-transparent bg-[#1e232d] text-gray-300 hover:text-white'
-                }`}
-              >
-                {filtro.label}
-              </button>
-            ))}
-          </div>
-
-          {categoriaOptions.length > 1 && (
-            <div className="px-4 pb-3">
-              <label htmlFor="categoriaFiltro" className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                Categoria
-              </label>
-              <select
-                id="categoriaFiltro"
-                className="w-full bg-[#1e232d] border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-[#f59e0b]"
-                value={categoriaFiltro}
-                onChange={(event) => setCategoriaFiltro(event.target.value as MensagemCategoria | 'TODAS')}
-              >
-                {categoriaOptions.map((categoria) => (
-                  <option key={categoria.valor} value={categoria.valor}>
-                    {categoria.label}
-                  </option>
-                ))}
-              </select>
+          <div className="px-4 py-3 border-b border-gray-800 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {STATUS_FILTROS.map((filtro) => (
+                <button
+                  key={filtro.valor}
+                  onClick={() => setStatusFiltro(filtro.valor)}
+                  className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                    statusFiltro === filtro.valor
+                      ? 'border-[#f59e0b] text-[#f59e0b] bg-[#2a2f3a]'
+                      : 'border-transparent bg-[#1e232d] text-gray-300 hover:text-white'
+                  }`}
+                >
+                  {filtro.label}
+                </button>
+              ))}
             </div>
-          )}
+
+            {categoriaOptions.length > 1 && (
+              <div className="flex items-center gap-2 w-full lg:w-auto lg:justify-end">
+                <label htmlFor="categoriaFiltro" className="sr-only">
+                  Categoria
+                </label>
+                <select
+                  id="categoriaFiltro"
+                  className="w-full lg:w-56 bg-[#1e232d] border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-[#f59e0b]"
+                  value={categoriaFiltro}
+                  onChange={(event) => setCategoriaFiltro(event.target.value as MensagemCategoria | 'TODAS')}
+                >
+                  {categoriaOptions.map((categoria) => (
+                    <option key={categoria.valor} value={categoria.valor}>
+                      {categoria.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
 
           <div className="flex-1 overflow-y-auto">
             {carregandoLista ? (
@@ -264,43 +320,65 @@ export default function MensagensPage() {
               <ul className="divide-y divide-gray-800">
                 {mensagens.map((mensagem) => {
                   const selecionada = mensagemSelecionada?.id === mensagem.id;
+                  const removendo = removendoMensagemId === mensagem.id;
                   return (
                     <li key={mensagem.id}>
-                      <button
-                        onClick={() => selecionarMensagem(mensagem.id)}
-                        className={`w-full text-left px-4 py-4 transition-colors ${
-                          selecionada ? 'bg-[#2a2f3a] border-l-4 border-[#f59e0b]' : 'hover:bg-[#1e232d]'
+                      <div
+                        className={`flex items-center gap-3 px-4 py-4 transition-colors border-l-4 ${
+                          selecionada
+                            ? 'bg-[#2a2f3a] border-[#f59e0b]'
+                            : 'border-transparent hover:bg-[#1e232d]'
                         }`}
                       >
-                        {/* Linha única: indicador, título (com reticências), categoria e data */}
-                        <div className="flex items-center gap-2 min-w-0">
-                          {/* Indicador de leitura */}
-                          <span
-                            aria-hidden
-                            className={`h-2 w-2 rounded-full ${mensagem.lida ? 'bg-gray-600' : 'bg-[#f59e0b]'}`}
-                          />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoverMensagem(mensagem.id)}
+                          className={`p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-[#151921] ${
+                            removendo
+                              ? 'text-red-400/70 cursor-wait'
+                              : 'text-gray-500 hover:text-red-400 hover:bg-[#1e232d]'
+                          }`}
+                          aria-label={`Remover mensagem "${mensagem.titulo}"`}
+                          disabled={removendo}
+                        >
+                          <Trash2 size={16} />
+                        </button>
 
-                          {/* Título responsivo com reticências */}
-                          <h3
-                            className={`flex-1 min-w-0 truncate text-sm ${
-                              mensagem.lida ? 'text-gray-300' : 'text-gray-100 font-semibold'
-                            }`}
-                            title={mensagem.titulo}
-                          >
-                            {mensagem.titulo}
-                          </h3>
+                        <button
+                          type="button"
+                          onClick={() => selecionarMensagem(mensagem.id)}
+                          className="flex-1 text-left"
+                        >
+                          {/* Linha única: indicador, título (com reticências), categoria e data */}
+                          <div className="flex items-center gap-2 min-w-0">
+                            {/* Indicador de leitura */}
+                            <span
+                              aria-hidden
+                              className={`h-2 w-2 rounded-full ${mensagem.lida ? 'bg-gray-600' : 'bg-[#f59e0b]'}`}
+                            />
 
-                          {/* Categoria (não corta) */}
-                          <span className="ml-2 shrink-0 text-[11px] uppercase tracking-wide text-[#f59e0b] bg-[#2a2f3a] px-2 py-1 rounded-full">
-                            {CATEGORIA_LABELS[mensagem.categoria] ?? mensagem.categoria}
-                          </span>
+                            {/* Título responsivo com reticências */}
+                            <h3
+                              className={`flex-1 min-w-0 truncate text-sm ${
+                                mensagem.lida ? 'text-gray-300' : 'text-gray-100 font-semibold'
+                              }`}
+                              title={mensagem.titulo}
+                            >
+                              {mensagem.titulo}
+                            </h3>
 
-                          {/* Data (não corta) */}
-                          <span className="ml-2 shrink-0 whitespace-nowrap text-xs text-gray-400">
-                            {new Date(mensagem.criadaEm).toLocaleDateString('pt-BR')}
-                          </span>
-                        </div>
-                      </button>
+                            {/* Categoria (não corta) */}
+                            <span className="ml-2 shrink-0 text-[11px] uppercase tracking-wide text-[#f59e0b] bg-[#2a2f3a] px-2 py-1 rounded-full">
+                              {CATEGORIA_LABELS[mensagem.categoria] ?? mensagem.categoria}
+                            </span>
+
+                            {/* Data (não corta) */}
+                            <span className="ml-2 shrink-0 whitespace-nowrap text-xs text-gray-400">
+                              {new Date(mensagem.criadaEm).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                        </button>
+                      </div>
                     </li>
                   );
                 })}

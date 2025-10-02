@@ -153,3 +153,27 @@ export function listarCategorias(_: Request, res: Response) {
   const categorias = mensagemService.listarCategorias();
   return res.json({ categorias });
 }
+
+export async function removerMensagem(req: Request, res: Response) {
+  try {
+    const superUserId = req.user?.superUserId;
+    if (!superUserId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ error: 'Identificador inválido' });
+    }
+
+    const removida = await mensagemService.remover(superUserId, id);
+    if (!removida) {
+      return res.status(404).json({ error: 'Mensagem não encontrada' });
+    }
+
+    return res.status(204).send();
+  } catch (error) {
+    logger.error('Erro ao remover mensagem', error);
+    return res.status(500).json({ error: 'Erro ao remover mensagem' });
+  }
+}

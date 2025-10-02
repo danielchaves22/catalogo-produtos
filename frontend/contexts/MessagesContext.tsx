@@ -38,6 +38,7 @@ interface MessagesContextValue {
   getMessage: (id: number) => Promise<Mensagem>;
   markAsRead: (id: number) => Promise<Mensagem | null>;
   listarCategorias: () => Promise<MensagemCategoria[]>;
+  removerMensagem: (id: number) => Promise<boolean>;
 }
 
 const MessagesContext = createContext<MessagesContextValue | undefined>(undefined);
@@ -128,6 +129,20 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
     return data.categorias;
   }, []);
 
+  const removerMensagem = useCallback(
+    async (id: number) => {
+      try {
+        await api.delete(`/mensagens/${id}`);
+        await refreshUnread();
+        return true;
+      } catch (error) {
+        console.error('Erro ao remover mensagem:', error);
+        throw error;
+      }
+    },
+    [refreshUnread],
+  );
+
   useEffect(() => {
     if (!token) {
       stopPolling();
@@ -173,6 +188,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
     getMessage,
     markAsRead,
     listarCategorias,
+    removerMensagem,
   }), [
     unreadMessages,
     unreadCount,
@@ -182,6 +198,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
     getMessage,
     markAsRead,
     listarCategorias,
+    removerMensagem,
   ]);
 
   return (

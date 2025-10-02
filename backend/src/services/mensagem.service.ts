@@ -123,4 +123,21 @@ export class MensagemService {
   listarCategorias(): MensagemCategoria[] {
     return Object.values(MensagemCategoria);
   }
+
+  async remover(superUserId: number, id: number): Promise<boolean> {
+    const mensagem = await catalogoPrisma.mensagem.findFirst({
+      where: { id, superUserId },
+      select: { id: true },
+    });
+
+    if (!mensagem) {
+      return false;
+    }
+
+    await catalogoPrisma.mensagem.delete({
+      where: { id: mensagem.id },
+    });
+
+    return true;
+  }
 }
