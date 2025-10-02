@@ -14,6 +14,11 @@ import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { ProdutoService } from './produto.service';
 import { ValidationError } from '../types/validation-error';
+import {
+  enqueueProdutoImportacaoJob,
+  ProdutoImportacaoJobData,
+  registerProdutoImportacaoProcessor,
+} from '../jobs/produto-importacao.job';
 
 const execFileAsync = promisify(execFile);
 
@@ -41,25 +46,16 @@ export class ProdutoImportacaoService {
     superUserId: number,
     usuarioLegacyId?: number
   ) {
-    const catalogo = await catalogoPrisma.catalogo.findFirst({
-      where: { id: dados.catalogoId, superUserId }
+    const catalogoExiste = await catalogoPrisma.catalogo.findFirst({
+      where: { id: dados.catalogoId, superUserId },
+      select: { id: true }
     });
 
-    if (!catalogo) {
+    if (!catalogoExiste) {
       throw new Error('Catálogo não encontrado para o superusuário informado');
     }
 
-    let usuarioCatalogoId: number | null = null;
-    if (usuarioLegacyId) {
-      const usuarioCatalogo = await catalogoPrisma.usuarioCatalogo.findFirst({
-        where: {
-          legacyId: usuarioLegacyId,
-          superUserId
-        }
-      });
-
-      usuarioCatalogoId = usuarioCatalogo?.id ?? null;
-    }
+    const usuarioCatalogoId = await this.obterUsuarioCatalogoId(superUserId, usuarioLegacyId);
 
     if (!dados.arquivo?.conteudoBase64 || !dados.arquivo?.nome) {
       throw new Error('Arquivo Excel não foi enviado');
@@ -74,17 +70,64 @@ export class ProdutoImportacaoService {
       throw new Error('Conteúdo do arquivo inválido');
     }
 
+    const modalidade = (dados.modalidade || 'IMPORTACAO').toUpperCase();
+
     const importacao = await catalogoPrisma.importacaoProduto.create({
       data: {
         superUserId,
         usuarioCatalogoId,
         catalogoId: dados.catalogoId,
-        modalidade: (dados.modalidade || 'IMPORTACAO').toUpperCase(),
+        modalidade,
         nomeArquivo: dados.arquivo.nome,
         situacao: 'EM_ANDAMENTO',
         resultado: 'PENDENTE'
       }
     });
+
+    try {
+      await enqueueProdutoImportacaoJob({
+        importacaoId: importacao.id,
+        superUserId,
+        usuarioCatalogoId,
+        catalogoId: dados.catalogoId,
+        modalidade,
+        arquivo: {
+          nome: dados.arquivo.nome,
+          conteudoBase64: dados.arquivo.conteudoBase64
+        }
+      });
+    } catch (error) {
+      logger.error('Falha ao enfileirar processamento de importação de produtos:', error);
+
+      await catalogoPrisma.importacaoProduto.update({
+        where: { id: importacao.id },
+        data: {
+          situacao: 'CONCLUIDA',
+          resultado: 'ATENCAO',
+          totalRegistros: 0,
+          totalCriados: 0,
+          totalComAtencao: 0,
+          totalComErro: 0,
+          finalizadoEm: new Date()
+        }
+      });
+
+      throw new Error('Não foi possível iniciar o processamento da planilha.');
+    }
+
+    return importacao;
+  }
+
+  async processarImportacaoJob(dados: ProdutoImportacaoJobData) {
+    const catalogo = await catalogoPrisma.catalogo.findFirst({
+      where: { id: dados.catalogoId, superUserId: dados.superUserId },
+      select: { id: true, nome: true, numero: true, cpf_cnpj: true }
+    });
+
+    const buffer = this.converterBase64(dados.arquivo.conteudoBase64);
+    if (!buffer?.length) {
+      throw new Error('Conteúdo do arquivo inválido');
+    }
 
     let totalRegistros = 0;
     let totalCriados = 0;
@@ -96,8 +139,6 @@ export class ProdutoImportacaoService {
       if (!linhas || linhas.length <= 1) {
         throw new Error('A planilha não possui dados para importação');
       }
-
-      const modalidade = (dados.modalidade || 'IMPORTACAO').toUpperCase();
 
       for (let index = 1; index < linhas.length; index++) {
         const linha = linhas[index];
@@ -159,13 +200,13 @@ export class ProdutoImportacaoService {
             const produto = await this.produtoService.criar(
               {
                 ncmCodigo: ncmNormalizada,
-                modalidade,
+                modalidade: dados.modalidade,
                 catalogoId: dados.catalogoId,
                 denominacao,
                 descricao: denominacao,
                 codigosInternos
               },
-              superUserId
+              dados.superUserId
             );
 
             produtoId = produto.id;
@@ -195,7 +236,7 @@ export class ProdutoImportacaoService {
 
         await catalogoPrisma.importacaoProdutoItem.create({
           data: {
-            importacaoId: importacao.id,
+            importacaoId: dados.importacaoId,
             linhaPlanilha,
             ncm: ncmNormalizada ?? null,
             denominacao: denominacao || null,
@@ -213,7 +254,7 @@ export class ProdutoImportacaoService {
         totalComErro > 0 || totalComAtencao > 0 ? 'ATENCAO' : 'SUCESSO';
 
       await catalogoPrisma.importacaoProduto.update({
-        where: { id: importacao.id },
+        where: { id: dados.importacaoId },
         data: {
           situacao: 'CONCLUIDA',
           resultado: resultadoFinal,
@@ -226,10 +267,10 @@ export class ProdutoImportacaoService {
       });
 
       await this.registrarConclusaoImportacao({
-        importacaoId: importacao.id,
-        superUserId,
-        catalogo,
-        usuarioCatalogoId,
+        importacaoId: dados.importacaoId,
+        superUserId: dados.superUserId,
+        catalogo: catalogo ?? null,
+        usuarioCatalogoId: dados.usuarioCatalogoId,
         totais: {
           totalRegistros,
           totalCriados,
@@ -238,13 +279,11 @@ export class ProdutoImportacaoService {
         },
         resultado: resultadoFinal,
       });
-
-      return this.obterImportacao(importacao.id, superUserId);
     } catch (error) {
       logger.error('Falha ao processar planilha de importação:', error);
 
       await catalogoPrisma.importacaoProduto.update({
-        where: { id: importacao.id },
+        where: { id: dados.importacaoId },
         data: {
           situacao: 'CONCLUIDA',
           resultado: 'ATENCAO',
@@ -257,10 +296,10 @@ export class ProdutoImportacaoService {
       });
 
       await this.registrarConclusaoImportacao({
-        importacaoId: importacao.id,
-        superUserId,
-        catalogo,
-        usuarioCatalogoId,
+        importacaoId: dados.importacaoId,
+        superUserId: dados.superUserId,
+        catalogo: catalogo ?? null,
+        usuarioCatalogoId: dados.usuarioCatalogoId,
         totais: {
           totalRegistros,
           totalCriados,
@@ -328,6 +367,25 @@ export class ProdutoImportacaoService {
     await catalogoPrisma.importacaoProduto.deleteMany({
       where: { superUserId }
     });
+  }
+
+  private async obterUsuarioCatalogoId(
+    superUserId: number,
+    usuarioLegacyId?: number
+  ): Promise<number | null> {
+    if (!usuarioLegacyId) {
+      return null;
+    }
+
+    const usuarioCatalogo = await catalogoPrisma.usuarioCatalogo.findFirst({
+      where: {
+        legacyId: usuarioLegacyId,
+        superUserId
+      },
+      select: { id: true }
+    });
+
+    return usuarioCatalogo?.id ?? null;
   }
 
   private converterBase64(base64: string): Buffer {
@@ -444,3 +502,9 @@ export class ProdutoImportacaoService {
     });
   }
 }
+
+const produtoImportacaoWorkerService = new ProdutoImportacaoService();
+
+registerProdutoImportacaoProcessor(dados =>
+  produtoImportacaoWorkerService.processarImportacaoJob(dados)
+);

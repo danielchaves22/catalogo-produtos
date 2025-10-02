@@ -44,7 +44,7 @@ export default function NovaImportacaoPage() {
   const [erros, setErros] = useState<Record<string, string>>({});
   const isPlanilha = modalidadeImportacao === 'PLANILHA';
   const formId = 'nova-importacao-form';
-  const submitLabel = submetendo ? 'Importando...' : 'Iniciar importação';
+  const submitLabel = submetendo ? 'Iniciando...' : 'Iniciar importação';
 
   useEffect(() => {
     const carregarCatalogos = async () => {
@@ -134,14 +134,14 @@ export default function NovaImportacaoPage() {
 
     try {
       setSubmetendo(true);
-      const resposta = await api.post('/produtos/importacao', {
+      await api.post('/produtos/importacao', {
         catalogoId: Number(catalogoId),
         modalidade: modalidadeProduto,
         arquivo: arquivo,
       });
 
-      addToast('Importação concluída!', 'success');
-      router.push(`/automacao/importar-produto/${resposta.data.id}`);
+      addToast('Importação iniciada! Você será avisado quando terminar.', 'success');
+      router.push('/automacao/importar-produto');
     } catch (error: any) {
       console.error('Erro ao iniciar importação', error);
       const mensagem = error.response?.data?.error || 'Falha ao iniciar a importação.';
