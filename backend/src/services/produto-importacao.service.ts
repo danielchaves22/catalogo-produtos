@@ -453,14 +453,52 @@ export class ProdutoImportacaoService {
   }
 
   private async executarPython(script: string, arquivo: string) {
-    try {
-      return await execFileAsync('python3', [script, arquivo], { maxBuffer: 10 * 1024 * 1024 });
-    } catch (error: any) {
-      if (error?.code === 'ENOENT') {
-        return execFileAsync('python', [script, arquivo], { maxBuffer: 10 * 1024 * 1024 });
+    const interpretes = this.obterPossiveisInterpretesPython();
+    const errosPorComando: string[] = [];
+
+    for (const interprete of interpretes) {
+      try {
+        return await execFileAsync(
+          interprete.comando,
+          [...interprete.argumentosExtras, script, arquivo],
+          { maxBuffer: 10 * 1024 * 1024 },
+        );
+      } catch (error: any) {
+        if (error?.code !== 'ENOENT') {
+          throw error;
+        }
+
+        errosPorComando.push(interprete.comando);
       }
-      throw error;
     }
+
+    const comandosTestados = errosPorComando.join(', ') || 'nenhum';
+    const dicaConfiguracao = process.env.PYTHON_BIN
+      ? ` Valor atual de PYTHON_BIN: "${process.env.PYTHON_BIN}".`
+      : '';
+
+    throw new Error(
+      `Não foi possível localizar um interpretador Python executável (tentativas: ${comandosTestados}). ` +
+        'Instale o Python 3 ou configure a variável de ambiente PYTHON_BIN com o caminho do executável.' +
+        dicaConfiguracao,
+    );
+  }
+
+  private obterPossiveisInterpretesPython(): Array<{ comando: string; argumentosExtras: string[] }> {
+    const maximoComandos = new Map<string, { comando: string; argumentosExtras: string[] }>();
+
+    const binConfigurado = process.env.PYTHON_BIN?.trim();
+    if (binConfigurado) {
+      maximoComandos.set(binConfigurado, { comando: binConfigurado, argumentosExtras: [] });
+    }
+
+    for (const comando of ['python3', 'python', 'py']) {
+      if (!maximoComandos.has(comando)) {
+        maximoComandos.set(comando, { comando, argumentosExtras: [] });
+      }
+    }
+
+    return Array.from(maximoComandos.values());
   }
 
   private async registrarConclusaoImportacao(params: {
