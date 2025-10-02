@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { formatCPFOrCNPJ } from '@/lib/validation';
-import { FileSpreadsheet, Info, Layers, Save } from 'lucide-react';
+import { Download, FileSpreadsheet, Info, Layers, Save } from 'lucide-react';
 
 interface CatalogoResumo {
   id: number;
@@ -32,6 +32,8 @@ export default function NovaImportacaoPage() {
   const router = useRouter();
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
+
+  const modeloPlanilhaUrl = '/resources/planilha-modelo-importacao-de-produtos.xlsx';
 
   const [catalogos, setCatalogos] = useState<CatalogoResumo[]>([]);
   const [catalogoId, setCatalogoId] = useState('');
@@ -257,6 +259,19 @@ export default function NovaImportacaoPage() {
             </div>
 
             <div className="mt-4">
+              <div className="mb-3 flex flex-col gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100 md:flex-row md:items-center md:justify-between">
+                <p className="text-sm text-emerald-100/80">
+                  Baixe o modelo oficial, preencha os dados solicitados e depois selecione o arquivo atualizado para iniciar a importação.
+                </p>
+                <a
+                  href={modeloPlanilhaUrl}
+                  download
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-emerald-400/60 bg-emerald-500/20 px-3 py-2 font-semibold text-emerald-50 transition hover:border-emerald-300 hover:bg-emerald-500/40"
+                >
+                  <Download size={16} />
+                  Baixar modelo (.xlsx)
+                </a>
+              </div>
               <Input
                 type="file"
                 label="Planilha Excel (.xlsx)"
