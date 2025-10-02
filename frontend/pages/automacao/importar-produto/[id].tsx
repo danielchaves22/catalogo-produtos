@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
@@ -99,6 +99,12 @@ function obterMensagem(lista?: string[]) {
   );
 }
 
+function obterClasseSituacaoBadge(situacao: ImportacaoDetalhe['situacao']) {
+  return situacao === 'CONCLUIDA'
+    ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40'
+    : 'bg-sky-500/10 text-sky-300 border border-sky-500/40';
+}
+
 export default function ImportacaoDetalhePage() {
   const router = useRouter();
   const { id } = router.query;
@@ -109,25 +115,50 @@ export default function ImportacaoDetalhePage() {
   const [errosAbertos, setErrosAbertos] = useState(true);
   const [sucessosAbertos, setSucessosAbertos] = useState(false);
 
-  useEffect(() => {
-    if (!id) return;
-    const carregar = async () => {
+  const importacaoId = Array.isArray(id) ? id[0] : id;
+
+  const carregarDetalhes = useCallback(
+    async (silencioso = false) => {
+      if (!importacaoId) return;
+
       try {
-        setCarregando(true);
-        const resposta = await api.get<ImportacaoDetalhe>(`/produtos/importacoes/${id}`);
+        if (!silencioso) {
+          setCarregando(true);
+        }
+        const resposta = await api.get<ImportacaoDetalhe>(`/produtos/importacoes/${importacaoId}`);
         setDetalhe(resposta.data);
         setErro(null);
       } catch (error: any) {
         console.error('Erro ao carregar importação', error);
         const mensagem = error.response?.data?.error || 'Não foi possível carregar os detalhes.';
         setErro(mensagem);
-        addToast(mensagem, 'error');
+        if (!silencioso) {
+          addToast(mensagem, 'error');
+        }
       } finally {
-        setCarregando(false);
+        if (!silencioso) {
+          setCarregando(false);
+        }
       }
-    };
-    carregar();
-  }, [id, addToast]);
+    },
+    [importacaoId, addToast]
+  );
+
+  useEffect(() => {
+    carregarDetalhes();
+  }, [carregarDetalhes]);
+
+  useEffect(() => {
+    if (!detalhe || detalhe.situacao !== 'EM_ANDAMENTO') {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      carregarDetalhes(true);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [detalhe?.situacao, carregarDetalhes]);
 
   const itensErro = useMemo(
     () => detalhe?.itens.filter(item => item.resultado === 'ERRO') ?? [],
@@ -194,6 +225,9 @@ export default function ImportacaoDetalhePage() {
         </div>
         <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${obterClasseResultado(detalhe.resultado)}`}>
           Resultado: {traduzResultado(detalhe.resultado)}
+        </span>
+        <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${obterClasseSituacaoBadge(detalhe.situacao)}`}>
+          Situação: {traduzSituacao(detalhe.situacao)}
         </span>
       </div>
 

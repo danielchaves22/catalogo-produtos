@@ -117,6 +117,19 @@ export default function ImportacoesPage() {
   const [limpandoHistorico, setLimpandoHistorico] = useState(false);
 
   const { addToast } = useToast();
+  const possuiProcessando = dados.some(importacao => importacao.situacao === 'EM_ANDAMENTO');
+
+  useEffect(() => {
+    if (!possuiProcessando) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      recarregar();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [possuiProcessando, recarregar]);
 
   const removerImportacao = useCallback(
     async (id: number) => {
@@ -207,6 +220,11 @@ export default function ImportacoesPage() {
           </Button>
         </div>
       </div>
+      {possuiProcessando && (
+        <p className="mb-4 text-sm text-sky-300">
+          Há importações em andamento. A lista é atualizada automaticamente a cada 5 segundos.
+        </p>
+      )}
 
       {erro && (
         <Card className="mb-4 border border-red-500/40 bg-red-500/5 text-red-300">

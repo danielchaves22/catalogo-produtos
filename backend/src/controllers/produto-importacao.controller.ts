@@ -34,7 +34,11 @@ export async function importarProdutosPorPlanilha(req: Request, res: Response) {
       req.user?.id
     );
 
-    return res.status(201).json(importacao);
+    return res.status(202).json({
+      id: importacao.id,
+      situacao: importacao.situacao,
+      resultado: importacao.resultado
+    });
   } catch (error) {
     logger.error('Erro ao importar produtos via Excel:', error);
     if (error instanceof Error) {
@@ -48,6 +52,9 @@ export async function importarProdutosPorPlanilha(req: Request, res: Response) {
         error.message.includes('não possui dados')
       ) {
         return res.status(400).json({ error: error.message });
+      }
+      if (error.message.includes('Não foi possível iniciar o processamento')) {
+        return res.status(500).json({ error: error.message });
       }
     }
     return res.status(500).json({ error: 'Erro interno ao importar planilha' });
