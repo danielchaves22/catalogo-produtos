@@ -50,7 +50,9 @@ export default function ValoresPadraoNcmPage() {
   const router = useRouter();
   const { addToast } = useToast();
   const { id } = router.query;
-  const isNew = !id || id === 'novo';
+  const isModoEdicao = router.isReady && typeof id === 'string' && id !== 'novo';
+  const isNew = !isModoEdicao;
+  const camposBloqueados = isModoEdicao;
 
   const [ncm, setNcm] = useState('');
   const [ncmDescricao, setNcmDescricao] = useState('');
@@ -80,11 +82,13 @@ export default function ValoresPadraoNcmPage() {
   }, [estrutura]);
 
   useEffect(() => {
-    if (!router.isReady || isNew || typeof id !== 'string') return;
+    if (!isModoEdicao || typeof id !== 'string') return;
     carregarRegistro(id);
-  }, [router.isReady, id, isNew]);
+  }, [isModoEdicao, id]);
 
   useEffect(() => {
+    if (!isNew) return;
+
     if (debouncedNcm.length >= 4 && debouncedNcm.length < 8) {
       let ativo = true;
       setCarregandoSugestoesNcm(true);
@@ -117,7 +121,7 @@ export default function ValoresPadraoNcmPage() {
     setNcmSugestoes([]);
     setMostrarSugestoesNcm(false);
     setCarregandoSugestoesNcm(false);
-  }, [debouncedNcm]);
+  }, [debouncedNcm, isNew]);
 
   useEffect(() => {
     if (!estruturaCarregada || !estrutura.length) return;
@@ -403,6 +407,8 @@ export default function ValoresPadraoNcmPage() {
   }
 
   function handleNcmChange(valor: string) {
+    if (camposBloqueados) return;
+
     setNcm(valor);
     if (valor.length < 4 || valor.length >= 8) {
       setNcmSugestoes([]);
@@ -421,6 +427,8 @@ export default function ValoresPadraoNcmPage() {
   }
 
   function selecionarSugestaoNcm(sugestao: { codigo: string; descricao: string | null }) {
+    if (camposBloqueados) return;
+
     setNcmDescricao(sugestao.descricao || '');
     setMostrarSugestoesNcm(false);
     setNcmSugestoes([]);
@@ -443,18 +451,20 @@ export default function ValoresPadraoNcmPage() {
     try {
       setErroFormulario(null);
       setLoading(true);
-      const payload = {
-        ncmCodigo: ncm,
-        modalidade,
+      const payloadBase = {
         valoresAtributos: valores,
         estruturaSnapshot: estrutura
       };
 
       if (isNew) {
-        await api.post('/ncm-valores-padrao', payload);
+        await api.post('/ncm-valores-padrao', {
+          ...payloadBase,
+          ncmCodigo: ncm,
+          modalidade
+        });
         addToast('Valores padrão cadastrados com sucesso!', 'success');
-      } else if (typeof id === 'string') {
-        await api.put(`/ncm-valores-padrao/${id}`, payload);
+      } else if (isModoEdicao && typeof id === 'string') {
+        await api.put(`/ncm-valores-padrao/${id}`, payloadBase);
         addToast('Valores padrão atualizados com sucesso!', 'success');
       }
       router.push('/produtos/valores-padrao');
@@ -518,11 +528,16 @@ export default function ValoresPadraoNcmPage() {
             mask="ncm"
             value={ncm}
             onChange={handleNcmChange}
-            className="mb-0"
+            className="mb-0 md:max-w-[9rem]"
             required
-            disabled={loading}
+            disabled={loading || camposBloqueados}
             onFocus={() => {
-              if (ncm.length >= 4 && ncm.length < 8 && ncmSugestoes.length > 0) {
+              if (
+                !camposBloqueados &&
+                ncm.length >= 4 &&
+                ncm.length < 8 &&
+                ncmSugestoes.length > 0
+              ) {
                 setMostrarSugestoesNcm(true);
               }
             }}
@@ -539,18 +554,27 @@ export default function ValoresPadraoNcmPage() {
             ]}
             value={modalidade}
             onChange={e => {
+              if (camposBloqueados) return;
               const novaModalidade = e.target.value as 'IMPORTACAO' | 'EXPORTACAO';
               setModalidade(novaModalidade);
               if (ncm.length === 8) {
                 carregarEstrutura(ncm, novaModalidade);
               }
             }}
+            disabled={camposBloqueados}
+            className="md:max-w-[10rem]"
           />
           <Input label="Descrição NCM" value={ncmDescricao} disabled className="md:col-span-2" />
-          <Input label="Unidade de Medida" value={unidadeMedida} disabled />
+          <Input
+            label="Unidade de Medida"
+            value={unidadeMedida}
+            disabled
+            className="md:max-w-[10rem]"
+            maxLength={10}
+          />
         </div>
 
-        {(carregandoSugestoesNcm || mostrarSugestoesNcm) && ncm.length < 8 && (
+        {(carregandoSugestoesNcm || mostrarSugestoesNcm) && ncm.length < 8 && isNew && (
           <div className="relative">
             <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 md:max-h-80 overflow-y-auto rounded-md border border-gray-700 bg-[#1e2126] shadow-lg">
               {carregandoSugestoesNcm ? (
