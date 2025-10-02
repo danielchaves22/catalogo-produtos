@@ -38,6 +38,5 @@ CREATE TABLE IF NOT EXISTS importacao_produto_item (
     PRIMARY KEY (id),
     INDEX idx_importacao_item_importacao (importacao_id),
     INDEX idx_importacao_item_resultado (resultado),
-    CONSTRAINT fk_importacao_produto_item_importacao FOREIGN KEY (importacao_id) REFERENCES importacao_produto(id) ON DELETE CASCADE,
-    CONSTRAINT fk_importacao_produto_item_produto FOREIGN KEY (produto_id) REFERENCES produto(id)
+    CONSTRAINT fk_importacao_produto_item_importacao FOREIGN KEY (importacao_id) REFERENCES importacao_produto(id) ON DELETE CASCADE
 );

@@ -11,6 +11,5 @@ CREATE TABLE IF NOT EXISTS mensagem (
     PRIMARY KEY (id),
     INDEX idx_mensagem_super_user_id (super_user_id),
     INDEX idx_mensagem_lida (lida),
-    INDEX idx_mensagem_criada_em (criada_em),
-    CONSTRAINT fk_mensagem_super_user FOREIGN KEY (super_user_id) REFERENCES comex(idv32)
+    INDEX idx_mensagem_criada_em (criada_em)
 );

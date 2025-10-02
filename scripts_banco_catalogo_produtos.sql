@@ -49,8 +49,7 @@ CREATE TABLE IF NOT EXISTS mensagem (
     PRIMARY KEY (id),
     INDEX idx_mensagem_super_user_id (super_user_id),
     INDEX idx_mensagem_lida (lida),
-    INDEX idx_mensagem_criada_em (criada_em),
-    CONSTRAINT fk_mensagem_super_user FOREIGN KEY (super_user_id) REFERENCES comex(idv32)
+    INDEX idx_mensagem_criada_em (criada_em)
 );
 
 CREATE TABLE IF NOT EXISTS catalogo (
@@ -383,8 +382,7 @@ DELIMITER ;
         PRIMARY KEY (id),
         INDEX idx_importacao_item_importacao (importacao_id),
         INDEX idx_importacao_item_resultado (resultado),
-        CONSTRAINT fk_importacao_produto_item_importacao FOREIGN KEY (importacao_id) REFERENCES importacao_produto(id) ON DELETE CASCADE,
-        CONSTRAINT fk_importacao_produto_item_produto FOREIGN KEY (produto_id) REFERENCES produto(id)
+        CONSTRAINT fk_importacao_produto_item_importacao FOREIGN KEY (importacao_id) REFERENCES importacao_produto(id) ON DELETE CASCADE
     );
 
 
