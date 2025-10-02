@@ -200,6 +200,7 @@ export default function ImportacoesPage() {
           <Button
             onClick={() => router.push('/automacao/importar-produto/nova')}
             className="flex items-center gap-2"
+            variant="accent"
           >
             <PlusCircle size={18} />
             Nova Importação

@@ -20,7 +20,7 @@ import {
   isValorPreenchido,
   normalizarValoresMultivalorados
 } from '@/lib/atributos';
-import { Trash2, BrainCog, ArrowLeft } from 'lucide-react';
+import { Trash2, BrainCog, ArrowLeft, Save } from 'lucide-react';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
@@ -683,13 +683,29 @@ export default function ProdutoPage() {
         ]}
       />
 
-      <div className="mb-6 flex items-center gap-2">
-        <button onClick={voltar} className="text-gray-400 hover:text-white transition-colors">
-          <ArrowLeft size={20} />
-        </button>
-        <h1 className="text-2xl font-semibold text-white">
-          {isNew ? 'Cadastrar Novo Produto' : 'Editar Produto'}
-        </h1>
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2">
+          <button onClick={voltar} className="text-gray-400 hover:text-white transition-colors">
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-2xl font-semibold text-white">
+            {isNew ? 'Cadastrar Novo Produto' : 'Editar Produto'}
+          </h1>
+        </div>
+        <div className="flex items-center gap-3 self-end md:self-auto">
+          <Button type="button" variant="outline" onClick={voltar}>
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="accent"
+            className="flex items-center gap-2"
+            onClick={() => salvar()}
+          >
+            <Save size={16} />
+            Salvar Produto
+          </Button>
+        </div>
       </div>
 
       <Card className="mb-6 overflow-visible">
@@ -1026,11 +1042,19 @@ export default function ProdutoPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => router.push('/produtos')}
+                  onClick={voltar}
                 >
                   Cancelar
                 </Button>
-                <Button type="button" onClick={() => salvar()}>Salvar Produto</Button>
+                <Button
+                  type="button"
+                  variant="accent"
+                  className="flex items-center gap-2"
+                  onClick={() => salvar()}
+                >
+                  <Save size={16} />
+                  Salvar Produto
+                </Button>
               </div>
             </>
           )}

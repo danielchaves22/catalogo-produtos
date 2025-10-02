@@ -57,6 +57,8 @@ export default function CatalogoFormPage() {
   const isNew = !id || id === 'novo';
   const { addToast } = useToast();
   const { workingCatalog, setWorkingCatalog } = useWorkingCatalog();
+  const formId = 'catalogo-form';
+  const salvarLabel = submitting ? 'Salvando...' : 'Salvar Catálogo';
 
   useEffect(() => {
     carregarCertificados();
@@ -236,7 +238,7 @@ export default function CatalogoFormPage() {
 
   const dadosContent = (
     <Card>
-      <form onSubmit={handleSubmit}>
+      <form id={formId} onSubmit={handleSubmit}>
         <div className="grid grid-cols-2 gap-4">
           {!isNew && catalogo && (
             <>
@@ -310,12 +312,12 @@ export default function CatalogoFormPage() {
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={voltar}>
+          <Button type="button" variant="outline" onClick={voltar} disabled={submitting}>
             Cancelar
           </Button>
           <Button type="submit" variant="accent" className="flex items-center gap-2" disabled={submitting}>
             <Save size={16} />
-            {submitting ? 'Salvando...' : 'Salvar Catálogo'}
+            {salvarLabel}
           </Button>
         </div>
       </form>
@@ -359,16 +361,38 @@ export default function CatalogoFormPage() {
           ]}
         />
 
-        <div className="mb-6 flex items-center gap-2">
-          <button
-            onClick={voltar}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <h1 className="text-2xl font-semibold text-white">
-            {isNew ? 'Criar Novo Catálogo' : 'Editar Catálogo'}
-          </h1>
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={voltar}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <h1 className="text-2xl font-semibold text-white">
+              {isNew ? 'Criar Novo Catálogo' : 'Editar Catálogo'}
+            </h1>
+          </div>
+          <div className="flex items-center gap-3 self-end md:self-auto">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={voltar}
+              disabled={submitting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              form={formId}
+              variant="accent"
+              className="flex items-center gap-2"
+              disabled={submitting}
+            >
+              <Save size={16} />
+              {salvarLabel}
+            </Button>
+          </div>
         </div>
         {dadosContent}
         {!isNew && certificadoContent}

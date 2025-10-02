@@ -5,7 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 import { Toggle } from '@/components/ui/Toggle';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -84,11 +84,26 @@ export default function EditarUsuarioPage() {
     <DashboardLayout title="Usuários">
       <Breadcrumb items={[{ label: 'Início', href: '/' }, { label: 'Usuários', href: '/usuarios' }, { label: usuario.nome }]} />
 
-      <div className="mb-6 flex items-center gap-2">
-        <button onClick={voltar} className="text-gray-400 hover:text-white transition-colors">
-          <ArrowLeft size={20} />
-        </button>
-        <h1 className="text-2xl font-semibold text-white">Editar Usuário</h1>
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2">
+          <button onClick={voltar} className="text-gray-400 hover:text-white transition-colors">
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-2xl font-semibold text-white">Editar Usuário</h1>
+        </div>
+        <div className="flex items-center gap-3 self-end md:self-auto">
+          <Button variant="outline" onClick={voltar}>
+            Cancelar
+          </Button>
+          <Button
+            variant="accent"
+            className="flex items-center gap-2"
+            onClick={salvar}
+          >
+            <Save size={16} />
+            Salvar
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -120,7 +135,14 @@ export default function EditarUsuarioPage() {
               ))}
             </Card>
           ))}
-          <Button onClick={salvar} className="mt-4">Salvar</Button>
+          <Button
+            onClick={salvar}
+            className="mt-4 flex items-center gap-2"
+            variant="accent"
+          >
+            <Save size={16} />
+            Salvar
+          </Button>
         </Card>
       </div>
     </DashboardLayout>
