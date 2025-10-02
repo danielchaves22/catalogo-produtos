@@ -147,6 +147,8 @@ export default function OperadorEstrangeiroFormPage() {
   const isNew = !id || id === 'novo';
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
+  const formId = 'operador-estrangeiro-form';
+  const salvarLabel = submitting ? 'Salvando...' : 'Salvar Operador';
 
   // Carregar dados auxiliares
   useEffect(() => {
@@ -464,19 +466,41 @@ const catalogoOptions = [
         ]} 
       />
 
-      <div className="mb-6 flex items-center gap-2">
-        <button 
-          onClick={voltar}
-          className="text-gray-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <h1 className="text-2xl font-semibold text-white">
-          {isNew ? 'Cadastrar Novo Operador Estrangeiro' : 'Editar Operador Estrangeiro'}
-        </h1>
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={voltar}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-2xl font-semibold text-white">
+            {isNew ? 'Cadastrar Novo Operador Estrangeiro' : 'Editar Operador Estrangeiro'}
+          </h1>
+        </div>
+        <div className="flex items-center gap-3 self-end md:self-auto">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={voltar}
+            disabled={submitting}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form={formId}
+            variant="accent"
+            className="flex items-center gap-2"
+            disabled={submitting}
+          >
+            <Save size={16} />
+            {salvarLabel}
+          </Button>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form id={formId} onSubmit={handleSubmit}>
         {/* Dados Básicos */}
         <Card className="mb-6" headerTitle="Dados Básicos">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -704,21 +728,22 @@ const catalogoOptions = [
         
         {/* Botões de Ação */}
         <div className="flex justify-end gap-3">
-          <Button 
-            type="button" 
+          <Button
+            type="button"
             variant="outline"
             onClick={voltar}
+            disabled={submitting}
           >
             Cancelar
           </Button>
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             variant="accent"
             className="flex items-center gap-2"
             disabled={submitting}
           >
             <Save size={16} />
-            {submitting ? 'Salvando...' : 'Salvar Operador'}
+            {salvarLabel}
           </Button>
         </div>
       </form>

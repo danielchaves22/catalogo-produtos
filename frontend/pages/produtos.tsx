@@ -12,7 +12,6 @@ import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
 import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
 import api from '@/lib/api';
 import { produtoStatusLegend, produtoSituacaoLegend } from '@/constants/statusLegends';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useToast } from '@/components/ui/ToastContext';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
@@ -295,13 +294,14 @@ export default function ProdutosPage() {
 
       <div className="mb-6 flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-white">Lista de Produtos</h1>
-        <Link
-          href="/produtos/novo"
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+        <Button
+          variant="accent"
+          className="flex items-center gap-2"
+          onClick={() => router.push('/produtos/novo')}
         >
           <Plus size={16} />
           <span>Novo Produto</span>
-        </Link>
+        </Button>
       </div>
 
       {/* Filtros */}
@@ -389,10 +389,14 @@ export default function ProdutosPage() {
         {produtosFiltrados.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-gray-400 mb-4">Nenhum produto encontrado.</p>
-            <Link href="/produtos/novo" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+            <Button
+              variant="accent"
+              className="inline-flex items-center gap-2"
+              onClick={() => router.push('/produtos/novo')}
+            >
               <Plus size={16} />
               <span>Adicionar Produto</span>
-            </Link>
+            </Button>
           </div>
         ) : (
           <div className="overflow-x-auto">

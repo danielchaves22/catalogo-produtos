@@ -8,6 +8,7 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
 import { useRouter } from 'next/router';
+import { Save } from 'lucide-react';
 
 export default function NovoCertificadoPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -16,6 +17,8 @@ export default function NovoCertificadoPage() {
   const [enviando, setEnviando] = useState(false);
   const { addToast } = useToast();
   const router = useRouter();
+  const podeEnviar = Boolean(file && password && nome);
+  const submitLabel = enviando ? 'Enviando...' : 'Enviar';
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -73,8 +76,22 @@ export default function NovoCertificadoPage() {
         ]}
       />
 
-      <div className="mb-6">
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <h1 className="text-2xl font-semibold text-white">Cadastrar Certificado</h1>
+        <div className="flex items-center gap-3 self-end md:self-auto">
+          <Button variant="outline" onClick={() => router.push('/certificados')} disabled={enviando}>
+            Cancelar
+          </Button>
+          <Button
+            variant="accent"
+            className="flex items-center gap-2"
+            onClick={upload}
+            disabled={!podeEnviar || enviando}
+          >
+            <Save size={16} />
+            {submitLabel}
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -83,9 +100,17 @@ export default function NovoCertificadoPage() {
           <FileInput label="Certificado (.pfx)" accept=".pfx" onChange={handleFileChange} />
           <Input label="Senha" type="password" value={password} onChange={e => setPassword(e.target.value)} />
           <div className="flex gap-3 justify-end pt-2">
-            <Button variant="outline" onClick={() => router.push('/certificados')}>Cancelar</Button>
-            <Button onClick={upload} disabled={!file || !password || !nome || enviando}>
-              {enviando ? 'Enviando...' : 'Enviar'}
+            <Button variant="outline" onClick={() => router.push('/certificados')} disabled={enviando}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={upload}
+              disabled={!podeEnviar || enviando}
+              variant="accent"
+              className="flex items-center gap-2"
+            >
+              <Save size={16} />
+              {submitLabel}
             </Button>
           </div>
         </div>

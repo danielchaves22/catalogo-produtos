@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { formatCPFOrCNPJ } from '@/lib/validation';
-import { FileSpreadsheet, Info, Layers } from 'lucide-react';
+import { FileSpreadsheet, Info, Layers, Save } from 'lucide-react';
 
 interface CatalogoResumo {
   id: number;
@@ -42,6 +42,9 @@ export default function NovaImportacaoPage() {
   const [carregandoArquivo, setCarregandoArquivo] = useState(false);
   const [submetendo, setSubmetendo] = useState(false);
   const [erros, setErros] = useState<Record<string, string>>({});
+  const isPlanilha = modalidadeImportacao === 'PLANILHA';
+  const formId = 'nova-importacao-form';
+  const submitLabel = submetendo ? 'Importando...' : 'Iniciar importação';
 
   useEffect(() => {
     const carregarCatalogos = async () => {
@@ -159,8 +162,30 @@ export default function NovaImportacaoPage() {
         ]}
       />
 
-      <div className="mb-6">
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <h1 className="text-2xl font-semibold text-white">Nova Importação de Produtos</h1>
+        <div className="flex items-center gap-3 self-end md:self-auto">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push('/automacao/importar-produto')}
+            disabled={submetendo || carregandoArquivo}
+          >
+            Cancelar
+          </Button>
+          {isPlanilha && (
+            <Button
+              type="submit"
+              form={formId}
+              variant="accent"
+              className="flex items-center gap-2"
+              disabled={submetendo || carregandoArquivo}
+            >
+              <Save size={16} />
+              {submitLabel}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
@@ -196,20 +221,8 @@ export default function NovaImportacaoPage() {
         </button>
       </div>
 
-      {modalidadeImportacao === 'SISCOMEX' ? (
-        <Card className="border border-amber-500/40 bg-amber-500/10">
-          <div className="flex items-center gap-3">
-            <Info size={24} className="text-amber-300" />
-            <div>
-              <h2 className="text-lg font-semibold text-amber-100">Funcionalidade em desenvolvimento</h2>
-              <p className="mt-1 text-sm text-amber-100/80">
-                A importação direta do Siscomex ainda está sendo construída. Utilize a opção de Planilha Excel para importar produtos.
-              </p>
-            </div>
-          </div>
-        </Card>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
+      {isPlanilha ? (
+        <form id={formId} onSubmit={handleSubmit} className="space-y-6">
           <Card>
             <div className="grid gap-4 md:grid-cols-2">
               {workingCatalog ? (
@@ -281,15 +294,33 @@ export default function NovaImportacaoPage() {
               variant="outline"
               onClick={() => router.push('/automacao/importar-produto')}
               className="text-gray-300 hover:text-white"
-              disabled={submetendo}
+              disabled={submetendo || carregandoArquivo}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={submetendo || carregandoArquivo}>
-              {submetendo ? 'Importando...' : 'Iniciar importação'}
+            <Button
+              type="submit"
+              disabled={submetendo || carregandoArquivo}
+              variant="accent"
+              className="flex items-center gap-2"
+            >
+              <Save size={16} />
+              {submitLabel}
             </Button>
           </div>
         </form>
+      ) : (
+        <Card className="border border-amber-500/40 bg-amber-500/10">
+          <div className="flex items-center gap-3">
+            <Info size={24} className="text-amber-300" />
+            <div>
+              <h2 className="text-lg font-semibold text-amber-100">Funcionalidade em desenvolvimento</h2>
+              <p className="mt-1 text-sm text-amber-100/80">
+                A importação direta do Siscomex ainda está sendo construída. Utilize a opção de Planilha Excel para importar produtos.
+              </p>
+            </div>
+          </div>
+        </Card>
       )}
     </DashboardLayout>
   );
