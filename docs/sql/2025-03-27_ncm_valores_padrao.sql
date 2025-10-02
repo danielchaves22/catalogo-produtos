@@ -12,6 +12,6 @@ CREATE TABLE IF NOT EXISTS ncm_valores_padrao (
     atualizado_por VARCHAR(255) NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_superuser_ncm (super_user_id, ncm_codigo),
-    INDEX idx_ncm_valores_padrao_super_user (super_user_id),
-    CONSTRAINT fk_ncm_valores_padrao_super_user FOREIGN KEY (super_user_id) REFERENCES comex(idv32)
+    -- Integridade com o superusuário mantida via aplicação, pois a tabela comex está em outro schema
+    INDEX idx_ncm_valores_padrao_super_user (super_user_id)
 );
