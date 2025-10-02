@@ -8,7 +8,7 @@ docker rm catalogo-frontend
 
 docker compose up -d --build backend
 
-cd frontend
+cd /home/restapi/catpro/catalogo-produtos/frontend
 
 docker build  --build-arg NEXT_PUBLIC_API_URL="https://api.catprod-hml.comexdez.com.br/api/v1" --build-arg NODE_ENV=production -t catalogo-frontend .
 
