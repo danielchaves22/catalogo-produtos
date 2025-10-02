@@ -44,9 +44,9 @@ function useImportacoes() {
       setDados(resposta.data);
       setErro(null);
     } catch (error) {
-      console.error('Erro ao carregar importações', error);
-      setErro('Não foi possível carregar as importações.');
-      addToast('Não foi possível carregar as importações.', 'error');
+      console.error('Erro ao carregar importacoes', error);
+      setErro('Nao foi possivel carregar as importacoes.');
+      addToast('Nao foi possivel carregar as importacoes.', 'error');
     } finally {
       setCarregando(false);
     }
@@ -95,19 +95,19 @@ function traduzResultado(resultado: ImportacaoResumo['resultado']) {
     case 'SUCESSO':
       return 'Sucesso';
     case 'ATENCAO':
-      return 'Atenção';
+      return 'Atencao';
     case 'PENDENTE':
       return 'Pendente';
   }
 }
 
 function traduzSituacao(situacao: ImportacaoResumo['situacao']) {
-  return situacao === 'CONCLUIDA' ? 'Concluída' : 'Em andamento';
+  return situacao === 'CONCLUIDA' ? 'Concluida' : 'Em andamento';
 }
 
 function traduzModalidade(modalidade: string) {
-  if (modalidade === 'EXPORTACAO') return 'Exportação';
-  return 'Importação';
+  if (modalidade === 'EXPORTACAO') return 'Exportacao';
+  return 'Importacao';
 }
 
 export default function ImportacoesPage() {
@@ -115,63 +115,59 @@ export default function ImportacoesPage() {
   const { dados, carregando, erro, recarregar } = useImportacoes();
   const [excluindoId, setExcluindoId] = useState<number | null>(null);
   const [limpandoHistorico, setLimpandoHistorico] = useState(false);
+  const [importacaoParaExcluir, setImportacaoParaExcluir] = useState<number | null>(null);
+  const [mostrarConfirmacaoLimpeza, setMostrarConfirmacaoLimpeza] = useState(false);
 
   const { addToast } = useToast();
-  const possuiProcessando = dados.some(importacao => importacao.situacao === 'EM_ANDAMENTO');
 
+  const possuiProcessando = dados.some((imp) => imp.situacao === 'EM_ANDAMENTO');
   useEffect(() => {
-    if (!possuiProcessando) {
-      return;
-    }
-
+    if (!possuiProcessando) return;
     const interval = setInterval(() => {
       recarregar();
     }, 5000);
-
     return () => clearInterval(interval);
   }, [possuiProcessando, recarregar]);
 
-  const removerImportacao = useCallback(
-    async (id: number) => {
-      const confirmado = window.confirm('Deseja realmente excluir esta importação?');
-      if (!confirmado) return;
+  const removerImportacaoClick = useCallback((id: number) => {
+    setImportacaoParaExcluir(id);
+  }, []);
 
-      try {
-        setExcluindoId(id);
-        await api.delete(`/produtos/importacoes/${id}`);
-        addToast('Importação removida com sucesso.', 'success');
-        await recarregar();
-      } catch (error) {
-        console.error('Erro ao remover importação', error);
-        addToast('Não foi possível remover a importação.', 'error');
-      } finally {
-        setExcluindoId(null);
-      }
-    },
-    [addToast, recarregar]
-  );
+  const confirmarRemocaoImportacao = useCallback(async () => {
+    if (importacaoParaExcluir == null) return;
+    try {
+      setExcluindoId(importacaoParaExcluir);
+      await api.delete(`/produtos/importacoes/${importacaoParaExcluir}`);
+      addToast('Importacao removida com sucesso.', 'success');
+      await recarregar();
+    } catch (error) {
+      console.error('Erro ao remover importacao', error);
+      addToast('Nao foi possivel remover a importacao.', 'error');
+    } finally {
+      setExcluindoId(null);
+      setImportacaoParaExcluir(null);
+    }
+  }, [addToast, importacaoParaExcluir, recarregar]);
 
   const limparHistorico = useCallback(async () => {
-    const confirmado = window.confirm('Tem certeza que deseja remover todo o histórico de importações?');
-    if (!confirmado) return;
-
     try {
       setLimpandoHistorico(true);
       await api.delete('/produtos/importacoes');
-      addToast('Histórico de importações limpo.', 'success');
+      addToast('Historico de importacoes limpo.', 'success');
       await recarregar();
     } catch (error) {
-      console.error('Erro ao limpar histórico de importações', error);
-      addToast('Não foi possível limpar o histórico de importações.', 'error');
+      console.error('Erro ao limpar historico de importacoes', error);
+      addToast('Nao foi possivel limpar o historico de importacoes.', 'error');
     } finally {
       setLimpandoHistorico(false);
+      setMostrarConfirmacaoLimpeza(false);
     }
   }, [addToast, recarregar]);
 
   if (carregando && dados.length === 0) {
     return (
       <DashboardLayout title="Importar Produto">
-        <PageLoader message="Carregando importações..." />
+        <PageLoader message="Carregando importacoes..." />
       </DashboardLayout>
     );
   }
@@ -180,14 +176,14 @@ export default function ImportacoesPage() {
     <DashboardLayout title="Importar Produto">
       <Breadcrumb
         items={[
-          { label: 'Início', href: '/' },
-          { label: 'Automação' },
+          { label: 'Inicio', href: '/' },
+          { label: 'Automacao' },
           { label: 'Importar Produto' }
         ]}
       />
 
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold text-white">Importações de Produto</h1>
+        <h1 className="text-2xl font-semibold text-white">Importacoes de Produto</h1>
         <div className="flex flex-wrap gap-2 sm:justify-end">
           <Button
             variant="outline"
@@ -202,12 +198,12 @@ export default function ImportacoesPage() {
           {dados.length > 0 && (
             <Button
               variant="outline"
-              onClick={limparHistorico}
+              onClick={() => setMostrarConfirmacaoLimpeza(true)}
               className="flex items-center gap-2 border-red-500/60 text-red-300 hover:bg-red-500/10"
               disabled={limpandoHistorico}
             >
               <Trash size={16} />
-              Limpar histórico
+              Limpar historico
             </Button>
           )}
           <Button
@@ -216,13 +212,14 @@ export default function ImportacoesPage() {
             variant="accent"
           >
             <PlusCircle size={18} />
-            Nova Importação
+            Nova Importacao
           </Button>
         </div>
       </div>
+
       {possuiProcessando && (
         <p className="mb-4 text-sm text-sky-300">
-          Há importações em andamento. A lista é atualizada automaticamente a cada 5 segundos.
+          Ha importacoes em andamento. A lista e atualizada automaticamente a cada 5 segundos.
         </p>
       )}
 
@@ -235,9 +232,9 @@ export default function ImportacoesPage() {
       <Card>
         {dados.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center text-gray-400">
-            <p className="text-lg font-medium">Nenhuma importação realizada até o momento.</p>
+            <p className="text-lg font-medium">Nenhuma importacao realizada ate o momento.</p>
             <p className="mt-2 text-sm">
-              Utilize o botão <strong>Nova Importação</strong> para iniciar o processo por planilha Excel.
+              Utilize o botao <strong>Nova Importacao</strong> para iniciar o processo por planilha Excel.
             </p>
           </div>
         ) : (
@@ -245,15 +242,15 @@ export default function ImportacoesPage() {
             <table className="min-w-full text-sm">
               <thead className="bg-[#1f2430] text-xs uppercase text-gray-400">
                 <tr>
-                  <th className="px-4 py-3 text-left">Ações</th>
+                  <th className="px-4 py-3 text-left">Acoes</th>
                   <th className="px-4 py-3 text-left">Arquivo</th>
-                  <th className="px-4 py-3 text-left">Catálogo</th>
+                  <th className="px-4 py-3 text-left">Catalogo</th>
                   <th className="px-4 py-3 text-left">Modalidade</th>
-                  <th className="px-4 py-3 text-left">Situação</th>
+                  <th className="px-4 py-3 text-left">Situacao</th>
                   <th className="px-4 py-3 text-left">Resultado</th>
                   <th className="px-4 py-3 text-left">Registros</th>
                   <th className="px-4 py-3 text-left">Iniciado em</th>
-                  <th className="px-4 py-3 text-left">Concluído em</th>
+                  <th className="px-4 py-3 text-left">Concluido em</th>
                 </tr>
               </thead>
               <tbody>
@@ -266,16 +263,16 @@ export default function ImportacoesPage() {
                           onClick={() => router.push(`/automacao/importar-produto/${importacao.id}`)}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 bg-slate-800/60 text-gray-200 transition hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                           title="Ver detalhes"
-                          aria-label="Ver detalhes da importação"
+                          aria-label="Ver detalhes da importacao"
                         >
                           <Eye size={16} />
                         </button>
                         <button
                           type="button"
-                          onClick={() => removerImportacao(importacao.id)}
+                          onClick={() => removerImportacaoClick(importacao.id)}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-500/40 bg-red-500/10 text-red-200 transition hover:bg-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-60"
-                          title="Excluir importação"
-                          aria-label="Excluir importação"
+                          title="Excluir importacao"
+                          aria-label="Excluir importacao"
                           disabled={excluindoId === importacao.id || limpandoHistorico}
                         >
                           <Trash2 size={16} />
@@ -283,7 +280,7 @@ export default function ImportacoesPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-200">
-                      {importacao.nomeArquivo || `Importação #${importacao.id}`}
+                      {importacao.nomeArquivo || `Importacao #${importacao.id}`}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col text-gray-200">
@@ -312,6 +309,45 @@ export default function ImportacoesPage() {
           </div>
         )}
       </Card>
+
+      {importacaoParaExcluir !== null && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-4">Confirmar Exclusao</h3>
+            <p className="text-gray-300 mb-6">
+              Tem certeza que deseja excluir esta importacao? Esta acao nao pode ser desfeita.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setImportacaoParaExcluir(null)}>
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={confirmarRemocaoImportacao} disabled={excluindoId === importacaoParaExcluir}>
+                Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mostrarConfirmacaoLimpeza && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-4">Limpar historico</h3>
+            <p className="text-gray-300 mb-6">
+              Tem certeza que deseja remover todo o historico de importacoes? Esta acao nao pode ser desfeita.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setMostrarConfirmacaoLimpeza(false)}>
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={limparHistorico} disabled={limpandoHistorico}>
+                Limpar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
+
