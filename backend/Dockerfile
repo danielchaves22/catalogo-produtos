@@ -34,7 +34,10 @@ COPY --from=builder /app/node_modules ./node_modules
 # 2) Copia o prisma/schema para o introspect (sem migrations)
 COPY --from=builder /app/prisma ./prisma
 
+# 3) Copia scripts auxiliares usados em tempo de execução (ex.: parse_excel.py)
+COPY --from=builder /app/scripts ./scripts
+
 EXPOSE 3000
 
-# 3) Inicia o servidor sem rodar migrations
+# 4) Inicia o servidor sem rodar migrations
 CMD ["node", "dist/server.js"]
