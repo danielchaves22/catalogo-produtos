@@ -521,31 +521,58 @@ export default function ValoresPadraoNcmPage() {
         </div>
       </div>
 
-      <Card className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <MaskedInput
-            label="NCM"
-            mask="ncm"
-            value={ncm}
-            onChange={handleNcmChange}
-            className="mb-0 md:max-w-[9rem]"
-            required
-            disabled={loading || camposBloqueados}
-            onFocus={() => {
-              if (
-                !camposBloqueados &&
-                ncm.length >= 4 &&
-                ncm.length < 8 &&
-                ncmSugestoes.length > 0
-              ) {
-                setMostrarSugestoesNcm(true);
-              }
-            }}
-            onBlur={() => {
-              setTimeout(() => setMostrarSugestoesNcm(false), 100);
-            }}
-            autoComplete="off"
-          />
+      <Card className="mb-6 overflow-visible">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[9rem_11rem_10rem_minmax(0,1fr)]">
+          <div className="relative">
+            <MaskedInput
+              label="NCM"
+              mask="ncm"
+              value={ncm}
+              onChange={handleNcmChange}
+              className="md:mb-0"
+              required
+              disabled={loading || camposBloqueados}
+              onFocus={() => {
+                if (
+                  !camposBloqueados &&
+                  ncm.length >= 4 &&
+                  ncm.length < 8 &&
+                  ncmSugestoes.length > 0
+                ) {
+                  setMostrarSugestoesNcm(true);
+                }
+              }}
+              onBlur={() => {
+                setTimeout(() => setMostrarSugestoesNcm(false), 100);
+              }}
+              autoComplete="off"
+            />
+
+            {(carregandoSugestoesNcm || mostrarSugestoesNcm) && ncm.length < 8 && isNew && (
+              <div className="absolute left-0 right-0 z-20 mt-1 max-h-64 md:max-h-80 overflow-y-auto rounded-md border border-gray-700 bg-[#1e2126] shadow-lg">
+                {carregandoSugestoesNcm ? (
+                  <div className="px-3 py-2 text-sm text-gray-400">Buscando sugestões...</div>
+                ) : ncmSugestoes.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-gray-400">Nenhuma sugestão encontrada</div>
+                ) : (
+                  ncmSugestoes.map(sugestao => (
+                    <button
+                      key={sugestao.codigo}
+                      type="button"
+                      className="flex w-full flex-col items-start px-3 py-2 text-left text-sm text-gray-100 hover:bg-gray-700"
+                      onMouseDown={event => event.preventDefault()}
+                      onClick={() => selecionarSugestaoNcm(sugestao)}
+                    >
+                      <span className="font-medium">{formatarNCMExibicao(sugestao.codigo)}</span>
+                      {sugestao.descricao && (
+                        <span className="text-xs text-gray-400">{sugestao.descricao}</span>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
           <Select
             label="Modalidade"
             options={[
@@ -562,44 +589,22 @@ export default function ValoresPadraoNcmPage() {
               }
             }}
             disabled={camposBloqueados}
-            className="md:max-w-[10rem]"
+            className="md:mb-0 md:w-[11rem]"
           />
-          <Input label="Descrição NCM" value={ncmDescricao} disabled className="md:col-span-2" />
           <Input
             label="Unidade de Medida"
             value={unidadeMedida}
             disabled
-            className="md:max-w-[10rem]"
+            className="md:mb-0 md:w-[10rem]"
             maxLength={10}
           />
+          <Input
+            label="Descrição NCM"
+            value={ncmDescricao}
+            disabled
+            className="md:mb-0"
+          />
         </div>
-
-        {(carregandoSugestoesNcm || mostrarSugestoesNcm) && ncm.length < 8 && isNew && (
-          <div className="relative">
-            <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 md:max-h-80 overflow-y-auto rounded-md border border-gray-700 bg-[#1e2126] shadow-lg">
-              {carregandoSugestoesNcm ? (
-                <div className="px-3 py-2 text-sm text-gray-400">Buscando sugestões...</div>
-              ) : ncmSugestoes.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-gray-400">Nenhuma sugestão encontrada</div>
-              ) : (
-                ncmSugestoes.map(sugestao => (
-                  <button
-                    key={sugestao.codigo}
-                    type="button"
-                    className="flex w-full flex-col items-start px-3 py-2 text-left text-sm text-gray-100 hover:bg-gray-700"
-                    onMouseDown={event => event.preventDefault()}
-                    onClick={() => selecionarSugestaoNcm(sugestao)}
-                  >
-                    <span className="font-medium">{formatarNCMExibicao(sugestao.codigo)}</span>
-                    {sugestao.descricao && (
-                      <span className="text-xs text-gray-400">{sugestao.descricao}</span>
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        )}
       </Card>
 
       {erroFormulario && (
