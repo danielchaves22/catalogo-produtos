@@ -33,16 +33,13 @@ export async function buscarValorPadraoPorNcm(req: Request, res: Response) {
   try {
     const ncmCodigo = req.params.ncmCodigo;
     const modalidade = (req.query.modalidade as string | undefined) || undefined;
-    const registro = await service.buscarPorNcm(ncmCodigo, req.user!.superUserId);
+    const registro = await service.buscarPorNcm(
+      ncmCodigo,
+      req.user!.superUserId,
+      modalidade ?? null
+    );
     if (!registro) {
-      return res.status(404).json({ error: 'Valores padrão não encontrados para esta NCM' });
-    }
-    if (
-      modalidade &&
-      registro.modalidade &&
-      registro.modalidade.toUpperCase() !== modalidade.toUpperCase()
-    ) {
-      return res.status(404).json({ error: 'Valores padrão não encontrados para esta modalidade' });
+      return res.status(404).json({ error: 'Valores padrão não encontrados para esta NCM e modalidade' });
     }
     res.json(registro);
   } catch (error: any) {
