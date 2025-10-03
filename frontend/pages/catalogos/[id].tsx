@@ -219,7 +219,7 @@ export default function CatalogoFormPage() {
         await api.post('/catalogos', formData);
         addToast('Catálogo criado com sucesso!', 'success');
       } else {
-        await api.put('/catalogos/', formData);
+        await api.put(`/catalogos/${id}`, formData);
         addToast('Catálogo atualizado com sucesso!', 'success');
       }
 
