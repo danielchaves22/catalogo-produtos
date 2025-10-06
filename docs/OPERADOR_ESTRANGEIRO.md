@@ -36,6 +36,7 @@ Cada operador está associado a um catálogo específico (`catalogo_id`). O supe
 - **nome**: Razão social do operador estrangeiro
 - **email**: Email de contato
 - **codigo_interno**: Código interno da empresa importadora
+- **numero**: Identificador interno aleatório gerado pelo sistema
 - **logradouro**: Endereço completo
 - **cidade**: Cidade do operador
 - **subdivisao_codigo**: Estado/província (referência para `subdivisao`)

@@ -206,6 +206,7 @@ DELIMITER ;
         nome VARCHAR(255) NOT NULL,
         email VARCHAR(255),
         codigo_interno VARCHAR(100),
+        numero INT UNSIGNED NOT NULL,
 
         -- Endereço
         codigo_postal VARCHAR(50),
@@ -225,8 +226,53 @@ DELIMITER ;
         FOREIGN KEY (catalogo_id) REFERENCES catalogo(id),
         FOREIGN KEY (pais_codigo) REFERENCES pais(codigo),
         FOREIGN KEY (subdivisao_codigo) REFERENCES subdivisao(codigo),
-        INDEX idx_catalogo_id (catalogo_id)
+        INDEX idx_catalogo_id (catalogo_id),
+        UNIQUE INDEX idx_operador_estrangeiro_numero (numero)
     );
+
+    -- Função para gerar números aleatórios de 6 dígitos para operadores estrangeiros
+    DELIMITER $$;
+
+    CREATE FUNCTION IF NOT EXISTS generate_unique_random_operador_numero()
+    RETURNS INT UNSIGNED
+    BEGIN
+        DECLARE random_num INT UNSIGNED;
+        DECLARE is_unique BOOLEAN;
+        DECLARE max_attempts INT DEFAULT 100;
+        DECLARE attempt_count INT DEFAULT 0;
+
+        SET is_unique = FALSE;
+
+        WHILE NOT is_unique AND attempt_count < max_attempts DO
+            SET random_num = FLOOR(100000 + RAND() * 900000);
+            IF NOT EXISTS (SELECT 1 FROM operador_estrangeiro WHERE numero = random_num) THEN
+                SET is_unique = TRUE;
+            END IF;
+            SET attempt_count = attempt_count + 1;
+        END WHILE;
+
+        IF NOT is_unique THEN
+            SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM operador_estrangeiro;
+        END IF;
+
+        RETURN random_num;
+    END$$
+
+    DELIMITER ;
+
+    -- Trigger para inserir o número automático antes do INSERT na tabela operador_estrangeiro
+    DELIMITER $$;
+
+    CREATE TRIGGER IF NOT EXISTS before_operador_estrangeiro_insert
+    BEFORE INSERT ON operador_estrangeiro
+    FOR EACH ROW
+    BEGIN
+        IF NEW.numero IS NULL OR NEW.numero = 0 THEN
+            SET NEW.numero = generate_unique_random_operador_numero();
+        END IF;
+    END$$
+
+    DELIMITER ;
 
     -- Tabela para identificações adicionais (DUNS, LEI, etc.)
     CREATE TABLE IF NOT EXISTS identificacao_adicional (

@@ -344,6 +344,7 @@ async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
           nome: op.nome,
           email: op.email,
           codigoInterno: op.codigoInterno,
+          numero: 0,
           codigoPostal: op.codigoPostal,
           logradouro: op.logradouro,
           cidade: op.cidade,

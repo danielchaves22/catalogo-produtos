@@ -107,6 +107,7 @@ export class OperadorEstrangeiroService {
           nome: data.nome,
           email: data.email,
           codigoInterno: data.codigoInterno,
+          numero: 0,
           codigoPostal: data.codigoPostal,
           logradouro: data.logradouro,
           cidade: data.cidade,
