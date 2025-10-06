@@ -20,6 +20,7 @@ import {
   registerProdutoImportacaoProcessor,
 } from '../jobs/produto-importacao.job';
 import { NcmValoresPadraoService } from './ncm-valores-padrao.service';
+import { NcmLegacyService } from './ncm-legacy.service';
 
 const execFileAsync = promisify(execFile);
 
@@ -42,6 +43,7 @@ interface MensagensItemImportacao {
 export class ProdutoImportacaoService {
   private produtoService = new ProdutoService();
   private valoresPadraoService = new NcmValoresPadraoService();
+  private ncmLegacyService = new NcmLegacyService();
 
   async importarPlanilhaExcel(
     dados: NovaImportacaoPlanilhaInput,
@@ -191,8 +193,15 @@ export class ProdutoImportacaoService {
           const ncmCache = await catalogoPrisma.ncmCache.findUnique({
             where: { codigo: ncmNormalizada }
           });
+
           if (!ncmCache) {
-            mensagens.impeditivos.push('NCM não encontrada');
+            const ncmSincronizada = await this.ncmLegacyService.sincronizarNcm(
+              ncmNormalizada
+            );
+
+            if (!ncmSincronizada) {
+              mensagens.impeditivos.push('NCM não encontrada');
+            }
           }
         }
 
