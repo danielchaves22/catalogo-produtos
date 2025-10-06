@@ -69,104 +69,6 @@ CREATE TABLE IF NOT EXISTS catalogo (
     CONSTRAINT fk_catalogo_certificado FOREIGN KEY (certificado_id) REFERENCES certificado(id)
 );
 
--- Função para gerar números aleatórios de 6 dígitos
-DELIMITER $$;
-
-CREATE FUNCTION IF NOT EXISTS generate_unique_random_numero() 
-RETURNS INT UNSIGNED
-BEGIN
-    DECLARE random_num INT UNSIGNED;
-    DECLARE is_unique BOOLEAN;
-    DECLARE max_attempts INT DEFAULT 100;
-    DECLARE attempt_count INT DEFAULT 0;
-    
-    SET is_unique = FALSE;
-    
-    WHILE NOT is_unique AND attempt_count < max_attempts DO
-        -- Gerar número entre 100000 e 999999 (6 dígitos)
-        SET random_num = FLOOR(100000 + RAND() * 900000);
-        
-        -- Verificar se já existe
-        IF NOT EXISTS (SELECT 1 FROM catalogo WHERE numero = random_num) THEN
-            SET is_unique = TRUE;
-        END IF;
-        
-        SET attempt_count = attempt_count + 1;
-    END WHILE;
-    
-    -- Se não conseguiu um número único após várias tentativas, usar fallback
-    IF NOT is_unique THEN
-        -- Fallback: Pegar o maior número existente e adicionar 1
-        SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM catalogo;
-    END IF;
-    
-    RETURN random_num;
-END$$
-
-DELIMITER ;
-
--- Trigger para inserir o número automático antes do INSERT
-DELIMITER $$;
-
-CREATE TRIGGER IF NOT EXISTS before_catalogo_insert
-BEFORE INSERT ON catalogo
-FOR EACH ROW
-BEGIN
-    -- Se o número não foi especificado explicitamente, gerar um
-    IF NEW.numero IS NULL OR NEW.numero = 0 THEN
-        SET NEW.numero = generate_unique_random_numero();
-    END IF;
-    
-    -- Atualizar também o timestamp de última alteração
-    SET NEW.ultima_alteracao = NOW();
-END$$
-
-DELIMITER ;
-
--- Função para gerar números aleatórios de 6 dígitos para produtos
-DELIMITER $$;
-
-CREATE FUNCTION IF NOT EXISTS generate_unique_random_produto_numero()
-RETURNS INT UNSIGNED
-BEGIN
-    DECLARE random_num INT UNSIGNED;
-    DECLARE is_unique BOOLEAN;
-    DECLARE max_attempts INT DEFAULT 100;
-    DECLARE attempt_count INT DEFAULT 0;
-
-    SET is_unique = FALSE;
-
-    WHILE NOT is_unique AND attempt_count < max_attempts DO
-        SET random_num = FLOOR(100000 + RAND() * 900000);
-        IF NOT EXISTS (SELECT 1 FROM produto WHERE numero = random_num) THEN
-            SET is_unique = TRUE;
-        END IF;
-        SET attempt_count = attempt_count + 1;
-    END WHILE;
-
-    IF NOT is_unique THEN
-        SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM produto;
-    END IF;
-
-    RETURN random_num;
-END$$
-
-DELIMITER ;
-
--- Trigger para inserir o número automático antes do INSERT na tabela produto
-DELIMITER $$;
-
-CREATE TRIGGER IF NOT EXISTS before_produto_insert
-BEFORE INSERT ON produto
-FOR EACH ROW
-BEGIN
-    IF NEW.numero IS NULL OR NEW.numero = 0 THEN
-        SET NEW.numero = generate_unique_random_produto_numero();
-    END IF;
-END$$
-
-DELIMITER ;
-
     -- Script SQL - Operador Estrangeiro
     -- Adicionar ao arquivo de criação de tabelas
 
@@ -230,57 +132,13 @@ DELIMITER ;
         UNIQUE INDEX idx_operador_estrangeiro_numero (numero)
     );
 
-    -- Função para gerar números aleatórios de 6 dígitos para operadores estrangeiros
-    DELIMITER $$;
-
-    CREATE FUNCTION IF NOT EXISTS generate_unique_random_operador_numero()
-    RETURNS INT UNSIGNED
-    BEGIN
-        DECLARE random_num INT UNSIGNED;
-        DECLARE is_unique BOOLEAN;
-        DECLARE max_attempts INT DEFAULT 100;
-        DECLARE attempt_count INT DEFAULT 0;
-
-        SET is_unique = FALSE;
-
-        WHILE NOT is_unique AND attempt_count < max_attempts DO
-            SET random_num = FLOOR(100000 + RAND() * 900000);
-            IF NOT EXISTS (SELECT 1 FROM operador_estrangeiro WHERE numero = random_num) THEN
-                SET is_unique = TRUE;
-            END IF;
-            SET attempt_count = attempt_count + 1;
-        END WHILE;
-
-        IF NOT is_unique THEN
-            SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM operador_estrangeiro;
-        END IF;
-
-        RETURN random_num;
-    END$$
-
-    DELIMITER ;
-
-    -- Trigger para inserir o número automático antes do INSERT na tabela operador_estrangeiro
-    DELIMITER $$;
-
-    CREATE TRIGGER IF NOT EXISTS before_operador_estrangeiro_insert
-    BEFORE INSERT ON operador_estrangeiro
-    FOR EACH ROW
-    BEGIN
-        IF NEW.numero IS NULL OR NEW.numero = 0 THEN
-            SET NEW.numero = generate_unique_random_operador_numero();
-        END IF;
-    END$$
-
-    DELIMITER ;
-
     -- Tabela para identificações adicionais (DUNS, LEI, etc.)
     CREATE TABLE IF NOT EXISTS identificacao_adicional (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
         operador_estrangeiro_id INT UNSIGNED NOT NULL,
         numero VARCHAR(100) NOT NULL,
         agencia_emissora_codigo VARCHAR(20) NOT NULL,
-        
+
         PRIMARY KEY (id),
         FOREIGN KEY (operador_estrangeiro_id) REFERENCES operador_estrangeiro(id) ON DELETE CASCADE,
         FOREIGN KEY (agencia_emissora_codigo) REFERENCES agencia_emissora(codigo),
@@ -430,6 +288,162 @@ DELIMITER ;
         INDEX idx_importacao_item_resultado (resultado),
         CONSTRAINT fk_importacao_produto_item_importacao FOREIGN KEY (importacao_id) REFERENCES importacao_produto(id) ON DELETE CASCADE
     );
+
+    -- FUNCTIONS e TRIGGERS
+
+    -- Função para gerar números aleatórios de 6 dígitos
+    DROP FUNCTION IF EXISTS generate_unique_random_numero;
+
+    DELIMITER $$
+
+    CREATE FUNCTION generate_unique_random_numero() 
+    RETURNS INT UNSIGNED
+    BEGIN
+        DECLARE random_num INT UNSIGNED;
+        DECLARE is_unique BOOLEAN;
+        DECLARE max_attempts INT DEFAULT 100;
+        DECLARE attempt_count INT DEFAULT 0;
+        
+        SET is_unique = FALSE;
+        
+        WHILE NOT is_unique AND attempt_count < max_attempts DO
+            -- Gerar número entre 100000 e 999999 (6 dígitos)
+            SET random_num = FLOOR(1000000 + RAND() * 9000000);
+            
+            -- Verificar se já existe
+            IF NOT EXISTS (SELECT 1 FROM catalogo WHERE numero = random_num) THEN
+                SET is_unique = TRUE;
+            END IF;
+            
+            SET attempt_count = attempt_count + 1;
+        END WHILE;
+        
+        -- Se não conseguiu um número único após várias tentativas, usar fallback
+        IF NOT is_unique THEN
+            -- Fallback: Pegar o maior número existente e adicionar 1
+            SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM catalogo;
+        END IF;
+        
+        RETURN random_num;
+    END$$
+
+    DELIMITER ;
+
+    -- Trigger para inserir o número automático antes do INSERT
+    DROP TRIGGER IF EXISTS before_catalogo_insert;
+
+    DELIMITER $$
+
+    CREATE TRIGGER before_catalogo_insert
+    BEFORE INSERT ON catalogo
+    FOR EACH ROW
+    BEGIN
+        -- Se o número não foi especificado explicitamente, gerar um
+        IF NEW.numero IS NULL OR NEW.numero = 0 THEN
+            SET NEW.numero = generate_unique_random_numero();
+        END IF;
+        
+        -- Atualizar também o timestamp de última alteração
+        SET NEW.ultima_alteracao = NOW();
+    END$$
+
+    DELIMITER ;
+
+    -- Função para gerar números aleatórios de 6 dígitos para produtos
+    DROP FUNCTION IF EXISTS generate_unique_random_produto_numero;
+
+    DELIMITER $$
+
+    CREATE FUNCTION generate_unique_random_produto_numero()
+    RETURNS INT UNSIGNED
+    BEGIN
+        DECLARE random_num INT UNSIGNED;
+        DECLARE is_unique BOOLEAN;
+        DECLARE max_attempts INT DEFAULT 100;
+        DECLARE attempt_count INT DEFAULT 0;
+
+        SET is_unique = FALSE;
+
+        WHILE NOT is_unique AND attempt_count < max_attempts DO
+            SET random_num = FLOOR(1000000 + RAND() * 9000000);
+            IF NOT EXISTS (SELECT 1 FROM produto WHERE numero = random_num) THEN
+                SET is_unique = TRUE;
+            END IF;
+            SET attempt_count = attempt_count + 1;
+        END WHILE;
+
+        IF NOT is_unique THEN
+            SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM produto;
+        END IF;
+
+        RETURN random_num;
+    END$$
+
+    DELIMITER ;
+
+    -- Trigger para inserir o número automático antes do INSERT na tabela produto
+    DROP TRIGGER IF EXISTS before_produto_insert;
+
+    DELIMITER $$
+
+    CREATE TRIGGER before_produto_insert
+    BEFORE INSERT ON produto
+    FOR EACH ROW
+    BEGIN
+        IF NEW.numero IS NULL OR NEW.numero = 0 THEN
+            SET NEW.numero = generate_unique_random_numero();
+        END IF;
+    END$$
+
+    DELIMITER ;
+
+    -- Função para gerar números aleatórios de 6 dígitos para operadores estrangeiros
+    DROP FUNCTION IF EXISTS generate_unique_random_operador_numero;
+
+    DELIMITER $$
+
+    CREATE FUNCTION generate_unique_random_operador_numero()
+    RETURNS INT UNSIGNED
+    BEGIN
+        DECLARE random_num INT UNSIGNED;
+        DECLARE is_unique BOOLEAN;
+        DECLARE max_attempts INT DEFAULT 100;
+        DECLARE attempt_count INT DEFAULT 0;
+
+        SET is_unique = FALSE;
+
+        WHILE NOT is_unique AND attempt_count < max_attempts DO
+            SET random_num = FLOOR(1000000 + RAND() * 9000000);
+            IF NOT EXISTS (SELECT 1 FROM operador_estrangeiro WHERE numero = random_num) THEN
+                SET is_unique = TRUE;
+            END IF;
+            SET attempt_count = attempt_count + 1;
+        END WHILE;
+
+        IF NOT is_unique THEN
+            SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM operador_estrangeiro;
+        END IF;
+
+        RETURN random_num;
+    END$$
+
+    DELIMITER ;
+
+    -- Trigger para inserir o número automático antes do INSERT na tabela operador_estrangeiro
+    DROP TRIGGER IF EXISTS before_operador_estrangeiro_insert;
+
+    DELIMITER $$
+
+    CREATE TRIGGER before_operador_estrangeiro_insert
+    BEFORE INSERT ON operador_estrangeiro
+    FOR EACH ROW
+    BEGIN
+        IF NEW.numero IS NULL OR NEW.numero = 0 THEN
+            SET NEW.numero = generate_unique_random_operador_numero();
+        END IF;
+    END$$
+
+    DELIMITER ;
 
 
     -- Scripts de dados iniciais para Operador Estrangeiro
@@ -582,24 +596,3 @@ DELIMITER ;
     ('ISO', 'ISO', 'International Organization for Standardization'),
     ('WTO', 'WTO', 'World Trade Organization'),
     ('WCO', 'WCO', 'World Customs Organization');
-
-
-
--- Atualização para adicionar coluna de ambiente (executar em bancos já existentes)
-ALTER TABLE catalogo
-  ADD COLUMN ambiente ENUM('HOMOLOGACAO', 'PRODUCAO') NOT NULL DEFAULT 'HOMOLOGACAO' AFTER status;
--- Atualização para bases existentes
--- Execute o bloco abaixo em bancos já criados para registrar usuários autenticados
--- CREATE TABLE usuario_catalogo (
---     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
---     legacy_id INT UNSIGNED NOT NULL,
---     username VARCHAR(255) NOT NULL,
---     nome VARCHAR(255) NOT NULL,
---     super_user_id INT UNSIGNED NOT NULL,
---     role VARCHAR(10) NOT NULL,
---     ultimo_login DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
---     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
---     atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
---     PRIMARY KEY (id),
---     UNIQUE INDEX uk_usuario_catalogo_username (username)
--- );

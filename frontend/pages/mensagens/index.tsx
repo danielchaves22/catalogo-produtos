@@ -12,6 +12,8 @@ const STATUS_FILTROS: { label: string; valor: MensagemStatusFiltro }[] = [
   { label: 'Todas', valor: 'TODAS' },
 ];
 
+const STATUS_ORDEM: MensagemStatusFiltro[] = ['TODAS', 'LIDAS', 'NAO_LIDAS'];
+
 const CATEGORIA_LABELS: Record<MensagemCategoria, string> = {
   ATUALIZACAO_SISCOMEX: 'Atualização do SISCOMEX',
   IMPORTACAO_CONCLUIDA: 'Importação concluída',
@@ -43,7 +45,7 @@ export default function MensagensPage() {
 
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [mensagemSelecionada, setMensagemSelecionada] = useState<Mensagem | null>(null);
-  const [statusFiltro, setStatusFiltro] = useState<MensagemStatusFiltro>('NAO_LIDAS');
+  const [statusFiltro, setStatusFiltro] = useState<MensagemStatusFiltro>('TODAS');
   const [categoriaFiltro, setCategoriaFiltro] = useState<MensagemCategoria | 'TODAS'>('TODAS');
   const [categoriasDisponiveis, setCategoriasDisponiveis] = useState<MensagemCategoria[]>([]);
   const [carregandoLista, setCarregandoLista] = useState(true);
@@ -271,19 +273,23 @@ export default function MensagensPage() {
 
           <div className="px-4 py-3 border-b border-gray-800 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap gap-2">
-              {STATUS_FILTROS.map((filtro) => (
-                <button
-                  key={filtro.valor}
-                  onClick={() => setStatusFiltro(filtro.valor)}
-                  className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
-                    statusFiltro === filtro.valor
-                      ? 'border-[#f59e0b] text-[#f59e0b] bg-[#2a2f3a]'
-                      : 'border-transparent bg-[#1e232d] text-gray-300 hover:text-white'
-                  }`}
-                >
-                  {filtro.label}
-                </button>
-              ))}
+              {STATUS_ORDEM.map((valor) => {
+                const filtro = STATUS_FILTROS.find((f) => f.valor === valor);
+                const label = filtro?.label ?? valor;
+                return (
+                  <button
+                    key={valor}
+                    onClick={() => setStatusFiltro(valor)}
+                    className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                      statusFiltro === valor
+                        ? 'border-[#f59e0b] text-[#f59e0b] bg-[#2a2f3a]'
+                        : 'border-transparent bg-[#1e232d] text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
 
             {categoriaOptions.length > 1 && (
