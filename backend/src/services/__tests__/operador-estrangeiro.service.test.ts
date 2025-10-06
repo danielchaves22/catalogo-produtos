@@ -41,7 +41,7 @@ describe('OperadorEstrangeiroService - superUserId', () => {
       superUserId: 1
     })
     expect(catalogoPrisma.operadorEstrangeiro.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ catalogoId: 1 }) })
+      expect.objectContaining({ data: expect.objectContaining({ catalogoId: 1, numero: 0 }) })
     )
   })
 

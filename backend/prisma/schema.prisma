@@ -187,6 +187,7 @@ model OperadorEstrangeiro {
   nome                String   @map("nome")
   email               String?  @map("email")
   codigoInterno       String?  @map("codigo_interno")
+  numero              Int      @unique @map("numero")
 
   // Endereço
   codigoPostal        String?  @map("codigo_postal")
