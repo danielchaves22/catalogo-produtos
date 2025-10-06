@@ -24,11 +24,20 @@ jest.mock('../../utils/prisma', () => ({
   catalogoPrisma: mockCatalogoPrisma,
 }));
 
+const mockNcmLegacyService = {
+  sincronizarNcm: jest.fn(),
+};
+
+jest.mock('../ncm-legacy.service', () => ({
+  NcmLegacyService: jest.fn(() => mockNcmLegacyService),
+}));
+
 describe('ProdutoImportacaoService', () => {
   let service: ProdutoImportacaoService;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockNcmLegacyService.sincronizarNcm.mockReset();
     service = new ProdutoImportacaoService();
   });
 
@@ -80,6 +89,7 @@ describe('ProdutoImportacaoService', () => {
       cpf_cnpj: '00000000000',
     });
     mockCatalogoPrisma.ncmCache.findUnique.mockResolvedValue({ codigo: '12345678' });
+    mockNcmLegacyService.sincronizarNcm.mockResolvedValue(null);
     mockCatalogoPrisma.importacaoProdutoItem.create.mockResolvedValue(undefined);
     mockCatalogoPrisma.importacaoProduto.update.mockResolvedValue(undefined);
     mockCatalogoPrisma.mensagem.create.mockResolvedValue(undefined);
@@ -118,5 +128,48 @@ describe('ProdutoImportacaoService', () => {
     expect(mockCatalogoPrisma.mensagem.create).toHaveBeenCalledWith(
       expect.objectContaining({ superUserId: 99 })
     );
+  });
+
+  it('sincroniza NCM no legado quando não encontrada no cache', async () => {
+    const arquivoBase64 = Buffer.from('conteudo').toString('base64');
+
+    mockCatalogoPrisma.catalogo.findFirst.mockResolvedValue({
+      id: 1,
+      nome: 'Catálogo Teste',
+      numero: 123,
+      cpf_cnpj: '00000000000',
+    });
+    mockCatalogoPrisma.ncmCache.findUnique.mockResolvedValue(null);
+    mockCatalogoPrisma.importacaoProdutoItem.create.mockResolvedValue(undefined);
+    mockCatalogoPrisma.importacaoProduto.update.mockResolvedValue(undefined);
+    mockCatalogoPrisma.mensagem.create.mockResolvedValue(undefined);
+
+    mockNcmLegacyService.sincronizarNcm.mockResolvedValue({
+      descricao: 'Teste',
+      unidadeMedida: 'KG',
+    });
+
+    const criarProdutoSpy = jest
+      .spyOn(ProdutoService.prototype, 'criar')
+      .mockResolvedValue({ id: 123 } as any);
+
+    jest
+      .spyOn<any, any>(service as any, 'lerPlanilha')
+      .mockResolvedValue([
+        ['NCM', 'Nome', 'Codigos'],
+        ['87654321', 'Produto Teste', '123'],
+      ]);
+
+    await service.processarImportacaoJob({
+      importacaoId: 88,
+      superUserId: 99,
+      usuarioCatalogoId: 10,
+      catalogoId: 1,
+      modalidade: 'IMPORTACAO',
+      arquivo: { nome: 'produtos.xlsx', conteudoBase64: arquivoBase64 },
+    });
+
+    expect(mockNcmLegacyService.sincronizarNcm).toHaveBeenCalledWith('87654321');
+    expect(criarProdutoSpy).toHaveBeenCalled();
   });
 });
