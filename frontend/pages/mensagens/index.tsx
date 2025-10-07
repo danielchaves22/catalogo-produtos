@@ -6,6 +6,8 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { Mensagem, MensagemCategoria, MensagemStatusFiltro, useMessages } from '@/contexts/MessagesContext';
+import { useToast } from '@/components/ui/ToastContext';
+import api from '@/lib/api';
 
 const STATUS_FILTROS: { label: string; valor: MensagemStatusFiltro }[] = [
   { label: 'Não lidas', valor: 'NAO_LIDAS' },
@@ -43,6 +45,7 @@ function extrairImportacaoId(metadados: Mensagem['metadados']): number | null {
 export default function MensagensPage() {
   const router = useRouter();
   const { listMessages, getMessage, markAsRead, listarCategorias, removerMensagem } = useMessages();
+  const { addToast } = useToast();
 
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [mensagemSelecionada, setMensagemSelecionada] = useState<Mensagem | null>(null);
@@ -53,6 +56,8 @@ export default function MensagensPage() {
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
   const [removendoMensagemId, setRemovendoMensagemId] = useState<number | null>(null);
   const [mensagemParaExcluirId, setMensagemParaExcluirId] = useState<number | null>(null);
+  const [motivoModalExclusao, setMotivoModalExclusao] = useState<'PADRAO' | 'OBSOLETA' | null>(null);
+  const [verificandoImportacao, setVerificandoImportacao] = useState(false);
 
   const importacaoIdAcao = useMemo(() => {
     if (!mensagemSelecionada || mensagemSelecionada.categoria !== 'IMPORTACAO_CONCLUIDA') {
@@ -61,12 +66,28 @@ export default function MensagensPage() {
     return extrairImportacaoId(mensagemSelecionada.metadados);
   }, [mensagemSelecionada]);
 
-  const abrirDetalhesImportacao = useCallback(() => {
-    if (importacaoIdAcao === null) {
+  const abrirDetalhesImportacao = useCallback(async () => {
+    if (importacaoIdAcao === null || !mensagemSelecionada) {
       return;
     }
-    void router.push(`/automacao/importar-produto/${importacaoIdAcao}`);
-  }, [importacaoIdAcao, router]);
+
+    setVerificandoImportacao(true);
+    try {
+      await api.get(`/produtos/importacoes/${importacaoIdAcao}`);
+      await router.push(`/automacao/importar-produto/${importacaoIdAcao}`);
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 404) {
+        setMotivoModalExclusao('OBSOLETA');
+        setMensagemParaExcluirId(mensagemSelecionada.id);
+      } else {
+        addToast('Não foi possível abrir os detalhes da importação. Tente novamente.', 'error');
+        console.error('Erro ao abrir detalhes da importação:', error);
+      }
+    } finally {
+      setVerificandoImportacao(false);
+    }
+  }, [importacaoIdAcao, mensagemSelecionada, router, addToast]);
 
   const categoriaOptions = useMemo(() => {
     const items = categoriasDisponiveis.map((categoria) => ({
@@ -196,11 +217,13 @@ export default function MensagensPage() {
   }
 
   const abrirConfirmacaoExcluir = useCallback((id: number) => {
+    setMotivoModalExclusao('PADRAO');
     setMensagemParaExcluirId(id);
   }, []);
 
   const cancelarExclusaoMensagem = useCallback(() => {
     setMensagemParaExcluirId(null);
+    setMotivoModalExclusao(null);
   }, []);
 
   const confirmarExclusaoMensagem = useCallback(async () => {
@@ -246,8 +269,30 @@ export default function MensagensPage() {
     } finally {
       setRemovendoMensagemId((atual) => (atual === id ? null : atual));
       setMensagemParaExcluirId(null);
+      setMotivoModalExclusao(null);
     }
   }, [mensagemParaExcluirId, removerMensagem, mensagemSelecionada, router, setMensagens]);
+
+  const tituloModalExclusao = useMemo(() => {
+    if (motivoModalExclusao === 'OBSOLETA') {
+      return 'Mensagem obsoleta';
+    }
+    return 'Confirmar Exclusão';
+  }, [motivoModalExclusao]);
+
+  const descricaoModalExclusao = useMemo(() => {
+    if (motivoModalExclusao === 'OBSOLETA') {
+      return 'O histórico desta importação não está mais disponível. Deseja remover esta mensagem para evitar notificações antigas?';
+    }
+    return 'Tem certeza que deseja remover esta mensagem? Essa ação não poderá ser desfeita.';
+  }, [motivoModalExclusao]);
+
+  const textoBotaoConfirmarModal = useMemo(() => {
+    if (motivoModalExclusao === 'OBSOLETA') {
+      return removendoMensagemId === mensagemParaExcluirId ? 'Removendo...' : 'Remover mensagem';
+    }
+    return removendoMensagemId === mensagemParaExcluirId ? 'Removendo...' : 'Remover';
+  }, [motivoModalExclusao, removendoMensagemId, mensagemParaExcluirId]);
 
   const dataFormatada = useMemo(() => {
     if (!mensagemSelecionada) return '';
@@ -433,10 +478,15 @@ export default function MensagensPage() {
                   <button
                     type="button"
                     onClick={abrirDetalhesImportacao}
-                    className="inline-flex items-center px-4 py-2 rounded-md bg-[#f59e0b] text-[#151921] font-semibold hover:bg-[#d97706] transition-colors"
+                    disabled={verificandoImportacao}
+                    className={`inline-flex items-center px-4 py-2 rounded-md font-semibold transition-colors ${
+                      verificandoImportacao
+                        ? 'bg-[#f59e0b]/60 text-[#151921]/80 cursor-wait'
+                        : 'bg-[#f59e0b] text-[#151921] hover:bg-[#d97706]'
+                    }`}
                     aria-label="Abrir detalhes da importação"
                   >
-                    Abrir detalhes da importação
+                    {verificandoImportacao ? 'Verificando importação...' : 'Abrir detalhes da importação'}
                   </button>
                 </section>
               )}
@@ -448,10 +498,8 @@ export default function MensagensPage() {
       {mensagemParaExcluirId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
-            <h3 className="text-xl font-semibold text-white mb-4">Confirmar Exclusão</h3>
-            <p className="text-gray-300 mb-6">
-              Tem certeza que deseja remover esta mensagem? Essa ação não poderá ser desfeita.
-            </p>
+            <h3 className="text-xl font-semibold text-white mb-4">{tituloModalExclusao}</h3>
+            <p className="text-gray-300 mb-6">{descricaoModalExclusao}</p>
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={cancelarExclusaoMensagem}>
                 Cancelar
@@ -461,7 +509,7 @@ export default function MensagensPage() {
                 onClick={confirmarExclusaoMensagem}
                 disabled={removendoMensagemId === mensagemParaExcluirId}
               >
-                {removendoMensagemId === mensagemParaExcluirId ? 'Removendo...' : 'Remover'}
+                {textoBotaoConfirmarModal}
               </Button>
             </div>
           </div>
