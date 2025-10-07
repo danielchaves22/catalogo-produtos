@@ -377,6 +377,68 @@ export class ProdutoImportacaoService {
     });
   }
 
+  async reverterImportacao(id: number, superUserId: number) {
+    const importacao = await catalogoPrisma.importacaoProduto.findFirst({
+      where: { id, superUserId },
+      include: {
+        itens: {
+          select: {
+            id: true,
+            produtoId: true
+          }
+        }
+      }
+    });
+
+    if (!importacao) {
+      throw new Error('IMPORTACAO_NAO_ENCONTRADA');
+    }
+
+    if (importacao.situacao === 'EM_ANDAMENTO') {
+      throw new Error('IMPORTACAO_EM_ANDAMENTO');
+    }
+
+    if (importacao.situacao === 'REVERTIDA') {
+      throw new Error('IMPORTACAO_JA_REVERTIDA');
+    }
+
+    const itensComProduto = importacao.itens.filter(
+      item => typeof item.produtoId === 'number'
+    );
+    const produtoIds = [...new Set(itensComProduto.map(item => item.produtoId!))];
+
+    await catalogoPrisma.$transaction(async tx => {
+      if (produtoIds.length > 0) {
+        await tx.importacaoProdutoItem.updateMany({
+          where: {
+            importacaoId: importacao.id,
+            produtoId: { in: produtoIds }
+          },
+          data: { produtoId: null }
+        });
+
+        await tx.produtoAtributos.deleteMany({
+          where: { produtoId: { in: produtoIds } }
+        });
+
+        await tx.produto.deleteMany({
+          where: {
+            id: { in: produtoIds },
+            catalogo: { superUserId }
+          }
+        });
+      }
+
+      await tx.importacaoProduto.update({
+        where: { id: importacao.id },
+        data: {
+          situacao: 'REVERTIDA',
+          finalizadoEm: new Date()
+        }
+      });
+    });
+  }
+
   async removerImportacao(id: number, superUserId: number) {
     const existente = await catalogoPrisma.importacaoProduto.findFirst({
       where: { id, superUserId },

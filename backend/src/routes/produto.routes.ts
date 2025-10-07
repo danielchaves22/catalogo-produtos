@@ -12,6 +12,7 @@ import {
   importarProdutosPorPlanilha,
   listarImportacoes,
   obterDetalhesImportacao,
+  reverterImportacao,
   removerImportacao,
   limparImportacoes
 } from '../controllers/produto-importacao.controller';
@@ -30,6 +31,7 @@ router.use(authMiddleware);
 router.get('/importacoes', listarImportacoes);
 router.get('/importacoes/:id', obterDetalhesImportacao);
 router.post('/importacao', importarProdutosPorPlanilha);
+router.post('/importacoes/:id/reverter', reverterImportacao);
 router.delete('/importacoes/:id', removerImportacao);
 router.delete('/importacoes', limparImportacoes);
 

@@ -38,7 +38,7 @@ interface ImportacaoDetalhe {
   };
   nomeArquivo?: string | null;
   modalidade: string;
-  situacao: 'EM_ANDAMENTO' | 'CONCLUIDA';
+  situacao: 'EM_ANDAMENTO' | 'CONCLUIDA' | 'REVERTIDA';
   resultado: 'PENDENTE' | 'SUCESSO' | 'ATENCAO';
   totalRegistros: number;
   totalCriados: number;
@@ -85,7 +85,14 @@ function traduzModalidade(modalidade: string) {
 }
 
 function traduzSituacao(situacao: ImportacaoDetalhe['situacao']) {
-  return situacao === 'CONCLUIDA' ? 'Concluída' : 'Em andamento';
+  switch (situacao) {
+    case 'CONCLUIDA':
+      return 'Concluída';
+    case 'REVERTIDA':
+      return 'Revertida';
+    default:
+      return 'Em andamento';
+  }
 }
 
 function obterMensagem(lista?: string[]) {
@@ -100,9 +107,13 @@ function obterMensagem(lista?: string[]) {
 }
 
 function obterClasseSituacaoBadge(situacao: ImportacaoDetalhe['situacao']) {
-  return situacao === 'CONCLUIDA'
-    ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40'
-    : 'bg-sky-500/10 text-sky-300 border border-sky-500/40';
+  if (situacao === 'CONCLUIDA') {
+    return 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40';
+  }
+  if (situacao === 'REVERTIDA') {
+    return 'bg-amber-500/10 text-amber-200 border border-amber-500/40';
+  }
+  return 'bg-sky-500/10 text-sky-300 border border-sky-500/40';
 }
 
 export default function ImportacaoDetalhePage() {
@@ -114,6 +125,8 @@ export default function ImportacaoDetalhePage() {
   const [erro, setErro] = useState<string | null>(null);
   const [errosAbertos, setErrosAbertos] = useState(true);
   const [sucessosAbertos, setSucessosAbertos] = useState(false);
+  const [mostrarConfirmacaoReversao, setMostrarConfirmacaoReversao] = useState(false);
+  const [revertendo, setRevertendo] = useState(false);
 
   const importacaoId = Array.isArray(id) ? id[0] : id;
 
@@ -168,6 +181,33 @@ export default function ImportacaoDetalhePage() {
     () => detalhe?.itens.filter(item => item.resultado !== 'ERRO') ?? [],
     [detalhe]
   );
+
+  const abrirConfirmacaoReversao = useCallback(() => {
+    setMostrarConfirmacaoReversao(true);
+  }, []);
+
+  const cancelarConfirmacaoReversao = useCallback(() => {
+    if (revertendo) return;
+    setMostrarConfirmacaoReversao(false);
+  }, [revertendo]);
+
+  const confirmarReversao = useCallback(async () => {
+    if (!detalhe) return;
+    try {
+      setRevertendo(true);
+      await api.post(`/produtos/importacoes/${detalhe.id}/reverter`);
+      addToast('Importação revertida com sucesso.', 'success');
+      await carregarDetalhes();
+    } catch (error: any) {
+      console.error('Erro ao reverter importação', error);
+      const mensagem =
+        error.response?.data?.error || 'Não foi possível reverter a importação.';
+      addToast(mensagem, 'error');
+    } finally {
+      setRevertendo(false);
+      setMostrarConfirmacaoReversao(false);
+    }
+  }, [detalhe, addToast, carregarDetalhes]);
 
   if (carregando && !detalhe) {
     return (
@@ -230,6 +270,14 @@ export default function ImportacaoDetalhePage() {
           Situação: {traduzSituacao(detalhe.situacao)}
         </span>
       </div>
+
+      {detalhe.situacao === 'CONCLUIDA' && (
+        <div className="mb-4">
+          <Button variant="danger" onClick={abrirConfirmacaoReversao}>
+            Reverter importação
+          </Button>
+        </div>
+      )}
 
       <Card className="mb-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -389,6 +437,26 @@ export default function ImportacaoDetalhePage() {
           </div>
         )}
       </Card>
+
+      {mostrarConfirmacaoReversao && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg border border-gray-700 bg-[#151921] p-6">
+            <h3 className="mb-4 text-xl font-semibold text-white">Confirmar reversão</h3>
+            <p className="mb-6 text-gray-300">
+              Esta ação irá remover todos os produtos criados por esta importação. Deseja
+              continuar?
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={cancelarConfirmacaoReversao} disabled={revertendo}>
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={confirmarReversao} disabled={revertendo}>
+                {revertendo ? 'Revertendo...' : 'Reverter' }
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

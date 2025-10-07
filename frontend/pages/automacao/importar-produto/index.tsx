@@ -8,13 +8,13 @@ import { PageLoader } from '@/components/ui/PageLoader';
 import api from '@/lib/api';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 import { useToast } from '@/components/ui/ToastContext';
-import { Eye, PlusCircle, RefreshCcw, Trash, Trash2 } from 'lucide-react';
+import { Eye, PlusCircle, RefreshCcw, RotateCcw, Trash, Trash2 } from 'lucide-react';
 
 interface ImportacaoResumo {
   id: number;
   catalogoId: number;
   modalidade: string;
-  situacao: 'EM_ANDAMENTO' | 'CONCLUIDA';
+  situacao: 'EM_ANDAMENTO' | 'CONCLUIDA' | 'REVERTIDA';
   resultado: 'PENDENTE' | 'SUCESSO' | 'ATENCAO';
   totalRegistros: number;
   totalCriados: number;
@@ -78,6 +78,8 @@ function obterClasseSituacao(situacao: ImportacaoResumo['situacao']) {
       return 'text-sky-400';
     case 'CONCLUIDA':
       return 'text-emerald-400';
+    case 'REVERTIDA':
+      return 'text-amber-400';
     default:
       return 'text-slate-300';
   }
@@ -102,7 +104,14 @@ function traduzResultado(resultado: ImportacaoResumo['resultado']) {
 }
 
 function traduzSituacao(situacao: ImportacaoResumo['situacao']) {
-  return situacao === 'CONCLUIDA' ? 'Concluida' : 'Em andamento';
+  switch (situacao) {
+    case 'CONCLUIDA':
+      return 'Concluida';
+    case 'REVERTIDA':
+      return 'Revertida';
+    default:
+      return 'Em andamento';
+  }
 }
 
 function traduzModalidade(modalidade: string) {
@@ -114,8 +123,10 @@ export default function ImportacoesPage() {
   const router = useRouter();
   const { dados, carregando, erro, recarregar } = useImportacoes();
   const [excluindoId, setExcluindoId] = useState<number | null>(null);
+  const [revertendoId, setRevertendoId] = useState<number | null>(null);
   const [limpandoHistorico, setLimpandoHistorico] = useState(false);
   const [importacaoParaExcluir, setImportacaoParaExcluir] = useState<number | null>(null);
+  const [importacaoParaReverter, setImportacaoParaReverter] = useState<ImportacaoResumo | null>(null);
   const [mostrarConfirmacaoLimpeza, setMostrarConfirmacaoLimpeza] = useState(false);
 
   const { addToast } = useToast();
@@ -133,6 +144,10 @@ export default function ImportacoesPage() {
     setImportacaoParaExcluir(id);
   }, []);
 
+  const reverterImportacaoClick = useCallback((importacao: ImportacaoResumo) => {
+    setImportacaoParaReverter(importacao);
+  }, []);
+
   const confirmarRemocaoImportacao = useCallback(async () => {
     if (importacaoParaExcluir == null) return;
     try {
@@ -148,6 +163,22 @@ export default function ImportacoesPage() {
       setImportacaoParaExcluir(null);
     }
   }, [addToast, importacaoParaExcluir, recarregar]);
+
+  const confirmarReversaoImportacao = useCallback(async () => {
+    if (!importacaoParaReverter) return;
+    try {
+      setRevertendoId(importacaoParaReverter.id);
+      await api.post(`/produtos/importacoes/${importacaoParaReverter.id}/reverter`);
+      addToast('Importacao revertida com sucesso.', 'success');
+      await recarregar();
+    } catch (error) {
+      console.error('Erro ao reverter importacao', error);
+      addToast('Nao foi possivel reverter a importacao.', 'error');
+    } finally {
+      setRevertendoId(null);
+      setImportacaoParaReverter(null);
+    }
+  }, [addToast, importacaoParaReverter, recarregar]);
 
   const limparHistorico = useCallback(async () => {
     try {
@@ -267,6 +298,22 @@ export default function ImportacoesPage() {
                         >
                           <Eye size={16} />
                         </button>
+                        {importacao.situacao === 'CONCLUIDA' && (
+                          <button
+                            type="button"
+                            onClick={() => reverterImportacaoClick(importacao)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-200 transition hover:bg-amber-500/20 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
+                            title="Reverter importacao"
+                            aria-label="Reverter importacao"
+                            disabled={
+                              revertendoId === importacao.id ||
+                              excluindoId === importacao.id ||
+                              limpandoHistorico
+                            }
+                          >
+                            <RotateCcw size={16} />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => removerImportacaoClick(importacao.id)}
@@ -323,6 +370,30 @@ export default function ImportacoesPage() {
               </Button>
               <Button variant="danger" onClick={confirmarRemocaoImportacao} disabled={excluindoId === importacaoParaExcluir}>
                 Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {importacaoParaReverter !== null && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-4">Confirmar Reversao</h3>
+            <p className="text-gray-300 mb-6">
+              Reverter a importacao selecionada ira remover todos os produtos criados durante o processo.
+              Deseja continuar?
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setImportacaoParaReverter(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmarReversaoImportacao}
+                disabled={revertendoId === importacaoParaReverter.id}
+              >
+                Reverter
               </Button>
             </div>
           </div>

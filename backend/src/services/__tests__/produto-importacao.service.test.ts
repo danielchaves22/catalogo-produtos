@@ -15,9 +15,12 @@ const mockCatalogoPrisma = {
     update: jest.fn(),
     findFirst: jest.fn(),
   },
-  importacaoProdutoItem: { create: jest.fn() },
+  importacaoProdutoItem: { create: jest.fn(), updateMany: jest.fn() },
+  produtoAtributos: { deleteMany: jest.fn() },
+  produto: { deleteMany: jest.fn() },
   ncmCache: { findUnique: jest.fn() },
   mensagem: { create: jest.fn() },
+  $transaction: jest.fn(),
 } as any;
 
 jest.mock('../../utils/prisma', () => ({
@@ -38,6 +41,9 @@ describe('ProdutoImportacaoService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockNcmLegacyService.sincronizarNcm.mockReset();
+    mockCatalogoPrisma.$transaction.mockImplementation(async (callback: any) =>
+      callback(mockCatalogoPrisma)
+    );
     service = new ProdutoImportacaoService();
   });
 
@@ -171,5 +177,66 @@ describe('ProdutoImportacaoService', () => {
 
     expect(mockNcmLegacyService.sincronizarNcm).toHaveBeenCalledWith('87654321');
     expect(criarProdutoSpy).toHaveBeenCalled();
+  });
+
+  it('reverte importação removendo produtos e atualizando a situação', async () => {
+    mockCatalogoPrisma.importacaoProduto.findFirst.mockResolvedValue({
+      id: 77,
+      situacao: 'CONCLUIDA',
+      itens: [
+        { id: 1, produtoId: 201 },
+        { id: 2, produtoId: 202 },
+        { id: 3, produtoId: null },
+      ],
+    } as any);
+    mockCatalogoPrisma.importacaoProdutoItem.updateMany.mockResolvedValue({ count: 2 });
+    mockCatalogoPrisma.produtoAtributos.deleteMany.mockResolvedValue({ count: 2 });
+    mockCatalogoPrisma.produto.deleteMany.mockResolvedValue({ count: 2 });
+    mockCatalogoPrisma.importacaoProduto.update.mockResolvedValue({});
+
+    await service.reverterImportacao(77, 99);
+
+    expect(mockCatalogoPrisma.importacaoProdutoItem.updateMany).toHaveBeenCalledWith({
+      where: { importacaoId: 77, produtoId: { in: [201, 202] } },
+      data: { produtoId: null },
+    });
+    expect(mockCatalogoPrisma.produtoAtributos.deleteMany).toHaveBeenCalledWith({
+      where: { produtoId: { in: [201, 202] } },
+    });
+    expect(mockCatalogoPrisma.produto.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: [201, 202] }, catalogo: { superUserId: 99 } },
+    });
+    expect(mockCatalogoPrisma.importacaoProduto.update).toHaveBeenCalledWith({
+      where: { id: 77 },
+      data: expect.objectContaining({ situacao: 'REVERTIDA' }),
+    });
+    const chamadaUpdate = mockCatalogoPrisma.importacaoProduto.update.mock.calls[0][0];
+    expect(chamadaUpdate.data.finalizadoEm).toBeInstanceOf(Date);
+  });
+
+  it('impede reverter importação em andamento', async () => {
+    mockCatalogoPrisma.importacaoProduto.findFirst.mockResolvedValue({
+      id: 10,
+      situacao: 'EM_ANDAMENTO',
+      itens: [],
+    } as any);
+
+    await expect(service.reverterImportacao(10, 99)).rejects.toThrow('IMPORTACAO_EM_ANDAMENTO');
+  });
+
+  it('impede reverter importação já revertida', async () => {
+    mockCatalogoPrisma.importacaoProduto.findFirst.mockResolvedValue({
+      id: 11,
+      situacao: 'REVERTIDA',
+      itens: [],
+    } as any);
+
+    await expect(service.reverterImportacao(11, 99)).rejects.toThrow('IMPORTACAO_JA_REVERTIDA');
+  });
+
+  it('retorna erro quando importação não é encontrada para reverter', async () => {
+    mockCatalogoPrisma.importacaoProduto.findFirst.mockResolvedValue(null);
+
+    await expect(service.reverterImportacao(12, 99)).rejects.toThrow('IMPORTACAO_NAO_ENCONTRADA');
   });
 });
