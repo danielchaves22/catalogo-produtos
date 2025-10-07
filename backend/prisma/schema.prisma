@@ -242,6 +242,7 @@ enum OperadorEstrangeiroStatus {
 enum ImportacaoSituacao {
   EM_ANDAMENTO
   CONCLUIDA
+  REVERTIDA
 }
 
 enum ImportacaoResultado {

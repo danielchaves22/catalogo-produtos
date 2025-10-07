@@ -96,6 +96,36 @@ export async function obterDetalhesImportacao(req: Request, res: Response) {
   }
 }
 
+export async function reverterImportacao(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ error: 'Identificador inválido' });
+    }
+
+    await produtoImportacaoService.reverterImportacao(id, req.user!.superUserId);
+    return res.status(204).send();
+  } catch (error) {
+    logger.error('Erro ao reverter importação:', error);
+    if (error instanceof Error) {
+      if (error.message === 'IMPORTACAO_NAO_ENCONTRADA') {
+        return res.status(404).json({ error: 'Importação não encontrada' });
+      }
+      if (error.message === 'IMPORTACAO_EM_ANDAMENTO') {
+        return res
+          .status(409)
+          .json({ error: 'Não é possível reverter uma importação em andamento.' });
+      }
+      if (error.message === 'IMPORTACAO_JA_REVERTIDA') {
+        return res
+          .status(409)
+          .json({ error: 'A importação já foi revertida anteriormente.' });
+      }
+    }
+    return res.status(500).json({ error: 'Erro ao reverter importação' });
+  }
+}
+
 export async function removerImportacao(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);

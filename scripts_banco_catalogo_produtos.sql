@@ -254,7 +254,7 @@ CREATE TABLE IF NOT EXISTS catalogo (
         catalogo_id INT UNSIGNED NOT NULL,
         modalidade VARCHAR(50) NOT NULL,
         nome_arquivo VARCHAR(255),
-        situacao ENUM('EM_ANDAMENTO', 'CONCLUIDA') NOT NULL DEFAULT 'EM_ANDAMENTO',
+        situacao ENUM('EM_ANDAMENTO', 'CONCLUIDA', 'REVERTIDA') NOT NULL DEFAULT 'EM_ANDAMENTO',
         resultado ENUM('PENDENTE', 'SUCESSO', 'ATENCAO') NOT NULL DEFAULT 'PENDENTE',
         total_registros INT UNSIGNED NOT NULL DEFAULT 0,
         total_criados INT UNSIGNED NOT NULL DEFAULT 0,
