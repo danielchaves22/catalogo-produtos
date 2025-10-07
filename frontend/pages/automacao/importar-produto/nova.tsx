@@ -63,7 +63,7 @@ export default function NovaImportacaoPage() {
 
   useEffect(() => {
     if (workingCatalog) {
-      setCatalogoId(String(workingCatalog.id));
+      setCatalogoId(currentValue => currentValue || String(workingCatalog.id));
     }
   }, [workingCatalog]);
 
@@ -227,13 +227,7 @@ export default function NovaImportacaoPage() {
         <form id={formId} onSubmit={handleSubmit} className="space-y-6">
           <Card>
             <div className="grid gap-4 md:grid-cols-2">
-              {workingCatalog ? (
-                <Input
-                  label="Catálogo"
-                  value={`${workingCatalog.nome} · Nº ${workingCatalog.numero} · ${formatCPFOrCNPJ(workingCatalog.cpf_cnpj || '')}`}
-                  disabled
-                />
-              ) : (
+              <div>
                 <Select
                   label="Catálogo"
                   value={catalogoId}
@@ -245,7 +239,12 @@ export default function NovaImportacaoPage() {
                   error={erros.catalogoId}
                   required
                 />
-              )}
+                {workingCatalog && (
+                  <p className="-mt-3 text-xs text-gray-400">
+                    O catálogo de trabalho foi sugerido automaticamente, mas você pode escolher outro para esta importação.
+                  </p>
+                )}
+              </div>
 
               <Select
                 label="Modalidade do produto"
