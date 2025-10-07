@@ -63,7 +63,7 @@ export default function NovaImportacaoPage() {
 
   useEffect(() => {
     if (workingCatalog) {
-      setCatalogoId(String(workingCatalog.id));
+      setCatalogoId(currentValue => currentValue || String(workingCatalog.id));
     }
   }, [workingCatalog]);
 
@@ -227,13 +227,7 @@ export default function NovaImportacaoPage() {
         <form id={formId} onSubmit={handleSubmit} className="space-y-6">
           <Card>
             <div className="grid gap-4 md:grid-cols-2">
-              {workingCatalog ? (
-                <Input
-                  label="Catálogo"
-                  value={`${workingCatalog.nome} · Nº ${workingCatalog.numero} · ${formatCPFOrCNPJ(workingCatalog.cpf_cnpj || '')}`}
-                  disabled
-                />
-              ) : (
+              <div>
                 <Select
                   label="Catálogo"
                   value={catalogoId}
@@ -245,7 +239,12 @@ export default function NovaImportacaoPage() {
                   error={erros.catalogoId}
                   required
                 />
-              )}
+                {workingCatalog && (
+                  <p className="-mt-3 text-xs text-gray-400">
+                    O catálogo de trabalho foi sugerido automaticamente, mas você pode escolher outro para esta importação.
+                  </p>
+                )}
+              </div>
 
               <Select
                 label="Modalidade do produto"
@@ -294,9 +293,28 @@ export default function NovaImportacaoPage() {
               A planilha deve conter os seguintes campos na primeira linha (cabeçalho):
             </p>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-gray-300">
-              <li><strong>Coluna A – NCM:</strong> código numérico de 8 dígitos, sem formatação.</li>
-              <li><strong>Coluna B – Denominação:</strong> nome do produto. Será replicado no campo descrição.</li>
-              <li><strong>Coluna C – Código interno / Partnumber:</strong> SKUs separados por vírgula (somente números).</li>
+              <li>
+                <strong>Coluna A – Código Interno:</strong> informe um ou mais códigos internos separados por vírgula. São
+                aceitos apenas letras e números, sem espaços.
+              </li>
+              <li>
+                <strong>Coluna B – Descrição Curta Produto:</strong> nome curto do produto. Campo obrigatório.
+              </li>
+              <li>
+                <strong>Coluna C – Descrição Longa Produto:</strong> detalhamento completo do item. Caso esteja vazio, será
+                utilizado o valor da descrição curta.
+              </li>
+              <li>
+                <strong>Coluna D – NCM:</strong> código numérico de 8 dígitos, sem formatação.
+              </li>
+              <li>
+                <strong>Coluna E – Fabricante:</strong> indique as siglas de países (duas letras) correspondentes aos fabricantes
+                separados por vírgula.
+              </li>
+              <li>
+                <strong>Coluna F – Operador Estrangeiro:</strong> informe os números dos operadores estrangeiros já cadastrados na
+                plataforma, separados por vírgula.
+              </li>
             </ul>
             <p className="mt-3 text-xs text-gray-400">
               Dicas: deixe linhas vazias no final da planilha em branco, garanta que a primeira linha contenha o cabeçalho indicado e salve o arquivo no formato .xlsx.
