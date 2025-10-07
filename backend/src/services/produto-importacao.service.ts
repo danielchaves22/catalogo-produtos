@@ -236,8 +236,7 @@ export class ProdutoImportacaoService {
                 const unicos = Array.from(new Set(partesFabricante));
                 operadoresEstrangeiros = unicos.map<OperadorEstrangeiroProdutoInput>(codigo => ({
                   paisCodigo: codigo,
-                  conhecido: false,
-                  operadorEstrangeiroId: null
+                  conhecido: false
                 }));
               }
             }
