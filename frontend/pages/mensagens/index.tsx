@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { Trash2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
+import { Button } from '@/components/ui/Button';
 import { Mensagem, MensagemCategoria, MensagemStatusFiltro, useMessages } from '@/contexts/MessagesContext';
 
 const STATUS_FILTROS: { label: string; valor: MensagemStatusFiltro }[] = [
@@ -51,6 +52,7 @@ export default function MensagensPage() {
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
   const [removendoMensagemId, setRemovendoMensagemId] = useState<number | null>(null);
+  const [mensagemParaExcluirId, setMensagemParaExcluirId] = useState<number | null>(null);
 
   const importacaoIdAcao = useMemo(() => {
     if (!mensagemSelecionada || mensagemSelecionada.categoria !== 'IMPORTACAO_CONCLUIDA') {
@@ -193,57 +195,59 @@ export default function MensagensPage() {
     }
   }
 
-  const handleRemoverMensagem = useCallback(
-    async (id: number) => {
-      if (typeof window !== 'undefined') {
-        const confirmado = window.confirm('Deseja remover esta mensagem?');
-        if (!confirmado) {
-          return;
-        }
+  const abrirConfirmacaoExcluir = useCallback((id: number) => {
+    setMensagemParaExcluirId(id);
+  }, []);
+
+  const cancelarExclusaoMensagem = useCallback(() => {
+    setMensagemParaExcluirId(null);
+  }, []);
+
+  const confirmarExclusaoMensagem = useCallback(async () => {
+    if (mensagemParaExcluirId == null) return;
+
+    const id = mensagemParaExcluirId;
+    setRemovendoMensagemId(id);
+
+    try {
+      const removida = await removerMensagem(id);
+      if (!removida) {
+        return;
       }
 
-      setRemovendoMensagemId(id);
+      const eraSelecionada = mensagemSelecionada?.id === id;
+      let novaSelecionada: Mensagem | null = mensagemSelecionada ?? null;
 
-      try {
-        const removida = await removerMensagem(id);
-        if (!removida) {
-          return;
-        }
-
-        const eraSelecionada = mensagemSelecionada?.id === id;
-        let novaSelecionada: Mensagem | null = mensagemSelecionada ?? null;
-
-        setMensagens((prev) => {
-          const atualizadas = prev.filter((item) => item.id !== id);
-          if (eraSelecionada) {
-            novaSelecionada = atualizadas[0] ?? null;
-          }
-          return atualizadas;
-        });
-
+      setMensagens((prev) => {
+        const atualizadas = prev.filter((item) => item.id !== id);
         if (eraSelecionada) {
-          setMensagemSelecionada(novaSelecionada);
-          if (novaSelecionada) {
-            void router.replace(
-              {
-                pathname: '/mensagens',
-                query: { mensagem: novaSelecionada.id },
-              },
-              undefined,
-              { shallow: true },
-            );
-          } else {
-            void router.replace({ pathname: '/mensagens' }, undefined, { shallow: true });
-          }
+          novaSelecionada = atualizadas[0] ?? null;
         }
-      } catch (error) {
-        console.error('Erro ao remover mensagem:', error);
-      } finally {
-        setRemovendoMensagemId((atual) => (atual === id ? null : atual));
+        return atualizadas;
+      });
+
+      if (eraSelecionada) {
+        setMensagemSelecionada(novaSelecionada);
+        if (novaSelecionada) {
+          void router.replace(
+            {
+              pathname: '/mensagens',
+              query: { mensagem: novaSelecionada.id },
+            },
+            undefined,
+            { shallow: true },
+          );
+        } else {
+          void router.replace({ pathname: '/mensagens' }, undefined, { shallow: true });
+        }
       }
-    },
-    [removerMensagem, mensagemSelecionada, router],
-  );
+    } catch (error) {
+      console.error('Erro ao remover mensagem:', error);
+    } finally {
+      setRemovendoMensagemId((atual) => (atual === id ? null : atual));
+      setMensagemParaExcluirId(null);
+    }
+  }, [mensagemParaExcluirId, removerMensagem, mensagemSelecionada, router, setMensagens]);
 
   const dataFormatada = useMemo(() => {
     if (!mensagemSelecionada) return '';
@@ -338,7 +342,7 @@ export default function MensagensPage() {
                       >
                         <button
                           type="button"
-                          onClick={() => handleRemoverMensagem(mensagem.id)}
+                          onClick={() => abrirConfirmacaoExcluir(mensagem.id)}
                           className={`p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-[#151921] ${
                             removendo
                               ? 'text-red-400/70 cursor-wait'
@@ -440,6 +444,32 @@ export default function MensagensPage() {
           )}
         </section>
       </div>
+
+      {mensagemParaExcluirId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-4">Confirmar Exclusão</h3>
+            <p className="text-gray-300 mb-6">
+              Tem certeza que deseja remover esta mensagem? Essa ação não poderá ser desfeita.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={cancelarExclusaoMensagem}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmarExclusaoMensagem}
+                disabled={removendoMensagemId === mensagemParaExcluirId}
+              >
+                {removendoMensagemId === mensagemParaExcluirId ? 'Removendo...' : 'Remover'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
+
+// Modal de confirmação de exclusão
+// Inserir o modal no retorno principal

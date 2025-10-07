@@ -182,6 +182,7 @@ export default function OperadoresEstrangeirosPage() {
               <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
                 <tr>
                   <th className="w-16 px-4 py-3 text-center">Ações</th>
+                  <th className="px-4 py-3">Número</th>
                   <th className="px-4 py-3">Catálogo</th>
                   <th className="px-4 py-3">CPF/CNPJ</th>
                   <th className="px-4 py-3">Nome</th>
@@ -222,6 +223,7 @@ export default function OperadoresEstrangeirosPage() {
                         <Trash2 size={16} />
                       </button>
                     </td>
+                    <td className="px-4 py-3 font-mono text-[#f59e0b]">{operador.numero ?? '-'}</td>
                     <td className="px-4 py-3">{getCatalogoNome(operador.catalogoId)}</td>
                     <td className="px-4 py-3 font-mono">{formatCPFOrCNPJ(operador.catalogo.cpf_cnpj || '')}</td>
                     <td className="px-4 py-3 font-medium text-white">{operador.nome}</td>

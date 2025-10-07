@@ -25,6 +25,8 @@ export interface AgenciaEmissora {
 
 export interface OperadorEstrangeiro {
   id: number;
+  // Número interno gerado automaticamente
+  numero?: number;
   catalogoId: number;
   catalogo: {
     id: number;
