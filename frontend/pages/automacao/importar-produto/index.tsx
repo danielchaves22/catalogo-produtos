@@ -72,17 +72,15 @@ function obterClasseResultado(resultado: ImportacaoResumo['resultado']) {
   }
 }
 
-function obterClasseSituacao(situacao: ImportacaoResumo['situacao']) {
-  switch (situacao) {
-    case 'EM_ANDAMENTO':
-      return 'text-sky-400';
-    case 'CONCLUIDA':
-      return 'text-emerald-400';
-    case 'REVERTIDA':
-      return 'text-amber-400';
-    default:
-      return 'text-slate-300';
+function obterClasseSituacaoChip(situacao: ImportacaoResumo['situacao']) {
+  if (situacao === 'CONCLUIDA') {
+    return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/40';
   }
+  if (situacao === 'REVERTIDA') {
+    return 'bg-amber-500/10 text-amber-400 border border-amber-500/40';
+  }
+  // EM_ANDAMENTO (padrão)
+  return 'bg-sky-500/10 text-sky-400 border border-sky-500/40';
 }
 
 function formatarData(data?: string | null) {
@@ -277,7 +275,7 @@ export default function ImportacoesPage() {
                   <th className="px-4 py-3 text-left">Arquivo</th>
                   <th className="px-4 py-3 text-left">Catalogo</th>
                   <th className="px-4 py-3 text-left">Modalidade</th>
-                  <th className="px-4 py-3 text-left">Situacao</th>
+                  <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Resultado</th>
                   <th className="px-4 py-3 text-left">Registros</th>
                   <th className="px-4 py-3 text-left">Iniciado em</th>
@@ -338,8 +336,10 @@ export default function ImportacoesPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-200">{traduzModalidade(importacao.modalidade)}</td>
-                    <td className={`px-4 py-3 font-medium ${obterClasseSituacao(importacao.situacao)}`}>
-                      {traduzSituacao(importacao.situacao)}
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${obterClasseSituacaoChip(importacao.situacao)}`}>
+                        {traduzSituacao(importacao.situacao)}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${obterClasseResultado(importacao.resultado)}`}>
@@ -421,4 +421,3 @@ export default function ImportacoesPage() {
     </DashboardLayout>
   );
 }
-
