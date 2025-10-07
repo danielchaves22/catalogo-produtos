@@ -12,7 +12,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
-import { ProdutoService } from './produto.service';
+import { OperadorEstrangeiroProdutoInput, ProdutoService } from './produto.service';
 import { ValidationError } from '../types/validation-error';
 import {
   enqueueProdutoImportacaoJob,
@@ -145,16 +145,36 @@ export class ProdutoImportacaoService {
       }
 
       const cacheValoresPadrao = new Map<string, Prisma.JsonValue | null>();
+      const paises = await catalogoPrisma.pais.findMany({ select: { codigo: true } });
+      const codigosPaisValidos = new Set(
+        paises
+          .map(pais => pais.codigo?.trim().toUpperCase())
+          .filter((codigo): codigo is string => Boolean(codigo))
+      );
+      const operadoresPorNumero = new Map<
+        number,
+        { id: number; numero: number; paisCodigo: string }
+      >();
 
       for (let index = 1; index < linhas.length; index++) {
         const linha = linhas[index];
         const linhaPlanilha = index + 1;
         const celulas = Array.isArray(linha) ? linha : [];
-        const ncmBruta = (celulas[0] ?? '').toString().trim();
+        const codigosBrutos = (celulas[0] ?? '').toString().trim();
         const denominacaoBruta = (celulas[1] ?? '').toString().trim();
-        const codigosBrutos = (celulas[2] ?? '').toString().trim();
+        const descricaoLongaBruta = (celulas[2] ?? '').toString().trim();
+        const ncmBruta = (celulas[3] ?? '').toString().trim();
+        const fabricantesBrutos = (celulas[4] ?? '').toString().trim();
+        const operadoresBrutos = (celulas[5] ?? '').toString().trim();
 
-        if (!ncmBruta && !denominacaoBruta && !codigosBrutos) {
+        if (
+          !ncmBruta &&
+          !denominacaoBruta &&
+          !codigosBrutos &&
+          !descricaoLongaBruta &&
+          !fabricantesBrutos &&
+          !operadoresBrutos
+        ) {
           continue;
         }
 
@@ -167,6 +187,7 @@ export class ProdutoImportacaoService {
 
         const ncmNormalizada = this.normalizarNcm(ncmBruta, mensagens.impeditivos);
         const denominacao = denominacaoBruta;
+        const descricaoProduto = descricaoLongaBruta || denominacaoBruta;
 
         if (!denominacao) {
           mensagens.impeditivos.push('Nome (obrigatório) não informado');
@@ -174,18 +195,124 @@ export class ProdutoImportacaoService {
 
         let codigosInternos: string[] | undefined;
         if (!codigosBrutos) {
-          mensagens.atencao.push('Códigos internos / SKU não informados');
+          mensagens.atencao.push('Códigos internos não informados');
         } else {
           const partes = codigosBrutos
             .split(',')
             .map(p => p.trim())
             .filter(Boolean);
 
-          const invalidos = partes.filter(p => !/^\d+$/.test(p));
+          const invalidos = partes.filter(p => !/^[0-9A-Za-z]+$/.test(p));
           if (invalidos.length > 0) {
-            mensagens.atencao.push('Campo Códigos internos / SKU mal formatado');
+            mensagens.atencao.push('Campo Código interno mal formatado (somente letras e números separados por vírgula)');
           } else if (partes.length > 0) {
             codigosInternos = partes;
+          }
+        }
+
+        let operadoresEstrangeiros: OperadorEstrangeiroProdutoInput[] | undefined;
+
+        if (fabricantesBrutos) {
+          const partesFabricante = fabricantesBrutos
+            .split(',')
+            .map(valor => valor.trim().toUpperCase())
+            .filter(Boolean);
+
+          if (partesFabricante.length > 0) {
+            const formatosInvalidos = partesFabricante.filter(valor => !/^[A-Z]{2}$/.test(valor));
+            if (formatosInvalidos.length > 0) {
+              mensagens.impeditivos.push(
+                `Fabricante contém códigos com formato inválido: ${formatosInvalidos.join(', ')}`
+              );
+            } else {
+              const paisesInvalidos = partesFabricante.filter(
+                valor => !codigosPaisValidos.has(valor)
+              );
+              if (paisesInvalidos.length > 0) {
+                mensagens.impeditivos.push(
+                  `Fabricante contém códigos de país não reconhecidos: ${paisesInvalidos.join(', ')}`
+                );
+              } else {
+                const unicos = Array.from(new Set(partesFabricante));
+                operadoresEstrangeiros = unicos.map<OperadorEstrangeiroProdutoInput>(codigo => ({
+                  paisCodigo: codigo,
+                  conhecido: false,
+                  operadorEstrangeiroId: null
+                }));
+              }
+            }
+          }
+        }
+
+        if (operadoresBrutos) {
+          const partesOperador = operadoresBrutos
+            .split(',')
+            .map(p => p.trim())
+            .filter(Boolean);
+
+          const naoNumericos = partesOperador.filter(parte => !/^\d+$/.test(parte));
+          if (naoNumericos.length > 0) {
+            mensagens.impeditivos.push(
+              `Operador estrangeiro contém valores inválidos: ${naoNumericos.join(', ')}`
+            );
+          } else if (partesOperador.length > 0) {
+            const numeros = Array.from(new Set(partesOperador.map(parte => Number(parte))));
+            const naoCarregados = numeros.filter(numero => !operadoresPorNumero.has(numero));
+
+            if (naoCarregados.length > 0) {
+              const operadoresEncontrados = await catalogoPrisma.operadorEstrangeiro.findMany({
+                where: {
+                  catalogoId: dados.catalogoId,
+                  numero: { in: naoCarregados }
+                },
+                select: { id: true, numero: true, paisCodigo: true }
+              });
+
+              for (const operador of operadoresEncontrados) {
+                operadoresPorNumero.set(operador.numero, {
+                  id: operador.id,
+                  numero: operador.numero,
+                  paisCodigo: operador.paisCodigo.toUpperCase()
+                });
+              }
+
+              const encontradosSet = new Set(operadoresEncontrados.map(o => o.numero));
+              const naoEncontrados = naoCarregados.filter(numero => !encontradosSet.has(numero));
+              if (naoEncontrados.length > 0) {
+                mensagens.impeditivos.push(
+                  `Operadores estrangeiros não encontrados: ${naoEncontrados.join(', ')}`
+                );
+              }
+            }
+
+            if (mensagens.impeditivos.length === 0) {
+              const conhecidos = numeros
+                .map(numero => operadoresPorNumero.get(numero))
+                .filter((operador): operador is { id: number; numero: number; paisCodigo: string } =>
+                  Boolean(operador)
+                )
+                .map<OperadorEstrangeiroProdutoInput>(operador => ({
+                  paisCodigo: operador.paisCodigo,
+                  conhecido: true,
+                  operadorEstrangeiroId: operador.id
+                }));
+
+              if (conhecidos.length > 0) {
+                const existentes = operadoresEstrangeiros ?? [];
+                const combinados: OperadorEstrangeiroProdutoInput[] = [...existentes, ...conhecidos];
+                const vistos = new Set<string>();
+                operadoresEstrangeiros = combinados.filter(operador => {
+                  const chave = `${operador.paisCodigo}|${operador.conhecido ? '1' : '0'}|${
+                    operador.operadorEstrangeiroId ?? 'null'
+                  }`;
+                  if (vistos.has(chave)) {
+                    return false;
+                  }
+                  vistos.add(chave);
+                  return true;
+                });
+              }
+            }
           }
         }
 
@@ -228,11 +355,14 @@ export class ProdutoImportacaoService {
                 modalidade: dados.modalidade,
                 catalogoId: dados.catalogoId,
                 denominacao,
-                descricao: denominacao,
+                descricao: descricaoProduto || denominacao,
                 valoresAtributos: (valoresPadrao ?? undefined) as
                   | Prisma.InputJsonValue
                   | undefined,
-                codigosInternos
+                codigosInternos,
+                operadoresEstrangeiros: operadoresEstrangeiros?.length
+                  ? operadoresEstrangeiros
+                  : undefined
               },
               dados.superUserId
             );
