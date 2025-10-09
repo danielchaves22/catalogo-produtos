@@ -26,9 +26,20 @@ export async function listarProdutos(req: Request, res: Response) {
         ? Number(req.query.catalogoId)
         : undefined
     };
+    const pagina = Number(req.query.page);
+    const tamanhoPagina = Number(req.query.pageSize);
+    const paginacao = {
+      page: Number.isFinite(pagina) && pagina > 0 ? pagina : undefined,
+      pageSize:
+        Number.isFinite(tamanhoPagina) && tamanhoPagina > 0
+          ? tamanhoPagina
+          : undefined
+    };
+
     const produtos = await produtoService.listarTodos(
       filtros,
-      req.user!.superUserId
+      req.user!.superUserId,
+      paginacao
     );
     res.json(produtos);
   } catch (error: any) {

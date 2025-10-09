@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { AlertCircle, Plus, Search, Trash2, Pencil, Copy, X } from 'lucide-react';
+import { AlertCircle, Plus, Search, Trash2, Pencil, Copy, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Hint } from '@/components/ui/Hint';
 import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
@@ -19,20 +19,27 @@ import { Input } from '@/components/ui/Input';
 
 interface Produto {
   id: number;
-  codigo: string;
+  codigo?: string | null;
   ncmCodigo: string;
   status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
   atualizadoEm: string;
-  catalogoNumero?: number;
-  catalogoNome?: string;
-  catalogoCpfCnpj?: string;
-  catalogoAmbiente?: 'HOMOLOGACAO' | 'PRODUCAO';
+  catalogoNumero?: number | null;
+  catalogoNome?: string | null;
+  catalogoCpfCnpj?: string | null;
+  catalogoAmbiente?: 'HOMOLOGACAO' | 'PRODUCAO' | null;
   catalogoId?: number;
   denominacao?: string;
   descricao?: string;
   codigosInternos?: string[];
-  situacao?: string;
-  modalidade?: 'IMPORTACAO' | 'EXPORTACAO';
+  situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO' | string;
+  modalidade?: 'IMPORTACAO' | 'EXPORTACAO' | null;
+}
+
+interface ProdutosResponse {
+  items: Produto[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 const statusOptions = [
@@ -45,6 +52,9 @@ const statusOptions = [
 
 export default function ProdutosPage() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [totalProdutos, setTotalProdutos] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +79,9 @@ export default function ProdutosPage() {
   const router = useRouter();
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
+  const pageSizeOptions = [10, 20, 50];
+  const totalPages = Math.max(1, Math.ceil(totalProdutos / pageSize));
+  const paginaAtual = Math.min(page, totalPages);
 
   useEffect(() => {
     async function carregarCatalogos() {
@@ -86,6 +99,7 @@ export default function ProdutosPage() {
     if (workingCatalog) {
       if (filtros.catalogoId !== String(workingCatalog.id)) {
         setFiltros(prev => ({ ...prev, catalogoId: String(workingCatalog.id) }));
+        setPage(1);
         return;
       }
     } else {
@@ -94,6 +108,7 @@ export default function ProdutosPage() {
         typeof router.query.catalogoId === 'string' ? router.query.catalogoId : '';
       if (catalogoIdFromQuery && filtros.catalogoId !== catalogoIdFromQuery) {
         setFiltros(prev => ({ ...prev, catalogoId: catalogoIdFromQuery }));
+        setPage(1);
         const { catalogoId, ...rest } = router.query;
         router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
         return;
@@ -101,21 +116,40 @@ export default function ProdutosPage() {
     }
 
     carregarProdutos();
-  }, [router.isReady, router.query.catalogoId, filtros.status, filtros.situacoes, filtros.catalogoId, workingCatalog]);
+  }, [
+    router.isReady,
+    router.query.catalogoId,
+    filtros.status,
+    filtros.situacoes,
+    filtros.catalogoId,
+    workingCatalog,
+    page,
+    pageSize
+  ]);
 
 
   async function carregarProdutos() {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (filtros.status.length === 1) params.append('status', filtros.status[0]);
+      const params: Record<string, string | number> = {
+        page,
+        pageSize
+      };
+      if (filtros.status.length === 1) params.status = filtros.status[0];
       // Enviar somente se houver exatamente 1 situação selecionada
-      if (filtros.situacoes.length === 1) params.append('situacao', filtros.situacoes[0]);
-      if (filtros.catalogoId) params.append('catalogoId', filtros.catalogoId);
-      const query = params.toString();
-      const url = query ? `/produtos?${query}` : '/produtos';
-      const response = await api.get(url);
-      setProdutos(response.data);
+      if (filtros.situacoes.length === 1) params.situacao = filtros.situacoes[0];
+      if (filtros.catalogoId) params.catalogoId = filtros.catalogoId;
+
+      const response = await api.get<ProdutosResponse>('/produtos', { params });
+      const { items, total, page: paginaResposta, pageSize: tamanhoResposta } = response.data;
+      setProdutos(items);
+      setTotalProdutos(total);
+      if (paginaResposta && paginaResposta !== page) {
+        setPage(paginaResposta);
+      }
+      if (tamanhoResposta && tamanhoResposta !== pageSize) {
+        setPageSize(tamanhoResposta);
+      }
       setError(null);
     } catch (err) {
       console.error('Erro ao carregar produtos:', err);
@@ -186,6 +220,9 @@ export default function ProdutosPage() {
 
     return matchBusca && matchStatus && matchSituacao;
   });
+
+  const podeVoltar = page > 1;
+  const podeAvancar = page < totalPages;
 
   if (loading && !hasLoadedOnce) {
     return (
@@ -325,7 +362,10 @@ export default function ProdutosPage() {
             <select
               className="w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
               value={filtros.catalogoId}
-              onChange={e => setFiltros({ ...filtros, catalogoId: e.target.value })}
+              onChange={e => {
+                setFiltros(prev => ({ ...prev, catalogoId: e.target.value }));
+                setPage(1);
+              }}
               disabled={!!workingCatalog}
             >
               <option value="">Todos os catálogos</option>
@@ -340,12 +380,13 @@ export default function ProdutosPage() {
             label="Status"
             options={statusOptions}
             values={filtros.status}
-            onChange={vals =>
+            onChange={vals => {
               setFiltros(prev => ({
                 ...prev,
                 status: vals as Produto['status'][]
-              }))
-            }
+              }));
+              setPage(1);
+            }}
             placeholder="Status"
           />
           {false && ( <select style={{ display: 'none' }}
@@ -366,11 +407,17 @@ export default function ProdutosPage() {
               { value: 'RASCUNHO', label: 'Rascunho' },
             ]}
             values={filtros.situacoes}
-            onChange={(vals) => setFiltros(prev => ({ ...prev, situacoes: vals as Array<'ATIVADO'|'DESATIVADO'|'RASCUNHO'> }))}
+            onChange={(vals) => {
+              setFiltros(prev => ({
+                ...prev,
+                situacoes: vals as Array<'ATIVADO' | 'DESATIVADO' | 'RASCUNHO'>
+              }));
+              setPage(1);
+            }}
             placeholder="Situação"
           />
-          <div className="text-sm text-gray-400 self-center">
-            Exibindo {produtosFiltrados.length} de {produtos.length} produtos
+          <div className="text-sm text-gray-400 self-center text-right">
+            Página {paginaAtual} de {totalPages} — Exibindo {produtosFiltrados.length} de {totalProdutos} produtos
           </div>
         </div>
         {loading && hasLoadedOnce && (
@@ -399,124 +446,175 @@ export default function ProdutosPage() {
             </Button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
-                <tr>
-                  <th className="w-24 px-4 py-3 text-center">Ações</th>
-                  <th className="px-4 py-3">Catálogo</th>
-                  <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3">Cód. Int. (SKU/PN)</th>
-                  <th className="px-4 py-3">Modalidade</th>
-                  <th className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1">
-                      Status
-                      <LegendInfoModal
-                        title="Status dos Produtos"
-                        legend={produtoStatusLegend}
-                        triggerAriaLabel="Ver detalhes sobre os status dos produtos"
-                      />
-                    </span>
-                  </th>
-                  <th className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1">
-                      Situação
-                      <LegendInfoModal
-                        title="Situação dos Produtos"
-                        legend={produtoSituacaoLegend}
-                        triggerAriaLabel="Ver detalhes sobre as situações dos produtos"
-                      />
-                    </span>
-                  </th>
-                  <th className="px-4 py-3">Última Alteração</th>
-                  <th className="px-4 py-3">Ambiente</th>
-                </tr>
-              </thead>
-              <tbody>
-                {produtosFiltrados.map((produto) => (
-                  <tr
-                    key={produto.id}
-                    className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors"
-                  >
-                    <td className="px-4 py-3 flex gap-2">
-                      <button
-                        className="p-1 text-gray-300 hover:text-purple-500 transition-colors"
-                        onClick={() => abrirModalClonar(produto)}
-                        title="Clonar produto"
-                      >
-                        <Copy size={16} />
-                      </button>
-                      <button
-                        className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
-                        onClick={() => editarProduto(produto.id)}
-                        title="Editar produto"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        className="p-1 text-gray-300 hover:text-red-500 transition-colors"
-                        onClick={() => confirmarExclusao(produto.id)}
-                        title="Excluir produto"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">{produto.catalogoNome ?? '-'}</td>
-                    <td className="px-4 py-3">{produto.denominacao ?? produto.codigo ?? '-'}</td>
-                    <td className="px-4 py-3">
-                      {produto.codigosInternos && produto.codigosInternos.length > 0 ? (
-                        <div className="flex items-center gap-1">
-                          <span className="truncate max-w-[150px]">
-                            {produto.codigosInternos.join(', ')}
-                          </span>
-                          {produto.codigosInternos.join(', ').length > 20 && (
-                            <Hint text={produto.codigosInternos.join(', ')} />
-                          )}
-                        </div>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {produto.modalidade
-                        ? getModalidadeLabel(produto.modalidade)
-                        : '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClasses(
-                          produto.status
-                        )}`}
-                      >
-                        {produto.status}
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
+                  <tr>
+                    <th className="w-24 px-4 py-3 text-center">Ações</th>
+                    <th className="px-4 py-3">Catálogo</th>
+                    <th className="px-4 py-3">Nome</th>
+                    <th className="px-4 py-3">Cód. Int. (SKU/PN)</th>
+                    <th className="px-4 py-3">Modalidade</th>
+                    <th className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1">
+                        Status
+                        <LegendInfoModal
+                          title="Status dos Produtos"
+                          legend={produtoStatusLegend}
+                          triggerAriaLabel="Ver detalhes sobre os status dos produtos"
+                        />
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {produto.situacao ? (
+                    </th>
+                    <th className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1">
+                        Situação
+                        <LegendInfoModal
+                          title="Situação dos Produtos"
+                          legend={produtoSituacaoLegend}
+                          triggerAriaLabel="Ver detalhes sobre as situações dos produtos"
+                        />
+                      </span>
+                    </th>
+                    <th className="px-4 py-3">Última Alteração</th>
+                    <th className="px-4 py-3">Ambiente</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {produtosFiltrados.map((produto) => (
+                    <tr
+                      key={produto.id}
+                      className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors"
+                    >
+                      <td className="px-4 py-3 flex gap-2">
+                        <button
+                          className="p-1 text-gray-300 hover:text-purple-500 transition-colors"
+                          onClick={() => abrirModalClonar(produto)}
+                          title="Clonar produto"
+                        >
+                          <Copy size={16} />
+                        </button>
+                        <button
+                          className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
+                          onClick={() => editarProduto(produto.id)}
+                          title="Editar produto"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                          onClick={() => confirmarExclusao(produto.id)}
+                          title="Excluir produto"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">{produto.catalogoNome ?? '-'}</td>
+                      <td className="px-4 py-3">{produto.denominacao ?? produto.codigo ?? '-'}</td>
+                      <td className="px-4 py-3">
+                        {produto.codigosInternos && produto.codigosInternos.length > 0 ? (
+                          <div className="flex items-center gap-1">
+                            <span className="truncate max-w-[150px]">
+                              {produto.codigosInternos.join(', ')}
+                            </span>
+                            {produto.codigosInternos.join(', ').length > 20 && (
+                              <Hint text={produto.codigosInternos.join(', ')} />
+                            )}
+                          </div>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {produto.modalidade
+                          ? getModalidadeLabel(produto.modalidade)
+                          : '-'}
+                      </td>
+                      <td className="px-4 py-3">
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getSituacaoClasses(
-                            produto.situacao
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClasses(
+                            produto.status
                           )}`}
                         >
-                          {produto.situacao}
+                          {produto.status}
                         </span>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td className="px-4 py-3">{formatarData(produto.atualizadoEm)}</td>
-                    <td className="px-4 py-3">
-                      {produto.catalogoAmbiente ? (
-                        <EnvironmentBadge ambiente={produto.catalogoAmbiente} size="sm" />
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {produto.situacao ? (
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${getSituacaoClasses(
+                              produto.situacao
+                            )}`}
+                          >
+                            {produto.situacao}
+                          </span>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                      <td className="px-4 py-3">{formatarData(produto.atualizadoEm)}</td>
+                      <td className="px-4 py-3">
+                        {produto.catalogoAmbiente ? (
+                          <EnvironmentBadge ambiente={produto.catalogoAmbiente} size="sm" />
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-3">
+                <label htmlFor="pageSize" className="text-sm text-gray-400">
+                  Itens por página
+                </label>
+                <select
+                  id="pageSize"
+                  className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
+                  value={pageSize}
+                  onChange={event => {
+                    setPageSize(Number(event.target.value));
+                    setPage(1);
+                  }}
+                >
+                  {pageSizeOptions.map(option => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="inline-flex items-center gap-2"
+                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                  disabled={!podeVoltar || loading}
+                >
+                  <ChevronLeft size={16} />
+                  <span>Anterior</span>
+                </Button>
+                <span className="text-sm text-gray-400">
+                  Página {paginaAtual} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="inline-flex items-center gap-2"
+                  onClick={() => setPage(prev => prev + 1)}
+                  disabled={!podeAvancar || loading}
+                >
+                  <span>Próxima</span>
+                  <ChevronRight size={16} />
+                </Button>
+              </div>
+            </div>
+          </>
         )}
       </Card>
 

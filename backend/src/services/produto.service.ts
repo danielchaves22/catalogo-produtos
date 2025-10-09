@@ -50,9 +50,43 @@ export interface ListarProdutosFiltro {
   catalogoId?: number;
 }
 
+export interface ProdutoListItemDTO {
+  id: number;
+  codigo: string | null;
+  ncmCodigo: string;
+  status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  situacao: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
+  modalidade: string | null;
+  denominacao: string;
+  descricao: string;
+  atualizadoEm: Date;
+  catalogoId: number;
+  catalogoNumero?: number | null;
+  catalogoNome?: string | null;
+  catalogoCpfCnpj?: string | null;
+  catalogoAmbiente?: 'HOMOLOGACAO' | 'PRODUCAO' | null;
+  codigosInternos: string[];
+}
+
+export interface ListarProdutosPaginacao {
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ListarProdutosResponse {
+  items: ProdutoListItemDTO[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export class ProdutoService {
   private atributosService = new AtributoLegacyService();
-  async listarTodos(filtros: ListarProdutosFiltro = {}, superUserId: number) {
+  async listarTodos(
+    filtros: ListarProdutosFiltro = {},
+    superUserId: number,
+    paginacao: ListarProdutosPaginacao = {}
+  ): Promise<ListarProdutosResponse> {
     const where: Prisma.ProdutoWhereInput = {
       catalogo: { superUserId }
     };
@@ -61,32 +95,70 @@ export class ProdutoService {
     if (filtros.situacao) where.situacao = filtros.situacao;
     if (filtros.catalogoId) where.catalogoId = filtros.catalogoId;
 
+    const page = Math.max(1, paginacao.page ?? 1);
+    const size = Math.max(1, Math.min(paginacao.pageSize ?? 20, 100));
+
+    const total = await catalogoPrisma.produto.count({ where });
+    const totalPages = Math.max(1, Math.ceil(total / size));
+    const paginaAjustada = Math.min(page, totalPages);
+    const skip = (paginaAjustada - 1) * size;
+
     const produtos = await catalogoPrisma.produto.findMany({
       where,
-      include: {
-        atributos: true,
-        catalogo: true,
-        codigosInternos: true,
-        operadoresEstrangeiros: { include: { pais: true, operadorEstrangeiro: true } }
+      orderBy: { atualizadoEm: 'desc' },
+      skip,
+      take: size,
+      select: {
+        id: true,
+        codigo: true,
+        ncmCodigo: true,
+        status: true,
+        situacao: true,
+        modalidade: true,
+        denominacao: true,
+        descricao: true,
+        atualizadoEm: true,
+        catalogoId: true,
+        catalogo: {
+          select: {
+            numero: true,
+            nome: true,
+            cpf_cnpj: true,
+            ambiente: true
+          }
+        },
+        codigosInternos: {
+          select: {
+            codigo: true
+          }
+        }
       }
     });
 
-    return produtos.map(p => ({
-      ...p,
-      numero: p.numero,
-      codigosInternos: p.codigosInternos.map(ci => ci.codigo),
-      operadoresEstrangeiros: p.operadoresEstrangeiros.map(o => ({
-        id: o.id,
-        paisCodigo: o.paisCodigo,
-        paisNome: o.pais.nome,
-        conhecido: o.conhecido,
-        operadorEstrangeiroId: o.operadorEstrangeiroId
-      })),
+    const items: ProdutoListItemDTO[] = produtos.map(p => ({
+      id: p.id,
+      codigo: p.codigo ?? null,
+      ncmCodigo: p.ncmCodigo,
+      status: p.status,
+      situacao: p.situacao,
+      modalidade: p.modalidade ?? null,
+      denominacao: p.denominacao,
+      descricao: p.descricao,
+      atualizadoEm: p.atualizadoEm,
+      catalogoId: p.catalogoId,
       catalogoNumero: p.catalogo?.numero,
       catalogoNome: p.catalogo?.nome,
       catalogoCpfCnpj: p.catalogo?.cpf_cnpj,
       catalogoAmbiente: p.catalogo?.ambiente,
+      codigosInternos: p.codigosInternos.map(ci => ci.codigo)
     }));
+
+    return {
+      items,
+      total,
+      page: paginaAjustada,
+      pageSize: size
+    };
   }
 
   async buscarPorId(id: number, superUserId: number) {

@@ -13,22 +13,30 @@ import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 
 interface Produto {
   id: number;
-  codigo: string;
+  codigo?: string | null;
   ncmCodigo: string;
   status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
   atualizadoEm: string;
-  catalogoNumero?: number;
-  catalogoNome?: string;
-  catalogoCpfCnpj?: string;
+  catalogoNumero?: number | null;
+  catalogoNome?: string | null;
+  catalogoCpfCnpj?: string | null;
   denominacao?: string;
   descricao?: string;
   codigosInternos?: string[];
-  situacao?: string;
-  modalidade?: 'IMPORTACAO' | 'EXPORTACAO';
+  situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO' | string;
+  modalidade?: 'IMPORTACAO' | 'EXPORTACAO' | null;
+}
+
+interface ProdutosPainelResponse {
+  items: Produto[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export function ListaProdutosPainel() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [totalProdutos, setTotalProdutos] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
@@ -51,6 +59,8 @@ export function ListaProdutosPainel() {
   const router = useRouter();
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
+  const pageSize = 5;
+  const page = 1;
 
   useEffect(() => {
     carregarProdutos();
@@ -59,9 +69,11 @@ export function ListaProdutosPainel() {
   async function carregarProdutos() {
     try {
       setLoading(true);
-      const params = workingCatalog?.id ? { catalogoId: workingCatalog.id } : undefined;
-      const response = await api.get('/produtos', { params });
-      setProdutos(response.data);
+      const params: Record<string, number> = { page, pageSize };
+      if (workingCatalog?.id) params.catalogoId = workingCatalog.id;
+      const response = await api.get<ProdutosPainelResponse>('/produtos', { params });
+      setProdutos(response.data.items);
+      setTotalProdutos(response.data.total);
       setError(null);
     } catch (err) {
       console.error('Erro ao carregar produtos:', err);
@@ -242,107 +254,113 @@ export function ListaProdutosPainel() {
             <p className="text-gray-400 mb-4">Nenhum produto encontrado.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
-                <tr>
-                  <th className="w-16 px-4 py-3 text-center">Ações</th>
-                  <th className="px-4 py-3">Nº CATÁLOGO</th>
-                  <th className="px-4 py-3">Catálogo</th>
-                  <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3">Cód. Int. (SKU/PN)</th>
-                  <th className="px-4 py-3">NCM</th>
-                  <th className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1">
-                      Status
-                      <LegendInfoModal
-                        title="Status dos Produtos"
-                        legend={produtoStatusLegend}
-                        triggerAriaLabel="Ver detalhes sobre os status dos produtos"
-                      />
-                    </span>
-                  </th>
-                  <th className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1">
-                      Situação
-                      <LegendInfoModal
-                        title="Situação dos Produtos"
-                        legend={produtoSituacaoLegend}
-                        triggerAriaLabel="Ver detalhes sobre as situações dos produtos"
-                      />
-                    </span>
-                  </th>
-                  <th className="px-4 py-3">Última Alteração</th>
-                </tr>
-              </thead>
-              <tbody>
-                {produtosFiltrados.map((produto) => (
-                  <tr
-                    key={produto.id}
-                    className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors"
-                  >
-                    <td className="px-4 py-3 flex gap-2">
-                      <button
-                        className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
-                        onClick={() => editarProduto(produto.id)}
-                        title="Editar produto"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        className="p-1 text-gray-300 hover:text-red-500 transition-colors"
-                        onClick={() => confirmarExclusao(produto.id)}
-                        title="Excluir produto"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">{produto.catalogoNumero ?? '-'}</td>
-                    <td className="px-4 py-3">{produto.catalogoNome ?? '-'}</td>
-                    <td className="px-4 py-3">{produto.denominacao ?? produto.codigo ?? '-'}</td>
-                    <td className="px-4 py-3">
-                      {produto.codigosInternos && produto.codigosInternos.length > 0 ? (
-                        <div className="flex items-center gap-1">
-                          <span className="truncate max-w-[150px]">
-                            {produto.codigosInternos.join(', ')}
-                          </span>
-                          {produto.codigosInternos.join(', ').length > 20 && (
-                            <Hint text={produto.codigosInternos.join(', ')} />
-                          )}
-                        </div>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td className="px-4 py-3">{formatarNCM(produto.ncmCodigo)}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClasses(
-                          produto.status
-                        )}`}
-                      >
-                        {produto.status}
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
+                  <tr>
+                    <th className="w-16 px-4 py-3 text-center">Ações</th>
+                    <th className="px-4 py-3">Nº CATÁLOGO</th>
+                    <th className="px-4 py-3">Catálogo</th>
+                    <th className="px-4 py-3">Nome</th>
+                    <th className="px-4 py-3">Cód. Int. (SKU/PN)</th>
+                    <th className="px-4 py-3">NCM</th>
+                    <th className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1">
+                        Status
+                        <LegendInfoModal
+                          title="Status dos Produtos"
+                          legend={produtoStatusLegend}
+                          triggerAriaLabel="Ver detalhes sobre os status dos produtos"
+                        />
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {produto.situacao ? (
+                    </th>
+                    <th className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1">
+                        Situação
+                        <LegendInfoModal
+                          title="Situação dos Produtos"
+                          legend={produtoSituacaoLegend}
+                          triggerAriaLabel="Ver detalhes sobre as situações dos produtos"
+                        />
+                      </span>
+                    </th>
+                    <th className="px-4 py-3">Última Alteração</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {produtosFiltrados.map((produto) => (
+                    <tr
+                      key={produto.id}
+                      className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors"
+                    >
+                      <td className="px-4 py-3 flex gap-2">
+                        <button
+                          className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
+                          onClick={() => editarProduto(produto.id)}
+                          title="Editar produto"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                          onClick={() => confirmarExclusao(produto.id)}
+                          title="Excluir produto"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">{produto.catalogoNumero ?? '-'}</td>
+                      <td className="px-4 py-3">{produto.catalogoNome ?? '-'}</td>
+                      <td className="px-4 py-3">{produto.denominacao ?? produto.codigo ?? '-'}</td>
+                      <td className="px-4 py-3">
+                        {produto.codigosInternos && produto.codigosInternos.length > 0 ? (
+                          <div className="flex items-center gap-1">
+                            <span className="truncate max-w-[150px]">
+                              {produto.codigosInternos.join(', ')}
+                            </span>
+                            {produto.codigosInternos.join(', ').length > 20 && (
+                              <Hint text={produto.codigosInternos.join(', ')} />
+                            )}
+                          </div>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                      <td className="px-4 py-3">{formatarNCM(produto.ncmCodigo)}</td>
+                      <td className="px-4 py-3">
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getSituacaoClasses(
-                            produto.situacao
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClasses(
+                            produto.status
                           )}`}
                         >
-                          {produto.situacao}
+                          {produto.status}
                         </span>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td className="px-4 py-3">{formatarData(produto.atualizadoEm)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {produto.situacao ? (
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${getSituacaoClasses(
+                              produto.situacao
+                            )}`}
+                          >
+                            {produto.situacao}
+                          </span>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                      <td className="px-4 py-3">{formatarData(produto.atualizadoEm)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 text-sm text-gray-400">
+              Exibindo {produtosFiltrados.length} de {totalProdutos} produtos (primeira página)
+            </div>
+          </>
         )}
       </Card>
 
