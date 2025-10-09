@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Hint } from '@/components/ui/Hint';
@@ -62,14 +62,14 @@ export function ListaProdutosPainel() {
   const pageSize = 5;
   const page = 1;
 
-  useEffect(() => {
-    carregarProdutos();
-  }, [workingCatalog]);
-
-  async function carregarProdutos() {
+  const carregarProdutos = useCallback(async () => {
     try {
       setLoading(true);
-      const params: Record<string, number> = { page, pageSize };
+      const params: Record<string, string | number> = { page, pageSize };
+      if (busca.trim()) params.busca = busca.trim();
+      if (filtros.status.length > 0) params.status = filtros.status.join(',');
+      if (filtros.situacoes.length > 0)
+        params.situacao = filtros.situacoes.join(',');
       if (workingCatalog?.id) params.catalogoId = workingCatalog.id;
       const response = await api.get<ProdutosPainelResponse>('/produtos', { params });
       setProdutos(response.data.items);
@@ -81,7 +81,18 @@ export function ListaProdutosPainel() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [
+    page,
+    pageSize,
+    busca,
+    filtros.status,
+    filtros.situacoes,
+    workingCatalog?.id
+  ]);
+
+  useEffect(() => {
+    carregarProdutos();
+  }, [carregarProdutos]);
 
   function formatarData(dataString: string) {
     const data = new Date(dataString);
@@ -143,20 +154,6 @@ export function ListaProdutosPainel() {
         return modalidade;
     }
   }
-
-  const produtosFiltrados = produtos.filter(p => {
-    const termo = busca.toLowerCase();
-    const matchBusca =
-      (p.denominacao && p.denominacao.toLowerCase().includes(termo)) ||
-      (p.catalogoNome && p.catalogoNome.toLowerCase().includes(termo)) ||
-      (p.ncmCodigo && p.ncmCodigo.toLowerCase().includes(termo));
-
-    const matchStatus =
-      filtros.status.length === 0 || filtros.status.includes(p.status);
-    const matchSituacao = filtros.situacoes.length === 0 || (p.situacao ? filtros.situacoes.includes(p.situacao as any) : true);
-
-    return matchBusca && matchStatus && matchSituacao;
-  });
 
   function editarProduto(id: number) {
     router.push(`/produtos/${id}`);
@@ -249,7 +246,7 @@ export function ListaProdutosPainel() {
           <div className="text-center py-10">
             <p className="text-gray-400">Carregando produtos...</p>
           </div>
-        ) : produtosFiltrados.length === 0 ? (
+        ) : produtos.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-gray-400 mb-4">Nenhum produto encontrado.</p>
           </div>
@@ -288,8 +285,8 @@ export function ListaProdutosPainel() {
                     <th className="px-4 py-3">Última Alteração</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {produtosFiltrados.map((produto) => (
+                <tbody className="divide-y divide-gray-800 text-gray-300">
+                  {produtos.map((produto) => (
                     <tr
                       key={produto.id}
                       className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors"
@@ -358,7 +355,7 @@ export function ListaProdutosPainel() {
             </div>
 
             <div className="mt-4 text-sm text-gray-400">
-              Exibindo {produtosFiltrados.length} de {totalProdutos} produtos (primeira página)
+              Exibindo {produtos.length} de {totalProdutos} produtos (primeira página)
             </div>
           </>
         )}

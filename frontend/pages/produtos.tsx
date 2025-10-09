@@ -1,5 +1,5 @@
 // frontend/pages/produtos.tsx - listagem de produtos
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -95,6 +95,45 @@ export default function ProdutosPage() {
     carregarCatalogos();
   }, []);
 
+  const carregarProdutos = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params: Record<string, string | number> = {
+        page,
+        pageSize
+      };
+      if (busca.trim()) params.busca = busca.trim();
+      if (filtros.status.length > 0) params.status = filtros.status.join(',');
+      if (filtros.situacoes.length > 0) params.situacao = filtros.situacoes.join(',');
+      if (filtros.catalogoId) params.catalogoId = filtros.catalogoId;
+
+      const response = await api.get<ProdutosResponse>('/produtos', { params });
+      const { items, total, page: paginaResposta, pageSize: tamanhoResposta } = response.data;
+      setProdutos(items);
+      setTotalProdutos(total);
+      if (paginaResposta && paginaResposta !== page) {
+        setPage(paginaResposta);
+      }
+      if (tamanhoResposta && tamanhoResposta !== pageSize) {
+        setPageSize(tamanhoResposta);
+      }
+      setError(null);
+    } catch (err) {
+      console.error('Erro ao carregar produtos:', err);
+      setError('Não foi possível carregar os produtos.');
+    } finally {
+      setLoading(false);
+      setHasLoadedOnce(true);
+    }
+  }, [
+    page,
+    pageSize,
+    busca,
+    filtros.status,
+    filtros.situacoes,
+    filtros.catalogoId
+  ]);
+
   useEffect(() => {
     if (workingCatalog) {
       if (filtros.catalogoId !== String(workingCatalog.id)) {
@@ -124,41 +163,9 @@ export default function ProdutosPage() {
     filtros.catalogoId,
     workingCatalog,
     page,
-    pageSize
+    pageSize,
+    carregarProdutos
   ]);
-
-
-  async function carregarProdutos() {
-    try {
-      setLoading(true);
-      const params: Record<string, string | number> = {
-        page,
-        pageSize
-      };
-      if (filtros.status.length === 1) params.status = filtros.status[0];
-      // Enviar somente se houver exatamente 1 situação selecionada
-      if (filtros.situacoes.length === 1) params.situacao = filtros.situacoes[0];
-      if (filtros.catalogoId) params.catalogoId = filtros.catalogoId;
-
-      const response = await api.get<ProdutosResponse>('/produtos', { params });
-      const { items, total, page: paginaResposta, pageSize: tamanhoResposta } = response.data;
-      setProdutos(items);
-      setTotalProdutos(total);
-      if (paginaResposta && paginaResposta !== page) {
-        setPage(paginaResposta);
-      }
-      if (tamanhoResposta && tamanhoResposta !== pageSize) {
-        setPageSize(tamanhoResposta);
-      }
-      setError(null);
-    } catch (err) {
-      console.error('Erro ao carregar produtos:', err);
-      setError('Não foi possível carregar os produtos.');
-    } finally {
-      setLoading(false);
-      setHasLoadedOnce(true);
-    }
-  }
 
   function formatarData(dataString: string) {
     const data = new Date(dataString);
@@ -205,21 +212,6 @@ export default function ProdutosPage() {
         return modalidade;
     }
   }
-
-  const produtosFiltrados = produtos.filter(p => {
-    const termo = busca.toLowerCase();
-    const matchBusca =
-      (p.denominacao && p.denominacao.toLowerCase().includes(termo)) ||
-      (p.codigosInternos && p.codigosInternos.some(c => c.toLowerCase().includes(termo)));
-
-    const matchStatus =
-      filtros.status.length === 0 || filtros.status.includes(p.status);
-
-    const matchSituacao =
-      filtros.situacoes.length === 0 || (p.situacao ? filtros.situacoes.includes(p.situacao as any) : true);
-
-    return matchBusca && matchStatus && matchSituacao;
-  });
 
   const podeVoltar = page > 1;
   const podeAvancar = page < totalPages;
@@ -353,7 +345,10 @@ export default function ProdutosPage() {
               type="text"
               className="pl-10 pr-4 py-2 w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
               value={busca}
-              onChange={e => setBusca(e.target.value)}
+              onChange={e => {
+                setBusca(e.target.value);
+                setPage(1);
+              }}
               aria-label="Buscar por nome ou código"
             />
           </div>
@@ -417,7 +412,7 @@ export default function ProdutosPage() {
             placeholder="Situação"
           />
           <div className="text-sm text-gray-400 self-center text-right">
-            Página {paginaAtual} de {totalPages} — Exibindo {produtosFiltrados.length} de {totalProdutos} produtos
+            Página {paginaAtual} de {totalPages} — Exibindo {produtos.length} de {totalProdutos} produtos
           </div>
         </div>
         {loading && hasLoadedOnce && (
@@ -433,7 +428,7 @@ export default function ProdutosPage() {
       )}
 
       <Card>
-        {produtosFiltrados.length === 0 ? (
+        {produtos.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-gray-400 mb-4">Nenhum produto encontrado.</p>
             <Button
@@ -480,8 +475,8 @@ export default function ProdutosPage() {
                     <th className="px-4 py-3">Ambiente</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {produtosFiltrados.map((produto) => (
+                <tbody className="divide-y divide-gray-800 text-gray-300">
+                  {produtos.map((produto) => (
                     <tr
                       key={produto.id}
                       className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors"

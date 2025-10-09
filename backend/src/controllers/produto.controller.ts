@@ -8,23 +8,50 @@ const produtoService = new ProdutoService();
 
 export async function listarProdutos(req: Request, res: Response) {
   try {
+    const statusPermitidos = [
+      'PENDENTE',
+      'APROVADO',
+      'PROCESSANDO',
+      'TRANSMITIDO',
+      'ERRO'
+    ] as const;
+    const situacoesPermitidas = ['RASCUNHO', 'ATIVADO', 'DESATIVADO'] as const;
+
+    const statusQuery = req.query.status;
+    const situacaoQuery = req.query.situacao;
+
+    const paraArray = (valor: unknown): string[] => {
+      if (Array.isArray(valor)) {
+        return valor
+          .map(item => (typeof item === 'string' ? item : null))
+          .filter((item): item is string => Boolean(item));
+      }
+      if (typeof valor === 'string') {
+        return valor.split(',');
+      }
+      return [];
+    };
+
+    const status = paraArray(statusQuery)
+      .map(valor => valor.trim())
+      .filter((valor): valor is (typeof statusPermitidos)[number] =>
+        statusPermitidos.includes(valor as (typeof statusPermitidos)[number])
+      );
+
+    const situacoes = paraArray(situacaoQuery)
+      .map(valor => valor.trim())
+      .filter((valor): valor is (typeof situacoesPermitidas)[number] =>
+        situacoesPermitidas.includes(valor as (typeof situacoesPermitidas)[number])
+      );
+
     const filtros = {
-      status: req.query.status as
-        | 'PENDENTE'
-        | 'APROVADO'
-        | 'PROCESSANDO'
-        | 'TRANSMITIDO'
-        | 'ERRO'
-        | undefined,
-      situacao: req.query.situacao as
-        | 'RASCUNHO'
-        | 'ATIVADO'
-        | 'DESATIVADO'
-        | undefined,
-      ncm: req.query.ncm as string | undefined,
+      status: status.length > 0 ? status : undefined,
+      situacoes: situacoes.length > 0 ? situacoes : undefined,
+      ncm: typeof req.query.ncm === 'string' ? req.query.ncm : undefined,
       catalogoId: req.query.catalogoId
         ? Number(req.query.catalogoId)
-        : undefined
+        : undefined,
+      busca: typeof req.query.busca === 'string' ? req.query.busca : undefined
     };
     const pagina = Number(req.query.page);
     const tamanhoPagina = Number(req.query.pageSize);
