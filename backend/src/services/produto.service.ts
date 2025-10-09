@@ -44,10 +44,11 @@ export interface CloneProdutoDTO {
 }
 
 export interface ListarProdutosFiltro {
-  status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
-  situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
+  status?: Array<'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO'>;
+  situacoes?: Array<'RASCUNHO' | 'ATIVADO' | 'DESATIVADO'>;
   ncm?: string;
   catalogoId?: number;
+  busca?: string;
 }
 
 export interface ProdutoListItemDTO {
@@ -90,10 +91,35 @@ export class ProdutoService {
     const where: Prisma.ProdutoWhereInput = {
       catalogo: { superUserId }
     };
-    if (filtros.status) where.status = filtros.status;
+    if (filtros.status?.length) {
+      where.status = { in: filtros.status };
+    }
     if (filtros.ncm) where.ncmCodigo = filtros.ncm;
-    if (filtros.situacao) where.situacao = filtros.situacao;
+    if (filtros.situacoes?.length) {
+      where.situacao = { in: filtros.situacoes };
+    }
     if (filtros.catalogoId) where.catalogoId = filtros.catalogoId;
+
+    if (filtros.busca?.trim()) {
+      const termo = filtros.busca.trim();
+      const like = {
+        contains: termo,
+        mode: 'insensitive' as const
+      };
+
+      where.OR = [
+        { denominacao: like },
+        { descricao: like },
+        { codigo: like },
+        {
+          codigosInternos: {
+            some: {
+              codigo: like
+            }
+          }
+        }
+      ];
+    }
 
     const page = Math.max(1, paginacao.page ?? 1);
     const size = Math.max(1, Math.min(paginacao.pageSize ?? 20, 100));
