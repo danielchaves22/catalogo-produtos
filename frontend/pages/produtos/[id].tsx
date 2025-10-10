@@ -624,8 +624,11 @@ export default function ProdutoPage() {
     if (!catalogoId) {
       newErrors.catalogoId = 'Catálogo é obrigatório';
     }
-    if (ncm.length !== 8) {
+    if (!isNew && ncm.length !== 8) {
       newErrors.ncm = 'NCM é obrigatório';
+    }
+    if (isNew && ncm.length > 0 && ncm.length !== 8) {
+      newErrors.ncm = 'Informe uma NCM válida com 8 dígitos ou deixe o campo em branco';
     }
     if (!denominacao.trim()) {
       newErrors.denominacao = 'Nome do produto é obrigatório';
@@ -654,7 +657,7 @@ export default function ProdutoPage() {
       const url = isNew ? '/produtos' : `/produtos/${id}`;
       const metodo = isNew ? api.post : api.put;
       await metodo(url, {
-        ncmCodigo: ncm,
+        ncmCodigo: ncm || undefined,
         modalidade,
         catalogoId: catalogoId ? Number(catalogoId) : undefined,
         denominacao,
@@ -783,7 +786,6 @@ export default function ProdutoPage() {
                       onChange={val => handleNcmChange(val)}
                       className="mb-0"
                       error={errors.ncm}
-                      required
                       onFocus={() => {
                         if (ncm.length >= 4 && ncm.length < 8 && ncmSugestoes.length > 0) {
                           setMostrarSugestoesNcm(true);
