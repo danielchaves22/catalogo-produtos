@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import {
   FileText, PieChart, Briefcase, Users,
-  ChevronLeft, ChevronRight, User, Key, UserCog, Mail, Settings
+  ChevronLeft, ChevronRight, User, Key, UserCog, Mail, MoreHorizontal
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -102,7 +102,7 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       ],
     },
     {
-      icon: <Settings size={20} />,
+      icon: <MoreHorizontal size={20} />,
       label: 'Automação',
       subItems: [
         { label: 'Automação', hideWhenExpanded: true },
