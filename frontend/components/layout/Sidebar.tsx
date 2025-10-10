@@ -14,6 +14,7 @@ type SubMenuItem = {
   href?: string;
   isHeader?: boolean; // Para identificar itens que atuam como categorias
   hideWhenExpanded?: boolean; // Controla visibilidade no modo expandido
+  matchPaths?: string[]; // Lista de rotas que devem ativar o item
 };
 
 // Tipo para item de menu
@@ -91,7 +92,12 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       icon: <Briefcase size={20} />,
       label: 'Produtos',
       subItems: [
-        { label: 'Produtos', href: '/produtos', hideWhenExpanded: true  },
+        {
+          label: 'Produtos',
+          href: '/produtos',
+          hideWhenExpanded: true,
+          matchPaths: ['/produtos', '/produtos/[id]', '/produtos/novo'],
+        },
       ],
     },
     {
@@ -107,7 +113,15 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       subItems: [
         { label: 'Automação', hideWhenExpanded: true },
         { label: 'Importar Produto', href: '/automacao/importar-produto' },
-        { label: 'Definir Valor de Atributo Padrão', href: '/produtos/valores-padrao' },
+        {
+          label: 'Definir Valor de Atributo Padrão',
+          href: '/produtos/valores-padrao',
+          matchPaths: [
+            '/produtos/valores-padrao',
+            '/produtos/valores-padrao/novo',
+            '/produtos/valores-padrao/[id]',
+          ],
+        },
         // { label: 'Preencher Atributos em Massa', href: '/automacao/preencher-atributos-em-massa' },
         // { label: 'Ajuste de Produtos em Massa', href: '/automacao/ajuste-de-produtos-em-massa' },
       ],
@@ -227,17 +241,23 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
             
             // Verificar se algum dos subitens corresponde à rota atual
             const isActive = menuItem.subItems.some(subItem => {
-              if (!subItem.href) return false;
-              
-              // Verifica rota exata
-              if (router.pathname === subItem.href) return true;
-              
-              // Verifica se é uma sub-rota (ex: /operadores-estrangeiros/novo)
-              if (subItem.href !== '/' && router.pathname.startsWith(subItem.href + '/')) {
-                return true;
-              }
-              
-              return false;
+              const pathsToMatch = subItem.matchPaths ?? (subItem.href ? [subItem.href] : []);
+
+              if (pathsToMatch.length === 0) return false;
+
+              return pathsToMatch.some((path) => {
+                if (!path) return false;
+
+                if (router.pathname === path) {
+                  return true;
+                }
+
+                if (!subItem.matchPaths && path !== '/' && router.pathname.startsWith(path + '/')) {
+                  return true;
+                }
+
+                return false;
+              });
             });
 
             return (
