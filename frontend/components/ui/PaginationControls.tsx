@@ -10,6 +10,7 @@ interface PaginationControlsProps {
   onPageSizeChange?: (pageSize: number) => void;
   pageSizeOptions?: number[];
   loading?: boolean;
+  displayLabel?: string;
 }
 
 export function PaginationControls({
@@ -19,7 +20,8 @@ export function PaginationControls({
   onPageChange,
   onPageSizeChange,
   pageSizeOptions,
-  loading = false
+  loading = false,
+  displayLabel
 }: PaginationControlsProps) {
   const totalPages = Math.max(1, Math.ceil(totalItems / Math.max(pageSize, 1)));
   const paginaAtual = Math.min(page, totalPages);
@@ -35,7 +37,7 @@ export function PaginationControls({
   return (
     <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       {onPageSizeChange && pageSizeOptions && pageSizeOptions.length > 0 ? (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label htmlFor="pageSize" className="text-sm text-gray-400">
             Itens por página
           </label>
@@ -51,9 +53,20 @@ export function PaginationControls({
               </option>
             ))}
           </select>
+          {displayLabel && (
+            <span className="text-sm text-gray-400 whitespace-nowrap">
+              {displayLabel}
+            </span>
+          )}
         </div>
       ) : (
-        <div className="flex-1" />
+        <div className="flex flex-1 items-center justify-end">
+          {displayLabel && (
+            <span className="text-sm text-gray-400 whitespace-nowrap">
+              {displayLabel}
+            </span>
+          )}
+        </div>
       )}
 
       <div className="flex items-center gap-2">
