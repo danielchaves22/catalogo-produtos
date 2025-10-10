@@ -627,9 +627,6 @@ export default function ProdutoPage() {
     if (!isNew && ncm.length !== 8) {
       newErrors.ncm = 'NCM é obrigatório';
     }
-    if (isNew && ncm.length > 0 && ncm.length !== 8) {
-      newErrors.ncm = 'Informe uma NCM válida com 8 dígitos ou deixe o campo em branco';
-    }
     if (!denominacao.trim()) {
       newErrors.denominacao = 'Nome do produto é obrigatório';
     }
