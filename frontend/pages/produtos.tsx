@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { AlertCircle, Plus, Search, Trash2, Pencil, Copy, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, Plus, Search, Trash2, Pencil, Copy, X } from 'lucide-react';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Hint } from '@/components/ui/Hint';
 import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
@@ -16,6 +16,7 @@ import { useRouter } from 'next/router';
 import { useToast } from '@/components/ui/ToastContext';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { Input } from '@/components/ui/Input';
+import { PaginationControls } from '@/components/ui/PaginationControls';
 
 interface Produto {
   id: number;
@@ -212,9 +213,6 @@ export default function ProdutosPage() {
         return modalidade;
     }
   }
-
-  const podeVoltar = page > 1;
-  const podeAvancar = page < totalPages;
 
   if (loading && !hasLoadedOnce) {
     return (
@@ -561,54 +559,18 @@ export default function ProdutosPage() {
               </table>
             </div>
 
-            <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-3">
-                <label htmlFor="pageSize" className="text-sm text-gray-400">
-                  Itens por página
-                </label>
-                <select
-                  id="pageSize"
-                  className="bg-[#1e2126] border border-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
-                  value={pageSize}
-                  onChange={event => {
-                    setPageSize(Number(event.target.value));
-                    setPage(1);
-                  }}
-                >
-                  {pageSizeOptions.map(option => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="inline-flex items-center gap-2"
-                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                  disabled={!podeVoltar || loading}
-                >
-                  <ChevronLeft size={16} />
-                  <span>Anterior</span>
-                </Button>
-                <span className="text-sm text-gray-400">
-                  Página {paginaAtual} de {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="inline-flex items-center gap-2"
-                  onClick={() => setPage(prev => prev + 1)}
-                  disabled={!podeAvancar || loading}
-                >
-                  <span>Próxima</span>
-                  <ChevronRight size={16} />
-                </Button>
-              </div>
-            </div>
+            <PaginationControls
+              page={paginaAtual}
+              pageSize={pageSize}
+              totalItems={totalProdutos}
+              onPageChange={novo => setPage(Math.max(1, Math.min(novo, totalPages)))}
+              onPageSizeChange={novo => {
+                setPageSize(novo);
+                setPage(1);
+              }}
+              pageSizeOptions={pageSizeOptions}
+              loading={loading}
+            />
           </>
         )}
       </Card>
