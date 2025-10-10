@@ -28,6 +28,8 @@ import { Hint } from '@/components/ui/Hint';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import useDebounce from '@/hooks/useDebounce';
 
+const DESCRICAO_MAX_LENGTH = 3650;
+
 interface AtributoEstrutura {
   codigo: string;
   nome: string;
@@ -880,6 +882,7 @@ export default function ProdutoPage() {
                               placeholder="Descrição do Produto"
                               rows={4}
                               value={descricao}
+                              maxLength={DESCRICAO_MAX_LENGTH}
                               onChange={e => {
                                 setDescricao(e.target.value);
                                 if (errors.descricao) {
@@ -895,7 +898,10 @@ export default function ProdutoPage() {
                             {errors.descricao && (
                               <p className="mt-1 text-sm text-red-400">{errors.descricao}</p>
                             )}
-                            <div className="mt-2">
+                            <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                              <span>
+                                {`${descricao.length.toLocaleString('pt-BR')} de ${DESCRICAO_MAX_LENGTH.toLocaleString('pt-BR')}`}
+                              </span>
                               <Button type="button" size="sm" onClick={() => setActiveTab('dinamicos')}>
                                 <BrainCog size={16} className="inline mr-2" /> Preencher Atributos
                               </Button>
