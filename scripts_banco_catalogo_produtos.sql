@@ -229,6 +229,29 @@ CREATE TABLE IF NOT EXISTS catalogo (
         INDEX idx_ncm_valores_padrao_super_user (super_user_id)
     );
 
+    CREATE TABLE IF NOT EXISTS ncm_valores_padrao_catalogo (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        ncm_valores_padrao_id INT UNSIGNED NOT NULL,
+        catalogo_id INT UNSIGNED NOT NULL,
+        criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uk_ncm_valores_padrao_catalogo (ncm_valores_padrao_id, catalogo_id),
+        INDEX idx_ncm_valores_padrao_catalogo_valor (ncm_valores_padrao_id),
+        INDEX idx_ncm_valores_padrao_catalogo_catalogo (catalogo_id),
+        CONSTRAINT fk_ncm_valores_padrao_catalogo_valor FOREIGN KEY (ncm_valores_padrao_id)
+            REFERENCES ncm_valores_padrao (id) ON DELETE CASCADE,
+        CONSTRAINT fk_ncm_valores_padrao_catalogo_catalogo FOREIGN KEY (catalogo_id)
+            REFERENCES catalogo (id) ON DELETE CASCADE
+    );
+
+    INSERT INTO ncm_valores_padrao_catalogo (ncm_valores_padrao_id, catalogo_id)
+    SELECT v.id, c.id
+    FROM ncm_valores_padrao v
+    JOIN catalogo c ON c.super_user_id = v.super_user_id
+    LEFT JOIN ncm_valores_padrao_catalogo rel
+        ON rel.ncm_valores_padrao_id = v.id AND rel.catalogo_id = c.id
+    WHERE rel.id IS NULL;
+
     CREATE TABLE IF NOT EXISTS codigo_interno_produto (
         id INT PRIMARY KEY AUTO_INCREMENT,
         produto_id INT NOT NULL,

@@ -44,6 +44,7 @@ interface NcmValorPadraoDetalhe {
   modalidade?: string | null;
   valoresJson: Record<string, string | string[]> | null;
   estruturaSnapshotJson?: AtributoEstrutura[];
+  catalogos: Array<{ id: number; nome: string; cpf_cnpj: string | null }>;
 }
 
 export default function ValoresPadraoNcmPage() {
@@ -63,6 +64,11 @@ export default function ValoresPadraoNcmPage() {
   const [loading, setLoading] = useState(false);
   const [loadingEstrutura, setLoadingEstrutura] = useState(false);
   const [estruturaCarregada, setEstruturaCarregada] = useState(false);
+  const [catalogoOptions, setCatalogoOptions] = useState<
+    Array<{ id: number; nome: string; cpf_cnpj: string | null }>
+  >([]);
+  const [catalogosSelecionados, setCatalogosSelecionados] = useState<number[]>([]);
+  const [erroCatalogos, setErroCatalogos] = useState<string | null>(null);
   const [ncmSugestoes, setNcmSugestoes] = useState<Array<{ codigo: string; descricao: string | null }>>([]);
   const [mostrarSugestoesNcm, setMostrarSugestoesNcm] = useState(false);
   const [carregandoSugestoesNcm, setCarregandoSugestoesNcm] = useState(false);
@@ -80,6 +86,22 @@ export default function ValoresPadraoNcmPage() {
     coletar(estrutura);
     return map;
   }, [estrutura]);
+
+  useEffect(() => {
+    async function carregarCatalogosDisponiveis() {
+      try {
+        const resposta = await api.get<
+          Array<{ id: number; nome: string; cpf_cnpj: string | null }>
+        >('/catalogos');
+        setCatalogoOptions(resposta.data || []);
+      } catch (error) {
+        console.error('Erro ao carregar catálogos:', error);
+        addToast('Erro ao carregar catálogos', 'error');
+      }
+    }
+
+    carregarCatalogosDisponiveis();
+  }, [addToast]);
 
   useEffect(() => {
     if (!isModoEdicao || typeof id !== 'string') return;
@@ -207,6 +229,8 @@ export default function ValoresPadraoNcmPage() {
       setNcm(registro.ncmCodigo);
       const modalidadeRegistro = (registro.modalidade || 'IMPORTACAO') as 'IMPORTACAO' | 'EXPORTACAO';
       setModalidade(modalidadeRegistro);
+      setCatalogosSelecionados(registro.catalogos?.map(item => item.id) || []);
+      setErroCatalogos(null);
       const valoresIniciais = (registro.valoresJson || {}) as Record<string, string | string[]>;
       await carregarEstrutura(registro.ncmCodigo, modalidadeRegistro, valoresIniciais);
       setLoading(false);
@@ -442,6 +466,12 @@ export default function ValoresPadraoNcmPage() {
       return;
     }
 
+    if (catalogosSelecionados.length === 0) {
+      setErroCatalogos('Selecione ao menos um catálogo.');
+      addToast('Selecione ao menos um catálogo para aplicar os valores padrão.', 'error');
+      return;
+    }
+
     if (!estruturaCarregada) {
       setErroFormulario('Carregue os atributos da NCM antes de salvar.');
       addToast('Carregue os atributos da NCM antes de salvar.', 'error');
@@ -450,10 +480,12 @@ export default function ValoresPadraoNcmPage() {
 
     try {
       setErroFormulario(null);
+      setErroCatalogos(null);
       setLoading(true);
       const payloadBase = {
         valoresAtributos: valores,
-        estruturaSnapshot: estrutura
+        estruturaSnapshot: estrutura,
+        catalogoIds: catalogosSelecionados
       };
 
       if (isNew) {
@@ -522,7 +554,29 @@ export default function ValoresPadraoNcmPage() {
       </div>
 
       <Card className="mb-6 overflow-visible">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-[9rem_11rem_10rem_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[9rem_11rem_10rem_minmax(0,1fr)] md:items-end">
+          <div className="md:col-span-4">
+            <MultiSelect
+              label="Catálogos aplicáveis"
+              required
+              options={catalogoOptions.map(item => ({
+                value: String(item.id),
+                label: item.nome
+              }))}
+              values={catalogosSelecionados.map(String)}
+              onChange={valoresSelecionados => {
+                const ids = valoresSelecionados
+                  .map(valor => Number(valor))
+                  .filter(numero => !Number.isNaN(numero));
+                setCatalogosSelecionados(ids);
+                if (ids.length > 0) {
+                  setErroCatalogos(null);
+                }
+              }}
+              error={erroCatalogos ?? undefined}
+              placeholder="Selecione os catálogos"
+            />
+          </div>
           <div className="relative">
             <MaskedInput
               label="NCM"

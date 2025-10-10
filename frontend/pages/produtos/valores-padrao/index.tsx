@@ -15,6 +15,7 @@ interface NcmValorPadrao {
   modalidade?: string | null;
   criadoEm: string;
   atualizadoEm: string;
+  catalogos: Array<{ id: number; nome: string; cpf_cnpj: string | null }>;
 }
 
 function formatarNCM(ncm: string) {
@@ -85,7 +86,10 @@ export default function ValoresPadraoNcmListaPage() {
     return registros.filter(item => {
       const ncmMatch = formatarNCM(item.ncmCodigo).replace(/\./g, '').includes(termo.replace(/\D/g, ''));
       const modalidadeMatch = (item.modalidade || '').toLowerCase().includes(termo);
-      return ncmMatch || modalidadeMatch;
+      const catalogoMatch = item.catalogos?.some(catalogo =>
+        catalogo.nome.toLowerCase().includes(termo)
+      );
+      return ncmMatch || modalidadeMatch || catalogoMatch;
     });
   }, [filtro, registros]);
 
@@ -158,6 +162,7 @@ export default function ValoresPadraoNcmListaPage() {
                   <th className="w-20 px-4 py-3 text-center">Ações</th>
                   <th className="px-4 py-3">NCM</th>
                   <th className="px-4 py-3">Modalidade</th>
+                  <th className="px-4 py-3">Catálogos</th>
                   <th className="px-4 py-3">Criado em</th>
                   <th className="px-4 py-3">Atualizado em</th>
                 </tr>
@@ -185,6 +190,11 @@ export default function ValoresPadraoNcmListaPage() {
                     </td>
                     <td className="px-4 py-3 font-medium text-white">{formatarNCM(item.ncmCodigo)}</td>
                     <td className="px-4 py-3 text-gray-200">{item.modalidade ? item.modalidade : '-'}</td>
+                    <td className="px-4 py-3 text-gray-200">
+                      {item.catalogos?.length
+                        ? item.catalogos.map(c => c.nome).join(', ')
+                        : '-'}
+                    </td>
                     <td className="px-4 py-3 text-gray-200">{formatarData(item.criadoEm)}</td>
                     <td className="px-4 py-3 text-gray-200">{formatarData(item.atualizadoEm)}</td>
                   </tr>

@@ -33,10 +33,15 @@ export async function buscarValorPadraoPorNcm(req: Request, res: Response) {
   try {
     const ncmCodigo = req.params.ncmCodigo;
     const modalidade = (req.query.modalidade as string | undefined) || undefined;
+    const catalogoId = req.query.catalogoId ? Number(req.query.catalogoId) : undefined;
+    if (catalogoId !== undefined && Number.isNaN(catalogoId)) {
+      return res.status(400).json({ error: 'Catálogo inválido informado na consulta' });
+    }
     const registro = await service.buscarPorNcm(
       ncmCodigo,
       req.user!.superUserId,
-      modalidade ?? null
+      modalidade ?? null,
+      catalogoId
     );
     if (!registro) {
       return res.status(404).json({ error: 'Valores padrão não encontrados para esta NCM e modalidade' });
@@ -55,7 +60,8 @@ export async function criarValorPadrao(req: Request, res: Response) {
         ncmCodigo: req.body.ncmCodigo,
         modalidade: req.body.modalidade,
         valoresAtributos: req.body.valoresAtributos,
-        estruturaSnapshot: req.body.estruturaSnapshot
+        estruturaSnapshot: req.body.estruturaSnapshot,
+        catalogoIds: req.body.catalogoIds
       },
       req.user!.superUserId,
       { nome: req.user!.name }
@@ -79,7 +85,8 @@ export async function atualizarValorPadrao(req: Request, res: Response) {
         ncmCodigo: req.body.ncmCodigo,
         modalidade: req.body.modalidade,
         valoresAtributos: req.body.valoresAtributos,
-        estruturaSnapshot: req.body.estruturaSnapshot
+        estruturaSnapshot: req.body.estruturaSnapshot,
+        catalogoIds: req.body.catalogoIds
       },
       req.user!.superUserId,
       { nome: req.user!.name }

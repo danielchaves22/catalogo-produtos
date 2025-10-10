@@ -7,6 +7,7 @@ export interface NcmValoresPadraoCreateInput {
   modalidade?: string | null;
   valoresAtributos?: Prisma.InputJsonValue;
   estruturaSnapshot?: Prisma.InputJsonValue;
+  catalogoIds: number[];
 }
 
 export interface NcmValoresPadraoUpdateInput {
@@ -14,29 +15,83 @@ export interface NcmValoresPadraoUpdateInput {
   modalidade?: string | null;
   valoresAtributos?: Prisma.InputJsonValue;
   estruturaSnapshot?: Prisma.InputJsonValue;
+  catalogoIds?: number[];
 }
 
 export class NcmValoresPadraoService {
   async listar(superUserId: number) {
-    return catalogoPrisma.ncmValoresPadrao.findMany({
+    const registros = await catalogoPrisma.ncmValoresPadrao.findMany({
       where: { superUserId },
+      include: {
+        catalogos: {
+          include: {
+            catalogo: {
+              select: { id: true, nome: true, cpf_cnpj: true }
+            }
+          }
+        }
+      },
       orderBy: [{ atualizadoEm: 'desc' }, { ncmCodigo: 'asc' }]
     });
+
+    return registros.map(registro => ({
+      ...registro,
+      catalogos: registro.catalogos.map(item => ({
+        id: item.catalogo.id,
+        nome: item.catalogo.nome,
+        cpf_cnpj: item.catalogo.cpf_cnpj
+      }))
+    }));
   }
 
   async buscarPorId(id: number, superUserId: number) {
-    return catalogoPrisma.ncmValoresPadrao.findFirst({
-      where: { id, superUserId }
+    const registro = await catalogoPrisma.ncmValoresPadrao.findFirst({
+      where: { id, superUserId },
+      include: {
+        catalogos: {
+          include: {
+            catalogo: {
+              select: { id: true, nome: true, cpf_cnpj: true }
+            }
+          }
+        }
+      }
     });
+
+    if (!registro) {
+      return null;
+    }
+
+    return {
+      ...registro,
+      catalogos: registro.catalogos.map(item => ({
+        id: item.catalogo.id,
+        nome: item.catalogo.nome,
+        cpf_cnpj: item.catalogo.cpf_cnpj
+      }))
+    };
   }
 
-  async buscarPorNcm(ncmCodigo: string, superUserId: number, modalidade?: string | null) {
+  async buscarPorNcm(
+    ncmCodigo: string,
+    superUserId: number,
+    modalidade?: string | null,
+    catalogoId?: number
+  ) {
     const modalidadeNormalizada = modalidade?.toUpperCase() ?? null;
     return catalogoPrisma.ncmValoresPadrao.findFirst({
       where: {
         ncmCodigo,
         superUserId,
-        modalidade: modalidadeNormalizada
+        modalidade: modalidadeNormalizada,
+        ...(catalogoId !== undefined
+          ? {
+              OR: [
+                { catalogos: { some: { catalogoId } } },
+                { catalogos: { none: {} } }
+              ]
+            }
+          : {})
       }
     });
   }
@@ -47,6 +102,12 @@ export class NcmValoresPadraoService {
     usuario?: { nome?: string }
   ) {
     const modalidadeNormalizada = dados.modalidade?.toUpperCase() ?? null;
+    if (!dados.catalogoIds?.length) {
+      throw new Error('Informe ao menos um catálogo para associar aos valores padrão');
+    }
+
+    const catalogoIdsValidados = await this.validarCatalogos(dados.catalogoIds, superUserId);
+
     const existente = await catalogoPrisma.ncmValoresPadrao.findFirst({
       where: {
         ncmCodigo: dados.ncmCodigo,
@@ -66,7 +127,10 @@ export class NcmValoresPadraoService {
         valoresJson: (dados.valoresAtributos ?? {}) as Prisma.InputJsonValue,
         estruturaSnapshotJson: dados.estruturaSnapshot ?? Prisma.JsonNull,
         criadoPor: usuario?.nome || null,
-        atualizadoPor: usuario?.nome || null
+        atualizadoPor: usuario?.nome || null,
+        catalogos: {
+          create: catalogoIdsValidados.map(catalogoId => ({ catalogoId }))
+        }
       }
     });
   }
@@ -78,7 +142,8 @@ export class NcmValoresPadraoService {
     usuario?: { nome?: string }
   ) {
     const existente = await catalogoPrisma.ncmValoresPadrao.findFirst({
-      where: { id, superUserId }
+      where: { id, superUserId },
+      include: { catalogos: true }
     });
     if (!existente) {
       throw new Error('Grupo de valores padrão não encontrado');
@@ -92,12 +157,28 @@ export class NcmValoresPadraoService {
       throw new Error('Não é permitido alterar a modalidade do valor padrão');
     }
 
+    let catalogoIdsValidados: number[] | undefined;
+    if (dados.catalogoIds) {
+      if (dados.catalogoIds.length === 0) {
+        throw new Error('Informe ao menos um catálogo para associar aos valores padrão');
+      }
+      catalogoIdsValidados = await this.validarCatalogos(dados.catalogoIds, superUserId);
+    }
+
     return catalogoPrisma.ncmValoresPadrao.update({
       where: { id },
       data: {
         valoresJson: (dados.valoresAtributos ?? {}) as Prisma.InputJsonValue,
         estruturaSnapshotJson: dados.estruturaSnapshot ?? Prisma.JsonNull,
-        atualizadoPor: usuario?.nome || null
+        atualizadoPor: usuario?.nome || null,
+        ...(dados.catalogoIds
+          ? {
+              catalogos: {
+                deleteMany: {},
+                create: catalogoIdsValidados!.map(catalogoId => ({ catalogoId }))
+              }
+            }
+          : {})
       }
     });
   }
@@ -111,5 +192,19 @@ export class NcmValoresPadraoService {
     }
 
     await catalogoPrisma.ncmValoresPadrao.delete({ where: { id } });
+  }
+
+  private async validarCatalogos(catalogoIds: number[], superUserId: number) {
+    const uniqueIds = Array.from(new Set(catalogoIds));
+    const catalogos = await catalogoPrisma.catalogo.findMany({
+      where: { id: { in: uniqueIds }, superUserId },
+      select: { id: true }
+    });
+
+    if (catalogos.length !== uniqueIds.length) {
+      throw new Error('Catálogo inválido para o superusuário informado');
+    }
+
+    return uniqueIds;
   }
 }
