@@ -42,7 +42,7 @@ export default function CatalogosPage() {
   async function carregarCatalogos() {
     try {
       setLoading(true);
-      const response = await api.get('/catalogos');
+      const response = await api.get('/catalogos', { params: { visiveis: true } });
       setCatalogos(response.data);
       setError(null);
     } catch (err) {

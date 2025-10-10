@@ -87,6 +87,19 @@ export function MultiSelect({
     .filter(o => values.includes(o.value))
     .map(o => o.label);
 
+  const allSelected = options.length > 0 && options.every(opt => values.includes(opt.value));
+  const hasSelection = values.length > 0;
+
+  const handleSelectAll = () => {
+    if (allSelected) return;
+    onChange(options.map(opt => opt.value));
+  };
+
+  const handleClearSelection = () => {
+    if (!hasSelection) return;
+    onChange([]);
+  };
+
   function renderButtonText() {
     if (selectedLabels.length === 0) return placeholder;
     if (selectedLabels.length <= 2) return selectedLabels.join(', ');
@@ -124,6 +137,24 @@ export function MultiSelect({
             style={{ position: 'fixed', top: position.top, left: position.left, width: position.width }}
             ref={portalRef}
           >
+            <div className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-gray-300 bg-[#161b22] border-b border-gray-700 sticky top-0">
+              <button
+                type="button"
+                className={`px-2 py-1 rounded ${allSelected || options.length === 0 ? 'text-gray-500 cursor-not-allowed' : 'text-blue-400 hover:bg-[#1e2430]'}`}
+                onClick={handleSelectAll}
+                disabled={allSelected || options.length === 0}
+              >
+                Selecionar todos
+              </button>
+              <button
+                type="button"
+                className={`px-2 py-1 rounded ${!hasSelection ? 'text-gray-500 cursor-not-allowed' : 'text-blue-400 hover:bg-[#1e2430]'}`}
+                onClick={handleClearSelection}
+                disabled={!hasSelection}
+              >
+                Limpar seleção
+              </button>
+            </div>
             {options.map(opt => (
               <label
                 key={opt.value}

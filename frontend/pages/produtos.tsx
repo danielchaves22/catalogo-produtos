@@ -86,7 +86,7 @@ export default function ProdutosPage() {
   useEffect(() => {
     async function carregarCatalogos() {
       try {
-        const response = await api.get('/catalogos');
+        const response = await api.get('/catalogos', { params: { visiveis: true } });
         setCatalogos(response.data);
       } catch (err) {
         console.error('Erro ao carregar catálogos:', err);

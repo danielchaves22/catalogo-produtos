@@ -101,7 +101,7 @@ export default function ProdutoPage() {
   useEffect(() => {
     if (!isNew || workingCatalog) return;
     async function carregarCatalogos() {
-      const res = await api.get('/catalogos');
+      const res = await api.get('/catalogos', { params: { visiveis: true } });
       setCatalogos(res.data);
     }
     carregarCatalogos();

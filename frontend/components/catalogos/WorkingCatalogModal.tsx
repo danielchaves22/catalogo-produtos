@@ -28,7 +28,7 @@ export function WorkingCatalogModal({ isOpen, onClose }: WorkingCatalogModalProp
     if (!isOpen) return;
     async function carregar() {
       try {
-        const res = await api.get<CatalogoResumo[]>('/catalogos');
+        const res = await api.get<CatalogoResumo[]>('/catalogos', { params: { visiveis: true } });
         setCatalogos(res.data);
         if (workingCatalog && !workingCatalog.ambiente) {
           const atual = res.data.find(c => c.id === workingCatalog.id);

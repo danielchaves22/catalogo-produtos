@@ -2,6 +2,7 @@
 import { CatalogoStatus, CatalogoAmbiente, Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import { AuthUser } from '../interfaces/auth-user';
 
 export interface CreateCatalogoDTO {
   nome: string;
@@ -16,6 +17,18 @@ export interface UpdateCatalogoDTO {
 }
 
 export class CatalogoService {
+  private readonly catalogoSelect = {
+    id: true,
+    nome: true,
+    cpf_cnpj: true,
+    ultima_alteracao: true,
+    numero: true,
+    status: true,
+    ambiente: true,
+    superUserId: true,
+    certificadoId: true
+  } as const;
+
   /**
    * Lista todos os catálogos
    */
@@ -24,21 +37,68 @@ export class CatalogoService {
       return await catalogoPrisma.catalogo.findMany({
         where: { superUserId },
         orderBy: { ultima_alteracao: 'desc' },
-        select: {
-          id: true,
-          nome: true,
-          cpf_cnpj: true,
-          ultima_alteracao: true,
-          numero: true,
-          status: true,
-          ambiente: true,
-          superUserId: true,
-          certificadoId: true
-        }
+        select: this.catalogoSelect
       });
     } catch (error: unknown) {
       logger.error('Erro ao listar catálogos:', error);
       throw new Error('Falha ao listar catálogos');
+    }
+  }
+
+  async listarVisiveis(usuario: AuthUser) {
+    try {
+      if (usuario.role === 'SUPER') {
+        return this.listarTodos(usuario.superUserId);
+      }
+
+      const registroUsuario = await catalogoPrisma.usuarioCatalogo.findFirst({
+        where: {
+          legacyId: usuario.id,
+          superUserId: usuario.superUserId
+        },
+        select: {
+          permissoes: {
+            select: { codigo: true }
+          }
+        }
+      });
+
+      const permissoes = new Set(
+        registroUsuario?.permissoes.map(item => item.codigo) ?? []
+      );
+
+      const padroesVisualizacao = ['catalogo.visualizar', 'catalogo.listar'];
+      const possuiAcessoCompleto = padroesVisualizacao.some(code => permissoes.has(code));
+
+      const idsPorPermissao = Array.from(permissoes)
+        .map(codigo => {
+          const match = codigo.match(/^catalogo\.\w*(?:[:.#_-])(\d+)$/i) ||
+            codigo.match(/^catalogo\.\w*\[(\d+)\]$/i);
+          if (!match?.[1]) return null;
+          const id = Number(match[1]);
+          return Number.isNaN(id) ? null : id;
+        })
+        .filter((id): id is number => id !== null);
+
+      if (idsPorPermissao.length > 0) {
+        return await catalogoPrisma.catalogo.findMany({
+          where: {
+            superUserId: usuario.superUserId,
+            id: { in: Array.from(new Set(idsPorPermissao)) }
+          },
+          orderBy: { ultima_alteracao: 'desc' },
+          select: this.catalogoSelect
+        });
+      }
+
+      if (possuiAcessoCompleto) {
+        return this.listarTodos(usuario.superUserId);
+      }
+
+      return [];
+    } catch (error: unknown) {
+      logger.error('Erro ao listar catálogos visíveis:', error);
+      throw new Error('Falha ao listar catálogos visíveis');
     }
   }
 

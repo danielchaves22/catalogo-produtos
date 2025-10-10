@@ -92,8 +92,12 @@ export default function ValoresPadraoNcmPage() {
       try {
         const resposta = await api.get<
           Array<{ id: number; nome: string; cpf_cnpj: string | null }>
-        >('/catalogos');
-        setCatalogoOptions(resposta.data || []);
+        >('/catalogos', { params: { visiveis: true } });
+        const lista = resposta.data || [];
+        setCatalogoOptions(lista);
+        if (lista.length === 0) {
+          addToast('Você não possui catálogos visíveis para vincular valores padrão.', 'error');
+        }
       } catch (error) {
         console.error('Erro ao carregar catálogos:', error);
         addToast('Erro ao carregar catálogos', 'error');

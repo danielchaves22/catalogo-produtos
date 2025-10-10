@@ -12,11 +12,16 @@ const catalogoService = new CatalogoService();
  */
 export async function listarCatalogos(req: Request, res: Response) {
   try {
-    const catalogos = await catalogoService.listarTodos(req.user!.superUserId);
+    const todosParam = String(req.query.todos ?? '').toLowerCase();
+    const deveRetornarTodos = todosParam === '1' || todosParam === 'true';
+
+    const catalogos = deveRetornarTodos
+      ? await catalogoService.listarTodos(req.user!.superUserId)
+      : await catalogoService.listarVisiveis(req.user!);
     return res.status(200).json(catalogos);
   } catch (error: unknown) {
-    return res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'Erro ao listar catálogos' 
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro ao listar catálogos'
     });
   }
 }
