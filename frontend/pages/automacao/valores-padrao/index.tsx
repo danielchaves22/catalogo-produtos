@@ -1,4 +1,4 @@
-// frontend/pages/produtos/valores-padrao/index.tsx
+// frontend/pages/automacao/valores-padrao/index.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -94,7 +94,7 @@ export default function ValoresPadraoNcmListaPage() {
       <Breadcrumb
         items={[
           { label: 'Início', href: '/' },
-          { label: 'Produtos', href: '/produtos' },
+          { label: 'Automação', href: '/automacao/importar-produto' },
           { label: 'Valores Padrão por NCM' }
         ]}
       />
@@ -104,7 +104,7 @@ export default function ValoresPadraoNcmListaPage() {
         <Button
           variant="accent"
           className="flex items-center gap-2 self-end md:self-auto"
-          onClick={() => router.push('/produtos/valores-padrao/novo')}
+          onClick={() => router.push('/automacao/valores-padrao/novo')}
         >
           <Plus size={16} />
           Novo Grupo
@@ -169,7 +169,7 @@ export default function ValoresPadraoNcmListaPage() {
                       <div className="flex items-center justify-center gap-2">
                         <button
                           className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
-                          onClick={() => router.push(`/produtos/valores-padrao/${item.id}`)}
+                          onClick={() => router.push(`/automacao/valores-padrao/${item.id}`)}
                           title="Editar valores padrão"
                         >
                           <Pencil size={16} />
