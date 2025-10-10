@@ -83,6 +83,14 @@ export default function ProdutosPage() {
   const pageSizeOptions = [10, 20, 50];
   const totalPages = Math.max(1, Math.ceil(totalProdutos / pageSize));
   const paginaAtual = Math.min(page, totalPages);
+  const possuiItensNaPagina = totalProdutos > 0 && produtos.length > 0;
+  const inicioExibicao = possuiItensNaPagina ? (paginaAtual - 1) * pageSize + 1 : 0;
+  const fimExibicao = possuiItensNaPagina
+    ? Math.min(totalProdutos, inicioExibicao + produtos.length - 1)
+    : 0;
+  const exibicaoLabel = possuiItensNaPagina
+    ? `Exibindo ${inicioExibicao}-${fimExibicao} de ${totalProdutos} produtos`
+    : undefined;
 
   useEffect(() => {
     async function carregarCatalogos() {
@@ -409,9 +417,6 @@ export default function ProdutosPage() {
             }}
             placeholder="Situação"
           />
-          <div className="text-sm text-gray-400 self-center text-right">
-            Página {paginaAtual} de {totalPages} — Exibindo {produtos.length} de {totalProdutos} produtos
-          </div>
         </div>
         {loading && hasLoadedOnce && (
           <div className="mt-2 text-xs text-gray-400">Atualizando lista de produtos...</div>
@@ -570,6 +575,7 @@ export default function ProdutosPage() {
               }}
               pageSizeOptions={pageSizeOptions}
               loading={loading}
+              displayLabel={exibicaoLabel}
             />
           </>
         )}

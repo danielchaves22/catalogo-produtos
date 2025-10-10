@@ -61,8 +61,8 @@ export function ListaProdutosPainel() {
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
-  const pageSizeOptions = [5, 10, 20];
+  const [pageSize, setPageSize] = useState(20);
+  const pageSizeOptions = [10, 20, 50];
   const totalPages = Math.max(1, Math.ceil(totalProdutos / Math.max(pageSize, 1)));
   const paginaAtual = Math.min(page, totalPages);
 
@@ -109,8 +109,14 @@ export function ListaProdutosPainel() {
     carregarProdutos();
   }, [carregarProdutos]);
 
-  const inicioExibicao = totalProdutos === 0 ? 0 : (paginaAtual - 1) * pageSize + 1;
-  const fimExibicao = totalProdutos === 0 ? 0 : inicioExibicao + produtos.length - 1;
+  const possuiItensNaPagina = totalProdutos > 0 && produtos.length > 0;
+  const inicioExibicao = possuiItensNaPagina ? (paginaAtual - 1) * pageSize + 1 : 0;
+  const fimExibicao = possuiItensNaPagina
+    ? Math.min(totalProdutos, inicioExibicao + produtos.length - 1)
+    : 0;
+  const exibicaoLabel = possuiItensNaPagina
+    ? `Exibindo ${inicioExibicao}-${fimExibicao} de ${totalProdutos} produtos`
+    : undefined;
 
   function formatarData(dataString: string) {
     const data = new Date(dataString);
@@ -379,12 +385,6 @@ export function ListaProdutosPainel() {
               </table>
             </div>
 
-            <div className="mt-4 text-sm text-gray-400">
-              {totalProdutos === 0
-                ? 'Nenhum produto disponível'
-                : `Exibindo ${inicioExibicao}-${fimExibicao} de ${totalProdutos} produtos`}
-            </div>
-
             <PaginationControls
               page={paginaAtual}
               pageSize={pageSize}
@@ -396,6 +396,7 @@ export function ListaProdutosPainel() {
               }}
               pageSizeOptions={pageSizeOptions}
               loading={loading}
+              displayLabel={exibicaoLabel}
             />
           </>
         )}
