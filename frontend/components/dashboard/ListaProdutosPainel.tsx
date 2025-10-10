@@ -10,6 +10,7 @@ import { produtoStatusLegend, produtoSituacaoLegend } from '@/constants/statusLe
 import { useRouter } from 'next/router';
 import { useToast } from '@/components/ui/ToastContext';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
+import { PaginationControls } from '@/components/ui/PaginationControls';
 
 interface Produto {
   id: number;
@@ -59,8 +60,15 @@ export function ListaProdutosPainel() {
   const router = useRouter();
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
-  const pageSize = 5;
-  const page = 1;
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const pageSizeOptions = [5, 10, 20];
+  const totalPages = Math.max(1, Math.ceil(totalProdutos / Math.max(pageSize, 1)));
+  const paginaAtual = Math.min(page, totalPages);
+
+  useEffect(() => {
+    setPage(1);
+  }, [workingCatalog?.id]);
 
   const carregarProdutos = useCallback(async () => {
     try {
@@ -72,8 +80,15 @@ export function ListaProdutosPainel() {
         params.situacao = filtros.situacoes.join(',');
       if (workingCatalog?.id) params.catalogoId = workingCatalog.id;
       const response = await api.get<ProdutosPainelResponse>('/produtos', { params });
-      setProdutos(response.data.items);
-      setTotalProdutos(response.data.total);
+      const { items, total, page: paginaResposta, pageSize: tamanhoResposta } = response.data;
+      setProdutos(items);
+      setTotalProdutos(total);
+      if (paginaResposta && paginaResposta !== page) {
+        setPage(paginaResposta);
+      }
+      if (tamanhoResposta && tamanhoResposta !== pageSize) {
+        setPageSize(tamanhoResposta);
+      }
       setError(null);
     } catch (err) {
       console.error('Erro ao carregar produtos:', err);
@@ -93,6 +108,9 @@ export function ListaProdutosPainel() {
   useEffect(() => {
     carregarProdutos();
   }, [carregarProdutos]);
+
+  const inicioExibicao = totalProdutos === 0 ? 0 : (paginaAtual - 1) * pageSize + 1;
+  const fimExibicao = totalProdutos === 0 ? 0 : inicioExibicao + produtos.length - 1;
 
   function formatarData(dataString: string) {
     const data = new Date(dataString);
@@ -194,7 +212,10 @@ export function ListaProdutosPainel() {
               type="text"
               className="pl-10 pr-4 py-2 w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
               value={busca}
-              onChange={e => setBusca(e.target.value)}
+              onChange={e => {
+                setBusca(e.target.value);
+                setPage(1);
+              }}
               aria-label="Buscar por nome, catálogo ou NCM"
             />
           </div>
@@ -202,12 +223,13 @@ export function ListaProdutosPainel() {
             label="Status"
             options={statusOptions}
             values={filtros.status}
-            onChange={vals =>
+            onChange={vals => {
               setFiltros(prev => ({
                 ...prev,
                 status: vals as Produto['status'][]
-              }))
-            }
+              }));
+              setPage(1);
+            }}
             placeholder="Status"
           />
           <MultiSelect
@@ -218,7 +240,10 @@ export function ListaProdutosPainel() {
               { value: 'RASCUNHO', label: 'Rascunho' },
             ]}
             values={filtros.situacoes}
-            onChange={(vals) => setFiltros(prev => ({ ...prev, situacoes: vals as Array<'ATIVADO'|'DESATIVADO'|'RASCUNHO'> }))}
+            onChange={vals => {
+              setFiltros(prev => ({ ...prev, situacoes: vals as Array<'ATIVADO' | 'DESATIVADO' | 'RASCUNHO'> }));
+              setPage(1);
+            }}
             placeholder="Situação"
           />
           {false && ( <select
@@ -355,8 +380,23 @@ export function ListaProdutosPainel() {
             </div>
 
             <div className="mt-4 text-sm text-gray-400">
-              Exibindo {produtos.length} de {totalProdutos} produtos (primeira página)
+              {totalProdutos === 0
+                ? 'Nenhum produto disponível'
+                : `Exibindo ${inicioExibicao}-${fimExibicao} de ${totalProdutos} produtos`}
             </div>
+
+            <PaginationControls
+              page={paginaAtual}
+              pageSize={pageSize}
+              totalItems={totalProdutos}
+              onPageChange={novo => setPage(Math.max(1, Math.min(novo, totalPages)))}
+              onPageSizeChange={novo => {
+                setPageSize(novo);
+                setPage(1);
+              }}
+              pageSizeOptions={pageSizeOptions}
+              loading={loading}
+            />
           </>
         )}
       </Card>

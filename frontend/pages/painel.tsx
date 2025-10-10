@@ -5,16 +5,21 @@ import { Card } from '@/components/ui/Card';
 import api from '@/lib/api';
 import { ListaProdutosPainel } from '@/components/dashboard/ListaProdutosPainel';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+
+interface StatusResumo {
+  status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  total: number;
+}
 
 interface ResumoDashboard {
   catalogos: {
     total: number;
-    porStatus: Record<string, number>; // Catálogos agrupados por status dos produtos
+    porStatus: StatusResumo[];
   };
   produtos: {
     total: number;
-    porStatus: Record<string, number>;
+    porStatus: StatusResumo[];
   };
   atributos: {
     total: number;
@@ -53,6 +58,25 @@ const ATRIBUTOS_LABELS = {
   TOTAL: 'Total de Atributos'
 };
 
+const TODOS_STATUS = ['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO'] as const;
+
+function statusListaParaMapa(lista: StatusResumo[] | undefined): Record<(typeof TODOS_STATUS)[number], number> {
+  const mapa = TODOS_STATUS.reduce((acc, status) => {
+    acc[status] = 0;
+    return acc;
+  }, {} as Record<(typeof TODOS_STATUS)[number], number>);
+
+  if (!lista) return mapa;
+
+  for (const item of lista) {
+    if (TODOS_STATUS.includes(item.status)) {
+      mapa[item.status] = item.total;
+    }
+  }
+
+  return mapa;
+}
+
 export default function PainelPage() {
   const [resumo, setResumo] = useState<ResumoDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,29 +87,9 @@ export default function PainelPage() {
     async function carregarResumo() {
       try {
         const params = workingCatalog?.id ? { catalogoId: workingCatalog.id } : undefined;
-        const response = await api.get('/dashboard/resumo', { params });
-        
-        // Simular dados de catálogos e atributos até a API ser atualizada
-        const resumoCompleto = {
-          ...response.data,
-          catalogos: {
-            total: response.data.catalogos?.total || 0,
-            porStatus: response.data.catalogos?.porStatus || {
-              PENDENTE: 1,
-              APROVADO: 0,
-              PROCESSANDO: 0,
-              TRANSMITIDO: 0,
-              ERRO: 0
-            }
-          },
-          atributos: response.data.atributos || {
-            total: 50,
-            obrigatoriosPendentes: 5,
-            validosTransmissao: 45
-          }
-        };
-        
-        setResumo(resumoCompleto);
+        const response = await api.get<ResumoDashboard>('/dashboard/resumo', { params });
+
+        setResumo(response.data);
       } catch (error) {
         console.error('Erro ao carregar resumo do painel:', error);
       } finally {
@@ -99,37 +103,10 @@ export default function PainelPage() {
   // Preparar dados para o gráfico de rosca de produtos
   const dadosGraficoProdutos = React.useMemo(() => {
     if (!resumo?.produtos.porStatus) return [];
-    
-    return Object.entries(resumo.produtos.porStatus)
-      .filter(([_, quantidade]) => quantidade > 0) // Só mostrar fatias com quantidade > 0
-      .map(([status, quantidade]) => ({
-        name: STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status,
-        value: quantidade,
-        status: status,
-        color: STATUS_COLORS[status as keyof typeof STATUS_COLORS] || '#gray'
-      }));
-  }, [resumo]);
 
-  // Preparar dados para a legenda de produtos (todos os status)
-  const dadosLegendaProdutos = React.useMemo(() => {
-    if (!resumo?.produtos.porStatus) return [];
-    
-    // Garantir que todos os status apareçam na legenda
-    const todosStatus = ['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO'];
-    
-    return todosStatus.map(status => ({
-      name: STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status,
-      value: resumo.produtos.porStatus[status] || 0,
-      status: status,
-      color: STATUS_COLORS[status as keyof typeof STATUS_COLORS] || '#gray'
-    }));
-  }, [resumo]);
+    const mapa = statusListaParaMapa(resumo.produtos.porStatus);
 
-  // Preparar dados para o gráfico de rosca de catálogos
-  const dadosGraficoCatalogos = React.useMemo(() => {
-    if (!resumo?.catalogos.porStatus) return [];
-    
-    return Object.entries(resumo.catalogos.porStatus)
+    return Object.entries(mapa)
       .filter(([_, quantidade]) => quantidade > 0)
       .map(([status, quantidade]) => ({
         name: STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status,
@@ -137,21 +114,51 @@ export default function PainelPage() {
         status: status,
         color: STATUS_COLORS[status as keyof typeof STATUS_COLORS] || '#gray'
       }));
-  }, [resumo]);
+  }, [resumo?.produtos.porStatus]);
+
+  // Preparar dados para a legenda de produtos (todos os status)
+  const dadosLegendaProdutos = React.useMemo(() => {
+    if (!resumo?.produtos.porStatus) return [];
+
+    const mapa = statusListaParaMapa(resumo.produtos.porStatus);
+
+    return TODOS_STATUS.map(status => ({
+      name: STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status,
+      value: mapa[status] || 0,
+      status: status,
+      color: STATUS_COLORS[status as keyof typeof STATUS_COLORS] || '#gray'
+    }));
+  }, [resumo?.produtos.porStatus]);
+
+  // Preparar dados para o gráfico de rosca de catálogos
+  const dadosGraficoCatalogos = React.useMemo(() => {
+    if (!resumo?.catalogos.porStatus) return [];
+
+    const mapa = statusListaParaMapa(resumo.catalogos.porStatus);
+
+    return Object.entries(mapa)
+      .filter(([_, quantidade]) => quantidade > 0)
+      .map(([status, quantidade]) => ({
+        name: STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status,
+        value: quantidade,
+        status: status,
+        color: STATUS_COLORS[status as keyof typeof STATUS_COLORS] || '#gray'
+      }));
+  }, [resumo?.catalogos.porStatus]);
 
   // Preparar dados para a legenda de catálogos (todos os status)
   const dadosLegendaCatalogos = React.useMemo(() => {
     if (!resumo?.catalogos.porStatus) return [];
-    
-    const todosStatus = ['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO'];
-    
-    return todosStatus.map(status => ({
+
+    const mapa = statusListaParaMapa(resumo.catalogos.porStatus);
+
+    return TODOS_STATUS.map(status => ({
       name: STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status,
-      value: resumo.catalogos.porStatus[status] || 0,
+      value: mapa[status] || 0,
       status: status,
       color: STATUS_COLORS[status as keyof typeof STATUS_COLORS] || '#gray'
     }));
-  }, [resumo]);
+  }, [resumo?.catalogos.porStatus]);
 
   // Preparar dados para o gráfico de atributos
   const dadosGraficoAtributos = React.useMemo(() => {
