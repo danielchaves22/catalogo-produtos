@@ -91,37 +91,34 @@ export async function obterResumoDashboardService(
   const catalogoWhereSql = buildCatalogoWhere(superUserId, catalogoId);
 
   const catalogosPorStatusRaw = await catalogoPrisma.$queryRaw<Array<{ status: string; total: bigint }>>(Prisma.sql`
-    WITH catalogos_filtrados AS (
-      SELECT c.id
-      FROM catalogo c
-      WHERE ${catalogoWhereSql}
-    ),
-    status_por_catalogo AS (
+    SELECT status, COUNT(*) AS total
+    FROM (
       SELECT
-        cf.id AS catalogo_id,
-        COALESCE(SUM(CASE WHEN p.status IS NOT NULL THEN 1 ELSE 0 END), 0) AS total_produtos,
-        COALESCE(SUM(CASE WHEN p.status = 'ERRO' THEN 1 ELSE 0 END), 0) AS erros,
-        COALESCE(SUM(CASE WHEN p.status = 'PENDENTE' THEN 1 ELSE 0 END), 0) AS pendentes,
-        COALESCE(SUM(CASE WHEN p.status = 'APROVADO' THEN 1 ELSE 0 END), 0) AS aprovados,
-        COALESCE(SUM(CASE WHEN p.status = 'PROCESSANDO' THEN 1 ELSE 0 END), 0) AS processando,
-        COALESCE(SUM(CASE WHEN p.status = 'TRANSMITIDO' THEN 1 ELSE 0 END), 0) AS transmitidos,
-        COALESCE(SUM(CASE WHEN p.status <> 'TRANSMITIDO' THEN 1 ELSE 0 END), 0) AS nao_transmitidos
-      FROM catalogos_filtrados cf
-        LEFT JOIN produto p ON p.catalogo_id = cf.id
-      GROUP BY cf.id
-    )
-    SELECT
-      CASE
-        WHEN nao_transmitidos = 0 AND transmitidos > 0 AND total_produtos > 0 THEN 'TRANSMITIDO'
-        WHEN erros > 0 THEN 'ERRO'
-        WHEN pendentes > 0 THEN 'PENDENTE'
-        WHEN aprovados > 0 THEN 'APROVADO'
-        WHEN processando > 0 THEN 'PROCESSANDO'
-        WHEN transmitidos > 0 THEN 'TRANSMITIDO'
-        ELSE 'PENDENTE'
-      END AS status,
-      COUNT(*) AS total
-    FROM status_por_catalogo
+        CASE
+          WHEN resumo.nao_transmitidos = 0 AND resumo.transmitidos > 0 AND resumo.total_produtos > 0 THEN 'TRANSMITIDO'
+          WHEN resumo.erros > 0 THEN 'ERRO'
+          WHEN resumo.pendentes > 0 THEN 'PENDENTE'
+          WHEN resumo.aprovados > 0 THEN 'APROVADO'
+          WHEN resumo.processando > 0 THEN 'PROCESSANDO'
+          WHEN resumo.transmitidos > 0 THEN 'TRANSMITIDO'
+          ELSE 'PENDENTE'
+        END AS status
+      FROM (
+        SELECT
+          c.id,
+          COALESCE(SUM(CASE WHEN p.status IS NOT NULL THEN 1 ELSE 0 END), 0) AS total_produtos,
+          COALESCE(SUM(CASE WHEN p.status = 'ERRO' THEN 1 ELSE 0 END), 0) AS erros,
+          COALESCE(SUM(CASE WHEN p.status = 'PENDENTE' THEN 1 ELSE 0 END), 0) AS pendentes,
+          COALESCE(SUM(CASE WHEN p.status = 'APROVADO' THEN 1 ELSE 0 END), 0) AS aprovados,
+          COALESCE(SUM(CASE WHEN p.status = 'PROCESSANDO' THEN 1 ELSE 0 END), 0) AS processando,
+          COALESCE(SUM(CASE WHEN p.status = 'TRANSMITIDO' THEN 1 ELSE 0 END), 0) AS transmitidos,
+          COALESCE(SUM(CASE WHEN p.status IS NOT NULL AND p.status <> 'TRANSMITIDO' THEN 1 ELSE 0 END), 0) AS nao_transmitidos
+        FROM catalogo c
+          LEFT JOIN produto p ON p.catalogo_id = c.id
+        WHERE ${catalogoWhereSql}
+        GROUP BY c.id
+      ) AS resumo
+    ) AS status_por_catalogo
     GROUP BY status
   `);
 

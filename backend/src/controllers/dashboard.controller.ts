@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { obterResumoDashboardService } from '../services/dashboard.service';
+import { logger } from '../utils/logger';
 
 export async function obterResumoDashboard(req: Request, res: Response) {
   try {
@@ -15,6 +16,7 @@ export async function obterResumoDashboard(req: Request, res: Response) {
 
     return res.json(resumo);
   } catch (error) {
+    logger.error('Erro ao obter resumo do painel', error);
     return res.status(500).json({
       error: 'Erro ao obter resumo do painel'
     });
