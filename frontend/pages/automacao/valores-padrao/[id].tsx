@@ -1,4 +1,4 @@
-// frontend/pages/produtos/valores-padrao/[id].tsx
+// frontend/pages/automacao/valores-padrao/[id].tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -214,7 +214,7 @@ export default function ValoresPadraoNcmPage() {
       console.error('Erro ao carregar valores padrão:', error);
       addToast('Erro ao carregar valores padrão', 'error');
       setLoading(false);
-      router.push('/produtos/valores-padrao');
+      router.push('/automacao/valores-padrao');
     }
   }
 
@@ -467,7 +467,7 @@ export default function ValoresPadraoNcmPage() {
         await api.put(`/ncm-valores-padrao/${id}`, payloadBase);
         addToast('Valores padrão atualizados com sucesso!', 'success');
       }
-      router.push('/produtos/valores-padrao');
+      router.push('/automacao/valores-padrao');
     } catch (error: any) {
       console.error('Erro ao salvar valores padrão:', error);
       if (error.response?.data?.error) {
@@ -481,7 +481,7 @@ export default function ValoresPadraoNcmPage() {
   }
 
   function voltar() {
-    router.push('/produtos/valores-padrao');
+    router.push('/automacao/valores-padrao');
   }
 
   return (
@@ -489,8 +489,8 @@ export default function ValoresPadraoNcmPage() {
       <Breadcrumb
         items={[
           { label: 'Início', href: '/' },
-          { label: 'Produtos', href: '/produtos' },
-          { label: 'Valores Padrão por NCM', href: '/produtos/valores-padrao' },
+          { label: 'Automação', href: '/automacao/importar-produto' },
+          { label: 'Valores Padrão por NCM', href: '/automacao/valores-padrao' },
           { label: isNew ? 'Novo' : 'Editar' }
         ]}
       />

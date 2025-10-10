@@ -62,6 +62,8 @@ apiRouter.use('/produtos', produtoRoutes);
 
 // Rotas de valores padrão por NCM (protegidas)
 apiRouter.use('/ncm-valores-padrao', ncmValoresPadraoRoutes);
+// Alias alinhado ao menu de Automação; mantém rota antiga para compatibilidade
+apiRouter.use('/automacao/valores-padrao', ncmValoresPadraoRoutes);
 
 // Rotas de usuários (protegidas)
 apiRouter.use('/usuarios', usuarioRoutes);

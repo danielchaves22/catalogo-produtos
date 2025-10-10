@@ -1,4 +1,4 @@
-// frontend/pages/produtos/valores-padrao/novo.tsx
+// frontend/pages/automacao/valores-padrao/novo.tsx
 import React from 'react';
 import ValoresPadraoNcmPage from './[id]';
 
