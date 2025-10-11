@@ -33,10 +33,18 @@ export async function buscarValorPadraoPorNcm(req: Request, res: Response) {
   try {
     const ncmCodigo = req.params.ncmCodigo;
     const modalidade = (req.query.modalidade as string | undefined) || undefined;
+    const catalogoIdParam = req.query.catalogoId as string | undefined;
+    const catalogoId = catalogoIdParam !== undefined ? Number(catalogoIdParam) : undefined;
+
+    if (catalogoId === undefined || Number.isNaN(catalogoId)) {
+      return res.status(400).json({ error: 'Informe um catálogo válido para consultar os valores padrão.' });
+    }
+
     const registro = await service.buscarPorNcm(
       ncmCodigo,
       req.user!.superUserId,
-      modalidade ?? null
+      modalidade ?? null,
+      catalogoId
     );
     if (!registro) {
       return res.status(404).json({ error: 'Valores padrão não encontrados para esta NCM e modalidade' });
@@ -55,7 +63,8 @@ export async function criarValorPadrao(req: Request, res: Response) {
         ncmCodigo: req.body.ncmCodigo,
         modalidade: req.body.modalidade,
         valoresAtributos: req.body.valoresAtributos,
-        estruturaSnapshot: req.body.estruturaSnapshot
+        estruturaSnapshot: req.body.estruturaSnapshot,
+        catalogoIds: req.body.catalogoIds
       },
       req.user!.superUserId,
       { nome: req.user!.name }
@@ -63,6 +72,9 @@ export async function criarValorPadrao(req: Request, res: Response) {
     res.status(201).json(registro);
   } catch (error: any) {
     if (error.message?.includes('Já existe um valor padrão')) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (error.message?.includes('Informe ao menos um catálogo') || error.message?.includes('Catálogo inválido')) {
       return res.status(400).json({ error: error.message });
     }
     logger.error('Erro ao criar valor padrão de NCM', error);
@@ -79,7 +91,8 @@ export async function atualizarValorPadrao(req: Request, res: Response) {
         ncmCodigo: req.body.ncmCodigo,
         modalidade: req.body.modalidade,
         valoresAtributos: req.body.valoresAtributos,
-        estruturaSnapshot: req.body.estruturaSnapshot
+        estruturaSnapshot: req.body.estruturaSnapshot,
+        catalogoIds: req.body.catalogoIds
       },
       req.user!.superUserId,
       { nome: req.user!.name }
@@ -90,6 +103,9 @@ export async function atualizarValorPadrao(req: Request, res: Response) {
       return res.status(404).json({ error: error.message });
     }
     if (error.message?.includes('Já existe um valor padrão')) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (error.message?.includes('Informe ao menos um catálogo') || error.message?.includes('Catálogo inválido')) {
       return res.status(400).json({ error: error.message });
     }
     logger.error('Erro ao atualizar valor padrão de NCM', error);

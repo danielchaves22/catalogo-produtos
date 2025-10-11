@@ -14,6 +14,7 @@ import { Hint } from '@/components/ui/Hint';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
 import { algumValorIgual, algumValorSatisfazCondicao, isValorPreenchido, normalizarValoresMultivalorados } from '@/lib/atributos';
+import { formatCPFOrCNPJ } from '@/lib/validation';
 import { PageLoader } from '@/components/ui/PageLoader';
 import useDebounce from '@/hooks/useDebounce';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -44,6 +45,15 @@ interface NcmValorPadraoDetalhe {
   modalidade?: string | null;
   valoresJson: Record<string, string | string[]> | null;
   estruturaSnapshotJson?: AtributoEstrutura[];
+  catalogos: Array<{
+    catalogoId: number;
+    catalogo?: {
+      id: number;
+      nome: string;
+      numero: number;
+      cpf_cnpj: string | null;
+    };
+  }>;
 }
 
 export default function ValoresPadraoNcmPage() {
@@ -68,6 +78,10 @@ export default function ValoresPadraoNcmPage() {
   const [carregandoSugestoesNcm, setCarregandoSugestoesNcm] = useState(false);
   const debouncedNcm = useDebounce(ncm, 800);
   const [erroFormulario, setErroFormulario] = useState<string | null>(null);
+  const [catalogos, setCatalogos] = useState<Array<{ id: number; nome: string; numero: number; cpf_cnpj: string | null }>>([]);
+  const [catalogosSelecionados, setCatalogosSelecionados] = useState<string[]>([]);
+  const [erroCatalogos, setErroCatalogos] = useState<string | null>(null);
+  const [carregandoCatalogos, setCarregandoCatalogos] = useState(false);
 
   const mapaEstrutura = useMemo(() => {
     const map = new Map<string, AtributoEstrutura>();
@@ -80,6 +94,59 @@ export default function ValoresPadraoNcmPage() {
     coletar(estrutura);
     return map;
   }, [estrutura]);
+
+  const catalogoOptions = useMemo(
+    () =>
+      catalogos.map(catalogo => {
+        const partes: string[] = [catalogo.nome];
+        if (catalogo.numero) {
+          partes.push(`Catálogo ${catalogo.numero}`);
+        }
+        if (catalogo.cpf_cnpj) {
+          partes.push(formatCPFOrCNPJ(catalogo.cpf_cnpj));
+        }
+
+        return {
+          value: String(catalogo.id),
+          label: partes.join(' • ')
+        };
+      }),
+    [catalogos]
+  );
+
+  useEffect(() => {
+    if (catalogosSelecionados.length > 0 && erroCatalogos) {
+      setErroCatalogos(null);
+      setErroFormulario(prev => (prev === 'Selecione ao menos um catálogo.' ? null : prev));
+    }
+  }, [catalogosSelecionados, erroCatalogos]);
+
+  useEffect(() => {
+    let ativo = true;
+    async function carregarCatalogosDisponiveis() {
+      try {
+        setCarregandoCatalogos(true);
+        const resposta = await api.get<Array<{ id: number; nome: string; numero: number; cpf_cnpj: string | null }>>(
+          '/catalogos'
+        );
+        if (!ativo) return;
+        setCatalogos(resposta.data || []);
+      } catch (error) {
+        if (!ativo) return;
+        console.error('Erro ao carregar catálogos para valores padrão:', error);
+        addToast('Erro ao carregar lista de catálogos', 'error');
+      } finally {
+        if (ativo) {
+          setCarregandoCatalogos(false);
+        }
+      }
+    }
+
+    carregarCatalogosDisponiveis();
+    return () => {
+      ativo = false;
+    };
+  }, [addToast]);
 
   useEffect(() => {
     if (!isModoEdicao || typeof id !== 'string') return;
@@ -207,6 +274,9 @@ export default function ValoresPadraoNcmPage() {
       setNcm(registro.ncmCodigo);
       const modalidadeRegistro = (registro.modalidade || 'IMPORTACAO') as 'IMPORTACAO' | 'EXPORTACAO';
       setModalidade(modalidadeRegistro);
+      setCatalogosSelecionados(
+        (registro.catalogos || []).map(item => String(item.catalogoId))
+      );
       const valoresIniciais = (registro.valoresJson || {}) as Record<string, string | string[]>;
       await carregarEstrutura(registro.ncmCodigo, modalidadeRegistro, valoresIniciais);
       setLoading(false);
@@ -448,12 +518,29 @@ export default function ValoresPadraoNcmPage() {
       return;
     }
 
+    if (catalogosSelecionados.length === 0) {
+      const mensagem = 'Selecione ao menos um catálogo.';
+      setErroFormulario(mensagem);
+      setErroCatalogos(mensagem);
+      addToast('Selecione ao menos um catálogo para aplicar os valores padrão.', 'error');
+      return;
+    }
+
     try {
       setErroFormulario(null);
+      setErroCatalogos(null);
       setLoading(true);
+      const catalogoIdsPayload = Array.from(
+        new Set(
+          catalogosSelecionados
+            .map(valor => Number(valor))
+            .filter(valor => !Number.isNaN(valor))
+        )
+      );
       const payloadBase = {
         valoresAtributos: valores,
-        estruturaSnapshot: estrutura
+        estruturaSnapshot: estrutura,
+        catalogoIds: catalogoIdsPayload
       };
 
       if (isNew) {
@@ -522,6 +609,28 @@ export default function ValoresPadraoNcmPage() {
       </div>
 
       <Card className="mb-6 overflow-visible">
+        <MultiSelect
+          label="Catálogos"
+          required
+          hint="Os valores padrão serão aplicados apenas aos catálogos selecionados."
+          placeholder={
+            carregandoCatalogos
+              ? 'Carregando catálogos...'
+              : catalogoOptions.length === 0
+              ? 'Nenhum catálogo disponível'
+              : 'Selecione um ou mais catálogos'
+          }
+          options={catalogoOptions}
+          values={catalogosSelecionados}
+          onChange={valores => {
+            setCatalogosSelecionados(valores);
+            if (valores.length === 0) {
+              setErroCatalogos('Selecione ao menos um catálogo.');
+            }
+          }}
+          disabled={carregandoCatalogos || catalogoOptions.length === 0}
+          error={erroCatalogos ?? undefined}
+        />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[9rem_11rem_10rem_minmax(0,1fr)]">
           <div className="relative">
             <MaskedInput
