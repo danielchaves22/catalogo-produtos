@@ -869,7 +869,7 @@ export default function ProdutoPage() {
                       content: (
                         <div className="grid grid-cols-3 gap-4 text-sm">
                           <Input
-                            label="Nome do Produto"
+                            label="Denominação do Produto"
                             className="col-span-3"
                             value={denominacao}
                             onChange={e => {
@@ -888,7 +888,7 @@ export default function ProdutoPage() {
 
                           <div className="col-span-3 mb-4">
                             <label htmlFor="descricao" className="block text-sm font-medium mb-1 text-gray-300">
-                              Descrição
+                              Detalhamento Complementar do Produto
                               <span className="text-red-400 ml-1">*</span>
                             </label>
                             <textarea
