@@ -63,28 +63,71 @@ export class AuthService {
   /**
    * Busca um usuário pelo ID
    */
-  async findUserById(id: number): Promise<AuthUser | null> {
+  async findUserById(
+    id: number,
+    options: { role?: AuthUser['role']; email?: string } = {}
+  ): Promise<AuthUser | null> {
+    const normalizedEmail = options.email?.trim();
+    const role = options.role;
     try {
-      const user = await legacyPrisma.user.findUnique({ where: { id } });
-      if (user) {
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          superUserId: user.id,
-          role: 'SUPER',
-        };
+      if (role === 'SUPER' || (!role && !normalizedEmail)) {
+        const user = await legacyPrisma.user.findUnique({ where: { id } });
+        if (user && (!normalizedEmail || user.email === normalizedEmail)) {
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            superUserId: user.id,
+            role: 'SUPER',
+          };
+        }
+        if (role === 'SUPER') {
+          return null;
+        }
       }
 
-      const sub = await legacyPrisma.subUsuario.findUnique({ where: { id } });
-      if (sub) {
-        return {
-          id: sub.id,
-          name: sub.email,
-          email: sub.email,
-          superUserId: sub.superUserId,
-          role: 'SUB',
-        };
+      if (role === 'SUB' || !role) {
+        const sub = await legacyPrisma.subUsuario.findUnique({ where: { id } });
+        if (sub && (!normalizedEmail || sub.email === normalizedEmail)) {
+          return {
+            id: sub.id,
+            name: sub.email,
+            email: sub.email,
+            superUserId: sub.superUserId,
+            role: 'SUB',
+          };
+        }
+        if (role === 'SUB') {
+          return null;
+        }
+      }
+
+      if (normalizedEmail) {
+        const user = await legacyPrisma.user.findFirst({
+          where: { id, email: { equals: normalizedEmail } },
+        });
+        if (user) {
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            superUserId: user.id,
+            role: 'SUPER',
+          };
+        }
+
+        const sub = await legacyPrisma.subUsuario.findFirst({
+          where: { id, email: { equals: normalizedEmail } },
+        });
+        if (sub) {
+          return {
+            id: sub.id,
+            name: sub.email,
+            email: sub.email,
+            superUserId: sub.superUserId,
+            role: 'SUB',
+          };
+        }
       }
       return null;
     } catch (error: unknown) {

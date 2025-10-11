@@ -76,7 +76,10 @@ export async function getAuthUser(req: Request, res: Response) {
     }
 
     // Busca o usuário pelo ID
-    const user = await authService.findUserById(req.user.id);
+    const user = await authService.findUserById(req.user.id, {
+      role: req.user.role,
+      email: req.user.email,
+    });
 
     if (!user) {
       return res.status(404).json({ error: 'Usuário não encontrado' });
