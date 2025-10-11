@@ -116,6 +116,7 @@ model Catalogo {
   produtos         Produto[]
   operadoresEstrangeiros OperadorEstrangeiro[]
   importacoes      ImportacaoProduto[]
+  valoresPadraoNcm NcmValoresPadraoCatalogo[]
 
   @@unique([superUserId, cpf_cnpj], name: "uk_superuser_cpf_cnpj")
   @@map("catalogo")
@@ -358,9 +359,24 @@ model NcmValoresPadrao {
   atualizadoPor         String?  @map("atualizado_por")
 
   superUser User @relation(fields: [superUserId], references: [id])
+  catalogos NcmValoresPadraoCatalogo[]
 
   @@unique([superUserId, ncmCodigo, modalidade], name: "uk_superuser_ncm_modalidade")
   @@map("ncm_valores_padrao")
+}
+
+model NcmValoresPadraoCatalogo {
+  id                 Int               @id @default(autoincrement()) @map("id")
+  valorPadraoId      Int               @map("ncm_valores_padrao_id")
+  catalogoId         Int               @map("catalogo_id")
+  criadoEm           DateTime          @default(now()) @map("criado_em")
+
+  valorPadrao        NcmValoresPadrao  @relation(fields: [valorPadraoId], references: [id], onDelete: Cascade)
+  catalogo           Catalogo          @relation(fields: [catalogoId], references: [id], onDelete: Cascade)
+
+  @@unique([valorPadraoId, catalogoId], name: "uk_valor_padrao_catalogo")
+  @@index([catalogoId], map: "idx_nvpc_catalogo")
+  @@map("ncm_valores_padrao_catalogo")
 }
 
 model CodigoInternoProduto {

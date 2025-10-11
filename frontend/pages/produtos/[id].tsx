@@ -120,6 +120,17 @@ export default function ProdutoPage() {
   }, [workingCatalog, isNew]);
 
   useEffect(() => {
+    if (!isNew) return;
+    if (!catalogoId) {
+      setValores({});
+      return;
+    }
+    if (ncm.length === 8) {
+      carregarEstrutura(ncm);
+    }
+  }, [catalogoId, isNew, ncm]);
+
+  useEffect(() => {
     if (!catalogoCnpj) {
       setOperadoresCatalogo([]);
       return;
@@ -203,17 +214,21 @@ export default function ProdutoPage() {
       setUnidadeMedida(response.data.unidadeMedida || '');
       setEstrutura(ordenarAtributos(dados));
       if (isNew) {
-        try {
-          const templateResponse = await api.get(
-            `/ncm-valores-padrao/ncm/${ncmCodigo}`,
-            { params: { modalidade } }
-          );
-          const valoresPadrao = (templateResponse.data?.valoresJson || {}) as Record<string, string | string[]>;
-          setValores(valoresPadrao);
-        } catch (error: any) {
-          if (error?.response?.status !== 404) {
-            console.error('Erro ao carregar valores padrão da NCM:', error);
+        if (catalogoId) {
+          try {
+            const templateResponse = await api.get(
+              `/ncm-valores-padrao/ncm/${ncmCodigo}`,
+              { params: { modalidade, catalogoId: Number(catalogoId) } }
+            );
+            const valoresPadrao = (templateResponse.data?.valoresJson || {}) as Record<string, string | string[]>;
+            setValores(valoresPadrao);
+          } catch (error: any) {
+            if (error?.response?.status !== 404) {
+              console.error('Erro ao carregar valores padrão da NCM:', error);
+            }
+            setValores({});
           }
+        } else {
           setValores({});
         }
       }

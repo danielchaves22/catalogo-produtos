@@ -335,12 +335,13 @@ export class ProdutoImportacaoService {
         let produtoId: number | null = null;
 
         if (mensagens.impeditivos.length === 0 && ncmNormalizada && denominacao) {
-          const chaveTemplate = `${dados.superUserId}::${ncmNormalizada}::${dados.modalidade}`;
+          const chaveTemplate = `${dados.superUserId}::${ncmNormalizada}::${dados.modalidade}::${dados.catalogoId}`;
           if (!cacheValoresPadrao.has(chaveTemplate)) {
             const template = await this.valoresPadraoService.buscarPorNcm(
               ncmNormalizada,
               dados.superUserId,
-              dados.modalidade
+              dados.modalidade,
+              dados.catalogoId
             );
             cacheValoresPadrao.set(chaveTemplate, template?.valoresJson ?? null);
           }

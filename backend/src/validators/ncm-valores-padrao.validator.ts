@@ -5,12 +5,14 @@ export const createNcmValoresPadraoSchema = z.object({
   ncmCodigo: z.string().length(8),
   modalidade: z.string().min(1).optional(),
   valoresAtributos: z.record(z.any()).optional(),
-  estruturaSnapshot: z.any().optional()
+  estruturaSnapshot: z.any().optional(),
+  catalogoIds: z.array(z.number().int().positive()).min(1)
 });
 
 export const updateNcmValoresPadraoSchema = z.object({
   ncmCodigo: z.string().length(8).optional(),
   modalidade: z.string().min(1).optional(),
   valoresAtributos: z.record(z.any()).optional(),
-  estruturaSnapshot: z.any().optional()
+  estruturaSnapshot: z.any().optional(),
+  catalogoIds: z.array(z.number().int().positive()).min(1)
 });

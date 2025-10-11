@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
+import { formatCPFOrCNPJ } from '@/lib/validation';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 
 interface NcmValorPadrao {
@@ -15,6 +16,15 @@ interface NcmValorPadrao {
   modalidade?: string | null;
   criadoEm: string;
   atualizadoEm: string;
+  catalogos: Array<{
+    catalogoId: number;
+    catalogo?: {
+      id: number;
+      nome: string;
+      numero: number;
+      cpf_cnpj: string | null;
+    };
+  }>;
 }
 
 function formatarNCM(ncm: string) {
@@ -37,6 +47,28 @@ function formatarData(dataIso: string) {
   }).format(data);
 }
 
+function descreverCatalogos(item: NcmValorPadrao) {
+  if (!item.catalogos || item.catalogos.length === 0) {
+    return '-';
+  }
+
+  return item.catalogos
+    .map(relacao => {
+      if (relacao.catalogo) {
+        const partes = [relacao.catalogo.nome];
+        if (relacao.catalogo.numero) {
+          partes.push(`Catálogo ${relacao.catalogo.numero}`);
+        }
+        if (relacao.catalogo.cpf_cnpj) {
+          partes.push(formatCPFOrCNPJ(relacao.catalogo.cpf_cnpj));
+        }
+        return partes.join(' • ');
+      }
+      return `Catálogo #${relacao.catalogoId}`;
+    })
+    .join(', ');
+}
+
 export default function ValoresPadraoNcmListaPage() {
   const [registros, setRegistros] = useState<NcmValorPadrao[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,7 +87,8 @@ export default function ValoresPadraoNcmListaPage() {
       setLoading(true);
       setErroCarregamento(false);
       const resposta = await api.get('/ncm-valores-padrao');
-      setRegistros(resposta.data || []);
+      const dados = (resposta.data || []) as NcmValorPadrao[];
+      setRegistros(dados.map(item => ({ ...item, catalogos: item.catalogos || [] })));
     } catch (error) {
       console.error('Erro ao carregar valores padrão de NCM:', error);
       setErroCarregamento(true);
@@ -85,7 +118,18 @@ export default function ValoresPadraoNcmListaPage() {
     return registros.filter(item => {
       const ncmMatch = formatarNCM(item.ncmCodigo).replace(/\./g, '').includes(termo.replace(/\D/g, ''));
       const modalidadeMatch = (item.modalidade || '').toLowerCase().includes(termo);
-      return ncmMatch || modalidadeMatch;
+      const catalogoMatch = item.catalogos?.some(relacao => {
+        const nome = relacao.catalogo?.nome?.toLowerCase() || '';
+        const numero = relacao.catalogo?.numero ? String(relacao.catalogo.numero) : '';
+        const documento = relacao.catalogo?.cpf_cnpj?.replace(/\D/g, '') || '';
+        const termoNumerico = termo.replace(/\D/g, '');
+        return (
+          nome.includes(termo) ||
+          (numero && numero.includes(termo)) ||
+          (documento && termoNumerico && documento.includes(termoNumerico))
+        );
+      });
+      return ncmMatch || modalidadeMatch || Boolean(catalogoMatch);
     });
   }, [filtro, registros]);
 
@@ -114,7 +158,7 @@ export default function ValoresPadraoNcmListaPage() {
       <Card className="mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <div className="relative md:col-span-2">
-            <label className="block text-sm font-medium mb-2 text-gray-300">Filtrar por NCM ou modalidade</label>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Filtrar por NCM, modalidade ou catálogo</label>
             <div className="absolute left-0 top-1/2 -translate-y-1/2 pl-3 pointer-events-none">
               <Search size={18} className="text-gray-400" />
             </div>
@@ -123,7 +167,7 @@ export default function ValoresPadraoNcmListaPage() {
               className="pl-10 pr-4 py-2 w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500"
               value={filtro}
               onChange={event => setFiltro(event.target.value)}
-              placeholder="Digite a NCM ou modalidade"
+              placeholder="Digite a NCM, modalidade ou catálogo"
             />
           </div>
           <div className="text-sm text-gray-400">
@@ -158,6 +202,7 @@ export default function ValoresPadraoNcmListaPage() {
                   <th className="w-20 px-4 py-3 text-center">Ações</th>
                   <th className="px-4 py-3">NCM</th>
                   <th className="px-4 py-3">Modalidade</th>
+                  <th className="px-4 py-3">Catálogos</th>
                   <th className="px-4 py-3">Criado em</th>
                   <th className="px-4 py-3">Atualizado em</th>
                 </tr>
@@ -185,6 +230,7 @@ export default function ValoresPadraoNcmListaPage() {
                     </td>
                     <td className="px-4 py-3 font-medium text-white">{formatarNCM(item.ncmCodigo)}</td>
                     <td className="px-4 py-3 text-gray-200">{item.modalidade ? item.modalidade : '-'}</td>
+                    <td className="px-4 py-3 text-gray-200">{descreverCatalogos(item)}</td>
                     <td className="px-4 py-3 text-gray-200">{formatarData(item.criadoEm)}</td>
                     <td className="px-4 py-3 text-gray-200">{formatarData(item.atualizadoEm)}</td>
                   </tr>
