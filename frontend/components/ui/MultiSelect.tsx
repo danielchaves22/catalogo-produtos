@@ -1,5 +1,5 @@
 // frontend/components/ui/MultiSelect.tsx - Dropdown de múltipla escolha com checkboxes
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 import { Hint } from './Hint';
@@ -83,6 +83,18 @@ export function MultiSelect({
     onChange(Array.from(set));
   };
 
+  const allValues = useMemo(() => options.map(option => option.value), [options]);
+  const todosSelecionados = allValues.length > 0 && allValues.every(value => values.includes(value));
+  const possuiSelecao = values.length > 0;
+
+  const handleSelecionarTodos = () => {
+    onChange(allValues);
+  };
+
+  const handleLimparSelecao = () => {
+    onChange([]);
+  };
+
   const selectedLabels = options
     .filter(o => values.includes(o.value))
     .map(o => o.label);
@@ -124,6 +136,30 @@ export function MultiSelect({
             style={{ position: 'fixed', top: position.top, left: position.left, width: position.width }}
             ref={portalRef}
           >
+            {options.length > 0 && (
+              <div className="sticky top-0 flex items-center justify-between gap-2 px-3 py-2 text-xs text-gray-300 bg-[#1e2126] border-b border-gray-700">
+                <button
+                  type="button"
+                  className={`uppercase tracking-wide font-semibold transition-colors ${
+                    todosSelecionados ? 'text-gray-500 cursor-default' : 'hover:text-white'
+                  }`}
+                  onClick={!todosSelecionados ? handleSelecionarTodos : undefined}
+                  disabled={todosSelecionados}
+                >
+                  Selecionar todos
+                </button>
+                <button
+                  type="button"
+                  className={`uppercase tracking-wide font-semibold transition-colors ${
+                    possuiSelecao ? 'hover:text-white text-[#f87171]' : 'text-gray-500 cursor-default'
+                  }`}
+                  onClick={possuiSelecao ? handleLimparSelecao : undefined}
+                  disabled={!possuiSelecao}
+                >
+                  Limpar seleção
+                </button>
+              </div>
+            )}
             {options.map(opt => (
               <label
                 key={opt.value}
