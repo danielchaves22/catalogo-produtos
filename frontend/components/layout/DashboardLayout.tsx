@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from './Sidebar';
-import { User, RefreshCcw, Mail } from 'lucide-react';
+import { User, RefreshCcw, Bell } from 'lucide-react';
 import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { WorkingCatalogModal } from '@/components/catalogos/WorkingCatalogModal';
@@ -160,7 +160,7 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
               aria-label="Mensagens"
               title={unreadCount > 0 ? `${unreadCount} mensagem(ns) não lida(s)` : 'Mensagens'}
             >
-              <Mail size={18} />
+              <Bell size={18} />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-[#f59e0b] text-xs font-semibold text-black rounded-full px-1 min-w-[18px] text-center">
                   {unreadCount > 9 ? '9+' : unreadCount}
