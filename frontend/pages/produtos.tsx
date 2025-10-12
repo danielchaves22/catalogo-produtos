@@ -1,5 +1,5 @@
 // frontend/pages/produtos.tsx - listagem de produtos
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -77,6 +77,9 @@ export default function ProdutosPage() {
   const [cloneSkus, setCloneSkus] = useState<string[]>([]);
   const [cloneErrors, setCloneErrors] = useState<{ nome?: string; catalogo?: string }>({});
   const [clonandoProduto, setClonandoProduto] = useState(false);
+  const [selectedProdutoIds, setSelectedProdutoIds] = useState<Set<number>>(() => new Set());
+  const [deselectedProdutoIds, setDeselectedProdutoIds] = useState<Set<number>>(() => new Set());
+  const [isAllFilteredSelected, setIsAllFilteredSelected] = useState(false);
   const router = useRouter();
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
@@ -91,6 +94,34 @@ export default function ProdutosPage() {
   const exibicaoLabel = possuiItensNaPagina
     ? `Exibindo ${inicioExibicao}-${fimExibicao} de ${totalProdutos} produtos`
     : undefined;
+  const headerCheckboxRef = useRef<HTMLInputElement | null>(null);
+  const totalSelectedCount = isAllFilteredSelected
+    ? Math.max(0, totalProdutos - deselectedProdutoIds.size)
+    : selectedProdutoIds.size;
+  const currentPageSelectedCount = produtos.reduce((count, produto) => {
+    if (isAllFilteredSelected) {
+      return deselectedProdutoIds.has(produto.id) ? count : count + 1;
+    }
+    return selectedProdutoIds.has(produto.id) ? count + 1 : count;
+  }, 0);
+  const allCurrentPageSelected = produtos.length > 0 && currentPageSelectedCount === produtos.length;
+  const someCurrentPageSelected = currentPageSelectedCount > 0 && currentPageSelectedCount < produtos.length;
+
+  const limparSelecao = useCallback(() => {
+    setSelectedProdutoIds(new Set());
+    setDeselectedProdutoIds(new Set());
+    setIsAllFilteredSelected(false);
+  }, []);
+
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate = someCurrentPageSelected;
+    }
+  }, [someCurrentPageSelected, currentPageSelectedCount, produtos.length]);
+
+  useEffect(() => {
+    limparSelecao();
+  }, [busca, filtros.status, filtros.situacoes, filtros.catalogoId, limparSelecao]);
 
   useEffect(() => {
     async function carregarCatalogos() {
@@ -221,6 +252,80 @@ export default function ProdutosPage() {
         return modalidade;
     }
   }
+
+  const handleToggleProduto = useCallback((produtoId: number) => {
+    if (isAllFilteredSelected) {
+      setDeselectedProdutoIds(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(produtoId)) {
+          newSet.delete(produtoId);
+        } else {
+          newSet.add(produtoId);
+        }
+        return newSet;
+      });
+      return;
+    }
+
+    setSelectedProdutoIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(produtoId)) {
+        newSet.delete(produtoId);
+      } else {
+        newSet.add(produtoId);
+      }
+      return newSet;
+    });
+  }, [isAllFilteredSelected]);
+
+  const handleToggleSelectAllCurrentPage = useCallback(() => {
+    if (produtos.length === 0) return;
+
+    if (isAllFilteredSelected) {
+      const algumDeselecionadoNaPagina = produtos.some(produto => deselectedProdutoIds.has(produto.id));
+
+      if (algumDeselecionadoNaPagina) {
+        setDeselectedProdutoIds(prev => {
+          const newSet = new Set(prev);
+          produtos.forEach(produto => {
+            newSet.delete(produto.id);
+          });
+          return newSet;
+        });
+      } else {
+        limparSelecao();
+      }
+
+      return;
+    }
+
+    const idsDaPagina = produtos.map(produto => produto.id);
+    if (allCurrentPageSelected) {
+      setSelectedProdutoIds(prev => {
+        const newSet = new Set(prev);
+        idsDaPagina.forEach(id => newSet.delete(id));
+        return newSet;
+      });
+    } else {
+      setSelectedProdutoIds(prev => {
+        const newSet = new Set(prev);
+        idsDaPagina.forEach(id => newSet.add(id));
+        return newSet;
+      });
+    }
+  }, [
+    allCurrentPageSelected,
+    deselectedProdutoIds,
+    isAllFilteredSelected,
+    limparSelecao,
+    produtos,
+  ]);
+
+  const handleSelectAllFiltered = useCallback(() => {
+    if (totalProdutos === 0) return;
+    setIsAllFilteredSelected(true);
+    setDeselectedProdutoIds(new Set());
+  }, [totalProdutos]);
 
   if (loading && !hasLoadedOnce) {
     return (
@@ -445,10 +550,47 @@ export default function ProdutosPage() {
           </div>
         ) : (
           <>
+            {totalSelectedCount > 0 && (
+              <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-gray-800 bg-[#111821] text-gray-200 text-sm">
+                <span>
+                  {isAllFilteredSelected ? (
+                    deselectedProdutoIds.size === 0 ? (
+                      <>Todos os {totalProdutos} produtos filtrados estão selecionados.</>
+                    ) : (
+                      <>Selecionados {totalSelectedCount} de {totalProdutos} produtos filtrados.</>
+                    )
+                  ) : (
+                    <>
+                      {totalSelectedCount} produto{totalSelectedCount === 1 ? '' : 's'} selecionado{totalSelectedCount === 1 ? '' : 's'}.
+                    </>
+                  )}
+                </span>
+                {!isAllFilteredSelected && totalSelectedCount < totalProdutos && allCurrentPageSelected && (
+                  <Button variant="outline" size="xs" onClick={handleSelectAllFiltered}>
+                    Selecionar todos os {totalProdutos} produtos filtrados
+                  </Button>
+                )}
+                <Button variant="outline" size="xs" onClick={limparSelecao}>
+                  Limpar seleção
+                </Button>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
                   <tr>
+                    <th className="w-12 px-4 py-3">
+                      <div className="flex justify-center">
+                        <input
+                          ref={headerCheckboxRef}
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-600 bg-[#1e2126] text-purple-500 focus:ring-purple-500"
+                          checked={produtos.length > 0 && allCurrentPageSelected}
+                          onChange={handleToggleSelectAllCurrentPage}
+                          aria-label="Selecionar todos os produtos desta página"
+                        />
+                      </div>
+                    </th>
                     <th className="w-24 px-4 py-3 text-center">Ações</th>
                     <th className="px-4 py-3">Catálogo</th>
                     <th className="px-4 py-3">Nome</th>
@@ -484,7 +626,22 @@ export default function ProdutosPage() {
                       key={produto.id}
                       className="border-b border-gray-700 hover:bg-[#1a1f2b] transition-colors"
                     >
-                      <td className="px-4 py-3 flex gap-2">
+                      <td className="px-4 py-3">
+                        <div className="flex justify-center">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-600 bg-[#1e2126] text-purple-500 focus:ring-purple-500"
+                            checked={
+                              isAllFilteredSelected
+                                ? !deselectedProdutoIds.has(produto.id)
+                                : selectedProdutoIds.has(produto.id)
+                            }
+                            onChange={() => handleToggleProduto(produto.id)}
+                            aria-label={`Selecionar produto ${produto.denominacao ?? produto.codigo ?? produto.id}`}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 flex items-center justify-center gap-2">
                         <button
                           className="p-1 text-gray-300 hover:text-purple-500 transition-colors"
                           onClick={() => abrirModalClonar(produto)}
