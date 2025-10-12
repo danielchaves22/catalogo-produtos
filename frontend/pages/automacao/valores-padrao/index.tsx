@@ -7,8 +7,27 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
+import { isValorPreenchido } from '@/lib/atributos';
 import { formatCPFOrCNPJ } from '@/lib/validation';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+
+interface AtributoSnapshot {
+  codigo: string;
+  nome?: string;
+  tipo?: string;
+  dominio?: { codigo: string; descricao: string }[];
+  subAtributos?: AtributoSnapshot[];
+}
+
+interface CatalogoRelacionamento {
+  catalogoId: number;
+  catalogo?: {
+    id: number;
+    nome: string;
+    numero: number;
+    cpf_cnpj: string | null;
+  };
+}
 
 interface NcmValorPadrao {
   id: number;
@@ -16,16 +35,12 @@ interface NcmValorPadrao {
   modalidade?: string | null;
   criadoEm: string;
   atualizadoEm: string;
-  catalogos: Array<{
-    catalogoId: number;
-    catalogo?: {
-      id: number;
-      nome: string;
-      numero: number;
-      cpf_cnpj: string | null;
-    };
-  }>;
+  catalogos: CatalogoRelacionamento[];
+  valoresJson?: Record<string, unknown> | null;
+  estruturaSnapshotJson?: AtributoSnapshot[] | null;
 }
+
+type NcmValorPadraoDetalhe = NcmValorPadrao;
 
 function formatarNCM(ncm: string) {
   const digits = ncm.replace(/\D/g, '').slice(0, 8);
@@ -45,6 +60,14 @@ function formatarData(dataIso: string) {
     hour: '2-digit',
     minute: '2-digit'
   }).format(data);
+}
+
+function formatarModalidade(modalidade?: string | null) {
+  if (!modalidade) return '-';
+  const valor = modalidade.toUpperCase();
+  if (valor === 'IMPORTACAO') return 'Importação';
+  if (valor === 'EXPORTACAO') return 'Exportação';
+  return modalidade;
 }
 
 function descreverCatalogos(item: NcmValorPadrao) {
@@ -75,6 +98,10 @@ export default function ValoresPadraoNcmListaPage() {
   const [erroCarregamento, setErroCarregamento] = useState(false);
   const [filtro, setFiltro] = useState('');
   const [registroParaExcluir, setRegistroParaExcluir] = useState<NcmValorPadrao | null>(null);
+  const [registroParaVisualizar, setRegistroParaVisualizar] = useState<NcmValorPadraoDetalhe | null>(null);
+  const [visualizacaoAberta, setVisualizacaoAberta] = useState(false);
+  const [carregandoVisualizacao, setCarregandoVisualizacao] = useState(false);
+  const [erroVisualizacao, setErroVisualizacao] = useState<string | null>(null);
   const { addToast } = useToast();
   const router = useRouter();
 
@@ -88,7 +115,14 @@ export default function ValoresPadraoNcmListaPage() {
       setErroCarregamento(false);
       const resposta = await api.get('/ncm-valores-padrao');
       const dados = (resposta.data || []) as NcmValorPadrao[];
-      setRegistros(dados.map(item => ({ ...item, catalogos: item.catalogos || [] })));
+      setRegistros(
+        dados.map(item => ({
+          ...item,
+          catalogos: item.catalogos || [],
+          valoresJson: (item as NcmValorPadrao).valoresJson || null,
+          estruturaSnapshotJson: (item as NcmValorPadrao).estruturaSnapshotJson || null
+        }))
+      );
     } catch (error) {
       console.error('Erro ao carregar valores padrão de NCM:', error);
       setErroCarregamento(true);
@@ -132,6 +166,112 @@ export default function ValoresPadraoNcmListaPage() {
       return ncmMatch || modalidadeMatch || Boolean(catalogoMatch);
     });
   }, [filtro, registros]);
+
+  function coletarAtributos(estrutura: AtributoSnapshot[] | null | undefined) {
+    const lista: AtributoSnapshot[] = [];
+    if (!estrutura) return lista;
+    const percorrer = (itens: AtributoSnapshot[]) => {
+      for (const atributo of itens) {
+        lista.push(atributo);
+        if (atributo.subAtributos && atributo.subAtributos.length > 0) {
+          percorrer(atributo.subAtributos);
+        }
+      }
+    };
+    percorrer(estrutura);
+    return lista;
+  }
+
+  function formatarValorAtributo(
+    atributo: AtributoSnapshot | undefined,
+    valor: unknown
+  ): string {
+    const valores = Array.isArray(valor) ? valor : [valor];
+    return valores
+      .map(item => {
+        if (item === undefined || item === null) return '';
+        const texto = String(item);
+        if (!atributo) return texto;
+        if (atributo.tipo === 'BOOLEANO') {
+          if (texto === 'true') return 'Sim';
+          if (texto === 'false') return 'Não';
+        }
+        if (atributo.tipo === 'LISTA_ESTATICA' && atributo.dominio) {
+          const opcao = atributo.dominio.find(d => d.codigo === texto);
+          if (opcao) {
+            return `${opcao.codigo} - ${opcao.descricao}`;
+          }
+        }
+        return texto;
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  const atributosPreenchidos = useMemo(() => {
+    if (!registroParaVisualizar) return [];
+    const valores = (registroParaVisualizar.valoresJson || {}) as Record<string, unknown>;
+    const estrutura = registroParaVisualizar.estruturaSnapshotJson || [];
+    const atributosOrdenados = coletarAtributos(estrutura);
+    const mapa = new Map(atributosOrdenados.map(attr => [attr.codigo, attr] as const));
+    const adicionados = new Set<string>();
+    const lista = atributosOrdenados
+      .filter(attr => {
+        const valor = valores[attr.codigo];
+        return isValorPreenchido(valor as any);
+      })
+      .map(attr => {
+        const valor = valores[attr.codigo]!;
+        adicionados.add(attr.codigo);
+        return {
+          codigo: attr.codigo,
+          nome: attr.nome || attr.codigo,
+          valorFormatado: formatarValorAtributo(attr, valor)
+        };
+      });
+
+    Object.entries(valores).forEach(([codigo, valor]) => {
+      if (adicionados.has(codigo)) return;
+      if (!isValorPreenchido(valor as any)) return;
+      lista.push({
+        codigo,
+        nome: codigo,
+        valorFormatado: formatarValorAtributo(mapa.get(codigo), valor)
+      });
+    });
+
+    return lista;
+  }, [registroParaVisualizar]);
+
+  async function abrirVisualizacao(item: NcmValorPadrao) {
+    setVisualizacaoAberta(true);
+    setCarregandoVisualizacao(true);
+    setErroVisualizacao(null);
+    try {
+      if (item.estruturaSnapshotJson && item.valoresJson) {
+        setRegistroParaVisualizar({
+          ...item,
+          estruturaSnapshotJson: item.estruturaSnapshotJson,
+          valoresJson: item.valoresJson
+        });
+      } else {
+        const resposta = await api.get<NcmValorPadraoDetalhe>(`/ncm-valores-padrao/${item.id}`);
+        setRegistroParaVisualizar(resposta.data);
+      }
+    } catch (error) {
+      console.error('Erro ao visualizar valores padrão:', error);
+      setErroVisualizacao('Não foi possível carregar os valores padrão para visualização.');
+      addToast('Erro ao carregar valores padrão', 'error');
+    } finally {
+      setCarregandoVisualizacao(false);
+    }
+  }
+
+  function fecharVisualizacao() {
+    setVisualizacaoAberta(false);
+    setRegistroParaVisualizar(null);
+    setErroVisualizacao(null);
+  }
 
   return (
     <DashboardLayout title="Valores Padrão por NCM">
@@ -213,6 +353,13 @@ export default function ValoresPadraoNcmListaPage() {
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
+                          className="p-1 text-gray-300 hover:text-emerald-400 transition-colors"
+                          onClick={() => abrirVisualizacao(item)}
+                          title="Visualizar valores padrão"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button
                           className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
                           onClick={() => router.push(`/automacao/valores-padrao/${item.id}`)}
                           title="Editar valores padrão"
@@ -229,7 +376,7 @@ export default function ValoresPadraoNcmListaPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 font-medium text-white">{formatarNCM(item.ncmCodigo)}</td>
-                    <td className="px-4 py-3 text-gray-200">{item.modalidade ? item.modalidade : '-'}</td>
+                    <td className="px-4 py-3 text-gray-200">{formatarModalidade(item.modalidade)}</td>
                     <td className="px-4 py-3 text-gray-200">{descreverCatalogos(item)}</td>
                     <td className="px-4 py-3 text-gray-200">{formatarData(item.criadoEm)}</td>
                     <td className="px-4 py-3 text-gray-200">{formatarData(item.atualizadoEm)}</td>
@@ -255,6 +402,61 @@ export default function ValoresPadraoNcmListaPage() {
               <Button variant="accent" onClick={remover}>
                 Remover
               </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {visualizacaoAberta && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
+          <Card className="w-full max-w-3xl p-6">
+            <div className="flex flex-col gap-4">
+              <div>
+                <h3 className="text-xl font-semibold text-white">Atributos padrão preenchidos</h3>
+                {registroParaVisualizar && (
+                  <p className="text-sm text-gray-300 mt-1">
+                    NCM {formatarNCM(registroParaVisualizar.ncmCodigo)}{' '}
+                    {registroParaVisualizar.modalidade
+                      ? `• Modalidade ${formatarModalidade(registroParaVisualizar.modalidade)}`
+                      : ''}
+                  </p>
+                )}
+              </div>
+
+              {carregandoVisualizacao ? (
+                <div className="py-10 text-center text-gray-400">Carregando informações...</div>
+              ) : erroVisualizacao ? (
+                <div className="py-6 text-center text-gray-300">{erroVisualizacao}</div>
+              ) : atributosPreenchidos.length === 0 ? (
+                <div className="py-6 text-center text-gray-300">
+                  Nenhum atributo padrão foi preenchido para este grupo.
+                </div>
+              ) : (
+                <div className="max-h-96 overflow-y-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
+                      <tr>
+                        <th className="px-4 py-2">Atributo</th>
+                        <th className="px-4 py-2">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {atributosPreenchidos.map(attr => (
+                        <tr key={attr.codigo} className="border-b border-gray-700">
+                          <td className="px-4 py-3 font-medium text-white">{attr.nome}</td>
+                          <td className="px-4 py-3 text-gray-200">{attr.valorFormatado}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={fecharVisualizacao}>
+                  Fechar
+                </Button>
+              </div>
             </div>
           </Card>
         </div>
