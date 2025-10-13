@@ -190,7 +190,8 @@ export async function consultarAtributosPorNcm(req: Request, res: Response) {
     }
 
     const modalidade = (req.query.modalidade as string) || 'IMPORTACAO';
-    const atributos = await atributoLegacyService.buscarEstrutura(ncm, modalidade);
+    const estruturaInfo = await atributoLegacyService.buscarEstrutura(ncm, modalidade);
+    const atributos = estruturaInfo.estrutura;
     let info = await catalogoPrisma.ncmCache.findUnique({
       where: { codigo: ncm }
     });
@@ -211,7 +212,8 @@ export async function consultarAtributosPorNcm(req: Request, res: Response) {
       descricaoNcm: info?.descricao || null,
       unidadeMedida: info?.unidadeMedida || null,
       total: atributos.length,
-      dados: atributos
+      dados: atributos,
+      versaoAtributos: estruturaInfo.versaoNumero
     });
   } catch (error: unknown) {
     logger.error('Erro ao consultar atributos por NCM:', error);

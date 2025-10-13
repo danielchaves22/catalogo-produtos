@@ -2,16 +2,15 @@
 
 ## 1. Visão Geral
 
-O Sistema de Atributos Dinâmicos é uma implementação do padrão **EAV (Entity-Attribute-Value)** adaptado para o contexto de comércio exterior. Ele permite a definição e gestão de características personalizadas para produtos/mercadorias baseados em seus códigos NCM (Nomenclatura Comum do Mercosul), sem necessidade de alterações estruturais no banco de dados.
+O Sistema de Atributos Dinâmicos segue o padrão **EAV (Entity-Attribute-Value)**, agora normalizado para permitir o versionamento e o reaproveitamento de catálogos completos de atributos. A modelagem introduz um catálogo compartilhado de atributos por NCM/modalidade, mantendo a flexibilidade para definir condicionais, domínios e diferentes formatos de preenchimento sem alterar tabelas transacionais.
 
 ### 1.1 Principais Características
 
-- **Flexibilidade Total**: Criação de novos atributos sem mudanças no schema do banco
-- **Versionamento Temporal**: Controle completo de vigências e histórico
-- **Hierarquia e Composição**: Suporte a atributos compostos e estruturas aninhadas
-- **Regras Condicionais**: Atributos que aparecem baseados em condições específicas
-- **Multi-modalidade**: Diferentes regras por tipo de operação (importação/exportação)
-- **Validação Dinâmica**: Regras de obrigatoriedade e validação configuráveis
+- **Catálogo versionado**: cada conjunto de atributos para um NCM/modalidade é persistido em `atributo_versao` e pode ser reutilizado por múltiplos produtos ou catálogos de valores padrão.
+- **Domínios normalizados**: valores de lista são armazenados em `atributo_dominio`, reutilizáveis por versões posteriores do mesmo atributo.
+- **Suporte a multivalorados**: a tabela `produto_atributo_valor` permite múltiplas entradas para um mesmo atributo ou valor padrão.
+- **Regras condicionais e hierarquia**: atributos podem depender de outros via `parent_id` e `condicao_json` sem duplicar registros.
+- **Separação entre catálogo e preenchimento**: produtos e valores padrão de NCM referenciam a versão ativa do catálogo, garantindo coerência.
 
 ## 2. Estrutura do Banco de Dados
 
@@ -19,377 +18,222 @@ O Sistema de Atributos Dinâmicos é uma implementação do padrão **EAV (Entit
 
 ```mermaid
 erDiagram
-    atributo ||--o{ atributo : "parent_codigo"
-    atributo ||--o{ atributo_dominio : "atributo_codigo"
-    atributo ||--o{ atributo_condicionado : "atributo_codigo"
-    atributo ||--o{ atributo_vinculo : "codigo"
-    
-    atributo {
-        int id PK
-        varchar codigo UK
-        varchar nome
-        varchar nome_apresentacao
-        varchar forma_preenchimento
-        date data_inicio_vigencia
-        date data_fim_vigencia
-        text objetivos
-        text orgaos
-        boolean atributo_condicionante
-        boolean multivalorado
-        text orientacao_preenchimento
-        int tamanho_maximo
-        text definicao
-        int casas_decimais
-        varchar brid
-        varchar mascara
-        varchar parent_codigo FK
-    }
-    
-    atributo_condicionado {
-        int id PK
-        varchar atributo_codigo FK
-        varchar codigo
-        varchar nome
-        varchar nome_apresentacao
-        varchar forma_preenchimento
-        boolean obrigatorio
-        boolean multivalorado
-        int tamanho_maximo
-        int casas_decimais
-        varchar mascara
-        text descricao_condicao
-        text condicao
-        date data_inicio_vigencia
-        date data_fim_vigencia
-    }
-    
-    atributo_dominio {
-        int id PK
-        varchar codigo
-        varchar descricao
-        varchar atributo_codigo FK
-    }
-    
-    atributo_vinculo {
-        int id PK
-        varchar codigo_ncm
-        varchar codigo FK
-        varchar modalidade
-        boolean obrigatorio
-        boolean multivalorado
-        date data_inicio_vigencia
-        date data_fim_vigencia
-    }
+    atributo_versao ||--o{ atributo : "versao"
+    atributo ||--o{ atributo_dominio : "domínio"
+    atributo ||--o{ atributo : "parent"
+    atributo ||--o{ produto_atributo : "definições usadas"
+    produto ||--o{ produto_atributo : "atributos preenchidos"
+    produto_atributo ||--o{ produto_atributo_valor : "valores"
+    atributo_versao ||--o{ ncm_atributo_valor_grupo : "valores padrão"
+    ncm_atributo_valor_grupo ||--o{ ncm_atributo_valor : "atributos"
+    ncm_atributo_valor_grupo ||--o{ ncm_atributo_valor_catalogo : "catálogos"
 ```
+
+### 2.2 Principais Entidades
+
+- **`atributo_versao`**: identifica o catálogo normalizado (NCM, modalidade e versão).
+- **`atributo`**: definição de cada campo disponível em uma versão, incluindo hierarquia, condicional e validações.
+- **`atributo_dominio`**: valores de domínio associados a atributos de listas.
+- **`produto_atributo` / `produto_atributo_valor`**: armazenamento dos valores preenchidos em produtos, com referência ao atributo e à versão usada no momento da criação.
+- **`ncm_atributo_valor_grupo` / `ncm_atributo_valor` / `ncm_atributo_valor_catalogo`**: estrutura para valores padrão reutilizáveis por catálogos e superusuários.
 
 ## 3. Detalhamento das Tabelas
 
-### 3.1 Tabela `atributo` - Definição Principal
-
-Esta é a tabela central que define todos os atributos disponíveis no sistema.
-
-#### 3.1.1 Campos de Identificação e Apresentação
+### 3.1 `atributo_versao` – Catálogo Normalizado
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
-| `id` | int | Identificador único auto-incremental |
-| `codigo` | varchar(50) | Código único de negócio do atributo |
-| `nome` | varchar(255) | Nome técnico interno do atributo |
-| `nome_apresentacao` | varchar(255) | Nome amigável exibido aos usuários |
-| `brid` | varchar(50) | Identificador externo para integração |
+| `id` | int | Identificador único da versão |
+| `ncm_codigo` | varchar(8) | NCM do catálogo |
+| `modalidade` | varchar(20) | Modalidade (IMPORTACAO, EXPORTACAO, etc.) |
+| `versao` | int | Número sequencial controlado pelo SISCOMEX |
+| `criado_em` | datetime | Controle de auditoria |
 
-#### 3.1.2 Tipo de Preenchimento (`forma_preenchimento`)
+Cada produto aponta para a versão utilizada ao ser criado (`versao_atributo_id`). Novas versões não invalidam registros anteriores.
 
-Define como o atributo será preenchido pelo usuário:
-
-| Tipo | Descrição | Campos Aplicáveis |
-|------|-----------|-------------------|
-| `LISTA_ESTATICA` | Seleção de valores pré-definidos | - |
-| `BOOLEANO` | Checkbox Sim/Não | - |
-| `TEXTO` | Campo de texto livre | `tamanho_maximo`, `mascara` |
-| `NUMERO_REAL` | Números decimais | `casas_decimais`, `tamanho_maximo` |
-| `NUMERO_INTEIRO` | Números inteiros | `tamanho_maximo` |
-| `COMPOSTO` | Container para outros atributos | `parent_codigo` |
-
-#### 3.1.3 Características Especiais por Tipo
-
-**Para `TEXTO`:**
-- `tamanho_maximo`: Limite de caracteres (ex: 255)
-- `mascara`: Padrão de formatação (ex: "##.###-###" para CEP)
-
-**Para `NUMERO_REAL`:**
-- `casas_decimais`: Quantidade de casas após a vírgula (ex: 2 para valores monetários)
-- `tamanho_maximo`: Quantidade máxima de dígitos totais
-
-**Para `NUMERO_INTEIRO`:**
-- `tamanho_maximo`: Quantidade máxima de dígitos
-
-**Para `COMPOSTO`:**
-- Utiliza `parent_codigo` para criar hierarquias
-- Não possui valor próprio, apenas agrupa outros atributos
-
-#### 3.1.4 Campos de Controle
-
-| Campo | Tipo | Descrição | Aplicável a |
-|-------|------|-----------|-------------|
-| `multivalorado` | boolean | Permite múltiplos valores | Todos exceto `BOOLEANO` |
-| `atributo_condicionante` | boolean | Se true, pode condicionar outros atributos | Principalmente `BOOLEANO` e `LISTA_ESTATICA` |
-| `data_inicio_vigencia` | date | Início da validade do atributo | Todos |
-| `data_fim_vigencia` | date | Fim da validade do atributo | Todos |
-
-#### 3.1.5 Campos Informativos
+### 3.2 `atributo` – Definição do Campo
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
-| `orientacao_preenchimento` | text | Instruções para o usuário |
-| `definicao` | text | Definição técnica/legal do atributo |
-| `objetivos` | text | Finalidade do atributo |
-| `orgaos` | text | Órgãos reguladores relacionados |
+| `id` | int | Identificador do atributo na versão |
+| `versao_id` | int | Referência ao catálogo (`atributo_versao`) |
+| `codigo` | varchar | Código de negócio recebido do SISCOMEX |
+| `nome` | varchar | Nome técnico |
+| `tipo` | varchar | Tipo lógico (TEXTO, NUMERO_INTEIRO, LISTA_ESTATICA, etc.) |
+| `obrigatorio` | boolean | Indica obrigatoriedade padrão |
+| `multivalorado` | boolean | Permite múltiplos valores |
+| `orientacao_preenchimento` | text | Instruções ao usuário |
+| `validacoes_json` | json | Configuração específica (tamanho, máscaras, limites) |
+| `descricao_condicao` | text | Texto amigável para regras condicionais |
+| `condicao_json` | json | Expressão condicional (operadores, comparações, etc.) |
+| `parent_id` | int | Relaciona atributos compostos/agrupadores |
+| `parent_codigo` | varchar | Código do atributo pai para rastreabilidade |
+| `condicionante_codigo` | varchar | Código do atributo condicionante |
+| `ordem` | int | Ordenação dentro do formulário |
 
-### 3.2 Tabela `atributo_condicionado` - Regras Condicionais
+A hierarquia é resolvida por `parent_id` e `parent_codigo`. Condicionais utilizam `condicao_json` apontando para valores do atributo condicionante.
 
-Define atributos que só aparecem quando condições específicas são atendidas.
-Nessa tabela são armazenados **todos** os detalhes do atributo que só deve ser exibido quando a condição é verdadeira.
+### 3.3 `atributo_dominio` – Valores de Lista
 
-#### 3.2.1 Funcionamento
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | int | Identificador do valor |
+| `atributo_id` | int | Referência ao atributo |
+| `codigo` | varchar | Valor armazenado |
+| `descricao` | varchar | Texto exibido |
+| `ordem` | int | Ordenação dentro do domínio |
 
-1. `atributo_codigo` referencia o atributo condicionante (código do pai)
-2. Os campos `nome`, `nome_apresentacao`, `forma_preenchimento`, `tamanho_maximo`, `casas_decimais`, `mascara`, `multivalorado`, etc. são próprios do atributo condicionado e seguem o mesmo significado da tabela `atributo`
-3. `descricao_condicao` é uma descrição legível da regra, enquanto `condicao` armazena a expressão em JSON (operadores `==`, `!=`, `>`, `<`, composição `&&`/`||`)
-4. `obrigatorio` e `multivalorado` podem ser sobrescritos pelos campos `obrigatorio_con` e `multivalorado_con` para vigências específicas
-5. `data_inicio_vigencia_con` e `data_fim_vigencia_con` definem a validade da regra condicional
+Domínios são persistidos por versão, permitindo coexistência de conjuntos distintos para o mesmo atributo em versões futuras.
 
-#### 3.2.2 Exemplo Prático
+### 3.4 `produto_atributo` e `produto_atributo_valor`
 
-```
-Atributo Condicionante: "possui_bateria" (BOOLEANO)
-↓
-Quando valor = true
-↓
-Atributos Condicionados:
-- "tipo_bateria" (LISTA_ESTATICA) - obrigatório
-- "capacidade_bateria_mah" (NUMERO_INTEIRO) - obrigatório
-- "bateria_removivel" (BOOLEANO) - opcional
-```
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `produto_atributo.id` | int | Identificador do vínculo |
+| `produto_atributo.produto_id` | int | Produto relacionado |
+| `produto_atributo.atributo_id` | int | Atributo definido na versão |
+| `produto_atributo.atributo_versao_id` | int | Versão utilizada |
+| `produto_atributo.validado_em` | datetime | Timestamp da última validação |
+| `produto_atributo.erros_validacao` | json | Erros associados |
+| `produto_atributo_valor.valor_json` | json | Valor preenchido (inclui tipos primitivos e objetos) |
+| `produto_atributo_valor.ordem` | int | Ordem para atributos multivalorados |
 
-### 3.3 Tabela `atributo_dominio` - Valores de Lista
+A separação permite múltiplos valores por atributo (`ordem`) e mantém as regras de validação próximas ao preenchimento.
 
-Define os valores possíveis para atributos do tipo `LISTA_ESTATICA`.
+### 3.5 Valores Padrão de NCM (`ncm_atributo_*`)
 
-#### 3.3.1 Estrutura
+| Tabela | Finalidade |
+|--------|------------|
+| `ncm_atributo_valor_grupo` | Agrupa valores padrão por superusuário, NCM, modalidade e versão de atributo |
+| `ncm_atributo_valor` | Armazena cada valor associado a um atributo específico, seguindo o mesmo formato JSON dos produtos |
+| `ncm_atributo_valor_catalogo` | Associa grupos de valores padrão a catálogos específicos |
 
-| Campo | Descrição | Exemplo |
-|-------|-----------|---------|
-| `codigo` | Valor armazenado | "BR", "US", "CN" |
-| `descricao` | Texto exibido | "Brasil", "Estados Unidos", "China" |
-| `atributo_codigo` | Vínculo com atributo pai | "pais_origem" |
-
-#### 3.3.2 Características
-
-- Suporta Unicode para descrições internacionais
-- Permite ordenação customizada via `id`
-- Valores podem ser reutilizados entre diferentes períodos de vigência
-
-### 3.4 Tabela `atributo_vinculo` - Associação NCM
-
-Conecta atributos a códigos NCM específicos com regras de aplicação.
-
-#### 3.4.1 Campos Principais
-
-| Campo | Descrição | Exemplo |
-|-------|-----------|---------|
-| `codigo_ncm` | NCM de 8 dígitos | "84713012" |
-| `codigo` | Código do atributo | "memoria_ram" |
-| `modalidade` | Tipo de operação | "IMPORTACAO", "EXPORTACAO" |
-| `obrigatorio` | Obrigatoriedade para o NCM | true/false |
-| `multivalorado` | Override do comportamento padrão | true/false |
-
-#### 3.4.2 Vigência Específica
-
-- Permite diferentes períodos de vigência por NCM
-- Útil para mudanças regulatórias graduais
-- Sobrescreve a vigência do atributo base quando definida
+Os grupos reaproveitam a definição do catálogo (`atributo_versao_id`), mantendo consistência com os produtos publicados.
 
 ## 4. Fluxos de Dados
 
-### 4.1 Fluxo de Carregamento de Atributos
+### 4.1 Carregamento do Catálogo
 
 ```mermaid
 flowchart TD
-    A[NCM + Modalidade] --> B{Buscar vínculos ativos}
-    B --> C[Carregar atributos base]
-    C --> D{Atributo é composto?}
-    D -->|Sim| E[Carregar sub-atributos]
-    D -->|Não| F{Tipo LISTA_ESTATICA?}
-    E --> F
-    F -->|Sim| G[Carregar domínios]
-    F -->|Não| H{É condicionante?}
-    G --> H
-    H -->|Sim| I[Carregar condicionados]
-    H -->|Não| J[Montar formulário]
-    I --> J
+    A[NCM + Modalidade] --> B{Existe versão atual?}
+    B -->|Não| C[Importar versão do SISCOMEX]
+    B -->|Sim| D[Reutilizar versão normalizada]
+    C --> D
+    D --> E[Carregar atributos da versão]
+    E --> F[Resolver hierarquia e condicionais]
+    F --> G[Carregar domínios e validações]
+    G --> H[Montar payload para frontend]
 ```
 
-### 4.2 Fluxo de Validação
+### 4.2 Persistência de Produtos
 
 ```mermaid
-flowchart LR
-    A[Dados entrada] --> B{Vigência válida?}
-    B -->|Não| C[Erro: Fora vigência]
-    B -->|Sim| D{Obrigatório?}
-    D -->|Sim| E{Preenchido?}
-    E -->|Não| F[Erro: Campo obrigatório]
-    E -->|Sim| G{Tipo correto?}
-    D -->|Não| G
-    G -->|Não| H[Erro: Tipo inválido]
-    G -->|Sim| I{Validações específicas}
-    I --> J[Dados válidos]
+flowchart TD
+    A[Payload do frontend] --> B[Resolver versão usada]
+    B --> C[Upsert em produto_atributo]
+    C --> D{Atributo multivalorado?}
+    D -->|Sim| E[Gerar múltiplos produto_atributo_valor]
+    D -->|Não| F[Substituir valor existente]
+    E --> G[Validar conforme regras]
+    F --> G
+    G --> H[Persistir resultado]
 ```
+
+Valores padrão de NCM seguem o mesmo fluxo, trocando `produto` por `ncm_atributo_valor_grupo`.
 
 ## 5. Casos de Uso Detalhados
 
-### 5.1 Caso: Importação de Eletrônicos
+### 5.1 Produtos Eletrônicos
 
-**NCM**: 85171231 - Telefones celulares
+1. O SISCOMEX envia a versão `12` para o NCM `85171231` (modalidade `IMPORTACAO`).
+2. `atributo_versao` persiste o catálogo; `atributo` recebe registros como `especificacoes_tecnicas`, `sistema_operacional`, etc.
+3. Ao criar um produto, `produto_atributo` referencia a versão `12`, garantindo que futuras alterações (ex.: versão `13`) não afetem os registros já salvos.
+4. Se o atributo `suporta_5g` for verdadeiro, os valores condicionais são resolvidos conforme `condicao_json` antes de persistir em `produto_atributo_valor`.
 
-**Atributos Configurados**:
+### 5.2 Valores Padrão Customizados
 
-1. **especificacoes_tecnicas** (COMPOSTO)
-   - **sistema_operacional** (LISTA_ESTATICA)
-     - Domínios: "Android", "iOS", "Outro"
-   - **memoria_interna_gb** (NUMERO_INTEIRO)
-     - Obrigatório, tamanho_maximo: 4
-   - **suporta_5g** (BOOLEANO)
-     - Condicionante
-
-2. **Atributos Condicionados** (quando suporta_5g = true):
-   - **bandas_5g_suportadas** (TEXTO)
-     - Obrigatório, multivalorado
-   - **certificacao_anatel_5g** (TEXTO)
-     - Obrigatório, mascara: "####/##-##"
-
-### 5.2 Caso: Produtos Químicos
-
-**NCM**: 38089419 - Inseticidas
-
-**Atributos com Vigência Temporal**:
-
-1. **registro_anvisa** (TEXTO)
-   - Vigência: 01/01/2020 a 31/12/2024
-   - Substituído por **registro_novo_formato** a partir de 01/01/2025
-
-2. **composicao_quimica** (COMPOSTO)
-   - **ingrediente_ativo** (LISTA_ESTATICA)
-     - Multivalorado: true
-   - **concentracao_percentual** (NUMERO_REAL)
-     - casas_decimais: 2
+1. Um superusuário gera um novo grupo de valores padrão para o mesmo NCM/modalidade.
+2. `ncm_atributo_valor_grupo` referencia a versão ativa e associa valores através de `ncm_atributo_valor`.
+3. Catálogos específicos reutilizam o grupo via `ncm_atributo_valor_catalogo`, garantindo consistência sem duplicação de dados.
 
 ## 6. Boas Práticas de Implementação
 
 ### 6.1 Performance
 
-1. **Índices Recomendados**:
-   ```sql
-   CREATE INDEX idx_atributo_codigo ON atributo(codigo);
-   CREATE INDEX idx_atributo_parent ON atributo(parent_codigo);
-   CREATE INDEX idx_vinculo_ncm ON atributo_vinculo(codigo_ncm, modalidade);
-   CREATE INDEX idx_dominio_atributo ON atributo_dominio(atributo_codigo);
-   ```
-
-2. **Cache de Configurações**:
-   - Cachear estruturas de atributos por NCM
-   - Invalidar cache apenas em mudanças de vigência
+- Indexar as chaves estrangeiras principais:
+  ```sql
+  CREATE INDEX idx_atributo_versao ON atributo(versao_id);
+  CREATE INDEX idx_atributo_parent ON atributo(parent_id);
+  CREATE INDEX idx_produto_atributo_produto ON produto_atributo(produto_id);
+  CREATE INDEX idx_produto_atributo_versao ON produto_atributo(atributo_versao_id);
+  CREATE INDEX idx_ncm_valor_grupo ON ncm_atributo_valor_grupo(ncm_codigo, modalidade);
+  ```
+- Cachear as versões já importadas para evitar recomputar condicionais e hierarquia a cada requisição.
 
 ### 6.2 Integridade de Dados
 
-1. **Validações em Aplicação**:
-   - Verificar ciclos em atributos compostos
-   - Garantir que condicionantes sejam do tipo adequado
-   - Validar máscaras antes de salvar
+- Garantir que `condicao_json` referencia atributos existentes na mesma versão.
+- Bloquear exclusão de versões utilizadas por produtos ou grupos de valores padrão.
+- Utilizar transações ao atualizar valores multivalorados para preservar a ordem (`ordem`).
 
-2. **Constraints Adicionais**:
-   ```sql
-   ALTER TABLE atributo 
-   ADD CONSTRAINT chk_vigencia 
-   CHECK (data_fim_vigencia IS NULL OR data_fim_vigencia >= data_inicio_vigencia);
-   ```
+### 6.3 Evolução
 
-### 6.3 Evolução do Sistema
-
-1. **Versionamento de Atributos**:
-   - Nunca deletar atributos, apenas marcar fim de vigência
-   - Manter histórico completo para auditoria
-
-2. **Migração de Dados**:
-   - Criar novos atributos com vigência futura
-   - Mapear dados antigos gradualmente
+- Criar novas versões (`atributo_versao`) ao receber atualizações do SISCOMEX.
+- Reprocessar produtos apenas quando necessário; os registros antigos permanecem válidos ao manter a referência da versão utilizada.
 
 ## 7. Considerações de Segurança
 
-### 7.1 Controle de Acesso
-
-- Implementar permissões por órgão (`orgaos`)
-- Logs de auditoria para mudanças em atributos
-- Validação de dados de entrada contra XSS/SQL Injection
-
-### 7.2 Integridade Referencial
-
-- Não permitir exclusão de atributos com vínculos ativos
-- Verificar dependências antes de alterar estruturas
+- Controlar acesso a cadastros de atributos por perfil de usuário.
+- Auditar alterações em versões de atributos e em valores padrão.
+- Validar o JSON recebido do frontend antes de persistir em `valor_json` para evitar dados inválidos.
 
 ## 8. Integração com Sistemas Externos
 
-### 8.1 APIs de Consulta
+### 8.1 API de Consulta
 
-```javascript
-// Exemplo de endpoint para buscar atributos
-GET /api/ncm/{codigo}/atributos?modalidade=IMPORTACAO&data=2025-06-15
+```http
+GET /api/v1/produtos/{id}/atributos
+```
 
-// Resposta estruturada
+Resposta resumida:
+
+```json
 {
-  "ncm": "84713012",
+  "versao": 12,
   "atributos": [
     {
       "codigo": "memoria_ram",
-      "nome_apresentacao": "Memória RAM (GB)",
       "tipo": "NUMERO_INTEIRO",
-      "obrigatorio": true,
-      "validacoes": {
-        "tamanho_maximo": 3
-      }
+      "multivalorado": false,
+      "valores": [
+        { "valor": 8 }
+      ]
     }
   ]
 }
 ```
 
-### 8.2 Webhook de Notificações
+### 8.2 API de Valores Padrão
 
-- Notificar sistemas dependentes sobre mudanças de vigência
-- Alertar sobre novos atributos obrigatórios
+```http
+GET /api/v1/ncm/85171231/valores-padrao?modalidade=IMPORTACAO
+```
+
+Retorna os grupos cadastrados, cada um apontando para `atributo_versao` e contendo a mesma estrutura de valores dos produtos.
 
 ## 9. Métricas e Monitoramento
 
-### 9.1 KPIs Sugeridos
-
-- Taxa de preenchimento de atributos obrigatórios
-- Tempo médio de carregamento de formulários
-- Quantidade de atributos por NCM
-- Frequência de uso de atributos condicionados
-
-### 9.2 Alertas
-
-- Atributos próximos ao fim de vigência
-- NCMs sem atributos obrigatórios configurados
-- Inconsistências em hierarquias de atributos
+- Quantidade de versões por NCM/modalidade.
+- Tempo médio para sincronizar novas versões do SISCOMEX.
+- Percentual de produtos que utilizam atributos multivalorados.
+- Erros de validação por atributo (monitorar `erros_validacao`).
 
 ## 10. Glossário
 
 | Termo | Definição |
 |-------|-----------|
-| **NCM** | Nomenclatura Comum do Mercosul - Sistema de classificação de mercadorias |
-| **EAV** | Entity-Attribute-Value - Padrão de modelagem para dados dinâmicos |
-| **Modalidade** | Tipo de operação comercial (importação, exportação, etc.) |
-| **Vigência** | Período de validade de um atributo ou configuração |
-| **Domínio** | Conjunto de valores válidos para um atributo de lista |
-| **Atributo Condicionante** | Atributo cujo valor determina a exibição de outros |
-| **Multivalorado** | Atributo que aceita múltiplas entradas do mesmo tipo |
+| **Catálogo Normalizado** | Conjunto de atributos versionados reutilizável por produtos e valores padrão |
+| **Versão de Atributo** | Identificador numérico que agrupa os atributos de um NCM/modalidade |
+| **Valor Multivalorado** | Entrada adicional em `produto_atributo_valor` para atributos que aceitam múltiplos itens |
+| **Grupo de Valores Padrão** | Configuração de referência aplicada a catálogos específicos |

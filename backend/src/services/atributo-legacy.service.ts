@@ -1,4 +1,4 @@
-import { legacyPrisma } from '../utils/prisma'
+import { catalogoPrisma, legacyPrisma } from '../utils/prisma'
 import { Prisma } from '@prisma/client'
 import { parseJsonSafe } from '../utils/parse-json'
 
@@ -8,6 +8,7 @@ export interface DominioDTO {
 }
 
 export interface AtributoEstruturaDTO {
+  id?: number
   codigo: string
   nome: string
   tipo: string
@@ -23,8 +24,40 @@ export interface AtributoEstruturaDTO {
   subAtributos?: AtributoEstruturaDTO[]
 }
 
+export interface EstruturaComVersao {
+  versaoId: number
+  versaoNumero: number
+  estrutura: AtributoEstruturaDTO[]
+}
+
 export class AtributoLegacyService {
-  async buscarEstrutura(ncm: string, modalidade: string = 'IMPORTACAO'): Promise<AtributoEstruturaDTO[]> {
+  async buscarEstrutura(ncm: string, modalidade: string = 'IMPORTACAO'): Promise<EstruturaComVersao> {
+    const versaoExistente = await catalogoPrisma.atributoVersao.findFirst({
+      where: { ncmCodigo: ncm, modalidade },
+      orderBy: { versao: 'desc' }
+    })
+
+    if (versaoExistente) {
+      return this.montarEstrutura(versaoExistente.id, versaoExistente.versao)
+    }
+
+    return this.sincronizarEstrutura(ncm, modalidade)
+  }
+
+  async buscarEstruturaPorVersao(versaoId: number): Promise<EstruturaComVersao | null> {
+    const versao = await catalogoPrisma.atributoVersao.findFirst({
+      where: { id: versaoId }
+    })
+
+    if (!versao) return null
+
+    return this.montarEstrutura(versao.id, versao.versao)
+  }
+
+  private async carregarEstruturaLegacy(
+    ncm: string,
+    modalidade: string
+  ): Promise<AtributoEstruturaDTO[]> {
     const rows = await legacyPrisma.$queryRaw<Array<{
       codigo: string
       nome_apresentacao: string
@@ -157,6 +190,153 @@ export class AtributoLegacyService {
     }
 
     return roots
+  }
+
+  private async montarEstrutura(
+    versaoId: number,
+    versaoNumero: number
+  ): Promise<EstruturaComVersao> {
+    const atributos = await catalogoPrisma.atributo.findMany({
+      where: { versaoId },
+      orderBy: { ordem: 'asc' },
+      include: {
+        dominio: {
+          orderBy: { ordem: 'asc' }
+        }
+      }
+    })
+
+    const mapa = new Map<number, AtributoEstruturaDTO>()
+    const raizes: AtributoEstruturaDTO[] = []
+
+    for (const attr of atributos) {
+      const validacoes =
+        attr.validacoesJson &&
+        typeof attr.validacoesJson === 'object' &&
+        attr.validacoesJson !== null &&
+        !Array.isArray(attr.validacoesJson)
+          ? (attr.validacoesJson as Record<string, any>)
+          : {}
+
+      const condicao =
+        attr.condicaoJson &&
+        typeof attr.condicaoJson === 'object' &&
+        attr.condicaoJson !== null &&
+        !Array.isArray(attr.condicaoJson)
+          ? (attr.condicaoJson as Record<string, any>)
+          : undefined
+
+      const dto: AtributoEstruturaDTO = {
+        id: attr.id,
+        codigo: attr.codigo,
+        nome: attr.nome,
+        tipo: attr.tipo,
+        obrigatorio: attr.obrigatorio,
+        multivalorado: attr.multivalorado,
+        validacoes,
+        orientacaoPreenchimento: attr.orientacaoPreenchimento || undefined,
+        dominio: attr.dominio.map(d => ({ codigo: d.codigo, descricao: d.descricao })),
+        descricaoCondicao: attr.descricaoCondicao || undefined,
+        condicao,
+        parentCodigo: attr.parentCodigo || undefined,
+        condicionanteCodigo: attr.condicionanteCodigo || undefined
+      }
+
+      mapa.set(attr.id, dto)
+    }
+
+    for (const attr of atributos) {
+      const dto = mapa.get(attr.id)!
+      if (attr.parentId) {
+        const parent = mapa.get(attr.parentId)
+        if (parent) {
+          if (!parent.subAtributos) parent.subAtributos = []
+          parent.subAtributos.push(dto)
+        } else {
+          raizes.push(dto)
+        }
+      } else {
+        raizes.push(dto)
+      }
+    }
+
+    return {
+      versaoId,
+      versaoNumero,
+      estrutura: raizes
+    }
+  }
+
+  private async sincronizarEstrutura(
+    ncm: string,
+    modalidade: string
+  ): Promise<EstruturaComVersao> {
+    const estruturaLegacy = await this.carregarEstruturaLegacy(ncm, modalidade)
+
+    return catalogoPrisma.$transaction(async tx => {
+      const ultimaVersao = await tx.atributoVersao.findFirst({
+        where: { ncmCodigo: ncm, modalidade },
+        orderBy: { versao: 'desc' }
+      })
+
+      const versaoNumero = (ultimaVersao?.versao ?? 0) + 1
+      const versao = await tx.atributoVersao.create({
+        data: {
+          ncmCodigo: ncm,
+          modalidade,
+          versao: versaoNumero
+        }
+      })
+
+      const ordem = { valor: 0 }
+
+      const criarRecursivo = async (
+        attrs: AtributoEstruturaDTO[],
+        parentId?: number
+      ) => {
+        for (const attr of attrs) {
+          const registro = await tx.atributo.create({
+            data: {
+              versaoId: versao.id,
+              codigo: attr.codigo,
+              nome: attr.nome,
+              tipo: attr.tipo,
+              obrigatorio: attr.obrigatorio,
+              multivalorado: attr.multivalorado,
+              orientacaoPreenchimento: attr.orientacaoPreenchimento ?? null,
+              validacoesJson: attr.validacoes as Prisma.InputJsonValue,
+              descricaoCondicao: attr.descricaoCondicao ?? null,
+              condicaoJson: attr.condicao
+                ? (attr.condicao as Prisma.InputJsonValue)
+                : Prisma.JsonNull,
+              parentCodigo: attr.parentCodigo ?? null,
+              condicionanteCodigo: attr.condicionanteCodigo ?? null,
+              ordem: ordem.valor++,
+              parentId: parentId ?? null
+            }
+          })
+
+          if (attr.dominio?.length) {
+            await tx.atributoDominio.createMany({
+              data: attr.dominio.map((dominio, index) => ({
+                atributoId: registro.id,
+                codigo: dominio.codigo,
+                descricao: dominio.descricao,
+                ordem: index
+              }))
+            })
+          }
+
+          if (attr.subAtributos?.length) {
+            await criarRecursivo(attr.subAtributos, registro.id)
+          }
+        }
+      }
+
+      await criarRecursivo(estruturaLegacy)
+
+      return this.montarEstrutura(versao.id, versaoNumero)
+    })
   }
 }
 

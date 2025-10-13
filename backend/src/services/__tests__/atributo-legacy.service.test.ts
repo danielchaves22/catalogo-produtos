@@ -33,6 +33,6 @@ describe('AtributoLegacyService', () => {
     const service = new AtributoLegacyService()
     const resultado = await service.buscarEstrutura('1234')
 
-    expect(resultado[0].condicao).toBeUndefined()
+    expect(resultado.estrutura[0].condicao).toBeUndefined()
   })
 })

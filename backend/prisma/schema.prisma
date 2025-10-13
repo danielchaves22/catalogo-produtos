@@ -23,7 +23,7 @@ model User {
   certificados Certificado[]
   mensagens    Mensagem[]
   importacoes  ImportacaoProduto[]
-  ncmValoresPadrao NcmValoresPadrao[]
+  ncmValoresPadraoGrupos NcmAtributoValorGrupo[]
 
   @@map("comex")
 }
@@ -116,7 +116,7 @@ model Catalogo {
   produtos         Produto[]
   operadoresEstrangeiros OperadorEstrangeiro[]
   importacoes      ImportacaoProduto[]
-  valoresPadraoNcm NcmValoresPadraoCatalogo[]
+  valoresPadraoNcm NcmAtributoValorCatalogo[]
 
   @@unique([superUserId, cpf_cnpj], name: "uk_superuser_cpf_cnpj")
   @@map("catalogo")
@@ -306,26 +306,28 @@ model AtributosCache {
 
 // Tabela de produtos
 model Produto {
-  id                        Int               @id @default(autoincrement()) @map("id")
-  codigo                    String?           @unique @map("codigo")
-  versao                    Int               @map("versao")
-  status                    ProdutoStatus     @map("status")
-  situacao                 ProdutoSituacao    @default(RASCUNHO) @map("situacao")
-  ncmCodigo                 String            @map("ncm_codigo")
-  modalidade                String?           @map("modalidade")
-  denominacao               String            @map("denominacao")
-  descricao                 String            @map("descricao")
-  numero                    Int               @unique @map("numero")
-  catalogoId                Int               @map("catalogo_id")
-  catalogo                  Catalogo          @relation(fields: [catalogoId], references: [id])
-  criadoEm                  DateTime          @default(now()) @map("criado_em")
-  atualizadoEm              DateTime          @updatedAt @map("atualizado_em")
-  criadoPor                 String?           @map("criado_por")
-  versaoEstruturaAtributos  Int?              @map("versao_estrutura_atributos")
-  atributos                 ProdutoAtributos[]
-  codigosInternos           CodigoInternoProduto[]
-  operadoresEstrangeiros    OperadorEstrangeiroProduto[]
-  importacaoItens           ImportacaoProdutoItem[] @relation("ProdutoImportacaoItens")
+  id                       Int                    @id @default(autoincrement()) @map("id")
+  codigo                   String?                @unique @map("codigo")
+  versao                   Int                    @map("versao")
+  status                   ProdutoStatus          @map("status")
+  situacao                 ProdutoSituacao        @default(RASCUNHO) @map("situacao")
+  ncmCodigo                String                 @map("ncm_codigo")
+  modalidade               String?                @map("modalidade")
+  denominacao              String                 @map("denominacao")
+  descricao                String                 @map("descricao")
+  numero                   Int                    @unique @map("numero")
+  catalogoId               Int                    @map("catalogo_id")
+  catalogo                 Catalogo               @relation(fields: [catalogoId], references: [id])
+  criadoEm                 DateTime               @default(now()) @map("criado_em")
+  atualizadoEm             DateTime               @updatedAt @map("atualizado_em")
+  criadoPor                String?                @map("criado_por")
+  versaoEstruturaAtributos Int?                   @map("versao_estrutura_atributos")
+  versaoAtributoId         Int?                   @map("versao_atributo_id")
+  estruturaVersao          AtributoVersao?        @relation(fields: [versaoAtributoId], references: [id])
+  atributos                ProdutoAtributo[]
+  codigosInternos          CodigoInternoProduto[]
+  operadoresEstrangeiros   OperadorEstrangeiroProduto[]
+  importacaoItens          ImportacaoProdutoItem[] @relation("ProdutoImportacaoItens")
 
   @@index([ncmCodigo], name: "idx_ncm")
   @@index([catalogoId], name: "idx_catalogo")
@@ -333,50 +335,131 @@ model Produto {
   @@map("produto")
 }
 
-// Tabela com valores de atributos dos produtos
-model ProdutoAtributos {
-  id                    Int       @id @default(autoincrement()) @map("id")
-  produtoId             Int       @map("produto_id")
-  valoresJson           Json      @map("valores_json")
-  estruturaSnapshotJson Json?     @map("estrutura_snapshot_json")
-  validadoEm            DateTime? @map("validado_em")
-  errosValidacao        Json?     @map("erros_validacao")
-  produto               Produto   @relation(fields: [produtoId], references: [id])
+model AtributoVersao {
+  id          Int          @id @default(autoincrement()) @map("id")
+  ncmCodigo   String       @map("ncm_codigo")
+  modalidade  String?      @map("modalidade")
+  versao      Int          @map("versao")
+  criadoEm    DateTime     @default(now()) @map("criado_em")
+  atributos   Atributo[]
+  produtos    ProdutoAtributo[]
+  produtosDiretos Produto[]
+  valoresPadraoGrupos NcmAtributoValorGrupo[]
 
-  @@map("produto_atributos")
+  @@unique([ncmCodigo, modalidade, versao], name: "uk_ncm_modalidade_versao_normalizado")
+  @@map("atributo_versao")
 }
 
-model NcmValoresPadrao {
-  id                    Int      @id @default(autoincrement()) @map("id")
-  superUserId           Int      @map("super_user_id")
-  ncmCodigo             String   @map("ncm_codigo")
-  modalidade            String?  @map("modalidade")
-  valoresJson           Json     @map("valores_json")
-  estruturaSnapshotJson Json?    @map("estrutura_snapshot_json")
-  criadoEm              DateTime @default(now()) @map("criado_em")
-  atualizadoEm          DateTime @updatedAt @map("atualizado_em")
-  criadoPor             String?  @map("criado_por")
-  atualizadoPor         String?  @map("atualizado_por")
+model Atributo {
+  id                    Int               @id @default(autoincrement()) @map("id")
+  versaoId              Int               @map("versao_id")
+  codigo                String            @map("codigo")
+  nome                  String            @map("nome")
+  tipo                  String            @map("tipo")
+  obrigatorio           Boolean           @map("obrigatorio")
+  multivalorado         Boolean           @map("multivalorado")
+  orientacaoPreenchimento String?         @map("orientacao_preenchimento")
+  validacoesJson        Json?             @map("validacoes_json")
+  descricaoCondicao     String?           @map("descricao_condicao")
+  condicaoJson          Json?             @map("condicao_json")
+  parentCodigo          String?           @map("parent_codigo")
+  condicionanteCodigo   String?           @map("condicionante_codigo")
+  ordem                 Int               @map("ordem")
+  parentId              Int?              @map("parent_id")
+  versao                AtributoVersao    @relation(fields: [versaoId], references: [id], onDelete: Cascade)
+  parent                Atributo?         @relation("AtributoFilhos", fields: [parentId], references: [id])
+  filhos                Atributo[]        @relation("AtributoFilhos")
+  dominio               AtributoDominio[]
+  produtoValores        ProdutoAtributo[]
+  valoresPadrao         NcmAtributoValor[]
 
-  superUser User @relation(fields: [superUserId], references: [id])
-  catalogos NcmValoresPadraoCatalogo[]
+  @@index([versaoId], map: "idx_atributo_versao")
+  @@unique([versaoId, codigo], name: "uk_versao_codigo")
+  @@map("atributo")
+}
+
+model AtributoDominio {
+  id          Int       @id @default(autoincrement()) @map("id")
+  atributoId  Int       @map("atributo_id")
+  codigo      String    @map("codigo")
+  descricao   String?   @map("descricao")
+  ordem       Int       @map("ordem")
+  atributo    Atributo  @relation(fields: [atributoId], references: [id], onDelete: Cascade)
+
+  @@index([atributoId], map: "idx_atributo_dominio")
+  @@map("atributo_dominio_normalizado")
+}
+
+model ProdutoAtributo {
+  id              Int                   @id @default(autoincrement()) @map("id")
+  produtoId       Int                   @map("produto_id")
+  atributoId      Int                   @map("atributo_id")
+  atributoVersaoId Int                  @map("atributo_versao_id")
+  validadoEm      DateTime?             @map("validado_em")
+  errosValidacao  Json?                 @map("erros_validacao")
+  produto         Produto               @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  atributo        Atributo              @relation(fields: [atributoId], references: [id])
+  versao          AtributoVersao        @relation(fields: [atributoVersaoId], references: [id])
+  valores         ProdutoAtributoValor[]
+
+  @@unique([produtoId, atributoId], name: "uk_produto_atributo")
+  @@map("produto_atributo")
+}
+
+model ProdutoAtributoValor {
+  id               Int              @id @default(autoincrement()) @map("id")
+  produtoAtributoId Int             @map("produto_atributo_id")
+  valorJson        Json             @map("valor_json")
+  ordem            Int              @default(0) @map("ordem")
+  produtoAtributo  ProdutoAtributo  @relation(fields: [produtoAtributoId], references: [id], onDelete: Cascade)
+
+  @@index([produtoAtributoId], map: "idx_produto_atributo_valor")
+  @@map("produto_atributo_valor")
+}
+
+model NcmAtributoValorGrupo {
+  id               Int                     @id @default(autoincrement()) @map("id")
+  superUserId      Int                     @map("super_user_id")
+  ncmCodigo        String                  @map("ncm_codigo")
+  modalidade       String?                 @map("modalidade")
+  atributoVersaoId Int                     @map("atributo_versao_id")
+  criadoEm         DateTime                @default(now()) @map("criado_em")
+  atualizadoEm     DateTime                @updatedAt @map("atualizado_em")
+  criadoPor        String?                 @map("criado_por")
+  atualizadoPor    String?                 @map("atualizado_por")
+  superUser        User                    @relation(fields: [superUserId], references: [id])
+  versao           AtributoVersao          @relation(fields: [atributoVersaoId], references: [id])
+  valores          NcmAtributoValor[]
+  catalogos        NcmAtributoValorCatalogo[]
 
   @@unique([superUserId, ncmCodigo, modalidade], name: "uk_superuser_ncm_modalidade")
-  @@map("ncm_valores_padrao")
+  @@map("ncm_atributo_valor_grupo")
 }
 
-model NcmValoresPadraoCatalogo {
-  id                 Int               @id @default(autoincrement()) @map("id")
-  valorPadraoId      Int               @map("ncm_valores_padrao_id")
-  catalogoId         Int               @map("catalogo_id")
-  criadoEm           DateTime          @default(now()) @map("criado_em")
+model NcmAtributoValor {
+  id          Int                    @id @default(autoincrement()) @map("id")
+  grupoId     Int                    @map("grupo_id")
+  atributoId  Int                    @map("atributo_id")
+  valorJson   Json                   @map("valor_json")
+  ordem       Int                    @map("ordem")
+  grupo       NcmAtributoValorGrupo  @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  atributo    Atributo               @relation(fields: [atributoId], references: [id])
 
-  valorPadrao        NcmValoresPadrao  @relation(fields: [valorPadraoId], references: [id], onDelete: Cascade)
-  catalogo           Catalogo          @relation(fields: [catalogoId], references: [id], onDelete: Cascade)
+  @@unique([grupoId, atributoId, ordem], name: "uk_grupo_atributo_ordem")
+  @@map("ncm_atributo_valor")
+}
 
-  @@unique([valorPadraoId, catalogoId], name: "uk_valor_padrao_catalogo")
+model NcmAtributoValorCatalogo {
+  id             Int                     @id @default(autoincrement()) @map("id")
+  grupoId        Int                     @map("grupo_id")
+  catalogoId     Int                     @map("catalogo_id")
+  criadoEm       DateTime                @default(now()) @map("criado_em")
+  grupo          NcmAtributoValorGrupo   @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  catalogo       Catalogo                @relation(fields: [catalogoId], references: [id], onDelete: Cascade)
+
+  @@unique([grupoId, catalogoId], name: "uk_valor_padrao_catalogo")
   @@index([catalogoId], map: "idx_nvpc_catalogo")
-  @@map("ncm_valores_padrao_catalogo")
+  @@map("ncm_atributo_valor_catalogo")
 }
 
 model CodigoInternoProduto {

@@ -367,6 +367,10 @@ export class ProdutoImportacaoService {
               dados.superUserId
             );
 
+            if (!produto) {
+              throw new Error('FALHA_CRIACAO_PRODUTO');
+            }
+
             produtoId = produto.id;
             totalCriados += 1;
             if (mensagens.atencao.length > 0) {
@@ -547,7 +551,7 @@ export class ProdutoImportacaoService {
           data: { produtoId: null }
         });
 
-        await tx.produtoAtributos.deleteMany({
+        await tx.produtoAtributo.deleteMany({
           where: { produtoId: { in: produtoIds } }
         });
 
