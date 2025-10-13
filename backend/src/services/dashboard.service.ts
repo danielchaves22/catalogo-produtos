@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
-import { AtributoEstruturaDTO } from './atributo-legacy.service';
+import { AtributoEstruturaDTO, AtributoLegacyService } from './atributo-legacy.service';
 
 const PRODUTO_STATUS = ['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO'] as const;
 
@@ -129,20 +129,40 @@ export async function obterResumoDashboardService(
     }
   }
 
-  const atributosRegistros = await catalogoPrisma.produtoAtributos.findMany({
-    where: { produto: produtoWhere },
+  const produtosComValores = await catalogoPrisma.produto.findMany({
+    where: produtoWhere,
     select: {
-      valoresJson: true,
-      estruturaSnapshotJson: true
+      versaoAtributoId: true,
+      atributos: {
+        include: {
+          atributo: { select: { codigo: true, multivalorado: true } },
+          valores: { orderBy: { ordem: 'asc' } }
+        }
+      }
     }
   });
 
+  const atributoService = new AtributoLegacyService();
+  const estruturaCache = new Map<number, AtributoEstruturaDTO[]>();
   let atributosTotal = 0;
   let obrigatoriosPendentes = 0;
 
-  for (const registro of atributosRegistros) {
-    const valores = toRecord(registro.valoresJson);
-    const estruturaLista = flattenEstrutura(toEstruturaList(registro.estruturaSnapshotJson));
+  for (const produto of produtosComValores) {
+    let estruturaLista: AtributoEstruturaDTO[] = [];
+    if (produto.versaoAtributoId) {
+      if (!estruturaCache.has(produto.versaoAtributoId)) {
+        const estruturaInfo = await atributoService.buscarEstruturaPorVersao(
+          produto.versaoAtributoId
+        );
+        estruturaCache.set(
+          produto.versaoAtributoId,
+          flattenEstrutura(estruturaInfo?.estrutura)
+        );
+      }
+      estruturaLista = estruturaCache.get(produto.versaoAtributoId) ?? [];
+    }
+
+    const valores = montarMapaValoresProduto(produto.atributos);
 
     if (!estruturaLista.length) {
       atributosTotal += Object.keys(valores).length;
@@ -264,14 +284,22 @@ function valorPreenchido(valor: unknown): boolean {
   return true;
 }
 
-function toRecord(value: unknown): Record<string, any> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  return value as Record<string, any>;
-}
-
-function toEstruturaList(value: unknown): AtributoEstruturaDTO[] {
-  if (!value) return [];
-  if (Array.isArray(value)) return value as AtributoEstruturaDTO[];
-  if (typeof value === 'object') return [value as AtributoEstruturaDTO];
-  return [];
+function montarMapaValoresProduto(
+  atributos: Array<{
+    atributo: { codigo: string; multivalorado: boolean } | null;
+    valores: Array<{ valorJson: Prisma.JsonValue }>;
+  }>
+): Record<string, any> {
+  const resultado: Record<string, any> = {};
+  for (const item of atributos) {
+    if (!item.atributo) continue;
+    const codigo = item.atributo.codigo;
+    const valores = item.valores.map(v => v.valorJson as any);
+    if (item.atributo.multivalorado) {
+      resultado[codigo] = valores;
+    } else {
+      resultado[codigo] = valores.length > 0 ? valores[0] : null;
+    }
+  }
+  return resultado;
 }

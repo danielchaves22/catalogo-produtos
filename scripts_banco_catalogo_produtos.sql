@@ -174,6 +174,50 @@ CREATE TABLE IF NOT EXISTS catalogo (
         UNIQUE KEY uk_ncm_modalidade_versao (ncm_codigo, modalidade, versao)
     );
 
+    CREATE TABLE IF NOT EXISTS atributo_versao (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        ncm_codigo VARCHAR(8) NOT NULL,
+        modalidade VARCHAR(50) NULL,
+        versao INT NOT NULL,
+        criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uk_ncm_modalidade_versao_normalizado (ncm_codigo, modalidade, versao)
+    );
+
+    CREATE TABLE IF NOT EXISTS atributo (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        versao_id INT UNSIGNED NOT NULL,
+        codigo VARCHAR(100) NOT NULL,
+        nome VARCHAR(255) NOT NULL,
+        tipo VARCHAR(50) NOT NULL,
+        obrigatorio TINYINT(1) NOT NULL,
+        multivalorado TINYINT(1) NOT NULL,
+        orientacao_preenchimento TEXT NULL,
+        validacoes_json JSON NULL,
+        descricao_condicao TEXT NULL,
+        condicao_json JSON NULL,
+        parent_codigo VARCHAR(100) NULL,
+        condicionante_codigo VARCHAR(100) NULL,
+        ordem INT NOT NULL,
+        parent_id INT UNSIGNED NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY uk_versao_codigo (versao_id, codigo),
+        INDEX idx_atributo_versao (versao_id),
+        CONSTRAINT fk_atributo_versao FOREIGN KEY (versao_id) REFERENCES atributo_versao(id) ON DELETE CASCADE,
+        CONSTRAINT fk_atributo_parent FOREIGN KEY (parent_id) REFERENCES atributo(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS atributo_dominio_normalizado (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        atributo_id INT UNSIGNED NOT NULL,
+        codigo VARCHAR(100) NOT NULL,
+        descricao VARCHAR(255) NULL,
+        ordem INT NOT NULL,
+        PRIMARY KEY (id),
+        INDEX idx_atributo_dominio (atributo_id),
+        CONSTRAINT fk_atributo_dominio_atributo FOREIGN KEY (atributo_id) REFERENCES atributo(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS produto (
         id INT PRIMARY KEY AUTO_INCREMENT,
         catalogo_id INT UNSIGNED NOT NULL,
@@ -192,52 +236,77 @@ CREATE TABLE IF NOT EXISTS catalogo (
         criado_por VARCHAR(100),
         -- Versionamento de estrutura
         versao_estrutura_atributos INT,
+        versao_atributo_id INT UNSIGNED NULL,
         INDEX idx_ncm (ncm_codigo),
         INDEX idx_catalogo (catalogo_id),
         INDEX idx_situacao (situacao),
         FOREIGN KEY (catalogo_id) REFERENCES catalogo(id),
         UNIQUE KEY uk_codigo_versao (codigo, versao),
-        UNIQUE INDEX idx_numero (numero)
+        UNIQUE INDEX idx_numero (numero),
+        CONSTRAINT fk_produto_versao_atributo FOREIGN KEY (versao_atributo_id) REFERENCES atributo_versao(id)
     );
 
-    CREATE TABLE IF NOT EXISTS produto_atributos (
-        id INT PRIMARY KEY AUTO_INCREMENT,
+    CREATE TABLE IF NOT EXISTS produto_atributo (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
         produto_id INT NOT NULL,
-        valores_json JSON NOT NULL,
-        -- Snapshot da estrutura no momento do preenchimento
-        estrutura_snapshot_json JSON,
-        -- Validação
-        validado_em TIMESTAMP NULL,
+        atributo_id INT UNSIGNED NOT NULL,
+        atributo_versao_id INT UNSIGNED NOT NULL,
+        validado_em DATETIME NULL,
         erros_validacao JSON NULL,
-        FOREIGN KEY (produto_id) REFERENCES produto(id)
+        PRIMARY KEY (id),
+        UNIQUE KEY uk_produto_atributo (produto_id, atributo_id),
+        CONSTRAINT fk_produto_atributo_produto FOREIGN KEY (produto_id) REFERENCES produto(id) ON DELETE CASCADE,
+        CONSTRAINT fk_produto_atributo_versao FOREIGN KEY (atributo_versao_id) REFERENCES atributo_versao(id),
+        CONSTRAINT fk_produto_atributo_atributo FOREIGN KEY (atributo_id) REFERENCES atributo(id)
     );
 
-    CREATE TABLE IF NOT EXISTS ncm_valores_padrao (
+    CREATE TABLE IF NOT EXISTS produto_atributo_valor (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        produto_atributo_id INT UNSIGNED NOT NULL,
+        valor_json JSON NOT NULL,
+        ordem INT NOT NULL DEFAULT 0,
+        PRIMARY KEY (id),
+        INDEX idx_produto_atributo_valor (produto_atributo_id),
+        CONSTRAINT fk_produto_valor_atributo FOREIGN KEY (produto_atributo_id) REFERENCES produto_atributo(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS ncm_atributo_valor_grupo (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
         super_user_id INT UNSIGNED NOT NULL,
         ncm_codigo VARCHAR(8) NOT NULL,
         modalidade VARCHAR(10) NULL,
-        valores_json JSON NOT NULL,
-        estrutura_snapshot_json JSON NULL,
+        atributo_versao_id INT UNSIGNED NOT NULL,
         criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         criado_por VARCHAR(255) NULL,
         atualizado_por VARCHAR(255) NULL,
         PRIMARY KEY (id),
         UNIQUE KEY uk_superuser_ncm_modalidade (super_user_id, ncm_codigo, modalidade),
-        -- Integridade com o superusuário mantida via aplicação, pois a tabela comex está em outro schema
-        INDEX idx_ncm_valores_padrao_super_user (super_user_id)
+        INDEX idx_ncm_valores_padrao_super_user (super_user_id),
+        CONSTRAINT fk_grupo_versao FOREIGN KEY (atributo_versao_id) REFERENCES atributo_versao(id)
     );
 
-    CREATE TABLE IF NOT EXISTS ncm_valores_padrao_catalogo (
+    CREATE TABLE IF NOT EXISTS ncm_atributo_valor (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-        ncm_valores_padrao_id INT UNSIGNED NOT NULL,
+        grupo_id INT UNSIGNED NOT NULL,
+        atributo_id INT UNSIGNED NOT NULL,
+        valor_json JSON NOT NULL,
+        ordem INT NOT NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY uk_grupo_atributo_ordem (grupo_id, atributo_id, ordem),
+        CONSTRAINT fk_ncm_valor_grupo FOREIGN KEY (grupo_id) REFERENCES ncm_atributo_valor_grupo(id) ON DELETE CASCADE,
+        CONSTRAINT fk_ncm_valor_atributo FOREIGN KEY (atributo_id) REFERENCES atributo(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS ncm_atributo_valor_catalogo (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        grupo_id INT UNSIGNED NOT NULL,
         catalogo_id INT UNSIGNED NOT NULL,
         criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
-        UNIQUE KEY uk_valor_padrao_catalogo (ncm_valores_padrao_id, catalogo_id),
+        UNIQUE KEY uk_valor_padrao_catalogo (grupo_id, catalogo_id),
         INDEX idx_nvpc_catalogo (catalogo_id),
-        CONSTRAINT fk_nvpc_valor_padrao FOREIGN KEY (ncm_valores_padrao_id) REFERENCES ncm_valores_padrao(id) ON DELETE CASCADE,
+        CONSTRAINT fk_nvpc_grupo FOREIGN KEY (grupo_id) REFERENCES ncm_atributo_valor_grupo(id) ON DELETE CASCADE,
         CONSTRAINT fk_nvpc_catalogo FOREIGN KEY (catalogo_id) REFERENCES catalogo(id) ON DELETE CASCADE
     );
 

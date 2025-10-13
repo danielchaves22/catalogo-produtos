@@ -16,7 +16,7 @@ const mockCatalogoPrisma = {
     findFirst: jest.fn(),
   },
   importacaoProdutoItem: { create: jest.fn(), updateMany: jest.fn() },
-  produtoAtributos: { deleteMany: jest.fn() },
+  produtoAtributo: { deleteMany: jest.fn() },
   produto: { deleteMany: jest.fn() },
   ncmCache: { findUnique: jest.fn() },
   mensagem: { create: jest.fn() },
@@ -277,7 +277,7 @@ describe('ProdutoImportacaoService', () => {
       ],
     } as any);
     mockCatalogoPrisma.importacaoProdutoItem.updateMany.mockResolvedValue({ count: 2 });
-    mockCatalogoPrisma.produtoAtributos.deleteMany.mockResolvedValue({ count: 2 });
+    mockCatalogoPrisma.produtoAtributo.deleteMany.mockResolvedValue({ count: 2 });
     mockCatalogoPrisma.produto.deleteMany.mockResolvedValue({ count: 2 });
     mockCatalogoPrisma.importacaoProduto.update.mockResolvedValue({});
 
@@ -287,7 +287,7 @@ describe('ProdutoImportacaoService', () => {
       where: { importacaoId: 77, produtoId: { in: [201, 202] } },
       data: { produtoId: null },
     });
-    expect(mockCatalogoPrisma.produtoAtributos.deleteMany).toHaveBeenCalledWith({
+    expect(mockCatalogoPrisma.produtoAtributo.deleteMany).toHaveBeenCalledWith({
       where: { produtoId: { in: [201, 202] } },
     });
     expect(mockCatalogoPrisma.produto.deleteMany).toHaveBeenCalledWith({

@@ -2,7 +2,11 @@
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { Prisma } from '@prisma/client';
-import { AtributoLegacyService, AtributoEstruturaDTO } from './atributo-legacy.service';
+import {
+  AtributoLegacyService,
+  AtributoEstruturaDTO,
+  EstruturaComVersao
+} from './atributo-legacy.service';
 import { ValidationError } from '../types/validation-error';
 
 export interface CreateProdutoDTO {
@@ -191,16 +195,36 @@ export class ProdutoService {
     const p = await catalogoPrisma.produto.findFirst({
       where: { id, catalogo: { superUserId } },
       include: {
-        atributos: true,
+        atributos: {
+          include: {
+            atributo: { select: { codigo: true, multivalorado: true } },
+            valores: { orderBy: { ordem: 'asc' } }
+          }
+        },
+        estruturaVersao: true,
         catalogo: true,
         codigosInternos: true,
         operadoresEstrangeiros: { include: { pais: true, operadorEstrangeiro: true } }
       }
     });
     if (!p) return null;
+
+    const estrutura = p.versaoAtributoId
+      ? await this.atributosService.buscarEstruturaPorVersao(p.versaoAtributoId)
+      : null;
+
+    const valoresMap = this.montarValoresDosAtributos(p.atributos);
+
     return {
       ...p,
       numero: p.numero,
+      atributos: [
+        {
+          valoresJson: valoresMap,
+          estruturaSnapshotJson: estrutura?.estrutura ?? []
+        }
+      ],
+      versaoEstruturaAtributos: estrutura?.versaoNumero ?? p.versaoEstruturaAtributos,
       codigosInternos: p.codigosInternos.map(ci => ci.codigo),
       operadoresEstrangeiros: p.operadoresEstrangeiros.map(o => ({
         id: o.id,
@@ -213,15 +237,17 @@ export class ProdutoService {
       catalogoNumero: p.catalogo?.numero,
       catalogoNome: p.catalogo?.nome,
       catalogoCpfCnpj: p.catalogo?.cpf_cnpj,
-      catalogoAmbiente: p.catalogo?.ambiente,
+      catalogoAmbiente: p.catalogo?.ambiente
     };
   }
 
   async criar(data: CreateProdutoDTO, superUserId: number) {
-    const estrutura = await this.obterEstruturaAtributos(
+    const estruturaInfo = await this.obterEstruturaAtributos(
       data.ncmCodigo,
       data.modalidade
     );
+
+    const estrutura = estruturaInfo.estrutura;
 
     const erros = this.validarValores(
       (data.valoresAtributos ?? {}) as Record<string, any>,
@@ -243,8 +269,8 @@ export class ProdutoService {
       throw new Error('Catálogo não encontrado para o superusuário');
     }
 
-    return catalogoPrisma.$transaction(async (tx) => {
-      const produto = await tx.produto.create({
+    const produto = await catalogoPrisma.$transaction(async (tx) => {
+      const novoProduto = await tx.produto.create({
         data: {
           codigo: data.codigo ?? null,
           versao: 1,
@@ -256,7 +282,8 @@ export class ProdutoService {
           descricao: data.descricao,
           numero: 0,
           catalogoId: data.catalogoId,
-          versaoEstruturaAtributos: 1,
+          versaoEstruturaAtributos: estruturaInfo.versaoNumero,
+          versaoAtributoId: estruturaInfo.versaoId,
           criadoPor: data.criadoPor || null,
           codigosInternos: data.codigosInternos
             ? { create: data.codigosInternos.map(c => ({ codigo: c })) }
@@ -269,28 +296,36 @@ export class ProdutoService {
                   conhecido: o.conhecido,
                   operadorEstrangeiroId: o.operadorEstrangeiroId ?? null
                 }))
-              }
-            : undefined
+            }
+          : undefined
         },
         include: { codigosInternos: true, operadoresEstrangeiros: true }
       });
 
-      await tx.produtoAtributos.create({
-        data: {
-          produtoId: produto.id,
-          valoresJson: (data.valoresAtributos ?? {}) as Prisma.InputJsonValue,
-          estruturaSnapshotJson: estrutura as unknown as Prisma.InputJsonValue
-        }
-      });
+      await this.salvarValoresProduto(
+        tx,
+        produto.id,
+        estruturaInfo,
+        (data.valoresAtributos ?? {}) as Record<string, any>
+      );
 
-      return produto;
+      return novoProduto;
     });
+
+    return this.buscarPorId(produto.id, superUserId);
   }
 
   async atualizar(id: number, data: UpdateProdutoDTO, superUserId: number) {
     const atual = await catalogoPrisma.produto.findFirst({
       where: { id, catalogo: { superUserId } },
-      include: { atributos: true }
+      include: {
+        atributos: {
+          include: {
+            atributo: { select: { codigo: true, multivalorado: true } },
+            valores: { orderBy: { ordem: 'asc' } }
+          }
+        }
+      }
     });
     if (!atual) {
       throw new Error(`Produto ID ${id} não encontrado`);
@@ -306,17 +341,38 @@ export class ProdutoService {
 
     const ncm = atual.ncmCodigo;
     const modalidade = data.modalidade || atual.modalidade || '';
-    const estrutura = await this.obterEstruturaAtributos(ncm, modalidade);
-    const valores = (data.valoresAtributos ?? atual.atributos[0]?.valoresJson ?? {}) as Record<string, any>;
 
-    const erros = this.validarValores(valores, estrutura);
+    let estruturaInfo: EstruturaComVersao | null = null;
+    if (data.valoresAtributos === undefined && atual.versaoAtributoId) {
+      estruturaInfo = await this.atributosService.buscarEstruturaPorVersao(
+        atual.versaoAtributoId
+      );
+    }
+    if (!estruturaInfo) {
+      estruturaInfo = await this.obterEstruturaAtributos(ncm, modalidade);
+    }
+
+    const valoresExistentes = this.montarValoresDosAtributos(atual.atributos);
+    const valores = (data.valoresAtributos ?? valoresExistentes) as Record<string, any>;
+
+    const erros = this.validarValores(valores, estruturaInfo.estrutura);
     if (Object.keys(erros).length > 0) {
       throw new ValidationError(erros);
     }
 
-    const preencheuObrigatorios = this.todosObrigatoriosPreenchidos(valores, estrutura);
+    const preencheuObrigatorios = this.todosObrigatoriosPreenchidos(valores, estruturaInfo.estrutura);
 
-    return catalogoPrisma.$transaction(async tx => {
+    const versaoAtualizadaId =
+      data.valoresAtributos !== undefined
+        ? estruturaInfo.versaoId
+        : atual.versaoAtributoId ?? estruturaInfo.versaoId;
+
+    const versaoAtualizadaNumero =
+      data.valoresAtributos !== undefined
+        ? estruturaInfo.versaoNumero
+        : atual.versaoEstruturaAtributos ?? estruturaInfo.versaoNumero;
+
+    await catalogoPrisma.$transaction(async tx => {
       let status = data.status ?? atual.status;
       if (!preencheuObrigatorios) {
         status = 'PENDENTE';
@@ -331,25 +387,19 @@ export class ProdutoService {
           situacao: data.situacao,
           denominacao: data.denominacao,
           descricao: data.descricao,
-          versaoEstruturaAtributos: atual.versaoEstruturaAtributos
+          versaoEstruturaAtributos: versaoAtualizadaNumero,
+          versaoAtributoId: versaoAtualizadaId
         }
       });
       if (updated.count === 0) {
         throw new Error(`Produto ID ${id} não encontrado`);
       }
-      const produto = await tx.produto.findFirst({
-        where: { id, catalogo: { superUserId } },
-        include: { codigosInternos: true, operadoresEstrangeiros: true }
-      });
 
       if (data.valoresAtributos !== undefined) {
-        await tx.produtoAtributos.updateMany({
-          where: { produtoId: id, produto: { catalogo: { superUserId } } },
-          data: {
-            valoresJson: data.valoresAtributos,
-            estruturaSnapshotJson: estrutura as unknown as Prisma.InputJsonValue
-          }
+        await tx.produtoAtributo.deleteMany({
+          where: { produtoId: id, produto: { catalogo: { superUserId } } }
         });
+        await this.salvarValoresProduto(tx, id, estruturaInfo!, valores);
       }
 
       if (data.codigosInternos) {
@@ -370,14 +420,14 @@ export class ProdutoService {
           }))
         });
       }
-
-      return produto;
     });
+
+    return this.buscarPorId(id, superUserId);
   }
 
   async remover(id: number, superUserId: number) {
     const deleted = await catalogoPrisma.$transaction(async tx => {
-      await tx.produtoAtributos.deleteMany({ where: { produtoId: id, produto: { catalogo: { superUserId } } } });
+      await tx.produtoAtributo.deleteMany({ where: { produtoId: id, produto: { catalogo: { superUserId } } } });
       const res = await tx.produto.deleteMany({ where: { id, catalogo: { superUserId } } });
       return res.count;
     });
@@ -390,7 +440,12 @@ export class ProdutoService {
     const original = await catalogoPrisma.produto.findFirst({
       where: { id, catalogo: { superUserId } },
       include: {
-        atributos: true,
+        atributos: {
+          include: {
+            atributo: { select: { codigo: true, multivalorado: true } },
+            valores: { orderBy: { ordem: 'asc' } }
+          }
+        },
         codigosInternos: true,
         operadoresEstrangeiros: true
       }
@@ -418,7 +473,15 @@ export class ProdutoService {
       });
     }
 
-    const attr = original.atributos[0];
+    let estruturaInfo = original.versaoAtributoId
+      ? await this.atributosService.buscarEstruturaPorVersao(original.versaoAtributoId)
+      : null;
+
+    if (!estruturaInfo) {
+      estruturaInfo = await this.obterEstruturaAtributos(original.ncmCodigo, original.modalidade || '');
+    }
+
+    const valoresOriginais = this.montarValoresDosAtributos(original.atributos);
 
     const novoId = await catalogoPrisma.$transaction(async (tx) => {
       const novo = await tx.produto.create({
@@ -433,18 +496,9 @@ export class ProdutoService {
           descricao: original.descricao,
           numero: 0,
           catalogoId: data.catalogoId,
-          versaoEstruturaAtributos: original.versaoEstruturaAtributos,
+          versaoEstruturaAtributos: estruturaInfo?.versaoNumero ?? original.versaoEstruturaAtributos,
+          versaoAtributoId: estruturaInfo?.versaoId ?? original.versaoAtributoId,
           criadoPor: original.criadoPor,
-          atributos: attr
-            ? {
-                create: {
-                  valoresJson: attr.valoresJson as Prisma.InputJsonValue,
-                  estruturaSnapshotJson: attr.estruturaSnapshotJson as Prisma.InputJsonValue,
-                  validadoEm: attr.validadoEm,
-                  errosValidacao: attr.errosValidacao as Prisma.InputJsonValue
-                }
-              }
-            : undefined,
           codigosInternos: skus.length
             ? {
                 create: skus.map(codigo => ({ codigo }))
@@ -465,6 +519,8 @@ export class ProdutoService {
         }
       });
 
+      await this.salvarValoresProduto(tx, novo.id, estruturaInfo!, valoresOriginais);
+
       return novo.id;
     });
 
@@ -479,31 +535,90 @@ export class ProdutoService {
   private async obterEstruturaAtributos(
     ncm: string,
     modalidade: string
-  ): Promise<AtributoEstruturaDTO[]> {
-    const cache = await catalogoPrisma.atributosCache.findFirst({
-      where: { ncmCodigo: ncm, modalidade },
-      orderBy: { versao: 'desc' }
-    });
-    if (cache) {
-      return cache.estruturaJson as unknown as AtributoEstruturaDTO[];
-    }
-
+  ): Promise<EstruturaComVersao> {
     try {
-      const estrutura = await this.atributosService.buscarEstrutura(ncm, modalidade);
-      const estruturaJson = estrutura as unknown as Prisma.InputJsonValue;
-
-      await catalogoPrisma.atributosCache.create({
-        data: {
-          ncmCodigo: ncm,
-          modalidade,
-          estruturaJson: estruturaJson,
-          versao: 1
-        }
-      });
-      return estrutura;
+      return await this.atributosService.buscarEstrutura(
+        ncm,
+        modalidade || 'IMPORTACAO'
+      );
     } catch (error) {
       logger.error('Erro ao obter atributos do legacy:', error);
-      return [];
+      return {
+        versaoId: 0,
+        versaoNumero: 0,
+        estrutura: []
+      };
+    }
+  }
+
+  private mapearEstruturaPorCodigo(
+    estrutura: AtributoEstruturaDTO[]
+  ): Map<string, AtributoEstruturaDTO> {
+    const mapa = new Map<string, AtributoEstruturaDTO>();
+    const percorrer = (lista: AtributoEstruturaDTO[]) => {
+      for (const item of lista) {
+        mapa.set(item.codigo, item);
+        if (item.subAtributos) percorrer(item.subAtributos);
+      }
+    };
+    percorrer(estrutura);
+    return mapa;
+  }
+
+  private montarValoresDosAtributos(
+    registros: Array<{
+      atributo: { codigo: string; multivalorado: boolean } | null;
+      valores: Array<{ valorJson: Prisma.JsonValue; ordem: number }>;
+    }>
+  ): Record<string, any> {
+    const resultado: Record<string, any> = {};
+    for (const registro of registros) {
+      if (!registro.atributo) continue;
+      const codigo = registro.atributo.codigo;
+      const valores = registro.valores.map(v => v.valorJson as any);
+      if (registro.atributo.multivalorado) {
+        resultado[codigo] = valores;
+      } else {
+        resultado[codigo] = valores.length > 0 ? valores[0] : null;
+      }
+    }
+    return resultado;
+  }
+
+  private normalizarValorEntrada(valor: any): any[] {
+    if (Array.isArray(valor)) {
+      return valor.flatMap(item => this.normalizarValorEntrada(item));
+    }
+    if (valor === undefined || valor === null) return [];
+    return [valor];
+  }
+
+  private async salvarValoresProduto(
+    tx: Prisma.TransactionClient,
+    produtoId: number,
+    estruturaInfo: EstruturaComVersao,
+    valores: Record<string, any>
+  ) {
+    const mapa = this.mapearEstruturaPorCodigo(estruturaInfo.estrutura);
+    for (const [codigo, valor] of Object.entries(valores)) {
+      const atributo = mapa.get(codigo);
+      if (!atributo?.id) continue;
+      const valoresNormalizados = this.normalizarValorEntrada(valor);
+      if (!valoresNormalizados.length) continue;
+
+      await tx.produtoAtributo.create({
+        data: {
+          produtoId,
+          atributoId: atributo.id,
+          atributoVersaoId: estruturaInfo.versaoId,
+          valores: {
+            create: valoresNormalizados.map((item, ordem) => ({
+              valorJson: item as Prisma.InputJsonValue,
+              ordem
+            }))
+          }
+        }
+      });
     }
   }
 

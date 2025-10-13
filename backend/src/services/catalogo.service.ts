@@ -257,7 +257,7 @@ async remover(id: number, superUserId: number): Promise<void> {
       const produtoIds = produtos.map((produto) => produto.id);
 
       if (produtoIds.length > 0) {
-        await tx.produtoAtributos.deleteMany({ where: { produtoId: { in: produtoIds } } });
+        await tx.produtoAtributo.deleteMany({ where: { produtoId: { in: produtoIds } } });
         await tx.codigoInternoProduto.deleteMany({ where: { produtoId: { in: produtoIds } } });
         await tx.operadorEstrangeiroProduto.deleteMany({ where: { produtoId: { in: produtoIds } } });
         await tx.produto.deleteMany({ where: { id: { in: produtoIds } } });
@@ -306,7 +306,11 @@ async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
     include: {
       produtos: {
         include: {
-          atributos: true,
+          atributos: {
+            include: {
+              valores: { orderBy: { ordem: 'asc' } }
+            }
+          },
           codigosInternos: true,
           operadoresEstrangeiros: true
         }
@@ -365,8 +369,7 @@ async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
     }
 
     for (const prod of original.produtos) {
-      const attr = prod.atributos[0];
-      await tx.produto.create({
+      const novoProduto = await tx.produto.create({
         data: {
           codigo: null,
           versao: prod.versao,
@@ -379,17 +382,8 @@ async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
           numero: 0,
           catalogoId: novo.id,
           versaoEstruturaAtributos: prod.versaoEstruturaAtributos,
+          versaoAtributoId: prod.versaoAtributoId,
           criadoPor: prod.criadoPor,
-          atributos: attr
-            ? {
-                create: {
-                  valoresJson: attr.valoresJson as Prisma.InputJsonValue,
-                  estruturaSnapshotJson: attr.estruturaSnapshotJson as Prisma.InputJsonValue,
-                  validadoEm: attr.validadoEm,
-                  errosValidacao: attr.errosValidacao as Prisma.InputJsonValue
-                }
-              }
-            : undefined,
           codigosInternos: prod.codigosInternos.length
             ? {
                 create: prod.codigosInternos.map((ci) => ({ codigo: ci.codigo }))
@@ -408,6 +402,28 @@ async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
             : undefined
         }
       });
+
+      for (const atributo of prod.atributos) {
+        const novoAtributo = await tx.produtoAtributo.create({
+          data: {
+            produtoId: novoProduto.id,
+            atributoId: atributo.atributoId,
+            atributoVersaoId: atributo.atributoVersaoId,
+            validadoEm: atributo.validadoEm,
+            errosValidacao: atributo.errosValidacao as Prisma.InputJsonValue
+          }
+        });
+
+        if (atributo.valores.length) {
+          await tx.produtoAtributoValor.createMany({
+            data: atributo.valores.map((valor, ordem) => ({
+              produtoAtributoId: novoAtributo.id,
+              valorJson: valor.valorJson as Prisma.InputJsonValue,
+              ordem: valor.ordem ?? ordem
+            }))
+          });
+        }
+      }
     }
 
     return novo;

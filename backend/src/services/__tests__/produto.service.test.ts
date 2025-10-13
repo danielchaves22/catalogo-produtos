@@ -121,14 +121,21 @@ describe('ProdutoService - atualização de status', () => {
       status: 'APROVADO',
       ncmCodigo: '001',
       modalidade: '',
-      atributos: [{ valoresJson: { A: '1' } }]
+      atributos: [
+        {
+          atributo: { codigo: 'A', multivalorado: false },
+          valores: [{ valorJson: '1', ordem: 0 }]
+        }
+      ],
+      versaoAtributoId: 1
     })
 
     const updateSpy = jest.fn().mockResolvedValue({ count: 1 })
     ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
       cb({
         produto: { updateMany: updateSpy, findFirst: jest.fn().mockResolvedValue({}) },
-        produtoAtributos: { updateMany: jest.fn() },
+        produtoAtributo: { deleteMany: jest.fn(), create: jest.fn() },
+        produtoAtributoValor: { createMany: jest.fn() },
         codigoInternoProduto: { deleteMany: jest.fn(), createMany: jest.fn() },
         operadorEstrangeiroProduto: { deleteMany: jest.fn(), createMany: jest.fn() }
       })
