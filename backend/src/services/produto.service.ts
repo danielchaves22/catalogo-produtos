@@ -304,7 +304,7 @@ export class ProdutoService {
 
       await this.salvarValoresProduto(
         tx,
-        produto.id,
+        novoProduto.id,
         estruturaInfo,
         (data.valoresAtributos ?? {}) as Record<string, any>
       );
