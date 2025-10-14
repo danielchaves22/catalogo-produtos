@@ -86,10 +86,10 @@ export interface ListarProdutosResponse {
 }
 
 export class ProdutoService {
-  private static readonly ESTRUTURA_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+  private static readonly ESTRUTURA_CACHE_REVALIDACAO_MS = 30 * 1000; // 30 segundos
   private static estruturaCache = new Map<
     string,
-    { dados: EstruturaComVersao; expiraEm: number }
+    { dados: EstruturaComVersao; proximaVerificacao: number }
   >();
   private static invalidacaoRegistrada = false;
 
@@ -579,11 +579,48 @@ export class ProdutoService {
     const chave = ProdutoService.montarChaveEstrutura(ncm, modalidadeNormalizada);
     const emCache = ProdutoService.estruturaCache.get(chave);
     const agora = Date.now();
-    if (emCache && emCache.expiraEm > agora) {
-      return emCache.dados;
-    }
-
     if (emCache) {
+      if (agora < emCache.proximaVerificacao) {
+        return emCache.dados;
+      }
+
+      try {
+        const versaoAtualId = await this.obterVersaoAtualId(
+          ncm,
+          modalidadeNormalizada
+        );
+
+        const versaoCache = emCache.dados.versaoId;
+        if (
+          versaoAtualId !== null &&
+          versaoAtualId !== undefined &&
+          versaoAtualId === versaoCache
+        ) {
+          const atualizada = {
+            dados: emCache.dados,
+            proximaVerificacao:
+              agora + ProdutoService.ESTRUTURA_CACHE_REVALIDACAO_MS
+          };
+          ProdutoService.estruturaCache.set(chave, atualizada);
+          return atualizada.dados;
+        }
+
+        if (versaoAtualId === null && versaoCache === 0) {
+          const atualizada = {
+            dados: emCache.dados,
+            proximaVerificacao:
+              agora + ProdutoService.ESTRUTURA_CACHE_REVALIDACAO_MS
+          };
+          ProdutoService.estruturaCache.set(chave, atualizada);
+          return atualizada.dados;
+        }
+      } catch (error) {
+        logger.warn(
+          'Não foi possível verificar a versão da estrutura de atributos, refazendo sincronização',
+          error
+        );
+      }
+
       ProdutoService.estruturaCache.delete(chave);
     }
 
@@ -594,7 +631,8 @@ export class ProdutoService {
       );
       ProdutoService.estruturaCache.set(chave, {
         dados: estrutura,
-        expiraEm: agora + ProdutoService.ESTRUTURA_CACHE_TTL_MS
+        proximaVerificacao:
+          Date.now() + ProdutoService.ESTRUTURA_CACHE_REVALIDACAO_MS
       });
       return estrutura;
     } catch (error) {
@@ -605,6 +643,16 @@ export class ProdutoService {
         estrutura: []
       };
     }
+  }
+
+  private async obterVersaoAtualId(ncm: string, modalidade: string) {
+    const versao = await catalogoPrisma.atributoVersao.findFirst({
+      where: { ncmCodigo: ncm, modalidade },
+      orderBy: { versao: 'desc' },
+      select: { id: true }
+    });
+
+    return versao?.id ?? null;
   }
 
   private mapearEstruturaPorCodigo(

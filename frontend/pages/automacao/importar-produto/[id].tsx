@@ -10,11 +10,6 @@ import { formatCPFOrCNPJ } from '@/lib/validation';
 import { useToast } from '@/components/ui/ToastContext';
 import { AlertTriangle, ArrowLeft, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 
-interface MensagensItem {
-  impeditivos?: string[];
-  atencao?: string[];
-}
-
 interface ImportacaoItem {
   id: number;
   linhaPlanilha: number;
@@ -22,7 +17,7 @@ interface ImportacaoItem {
   denominacao?: string | null;
   codigosInternos?: string | null;
   resultado: 'SUCESSO' | 'ATENCAO' | 'ERRO';
-  mensagens?: MensagensItem | null;
+  mensagens?: MensagensItem;
   possuiErroImpeditivo: boolean;
   possuiAlerta: boolean;
   produtoId?: number | null;
@@ -48,6 +43,19 @@ interface ImportacaoDetalhe {
   finalizadoEm?: string | null;
   itens: ImportacaoItem[];
 }
+
+interface MensagensItem {
+  impeditivos?: string[];
+  atencao?: string[];
+}
+
+type ImportacaoItemResposta = Omit<ImportacaoItem, 'mensagens'> & {
+  mensagens?: unknown;
+};
+
+type ImportacaoDetalheResposta = Omit<ImportacaoDetalhe, 'itens'> & {
+  itens: ImportacaoItemResposta[];
+};
 
 function formatarData(data?: string | null) {
   if (!data) return '-';
@@ -116,6 +124,63 @@ function obterClasseSituacaoBadge(situacao: ImportacaoDetalhe['situacao']) {
   return 'bg-sky-500/10 text-sky-300 border border-sky-500/40';
 }
 
+function normalizarMensagens(mensagens: unknown): MensagensItem {
+  if (!mensagens) {
+    return {};
+  }
+
+  if (typeof mensagens === 'string') {
+    try {
+      return normalizarMensagens(JSON.parse(mensagens));
+    } catch (error) {
+      console.warn('Falha ao interpretar mensagens de importação como JSON', error);
+      return {};
+    }
+  }
+
+  if (Array.isArray(mensagens)) {
+    const itens = mensagens.filter(
+      (valor): valor is string => typeof valor === 'string'
+    );
+    return itens.length ? { impeditivos: itens } : {};
+  }
+
+  if (typeof mensagens === 'object') {
+    const objeto = mensagens as Record<string, unknown>;
+    const impeditivos = Array.isArray(objeto.impeditivos)
+      ? objeto.impeditivos.filter(
+          (valor): valor is string => typeof valor === 'string'
+        )
+      : [];
+    const atencao = Array.isArray(objeto.atencao)
+      ? objeto.atencao.filter(
+          (valor): valor is string => typeof valor === 'string'
+        )
+      : [];
+
+    const resultado: MensagensItem = {};
+    if (impeditivos.length) resultado.impeditivos = impeditivos;
+    if (atencao.length) resultado.atencao = atencao;
+    return resultado;
+  }
+
+  return {};
+}
+
+function normalizarDetalheImportacao(
+  dados: ImportacaoDetalheResposta
+): ImportacaoDetalhe {
+  const itensNormalizados = (dados.itens ?? []).map(item => ({
+    ...item,
+    mensagens: normalizarMensagens(item.mensagens)
+  }));
+
+  return {
+    ...dados,
+    itens: itensNormalizados
+  };
+}
+
 export default function ImportacaoDetalhePage() {
   const router = useRouter();
   const { id } = router.query;
@@ -138,8 +203,10 @@ export default function ImportacaoDetalhePage() {
         if (!silencioso) {
           setCarregando(true);
         }
-        const resposta = await api.get<ImportacaoDetalhe>(`/produtos/importacoes/${importacaoId}`);
-        setDetalhe(resposta.data);
+        const resposta = await api.get<ImportacaoDetalheResposta>(
+          `/produtos/importacoes/${importacaoId}`
+        );
+        setDetalhe(normalizarDetalheImportacao(resposta.data));
         setErro(null);
       } catch (error: any) {
         console.error('Erro ao carregar importação', error);
