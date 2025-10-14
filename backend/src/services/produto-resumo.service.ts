@@ -78,6 +78,29 @@ export class ProdutoResumoService {
   ): Promise<void> {
     await prisma.produtoResumoDashboard.deleteMany({ where: { produtoId } });
   }
+
+  async garantirResumos(
+    superUserId: number,
+    catalogoId?: number,
+    prisma: Prisma.TransactionClient | typeof catalogoPrisma = catalogoPrisma
+  ): Promise<void> {
+    const produtosSemResumo = await prisma.produto.findMany({
+      where: {
+        catalogo: { superUserId },
+        ...(catalogoId ? { catalogoId } : {}),
+        resumoDashboard: null
+      },
+      select: { id: true }
+    });
+
+    if (!produtosSemResumo.length) {
+      return;
+    }
+
+    for (const item of produtosSemResumo) {
+      await this.recalcularResumoProduto(item.id, prisma);
+    }
+  }
 }
 
 export function calcularResumoProduto(

@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
+import { ProdutoResumoService } from './produto-resumo.service';
 
 const PRODUTO_STATUS = ['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO'] as const;
 
@@ -68,6 +69,16 @@ export async function obterResumoDashboardService(
     catalogoPrisma.catalogo.count({ where: catalogoWhere }),
     catalogoPrisma.produto.count({ where: produtoWhere })
   ]);
+
+  const produtoResumoService = new ProdutoResumoService();
+
+  if (totalProdutos > 0) {
+    const resumoWhere = { catalogo: { superUserId }, ...(catalogoId ? { catalogoId } : {}) };
+    const resumosExistentes = await catalogoPrisma.produtoResumoDashboard.count({ where: resumoWhere });
+    if (resumosExistentes < totalProdutos) {
+      await produtoResumoService.garantirResumos(superUserId, catalogoId);
+    }
+  }
 
   const produtoWhereSql = buildProdutoWhere(superUserId, catalogoId);
 
