@@ -97,8 +97,67 @@ export class ProdutoResumoService {
       return;
     }
 
-    for (const item of produtosSemResumo) {
-      await this.recalcularResumoProduto(item.id, prisma);
+    const ids = produtosSemResumo.map(({ id }) => id);
+    const estruturasCache = new Map<number, AtributoEstruturaDTO[]>();
+    const batchSize = 100;
+
+    for (let index = 0; index < ids.length; index += batchSize) {
+      const loteIds = ids.slice(index, index + batchSize);
+      const produtos = await prisma.produto.findMany({
+        where: { id: { in: loteIds } },
+        select: {
+          id: true,
+          catalogoId: true,
+          versaoAtributoId: true,
+          atributos: {
+            include: {
+              atributo: { select: { codigo: true, multivalorado: true } },
+              valores: { orderBy: { ordem: 'asc' } }
+            }
+          }
+        }
+      });
+
+      const versaoIds = Array.from(
+        new Set(
+          produtos
+            .map(produto => produto.versaoAtributoId)
+            .filter((versaoId): versaoId is number => versaoId !== null && versaoId !== undefined)
+        )
+      );
+
+      const versoesPendentes = versaoIds.filter(versaoId => !estruturasCache.has(versaoId));
+      if (versoesPendentes.length) {
+        await Promise.all(
+          versoesPendentes.map(async versaoId => {
+            const estruturaInfo = await this.atributoService.buscarEstruturaPorVersao(versaoId);
+            const estrutura = estruturaInfo?.estrutura ? flattenEstrutura(estruturaInfo.estrutura) : [];
+            estruturasCache.set(versaoId, estrutura);
+          })
+        );
+      }
+
+      const data = produtos.map(produto => {
+        const estruturaLista = produto.versaoAtributoId
+          ? estruturasCache.get(produto.versaoAtributoId) ?? []
+          : [];
+        const valores = montarMapaValoresProduto(produto.atributos as ProdutoAtributoComValores[]);
+        const resumo = calcularResumoProduto(valores, estruturaLista);
+        return {
+          produtoId: produto.id,
+          catalogoId: produto.catalogoId,
+          atributosTotal: resumo.atributosTotal,
+          obrigatoriosPendentes: resumo.obrigatoriosPendentes,
+          validosTransmissao: resumo.validosTransmissao
+        };
+      });
+
+      if (data.length) {
+        await prisma.produtoResumoDashboard.createMany({
+          data,
+          skipDuplicates: true
+        });
+      }
     }
   }
 }
