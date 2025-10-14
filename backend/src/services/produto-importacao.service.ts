@@ -137,6 +137,8 @@ export class ProdutoImportacaoService {
     let totalCriados = 0;
     let totalComAtencao = 0;
     let totalComErro = 0;
+    const itensImportacao: Prisma.ImportacaoProdutoItemCreateManyInput[] = [];
+    const ncmValidacoesCache = new Map<string, boolean>();
 
     try {
       const linhas = await this.lerPlanilha(buffer);
@@ -316,18 +318,28 @@ export class ProdutoImportacaoService {
         }
 
         if (ncmNormalizada) {
-          const ncmCache = await catalogoPrisma.ncmCache.findUnique({
-            where: { codigo: ncmNormalizada }
-          });
+          const resultadoCache = ncmValidacoesCache.get(ncmNormalizada);
+          if (resultadoCache === undefined) {
+            const ncmCache = await catalogoPrisma.ncmCache.findUnique({
+              where: { codigo: ncmNormalizada }
+            });
 
-          if (!ncmCache) {
-            const ncmSincronizada = await this.ncmLegacyService.sincronizarNcm(
-              ncmNormalizada
-            );
+            if (!ncmCache) {
+              const ncmSincronizada = await this.ncmLegacyService.sincronizarNcm(
+                ncmNormalizada
+              );
 
-            if (!ncmSincronizada) {
-              mensagens.impeditivos.push('NCM não encontrada');
+              if (!ncmSincronizada) {
+                mensagens.impeditivos.push('NCM não encontrada');
+                ncmValidacoesCache.set(ncmNormalizada, false);
+              } else {
+                ncmValidacoesCache.set(ncmNormalizada, true);
+              }
+            } else {
+              ncmValidacoesCache.set(ncmNormalizada, true);
             }
+          } else if (!resultadoCache) {
+            mensagens.impeditivos.push('NCM não encontrada');
           }
         }
 
@@ -396,24 +408,28 @@ export class ProdutoImportacaoService {
           totalComErro += 1;
         }
 
-        await catalogoPrisma.importacaoProdutoItem.create({
-          data: {
-            importacaoId: dados.importacaoId,
-            linhaPlanilha,
-            ncm: ncmNormalizada ?? null,
-            denominacao: denominacao || null,
-            codigosInternos: codigosBrutos || null,
-            resultado: resultadoItem,
-            mensagens: mensagens as unknown as Prisma.InputJsonValue,
-            possuiErroImpeditivo: mensagens.impeditivos.length > 0,
-            possuiAlerta: mensagens.atencao.length > 0,
-            produtoId
-          }
+        itensImportacao.push({
+          importacaoId: dados.importacaoId,
+          linhaPlanilha,
+          ncm: ncmNormalizada ?? null,
+          denominacao: denominacao || null,
+          codigosInternos: codigosBrutos || null,
+          resultado: resultadoItem,
+          mensagens: mensagens as unknown as Prisma.InputJsonValue,
+          possuiErroImpeditivo: mensagens.impeditivos.length > 0,
+          possuiAlerta: mensagens.atencao.length > 0,
+          produtoId
         });
       }
 
       const resultadoFinal: ImportacaoResultado =
         totalComErro > 0 || totalComAtencao > 0 ? 'ATENCAO' : 'SUCESSO';
+
+      if (itensImportacao.length > 0) {
+        await catalogoPrisma.importacaoProdutoItem.createMany({
+          data: itensImportacao
+        });
+      }
 
       await catalogoPrisma.importacaoProduto.update({
         where: { id: dados.importacaoId },

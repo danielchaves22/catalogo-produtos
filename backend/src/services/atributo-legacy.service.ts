@@ -1,6 +1,7 @@
 import { catalogoPrisma, legacyPrisma } from '../utils/prisma'
 import { Prisma } from '@prisma/client'
 import { parseJsonSafe } from '../utils/parse-json'
+import { logger } from '../utils/logger'
 
 export interface DominioDTO {
   codigo: string
@@ -31,6 +32,27 @@ export interface EstruturaComVersao {
 }
 
 export class AtributoLegacyService {
+  private static invalidadores = new Set<(ncm: string, modalidade: string) => void>()
+
+  static registrarInvalidacao(
+    callback: (ncm: string, modalidade: string) => void
+  ): () => void {
+    this.invalidadores.add(callback)
+    return () => {
+      this.invalidadores.delete(callback)
+    }
+  }
+
+  private static notificarInvalidacao(ncm: string, modalidade: string) {
+    for (const callback of this.invalidadores) {
+      try {
+        callback(ncm, modalidade)
+      } catch (error) {
+        logger.error('Falha ao notificar invalidação de estrutura de atributos', error)
+      }
+    }
+  }
+
   async buscarEstrutura(ncm: string, modalidade: string = 'IMPORTACAO'): Promise<EstruturaComVersao> {
     const versaoExistente = await catalogoPrisma.atributoVersao.findFirst({
       where: { ncmCodigo: ncm, modalidade },
@@ -273,7 +295,7 @@ export class AtributoLegacyService {
   ): Promise<EstruturaComVersao> {
     const estruturaLegacy = await this.carregarEstruturaLegacy(ncm, modalidade)
 
-    return catalogoPrisma.$transaction(async tx => {
+    const estrutura = await catalogoPrisma.$transaction(async tx => {
       const ultimaVersao = await tx.atributoVersao.findFirst({
         where: { ncmCodigo: ncm, modalidade },
         orderBy: { versao: 'desc' }
@@ -337,6 +359,10 @@ export class AtributoLegacyService {
 
       return this.montarEstrutura(versao.id, versaoNumero)
     })
+
+    AtributoLegacyService.notificarInvalidacao(ncm, modalidade)
+
+    return estrutura
   }
 }
 

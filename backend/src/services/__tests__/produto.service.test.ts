@@ -150,3 +150,38 @@ describe('ProdutoService - atualização de status', () => {
     )
   })
 })
+
+describe('ProdutoService - cache da estrutura de atributos', () => {
+  beforeEach(() => {
+    ProdutoService.limparCacheEstrutura()
+  })
+
+  it('reutiliza estrutura já carregada para a mesma combinação', async () => {
+    const estruturaMock = { versaoId: 1, versaoNumero: 1, estrutura: [] } as any
+    const buscarEstrutura = jest.fn().mockResolvedValue(estruturaMock)
+    const service = new ProdutoService({ buscarEstrutura } as any)
+
+    const primeira = await (service as any).obterEstruturaAtributos('12345678', 'IMPORTACAO')
+    const segunda = await (service as any).obterEstruturaAtributos('12345678', 'IMPORTACAO')
+
+    expect(buscarEstrutura).toHaveBeenCalledTimes(1)
+    expect(segunda).toBe(primeira)
+  })
+
+  it('limpa cache ao invalidar combinação sincronizada novamente', async () => {
+    const estruturaInicial = { versaoId: 1, versaoNumero: 1, estrutura: [] } as any
+    const estruturaAtualizada = { versaoId: 2, versaoNumero: 2, estrutura: [] } as any
+    const buscarEstrutura = jest
+      .fn()
+      .mockResolvedValueOnce(estruturaInicial)
+      .mockResolvedValueOnce(estruturaAtualizada)
+    const service = new ProdutoService({ buscarEstrutura } as any)
+
+    await (service as any).obterEstruturaAtributos('12345678', 'IMPORTACAO')
+    ;(ProdutoService as any).invalidarEstruturaCache('12345678', 'IMPORTACAO')
+    const aposInvalidacao = await (service as any).obterEstruturaAtributos('12345678', 'IMPORTACAO')
+
+    expect(buscarEstrutura).toHaveBeenCalledTimes(2)
+    expect(aposInvalidacao).toBe(estruturaAtualizada)
+  })
+})

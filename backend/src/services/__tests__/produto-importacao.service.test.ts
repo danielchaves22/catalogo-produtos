@@ -15,7 +15,7 @@ const mockCatalogoPrisma = {
     update: jest.fn(),
     findFirst: jest.fn(),
   },
-  importacaoProdutoItem: { create: jest.fn(), updateMany: jest.fn() },
+  importacaoProdutoItem: { create: jest.fn(), createMany: jest.fn(), updateMany: jest.fn() },
   produtoAtributo: { deleteMany: jest.fn() },
   produto: { deleteMany: jest.fn() },
   ncmCache: { findUnique: jest.fn() },
@@ -48,6 +48,7 @@ describe('ProdutoImportacaoService', () => {
     );
     mockCatalogoPrisma.pais.findMany.mockResolvedValue([]);
     mockCatalogoPrisma.operadorEstrangeiro.findMany.mockResolvedValue([]);
+    mockCatalogoPrisma.importacaoProdutoItem.createMany.mockResolvedValue({ count: 0 });
     service = new ProdutoImportacaoService();
   });
 
@@ -100,7 +101,7 @@ describe('ProdutoImportacaoService', () => {
     });
     mockCatalogoPrisma.ncmCache.findUnique.mockResolvedValue({ codigo: '12345678' });
     mockNcmLegacyService.sincronizarNcm.mockResolvedValue(null);
-    mockCatalogoPrisma.importacaoProdutoItem.create.mockResolvedValue(undefined);
+    mockCatalogoPrisma.importacaoProdutoItem.createMany.mockResolvedValue({ count: 1 });
     mockCatalogoPrisma.importacaoProduto.update.mockResolvedValue(undefined);
     mockCatalogoPrisma.mensagem.create.mockResolvedValue(undefined);
     mockCatalogoPrisma.pais.findMany.mockResolvedValue([{ codigo: 'BR' }]);
@@ -134,7 +135,10 @@ describe('ProdutoImportacaoService', () => {
       arquivo: { nome: 'produtos.xlsx', conteudoBase64: arquivoBase64 },
     });
 
-    expect(mockCatalogoPrisma.importacaoProdutoItem.create).toHaveBeenCalledWith(
+    const chamada =
+      mockCatalogoPrisma.importacaoProdutoItem.createMany.mock.calls[0][0];
+    expect(chamada.data).toHaveLength(1);
+    expect(chamada.data[0]).toEqual(
       expect.objectContaining({ importacaoId: 88, linhaPlanilha: 2 })
     );
     expect(mockCatalogoPrisma.importacaoProduto.update).toHaveBeenCalledWith({
@@ -173,7 +177,7 @@ describe('ProdutoImportacaoService', () => {
       cpf_cnpj: '00000000000',
     });
     mockCatalogoPrisma.ncmCache.findUnique.mockResolvedValue(null);
-    mockCatalogoPrisma.importacaoProdutoItem.create.mockResolvedValue(undefined);
+    mockCatalogoPrisma.importacaoProdutoItem.createMany.mockResolvedValue({ count: 1 });
     mockCatalogoPrisma.importacaoProduto.update.mockResolvedValue(undefined);
     mockCatalogoPrisma.mensagem.create.mockResolvedValue(undefined);
     
@@ -217,6 +221,59 @@ describe('ProdutoImportacaoService', () => {
     expect(criarProdutoSpy).toHaveBeenCalled();
   });
 
+  it('reaproveita validação de NCM repetida evitando consultas duplicadas', async () => {
+    const arquivoBase64 = Buffer.from('conteudo').toString('base64');
+
+    mockCatalogoPrisma.catalogo.findFirst.mockResolvedValue({
+      id: 1,
+      nome: 'Catálogo Teste',
+      numero: 123,
+      cpf_cnpj: '00000000000',
+    });
+    mockCatalogoPrisma.ncmCache.findUnique.mockResolvedValueOnce(null);
+    mockNcmLegacyService.sincronizarNcm.mockResolvedValueOnce({
+      descricao: 'Teste',
+      unidadeMedida: 'KG',
+    });
+    mockCatalogoPrisma.importacaoProdutoItem.createMany.mockResolvedValue({ count: 2 });
+    mockCatalogoPrisma.importacaoProduto.update.mockResolvedValue(undefined);
+    mockCatalogoPrisma.mensagem.create.mockResolvedValue(undefined);
+    mockCatalogoPrisma.pais.findMany.mockResolvedValue([{ codigo: 'BR' }]);
+
+    jest
+      .spyOn(ProdutoService.prototype, 'criar')
+      .mockResolvedValue({ id: 999 } as any);
+    jest
+      .spyOn<any, any>(service as any, 'lerPlanilha')
+      .mockResolvedValue([
+        [
+          'Código Interno',
+          'Descrição Curta Produto',
+          'Descrição Longa Produto',
+          'NCM',
+          'Fabricante',
+          'Operador Estrangeiro',
+        ],
+        ['SKU001', 'Produto Teste 1', 'Desc 1', '12345678', '', ''],
+        ['SKU002', 'Produto Teste 2', 'Desc 2', '12345678', '', ''],
+      ]);
+
+    await service.processarImportacaoJob({
+      importacaoId: 88,
+      superUserId: 99,
+      usuarioCatalogoId: 10,
+      catalogoId: 1,
+      modalidade: 'IMPORTACAO',
+      arquivo: { nome: 'produtos.xlsx', conteudoBase64: arquivoBase64 },
+    });
+
+    expect(mockCatalogoPrisma.ncmCache.findUnique).toHaveBeenCalledTimes(1);
+    expect(mockNcmLegacyService.sincronizarNcm).toHaveBeenCalledTimes(1);
+    const chamada =
+      mockCatalogoPrisma.importacaoProdutoItem.createMany.mock.calls[0][0];
+    expect(chamada.data).toHaveLength(2);
+  });
+
   it('marca erro quando fabricante possui código inválido', async () => {
     const arquivoBase64 = Buffer.from('conteudo').toString('base64');
 
@@ -227,7 +284,7 @@ describe('ProdutoImportacaoService', () => {
       cpf_cnpj: '00000000000',
     });
     mockCatalogoPrisma.ncmCache.findUnique.mockResolvedValue({ codigo: '12345678' });
-    mockCatalogoPrisma.importacaoProdutoItem.create.mockResolvedValue(undefined);
+    mockCatalogoPrisma.importacaoProdutoItem.createMany.mockResolvedValue({ count: 1 });
     mockCatalogoPrisma.importacaoProduto.update.mockResolvedValue(undefined);
     mockCatalogoPrisma.mensagem.create.mockResolvedValue(undefined);
     mockCatalogoPrisma.pais.findMany.mockResolvedValue([{ codigo: 'BR' }]);
@@ -260,10 +317,14 @@ describe('ProdutoImportacaoService', () => {
     });
 
     expect(criarSpy).not.toHaveBeenCalled();
-    const chamada = mockCatalogoPrisma.importacaoProdutoItem.create.mock.calls[0][0];
-    expect(chamada.data.resultado).toBe('ERRO');
-    expect(chamada.data.possuiErroImpeditivo).toBe(true);
-    expect(JSON.stringify(chamada.data.mensagens)).toContain('Fabricante contém códigos com formato inválido');
+    const chamada =
+      mockCatalogoPrisma.importacaoProdutoItem.createMany.mock.calls[0][0];
+    const item = chamada.data[0];
+    expect(item.resultado).toBe('ERRO');
+    expect(item.possuiErroImpeditivo).toBe(true);
+    expect(JSON.stringify(item.mensagens)).toContain(
+      'Fabricante contém códigos com formato inválido'
+    );
   });
 
   it('reverte importação removendo produtos e atualizando a situação', async () => {

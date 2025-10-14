@@ -86,7 +86,22 @@ export interface ListarProdutosResponse {
 }
 
 export class ProdutoService {
-  private atributosService = new AtributoLegacyService();
+  private static estruturaCache = new Map<string, EstruturaComVersao>();
+  private static invalidacaoRegistrada = false;
+
+  constructor(private readonly atributosService = new AtributoLegacyService()) {
+    ProdutoService.registrarInvalidacaoCache();
+  }
+
+  private static registrarInvalidacaoCache() {
+    if (this.invalidacaoRegistrada) return;
+
+    AtributoLegacyService.registrarInvalidacao((ncm, modalidade) => {
+      ProdutoService.invalidarEstruturaCache(ncm, modalidade);
+    });
+
+    this.invalidacaoRegistrada = true;
+  }
   async listarTodos(
     filtros: ListarProdutosFiltro = {},
     superUserId: number,
@@ -532,15 +547,44 @@ export class ProdutoService {
     return produto;
   }
 
+  private static montarChaveEstrutura(ncm: string, modalidade: string) {
+    const ncmNormalizado = (ncm ?? '').trim().toUpperCase();
+    const modalidadeNormalizada = (modalidade ?? '').trim().toUpperCase();
+    return `${ncmNormalizado}::${modalidadeNormalizada}`;
+  }
+
+  private static invalidarEstruturaCache(ncm: string, modalidade: string) {
+    const chave = this.montarChaveEstrutura(ncm, modalidade);
+    this.estruturaCache.delete(chave);
+  }
+
+  static limparCacheEstrutura() {
+    this.estruturaCache.clear();
+  }
+
+  private normalizarModalidade(modalidade: string) {
+    const valor = (modalidade ?? '').trim();
+    return valor ? valor : 'IMPORTACAO';
+  }
+
   private async obterEstruturaAtributos(
     ncm: string,
     modalidade: string
   ): Promise<EstruturaComVersao> {
+    const modalidadeNormalizada = this.normalizarModalidade(modalidade);
+    const chave = ProdutoService.montarChaveEstrutura(ncm, modalidadeNormalizada);
+    const emCache = ProdutoService.estruturaCache.get(chave);
+    if (emCache) {
+      return emCache;
+    }
+
     try {
-      return await this.atributosService.buscarEstrutura(
+      const estrutura = await this.atributosService.buscarEstrutura(
         ncm,
-        modalidade || 'IMPORTACAO'
+        modalidadeNormalizada
       );
+      ProdutoService.estruturaCache.set(chave, estrutura);
+      return estrutura;
     } catch (error) {
       logger.error('Erro ao obter atributos do legacy:', error);
       return {
