@@ -86,7 +86,11 @@ export interface ListarProdutosResponse {
 }
 
 export class ProdutoService {
-  private static estruturaCache = new Map<string, EstruturaComVersao>();
+  private static readonly ESTRUTURA_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+  private static estruturaCache = new Map<
+    string,
+    { dados: EstruturaComVersao; expiraEm: number }
+  >();
   private static invalidacaoRegistrada = false;
 
   constructor(private readonly atributosService = new AtributoLegacyService()) {
@@ -574,8 +578,13 @@ export class ProdutoService {
     const modalidadeNormalizada = this.normalizarModalidade(modalidade);
     const chave = ProdutoService.montarChaveEstrutura(ncm, modalidadeNormalizada);
     const emCache = ProdutoService.estruturaCache.get(chave);
+    const agora = Date.now();
+    if (emCache && emCache.expiraEm > agora) {
+      return emCache.dados;
+    }
+
     if (emCache) {
-      return emCache;
+      ProdutoService.estruturaCache.delete(chave);
     }
 
     try {
@@ -583,7 +592,10 @@ export class ProdutoService {
         ncm,
         modalidadeNormalizada
       );
-      ProdutoService.estruturaCache.set(chave, estrutura);
+      ProdutoService.estruturaCache.set(chave, {
+        dados: estrutura,
+        expiraEm: agora + ProdutoService.ESTRUTURA_CACHE_TTL_MS
+      });
       return estrutura;
     } catch (error) {
       logger.error('Erro ao obter atributos do legacy:', error);
