@@ -260,7 +260,11 @@ export class ProdutoService {
     };
   }
 
-  async criar(data: CreateProdutoDTO, superUserId: number) {
+  async criar(
+    data: CreateProdutoDTO,
+    superUserId: number,
+    transacao?: Prisma.TransactionClient
+  ) {
     const estruturaInfo = await this.obterEstruturaAtributos(
       data.ncmCodigo,
       data.modalidade
@@ -288,7 +292,7 @@ export class ProdutoService {
       throw new Error('Catálogo não encontrado para o superusuário');
     }
 
-    const produto = await catalogoPrisma.$transaction(async (tx) => {
+    const executarCriacao = async (tx: Prisma.TransactionClient) => {
       const novoProduto = await tx.produto.create({
         data: {
           codigo: data.codigo ?? null,
@@ -328,10 +332,18 @@ export class ProdutoService {
         (data.valoresAtributos ?? {}) as Record<string, any>
       );
 
-      return novoProduto;
-    });
+      return novoProduto.id;
+    };
 
-    return this.buscarPorId(produto.id, superUserId);
+    const produtoId = transacao
+      ? await executarCriacao(transacao)
+      : await catalogoPrisma.$transaction(executarCriacao);
+
+    if (transacao) {
+      return { id: produtoId } as { id: number };
+    }
+
+    return this.buscarPorId(produtoId, superUserId);
   }
 
   async atualizar(id: number, data: UpdateProdutoDTO, superUserId: number) {
