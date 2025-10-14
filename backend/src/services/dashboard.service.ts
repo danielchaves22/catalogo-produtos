@@ -1,6 +1,5 @@
 import { Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
-import { AtributoEstruturaDTO, AtributoLegacyService } from './atributo-legacy.service';
 
 const PRODUTO_STATUS = ['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO'] as const;
 
@@ -129,65 +128,21 @@ export async function obterResumoDashboardService(
     }
   }
 
-  const produtosComValores = await catalogoPrisma.produto.findMany({
-    where: produtoWhere,
-    select: {
-      versaoAtributoId: true,
-      atributos: {
-        include: {
-          atributo: { select: { codigo: true, multivalorado: true } },
-          valores: { orderBy: { ordem: 'asc' } }
-        }
-      }
+  const resumoAtributos = await catalogoPrisma.produtoResumoDashboard.aggregate({
+    _sum: {
+      atributosTotal: true,
+      obrigatoriosPendentes: true,
+      validosTransmissao: true
+    },
+    where: {
+      catalogo: { superUserId },
+      ...(catalogoId ? { catalogoId } : {})
     }
   });
 
-  const atributoService = new AtributoLegacyService();
-  const estruturaCache = new Map<number, AtributoEstruturaDTO[]>();
-  let atributosTotal = 0;
-  let obrigatoriosPendentes = 0;
-
-  for (const produto of produtosComValores) {
-    let estruturaLista: AtributoEstruturaDTO[] = [];
-    if (produto.versaoAtributoId) {
-      if (!estruturaCache.has(produto.versaoAtributoId)) {
-        const estruturaInfo = await atributoService.buscarEstruturaPorVersao(
-          produto.versaoAtributoId
-        );
-        estruturaCache.set(
-          produto.versaoAtributoId,
-          flattenEstrutura(estruturaInfo?.estrutura)
-        );
-      }
-      estruturaLista = estruturaCache.get(produto.versaoAtributoId) ?? [];
-    }
-
-    const valores = montarMapaValoresProduto(produto.atributos);
-
-    if (!estruturaLista.length) {
-      atributosTotal += Object.keys(valores).length;
-      continue;
-    }
-
-    const mapa = new Map<string, AtributoEstruturaDTO>();
-    for (const attr of estruturaLista) {
-      mapa.set(attr.codigo, attr);
-    }
-
-    const visitados = new Set<string>();
-    for (const attr of estruturaLista) {
-      if (visitados.has(attr.codigo)) continue;
-      visitados.add(attr.codigo);
-      if (attr.tipo === 'COMPOSTO') continue;
-      if (!condicaoAtendida(attr, valores, mapa)) continue;
-      atributosTotal += 1;
-      if (attr.obrigatorio && !valorPreenchido(valores[attr.codigo])) {
-        obrigatoriosPendentes += 1;
-      }
-    }
-  }
-
-  const validosTransmissao = Math.max(atributosTotal - obrigatoriosPendentes, 0);
+  const atributosTotal = Number(resumoAtributos._sum.atributosTotal ?? 0);
+  const obrigatoriosPendentes = Number(resumoAtributos._sum.obrigatoriosPendentes ?? 0);
+  const validosTransmissao = Number(resumoAtributos._sum.validosTransmissao ?? 0);
 
   return {
     catalogos: {
@@ -204,102 +159,4 @@ export async function obterResumoDashboardService(
       validosTransmissao
     }
   };
-}
-
-function flattenEstrutura(estrutura: AtributoEstruturaDTO[] | undefined): AtributoEstruturaDTO[] {
-  if (!estrutura) return [];
-  const resultado: AtributoEstruturaDTO[] = [];
-  const stack = [...estrutura];
-  while (stack.length) {
-    const atual = stack.shift();
-    if (!atual) continue;
-    resultado.push(atual);
-    if (atual.subAtributos && atual.subAtributos.length) {
-      stack.unshift(...atual.subAtributos);
-    }
-  }
-  return resultado;
-}
-
-function avaliarExpressao(cond: any, valor: string): boolean {
-  if (!cond) return true;
-  const esperado = cond.valor;
-  let ok = true;
-  switch (cond.operador) {
-    case '==':
-      ok = valor === esperado;
-      break;
-    case '!=':
-      ok = valor !== esperado;
-      break;
-    case '>':
-      ok = Number(valor) > Number(esperado);
-      break;
-    case '>=':
-      ok = Number(valor) >= Number(esperado);
-      break;
-    case '<':
-      ok = Number(valor) < Number(esperado);
-      break;
-    case '<=':
-      ok = Number(valor) <= Number(esperado);
-      break;
-  }
-  if (cond.condicao) {
-    const next = avaliarExpressao(cond.condicao, valor);
-    return cond.composicao === '||' ? ok || next : ok && next;
-  }
-  return ok;
-}
-
-function condicaoAtendida(
-  attr: AtributoEstruturaDTO,
-  valores: Record<string, any>,
-  mapa: Map<string, AtributoEstruturaDTO>
-): boolean {
-  const codigoCondicionante = attr.condicionanteCodigo || attr.parentCodigo;
-  if (!codigoCondicionante) return true;
-
-  const pai = mapa.get(codigoCondicionante);
-  if (pai && !condicaoAtendida(pai, valores, mapa)) return false;
-
-  const atual = valores[codigoCondicionante];
-  if (atual === undefined || atual === null || atual === '') return false;
-  const atualStr = String(atual);
-  if (attr.condicao) return avaliarExpressao(attr.condicao, atualStr);
-  if (!attr.descricaoCondicao) return true;
-  const match = attr.descricaoCondicao.match(/valor\s*=\s*'?"?(\w+)"?'?/i);
-  if (!match) return true;
-  return atualStr === match[1];
-}
-
-function valorPreenchido(valor: unknown): boolean {
-  if (valor === undefined || valor === null) return false;
-  if (Array.isArray(valor)) {
-    return valor.some(item => valorPreenchido(item));
-  }
-  if (typeof valor === 'string') {
-    return valor.trim().length > 0;
-  }
-  return true;
-}
-
-function montarMapaValoresProduto(
-  atributos: Array<{
-    atributo: { codigo: string; multivalorado: boolean } | null;
-    valores: Array<{ valorJson: Prisma.JsonValue }>;
-  }>
-): Record<string, any> {
-  const resultado: Record<string, any> = {};
-  for (const item of atributos) {
-    if (!item.atributo) continue;
-    const codigo = item.atributo.codigo;
-    const valores = item.valores.map(v => v.valorJson as any);
-    if (item.atributo.multivalorado) {
-      resultado[codigo] = valores;
-    } else {
-      resultado[codigo] = valores.length > 0 ? valores[0] : null;
-    }
-  }
-  return resultado;
 }

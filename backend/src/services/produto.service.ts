@@ -8,6 +8,7 @@ import {
   EstruturaComVersao
 } from './atributo-legacy.service';
 import { ValidationError } from '../types/validation-error';
+import { ProdutoResumoService } from './produto-resumo.service';
 
 export interface CreateProdutoDTO {
   codigo?: string;
@@ -86,7 +87,10 @@ export interface ListarProdutosResponse {
 }
 
 export class ProdutoService {
-  private atributosService = new AtributoLegacyService();
+  constructor(
+    private readonly atributosService = new AtributoLegacyService(),
+    private readonly produtoResumoService = new ProdutoResumoService()
+  ) {}
   async listarTodos(
     filtros: ListarProdutosFiltro = {},
     superUserId: number,
@@ -309,6 +313,8 @@ export class ProdutoService {
         (data.valoresAtributos ?? {}) as Record<string, any>
       );
 
+      await this.produtoResumoService.recalcularResumoProduto(novoProduto.id, tx);
+
       return novoProduto;
     });
 
@@ -420,6 +426,8 @@ export class ProdutoService {
           }))
         });
       }
+
+      await this.produtoResumoService.recalcularResumoProduto(id, tx);
     });
 
     return this.buscarPorId(id, superUserId);
@@ -428,6 +436,7 @@ export class ProdutoService {
   async remover(id: number, superUserId: number) {
     const deleted = await catalogoPrisma.$transaction(async tx => {
       await tx.produtoAtributo.deleteMany({ where: { produtoId: id, produto: { catalogo: { superUserId } } } });
+      await this.produtoResumoService.removerResumoProduto(id, tx);
       const res = await tx.produto.deleteMany({ where: { id, catalogo: { superUserId } } });
       return res.count;
     });
@@ -520,6 +529,8 @@ export class ProdutoService {
       });
 
       await this.salvarValoresProduto(tx, novo.id, estruturaInfo!, valoresOriginais);
+
+      await this.produtoResumoService.recalcularResumoProduto(novo.id, tx);
 
       return novo.id;
     });

@@ -114,6 +114,7 @@ model Catalogo {
   certificadoId   Int?           @map("certificado_id")
   certificado     Certificado?   @relation(fields: [certificadoId], references: [id])
   produtos         Produto[]
+  resumosDashboard ProdutoResumoDashboard[]
   operadoresEstrangeiros OperadorEstrangeiro[]
   importacoes      ImportacaoProduto[]
   valoresPadraoNcm NcmAtributoValorCatalogo[]
@@ -326,6 +327,7 @@ model Produto {
   estruturaVersao          AtributoVersao?        @relation(fields: [versaoAtributoId], references: [id])
   atributos                ProdutoAtributo[]
   codigosInternos          CodigoInternoProduto[]
+  resumoDashboard          ProdutoResumoDashboard?
   operadoresEstrangeiros   OperadorEstrangeiroProduto[]
   importacaoItens          ImportacaoProdutoItem[] @relation("ProdutoImportacaoItens")
 
@@ -415,6 +417,21 @@ model ProdutoAtributoValor {
 
   @@index([produtoAtributoId], map: "idx_produto_atributo_valor")
   @@map("produto_atributo_valor")
+}
+
+model ProdutoResumoDashboard {
+  produtoId             Int       @id @map("produto_id")
+  catalogoId            Int       @map("catalogo_id")
+  atributosTotal        Int       @map("atributos_total")
+  obrigatoriosPendentes Int       @map("obrigatorios_pendentes")
+  validosTransmissao    Int       @map("validos_transmissao")
+  atualizadoEm          DateTime  @updatedAt @map("atualizado_em")
+
+  produto  Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  catalogo Catalogo @relation(fields: [catalogoId], references: [id], onDelete: Cascade)
+
+  @@index([catalogoId], map: "idx_produto_resumo_catalogo")
+  @@map("produto_resumo_dashboard")
 }
 
 model NcmAtributoValorGrupo {

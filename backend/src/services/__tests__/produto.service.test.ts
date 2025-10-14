@@ -2,6 +2,21 @@ import { ProdutoService } from '../produto.service'
 import { AtributoEstruturaDTO } from '../atributo-legacy.service'
 import { catalogoPrisma } from '../../utils/prisma'
 
+const produtoResumoServiceMock = {
+  recalcularResumoProduto: jest.fn(),
+  removerResumoProduto: jest.fn()
+}
+
+function criarService() {
+  return new ProdutoService(undefined, produtoResumoServiceMock as any)
+}
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  produtoResumoServiceMock.recalcularResumoProduto.mockClear()
+  produtoResumoServiceMock.removerResumoProduto.mockClear()
+})
+
 jest.mock('../../utils/prisma', () => ({
   catalogoPrisma: {
     produto: { findFirst: jest.fn() },
@@ -11,7 +26,7 @@ jest.mock('../../utils/prisma', () => ({
 
 describe('ProdutoService - atributos obrigatórios', () => {
   it('retorna verdadeiro quando todos obrigatórios preenchidos', () => {
-    const service = new ProdutoService()
+    const service = criarService()
     const estrutura: AtributoEstruturaDTO[] = [
       { codigo: 'A', nome: 'A', tipo: 'TEXTO', obrigatorio: true, multivalorado: false, validacoes: {} },
       { codigo: 'B', nome: 'B', tipo: 'TEXTO', obrigatorio: true, multivalorado: false, validacoes: {} }
@@ -21,7 +36,7 @@ describe('ProdutoService - atributos obrigatórios', () => {
   })
 
   it('retorna falso quando algum obrigatório não preenchido', () => {
-    const service = new ProdutoService()
+    const service = criarService()
     const estrutura: AtributoEstruturaDTO[] = [
       { codigo: 'A', nome: 'A', tipo: 'TEXTO', obrigatorio: true, multivalorado: false, validacoes: {} },
       { codigo: 'B', nome: 'B', tipo: 'TEXTO', obrigatorio: true, multivalorado: false, validacoes: {} }
@@ -33,7 +48,7 @@ describe('ProdutoService - atributos obrigatórios', () => {
 
 describe('ProdutoService - atributos multivalorados', () => {
   it('considera arrays vazios como não preenchidos', () => {
-    const service = new ProdutoService()
+    const service = criarService()
     const estrutura: AtributoEstruturaDTO[] = [
       {
         codigo: 'M',
@@ -54,7 +69,7 @@ describe('ProdutoService - atributos multivalorados', () => {
   })
 
   it('avalia condições com qualquer valor selecionado', () => {
-    const service = new ProdutoService()
+    const service = criarService()
     const estrutura: AtributoEstruturaDTO[] = [
       {
         codigo: 'M',
@@ -86,7 +101,7 @@ describe('ProdutoService - atributos multivalorados', () => {
   })
 
   it('valida cada item do array contra o domínio', () => {
-    const service = new ProdutoService()
+    const service = criarService()
     const estrutura: AtributoEstruturaDTO[] = [
       {
         codigo: 'M',
@@ -109,7 +124,7 @@ describe('ProdutoService - atributos multivalorados', () => {
 
 describe('ProdutoService - atualização de status', () => {
   it('marca como PENDENTE quando faltam atributos obrigatórios', async () => {
-    const service = new ProdutoService()
+    const service = criarService()
     const estrutura: AtributoEstruturaDTO[] = [
       { codigo: 'A', nome: 'A', tipo: 'TEXTO', obrigatorio: true, multivalorado: false, validacoes: {} }
     ]
