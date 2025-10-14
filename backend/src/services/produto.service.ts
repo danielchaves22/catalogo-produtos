@@ -87,10 +87,29 @@ export interface ListarProdutosResponse {
 }
 
 export class ProdutoService {
+  private static readonly ESTRUTURA_CACHE_REVALIDACAO_MS = 30 * 1000; // 30 segundos
+  private static estruturaCache = new Map<
+    string,
+    { dados: EstruturaComVersao; proximaVerificacao: number }
+  >();
+  private static invalidacaoRegistrada = false;
+
   constructor(
     private readonly atributosService = new AtributoLegacyService(),
     private readonly produtoResumoService = new ProdutoResumoService()
-  ) {}
+  ) {
+    ProdutoService.registrarInvalidacaoCache();
+  }
+
+  private static registrarInvalidacaoCache() {
+    if (this.invalidacaoRegistrada) return;
+
+    AtributoLegacyService.registrarInvalidacao((ncm, modalidade) => {
+      ProdutoService.invalidarEstruturaCache(ncm, modalidade);
+    });
+
+    this.invalidacaoRegistrada = true;
+  }
   async listarTodos(
     filtros: ListarProdutosFiltro = {},
     superUserId: number,
@@ -245,7 +264,11 @@ export class ProdutoService {
     };
   }
 
-  async criar(data: CreateProdutoDTO, superUserId: number) {
+  async criar(
+    data: CreateProdutoDTO,
+    superUserId: number,
+    transacao?: Prisma.TransactionClient
+  ) {
     const estruturaInfo = await this.obterEstruturaAtributos(
       data.ncmCodigo,
       data.modalidade
@@ -273,7 +296,7 @@ export class ProdutoService {
       throw new Error('Catálogo não encontrado para o superusuário');
     }
 
-    const produto = await catalogoPrisma.$transaction(async (tx) => {
+    const executarCriacao = async (tx: Prisma.TransactionClient) => {
       const novoProduto = await tx.produto.create({
         data: {
           codigo: data.codigo ?? null,
@@ -313,12 +336,18 @@ export class ProdutoService {
         (data.valoresAtributos ?? {}) as Record<string, any>
       );
 
-      await this.produtoResumoService.recalcularResumoProduto(novoProduto.id, tx);
+      return novoProduto.id;
+    };
 
-      return novoProduto;
-    });
+    const produtoId = transacao
+      ? await executarCriacao(transacao)
+      : await catalogoPrisma.$transaction(executarCriacao);
 
-    return this.buscarPorId(produto.id, superUserId);
+    if (transacao) {
+      return { id: produtoId } as { id: number };
+    }
+
+    return this.buscarPorId(produtoId, superUserId);
   }
 
   async atualizar(id: number, data: UpdateProdutoDTO, superUserId: number) {
@@ -558,15 +587,90 @@ export class ProdutoService {
     return produto;
   }
 
+  private static montarChaveEstrutura(ncm: string, modalidade: string) {
+    const ncmNormalizado = (ncm ?? '').trim().toUpperCase();
+    const modalidadeNormalizada = (modalidade ?? '').trim().toUpperCase();
+    return `${ncmNormalizado}::${modalidadeNormalizada}`;
+  }
+
+  private static invalidarEstruturaCache(ncm: string, modalidade: string) {
+    const chave = this.montarChaveEstrutura(ncm, modalidade);
+    this.estruturaCache.delete(chave);
+  }
+
+  static limparCacheEstrutura() {
+    this.estruturaCache.clear();
+  }
+
+  private normalizarModalidade(modalidade: string) {
+    const valor = (modalidade ?? '').trim();
+    return valor ? valor : 'IMPORTACAO';
+  }
+
   private async obterEstruturaAtributos(
     ncm: string,
     modalidade: string
   ): Promise<EstruturaComVersao> {
+    const modalidadeNormalizada = this.normalizarModalidade(modalidade);
+    const chave = ProdutoService.montarChaveEstrutura(ncm, modalidadeNormalizada);
+    const emCache = ProdutoService.estruturaCache.get(chave);
+    const agora = Date.now();
+    if (emCache) {
+      if (agora < emCache.proximaVerificacao) {
+        return emCache.dados;
+      }
+
+      try {
+        const versaoAtualId = await this.obterVersaoAtualId(
+          ncm,
+          modalidadeNormalizada
+        );
+
+        const versaoCache = emCache.dados.versaoId;
+        if (
+          versaoAtualId !== null &&
+          versaoAtualId !== undefined &&
+          versaoAtualId === versaoCache
+        ) {
+          const atualizada = {
+            dados: emCache.dados,
+            proximaVerificacao:
+              agora + ProdutoService.ESTRUTURA_CACHE_REVALIDACAO_MS
+          };
+          ProdutoService.estruturaCache.set(chave, atualizada);
+          return atualizada.dados;
+        }
+
+        if (versaoAtualId === null && versaoCache === 0) {
+          const atualizada = {
+            dados: emCache.dados,
+            proximaVerificacao:
+              agora + ProdutoService.ESTRUTURA_CACHE_REVALIDACAO_MS
+          };
+          ProdutoService.estruturaCache.set(chave, atualizada);
+          return atualizada.dados;
+        }
+      } catch (error) {
+        logger.warn(
+          'Não foi possível verificar a versão da estrutura de atributos, refazendo sincronização',
+          error
+        );
+      }
+
+      ProdutoService.estruturaCache.delete(chave);
+    }
+
     try {
-      return await this.atributosService.buscarEstrutura(
+      const estrutura = await this.atributosService.buscarEstrutura(
         ncm,
-        modalidade || 'IMPORTACAO'
+        modalidadeNormalizada
       );
+      ProdutoService.estruturaCache.set(chave, {
+        dados: estrutura,
+        proximaVerificacao:
+          Date.now() + ProdutoService.ESTRUTURA_CACHE_REVALIDACAO_MS
+      });
+      return estrutura;
     } catch (error) {
       logger.error('Erro ao obter atributos do legacy:', error);
       return {
@@ -575,6 +679,16 @@ export class ProdutoService {
         estrutura: []
       };
     }
+  }
+
+  private async obterVersaoAtualId(ncm: string, modalidade: string) {
+    const versao = await catalogoPrisma.atributoVersao.findFirst({
+      where: { ncmCodigo: ncm, modalidade },
+      orderBy: { versao: 'desc' },
+      select: { id: true }
+    });
+
+    return versao?.id ?? null;
   }
 
   private mapearEstruturaPorCodigo(
