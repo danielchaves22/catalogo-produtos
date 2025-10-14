@@ -434,13 +434,28 @@ export class ProdutoService {
   }
 
   async remover(id: number, superUserId: number) {
-    const deleted = await catalogoPrisma.$transaction(async tx => {
-      await tx.produtoAtributo.deleteMany({ where: { produtoId: id, produto: { catalogo: { superUserId } } } });
-      await this.produtoResumoService.removerResumoProduto(id, tx);
-      const res = await tx.produto.deleteMany({ where: { id, catalogo: { superUserId } } });
-      return res.count;
+    const deletado = await catalogoPrisma.$transaction(async tx => {
+      const produto = await tx.produto.findFirst({
+        where: { id, catalogo: { superUserId } },
+        select: { id: true }
+      });
+
+      if (!produto) {
+        return 0;
+      }
+
+      await tx.produtoAtributo.deleteMany({
+        where: { produtoId: produto.id, produto: { catalogo: { superUserId } } }
+      });
+
+      await this.produtoResumoService.removerResumoProduto(produto.id, tx);
+
+      await tx.produto.delete({ where: { id: produto.id } });
+
+      return 1;
     });
-    if (deleted === 0) {
+
+    if (deletado === 0) {
       throw new Error(`Produto ID ${id} não encontrado`);
     }
   }
