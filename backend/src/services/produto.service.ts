@@ -130,8 +130,7 @@ export class ProdutoService {
     if (filtros.busca?.trim()) {
       const termo = filtros.busca.trim();
       const like = {
-        contains: termo,
-        mode: 'insensitive' as const
+        contains: termo
       };
 
       where.OR = [
