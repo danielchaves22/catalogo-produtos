@@ -57,3 +57,35 @@ export const cloneProdutoSchema = z.object({
       message: 'Códigos internos duplicados não são permitidos'
     })
 });
+
+const statusEnum = z.enum(['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO']);
+const situacaoEnum = z.enum(['RASCUNHO', 'ATIVADO', 'DESATIVADO']);
+
+export const deleteProdutosEmMassaSchema = z
+  .object({
+    todosFiltrados: z.boolean(),
+    idsSelecionados: z.array(z.number().int().positive()).optional(),
+    idsDeselecionados: z.array(z.number().int().positive()).optional(),
+    filtros: z
+      .object({
+        status: z.array(statusEnum).optional(),
+        situacoes: z.array(situacaoEnum).optional(),
+        ncm: z.string().optional(),
+        catalogoId: z.number().int().optional()
+      })
+      .partial()
+      .optional(),
+    busca: z.string().optional()
+  })
+  .refine(
+    data => {
+      if (!data.todosFiltrados) {
+        return Array.isArray(data.idsSelecionados) && data.idsSelecionados.length > 0;
+      }
+      return true;
+    },
+    {
+      message: 'Informe ao menos um produto para exclusão',
+      path: ['idsSelecionados']
+    }
+  );

@@ -1,6 +1,6 @@
 // backend/src/controllers/produto.controller.ts
 import { Request, Response } from 'express';
-import { ProdutoService } from '../services/produto.service';
+import { ProdutoService, RemoverProdutosEmMassaDTO } from '../services/produto.service';
 import { ValidationError } from '../types/validation-error';
 import { logger } from '../utils/logger';
 
@@ -162,6 +162,23 @@ export async function clonarProduto(req: Request, res: Response) {
       return res.status(400).json({ error: error.message });
     }
     logger.error('Erro ao clonar produto:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function removerProdutosEmMassa(req: Request, res: Response) {
+  try {
+    const dados = req.body as RemoverProdutosEmMassaDTO;
+    const removidos = await produtoService.removerEmMassa(
+      dados,
+      req.user!.superUserId
+    );
+    res.status(200).json({ removidos });
+  } catch (error: any) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, details: error.details });
+    }
+    logger.error('Erro ao remover produtos em massa:', error);
     res.status(500).json({ error: error.message });
   }
 }

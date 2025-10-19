@@ -86,6 +86,14 @@ export interface ListarProdutosResponse {
   pageSize: number;
 }
 
+export interface RemoverProdutosEmMassaDTO {
+  todosFiltrados: boolean;
+  idsSelecionados?: number[];
+  idsDeselecionados?: number[];
+  filtros?: ListarProdutosFiltro;
+  busca?: string;
+}
+
 export class ProdutoService {
   private static readonly ESTRUTURA_CACHE_REVALIDACAO_MS = 30 * 1000; // 30 segundos
   private static estruturaCache = new Map<
@@ -110,27 +118,32 @@ export class ProdutoService {
 
     this.invalidacaoRegistrada = true;
   }
-  async listarTodos(
+  private montarCondicoesBase(
     filtros: ListarProdutosFiltro = {},
     superUserId: number,
-    paginacao: ListarProdutosPaginacao = {}
-  ): Promise<ListarProdutosResponse> {
+    busca?: string
+  ): Prisma.ProdutoWhereInput {
     const where: Prisma.ProdutoWhereInput = {
       catalogo: { superUserId }
     };
+
     if (filtros.status?.length) {
       where.status = { in: filtros.status };
     }
-    if (filtros.ncm) where.ncmCodigo = filtros.ncm;
+    if (filtros.ncm) {
+      where.ncmCodigo = filtros.ncm;
+    }
     if (filtros.situacoes?.length) {
       where.situacao = { in: filtros.situacoes };
     }
-    if (filtros.catalogoId) where.catalogoId = filtros.catalogoId;
+    if (filtros.catalogoId) {
+      where.catalogoId = filtros.catalogoId;
+    }
 
-    if (filtros.busca?.trim()) {
-      const termo = filtros.busca.trim();
+    const termoBusca = busca?.trim() || filtros.busca?.trim();
+    if (termoBusca) {
       const like = {
-        contains: termo
+        contains: termoBusca
       };
 
       where.OR = [
@@ -146,6 +159,16 @@ export class ProdutoService {
         }
       ];
     }
+
+    return where;
+  }
+
+  async listarTodos(
+    filtros: ListarProdutosFiltro = {},
+    superUserId: number,
+    paginacao: ListarProdutosPaginacao = {}
+  ): Promise<ListarProdutosResponse> {
+    const where = this.montarCondicoesBase(filtros, superUserId);
 
     const page = Math.max(1, paginacao.page ?? 1);
     const size = Math.max(1, Math.min(paginacao.pageSize ?? 20, 100));
@@ -486,6 +509,71 @@ export class ProdutoService {
     if (deletado === 0) {
       throw new Error(`Produto ID ${id} não encontrado`);
     }
+  }
+
+  async removerEmMassa(
+    dados: RemoverProdutosEmMassaDTO,
+    superUserId: number
+  ): Promise<number> {
+    const idsSelecionados = Array.isArray(dados.idsSelecionados)
+      ? [...new Set(
+          dados.idsSelecionados
+            .map(id => Number(id))
+            .filter(id => Number.isInteger(id) && id > 0)
+        )]
+      : [];
+    const idsDeselecionados = Array.isArray(dados.idsDeselecionados)
+      ? [...new Set(
+          dados.idsDeselecionados
+            .map(id => Number(id))
+            .filter(id => Number.isInteger(id) && id > 0)
+        )]
+      : [];
+
+    if (!dados.todosFiltrados && idsSelecionados.length === 0) {
+      throw new ValidationError({ produtos: 'Nenhum produto selecionado para exclusão' });
+    }
+
+    const whereBase = this.montarCondicoesBase(dados.filtros ?? {}, superUserId, dados.busca);
+    const where: Prisma.ProdutoWhereInput = { ...whereBase };
+
+    if (dados.todosFiltrados) {
+      if (idsDeselecionados.length > 0) {
+        where.id = { notIn: idsDeselecionados };
+      }
+    } else {
+      where.id = { in: idsSelecionados };
+    }
+
+    const produtosParaExcluir = await catalogoPrisma.produto.findMany({
+      where,
+      select: { id: true }
+    });
+
+    if (!produtosParaExcluir.length) {
+      throw new ValidationError({ produtos: 'Nenhum produto correspondente encontrado para exclusão' });
+    }
+
+    const idsParaExcluir = produtosParaExcluir.map(p => p.id);
+
+    const removidos = await catalogoPrisma.$transaction(async tx => {
+      await tx.produtoAtributo.deleteMany({ where: { produtoId: { in: idsParaExcluir } } });
+      await tx.codigoInternoProduto.deleteMany({ where: { produtoId: { in: idsParaExcluir } } });
+      await tx.operadorEstrangeiroProduto.deleteMany({ where: { produtoId: { in: idsParaExcluir } } });
+
+      for (const idProduto of idsParaExcluir) {
+        await this.produtoResumoService.removerResumoProduto(idProduto, tx);
+      }
+
+      const resultado = await tx.produto.deleteMany({ where: { id: { in: idsParaExcluir } } });
+      return resultado.count;
+    });
+
+    if (removidos === 0) {
+      throw new Error('Nenhum produto foi excluído');
+    }
+
+    return removidos;
   }
 
   async clonar(id: number, data: CloneProdutoDTO, superUserId: number) {
