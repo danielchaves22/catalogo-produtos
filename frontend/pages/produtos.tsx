@@ -350,6 +350,19 @@ export default function ProdutosPage() {
     }
   }
 
+  function formatarNCM(ncm?: string) {
+    if (!ncm) return '-';
+    const digits = ncm.replace(/\D/g, '').slice(0, 8);
+    if (!digits) return '-';
+    if (digits.length <= 4) {
+      return digits;
+    }
+    if (digits.length <= 6) {
+      return digits.replace(/(\d{4})(\d{1,2})/, '$1.$2');
+    }
+    return digits.replace(/(\d{4})(\d{2})(\d{1,2})/, '$1.$2.$3');
+  }
+
   function getModalidadeLabel(modalidade: string) {
     switch (modalidade) {
       case 'IMPORTACAO':
@@ -556,7 +569,7 @@ export default function ProdutosPage() {
       <Card className="mb-6">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="relative md:col-span-2">
-            <label className="block text-sm font-medium mb-2 text-gray-300">Buscar por nome ou código (SKU/PN)</label>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Buscar por nome, catálogo ou NCM</label>
             <div className="absolute left-0 top-1/2 -translate-y-1/2 pl-3 pointer-events-none">
               <Search size={18} className="text-gray-400" />
             </div>
@@ -568,7 +581,7 @@ export default function ProdutosPage() {
                 setBusca(e.target.value);
                 setPage(1);
               }}
-              aria-label="Buscar por nome ou código"
+              aria-label="Buscar por nome, catálogo ou NCM"
             />
           </div>
           <div>
@@ -714,6 +727,7 @@ export default function ProdutosPage() {
                     <th className="px-4 py-3">Catálogo</th>
                     <th className="px-4 py-3">Nome</th>
                     <th className="px-4 py-3">Cód. Int. (SKU/PN)</th>
+                    <th className="px-4 py-3">NCM</th>
                     <th className="px-4 py-3">Modalidade</th>
                     <th className="px-4 py-3">
                       <span className="inline-flex items-center gap-1">
@@ -799,6 +813,7 @@ export default function ProdutosPage() {
                           '-'
                         )}
                       </td>
+                      <td className="px-4 py-3">{formatarNCM(produto.ncmCodigo)}</td>
                       <td className="px-4 py-3">
                         {produto.modalidade
                           ? getModalidadeLabel(produto.modalidade)

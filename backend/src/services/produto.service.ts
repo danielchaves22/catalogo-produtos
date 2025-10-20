@@ -145,7 +145,7 @@ export class ProdutoService {
       const like = {
         contains: termoBusca
       };
-      const ncmSomenteDigitos = termo.replace(/\D/g, '');
+      const ncmSomenteDigitos = termoBusca.replace(/\D/g, '');
 
       const orConditions: Prisma.ProdutoWhereInput[] = [
         { denominacao: like },
