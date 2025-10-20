@@ -145,8 +145,9 @@ export class ProdutoService {
       const like = {
         contains: termoBusca
       };
+      const ncmSomenteDigitos = termo.replace(/\D/g, '');
 
-      where.OR = [
+      const orConditions: Prisma.ProdutoWhereInput[] = [
         { denominacao: like },
         { descricao: like },
         { codigo: like },
@@ -158,6 +159,16 @@ export class ProdutoService {
           }
         }
       ];
+
+      if (ncmSomenteDigitos) {
+        orConditions.push({
+          ncmCodigo: {
+            contains: ncmSomenteDigitos
+          }
+        });
+      }
+
+      where.OR = orConditions;
     }
 
     return where;
