@@ -132,8 +132,9 @@ export class ProdutoService {
       const like = {
         contains: termo
       };
+      const ncmSomenteDigitos = termo.replace(/\D/g, '');
 
-      where.OR = [
+      const orConditions: Prisma.ProdutoWhereInput[] = [
         { denominacao: like },
         { descricao: like },
         { codigo: like },
@@ -145,6 +146,16 @@ export class ProdutoService {
           }
         }
       ];
+
+      if (ncmSomenteDigitos) {
+        orConditions.push({
+          ncmCodigo: {
+            contains: ncmSomenteDigitos
+          }
+        });
+      }
+
+      where.OR = orConditions;
     }
 
     const page = Math.max(1, paginacao.page ?? 1);
