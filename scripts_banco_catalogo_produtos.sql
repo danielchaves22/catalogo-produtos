@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS catalogo (
     certificado_id INT UNSIGNED,
     PRIMARY KEY (id),
     UNIQUE INDEX idx_numero (numero),
+    UNIQUE INDEX uk_superuser_cpf_cnpj (super_user_id, cpf_cnpj),
     INDEX idx_super_user_id (super_user_id),
     INDEX idx_certificado_id (certificado_id),
     CONSTRAINT fk_catalogo_certificado FOREIGN KEY (certificado_id) REFERENCES certificado(id)
