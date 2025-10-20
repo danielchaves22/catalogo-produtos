@@ -80,6 +80,11 @@ export default function ProdutosPage() {
   const [selectedProdutoIds, setSelectedProdutoIds] = useState<Set<number>>(() => new Set());
   const [deselectedProdutoIds, setDeselectedProdutoIds] = useState<Set<number>>(() => new Set());
   const [isAllFilteredSelected, setIsAllFilteredSelected] = useState(false);
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+  const [bulkDeleteConfirmationText, setBulkDeleteConfirmationText] = useState('');
+  const [bulkDeleteValidationError, setBulkDeleteValidationError] = useState<string | null>(null);
+  const [bulkDeleteRequestError, setBulkDeleteRequestError] = useState<string | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const router = useRouter();
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
@@ -95,6 +100,9 @@ export default function ProdutosPage() {
     ? `Exibindo ${inicioExibicao}-${fimExibicao} de ${totalProdutos} produtos`
     : undefined;
   const headerCheckboxRef = useRef<HTMLInputElement | null>(null);
+  const filtrosStatusSelecionados = filtros.status;
+  const filtrosSituacoesSelecionadas = filtros.situacoes;
+  const filtroCatalogoSelecionado = filtros.catalogoId;
   const totalSelectedCount = isAllFilteredSelected
     ? Math.max(0, totalProdutos - deselectedProdutoIds.size)
     : selectedProdutoIds.size;
@@ -106,11 +114,29 @@ export default function ProdutosPage() {
   }, 0);
   const allCurrentPageSelected = produtos.length > 0 && currentPageSelectedCount === produtos.length;
   const someCurrentPageSelected = currentPageSelectedCount > 0 && currentPageSelectedCount < produtos.length;
+  const bulkDeleteConfirmationValid =
+    bulkDeleteConfirmationText.trim().toUpperCase() === 'EXCLUIR';
 
   const limparSelecao = useCallback(() => {
     setSelectedProdutoIds(new Set());
     setDeselectedProdutoIds(new Set());
     setIsAllFilteredSelected(false);
+  }, []);
+
+  const abrirExclusaoEmMassa = useCallback(() => {
+    setBulkDeleteModalOpen(true);
+    setBulkDeleteConfirmationText('');
+    setBulkDeleteValidationError(null);
+    setBulkDeleteRequestError(null);
+    setBulkDeleting(false);
+  }, []);
+
+  const fecharExclusaoEmMassa = useCallback(() => {
+    setBulkDeleteModalOpen(false);
+    setBulkDeleteConfirmationText('');
+    setBulkDeleteValidationError(null);
+    setBulkDeleteRequestError(null);
+    setBulkDeleting(false);
   }, []);
 
   useEffect(() => {
@@ -122,6 +148,12 @@ export default function ProdutosPage() {
   useEffect(() => {
     limparSelecao();
   }, [busca, filtros.status, filtros.situacoes, filtros.catalogoId, limparSelecao]);
+
+  useEffect(() => {
+    if (bulkDeleteModalOpen && totalSelectedCount === 0) {
+      fecharExclusaoEmMassa();
+    }
+  }, [bulkDeleteModalOpen, totalSelectedCount, fecharExclusaoEmMassa]);
 
   useEffect(() => {
     async function carregarCatalogos() {
@@ -172,6 +204,82 @@ export default function ProdutosPage() {
     filtros.status,
     filtros.situacoes,
     filtros.catalogoId
+  ]);
+
+  const confirmarExclusaoEmMassa = useCallback(async () => {
+    if (bulkDeleteConfirmationText.trim().toUpperCase() !== 'EXCLUIR') {
+      setBulkDeleteValidationError('Digite EXCLUIR para confirmar a exclusão.');
+      return;
+    }
+
+    setBulkDeleteValidationError(null);
+    setBulkDeleteRequestError(null);
+    setBulkDeleting(true);
+
+    const filtrosParaEnviar: Record<string, unknown> = {
+      status:
+        filtrosStatusSelecionados.length > 0 ? filtrosStatusSelecionados : undefined,
+      situacoes:
+        filtrosSituacoesSelecionadas.length > 0 ? filtrosSituacoesSelecionadas : undefined,
+      catalogoId: filtroCatalogoSelecionado ? Number(filtroCatalogoSelecionado) : undefined
+    };
+
+    const filtrosLimpos = Object.fromEntries(
+      Object.entries(filtrosParaEnviar).filter(([, valor]) => {
+        if (Array.isArray(valor)) {
+          return valor.length > 0;
+        }
+        return valor !== undefined && valor !== null && valor !== '';
+      })
+    );
+
+    const payload: Record<string, unknown> = {
+      todosFiltrados: isAllFilteredSelected
+    };
+
+    if (Object.keys(filtrosLimpos).length > 0) {
+      payload.filtros = filtrosLimpos;
+    }
+
+    const buscaLimpa = busca.trim();
+    if (buscaLimpa) {
+      payload.busca = buscaLimpa;
+    }
+
+    if (isAllFilteredSelected) {
+      if (deselectedProdutoIds.size > 0) {
+        payload.idsDeselecionados = Array.from(deselectedProdutoIds);
+      }
+    } else {
+      payload.idsSelecionados = Array.from(selectedProdutoIds);
+    }
+
+    try {
+      await api.post('/produtos/excluir-em-massa', payload);
+      addToast('Produtos excluídos com sucesso.', 'success');
+      fecharExclusaoEmMassa();
+      limparSelecao();
+      await carregarProdutos();
+    } catch (err: any) {
+      const mensagem = err?.response?.data?.error || 'Erro ao excluir produtos';
+      setBulkDeleteRequestError(mensagem);
+      addToast(mensagem, 'error');
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [
+    addToast,
+    carregarProdutos,
+    deselectedProdutoIds,
+    fecharExclusaoEmMassa,
+    filtroCatalogoSelecionado,
+    filtrosSituacoesSelecionadas,
+    filtrosStatusSelecionados,
+    isAllFilteredSelected,
+    limparSelecao,
+    bulkDeleteConfirmationText,
+    selectedProdutoIds,
+    busca
   ]);
 
   useEffect(() => {
@@ -551,27 +659,38 @@ export default function ProdutosPage() {
         ) : (
           <>
             {totalSelectedCount > 0 && (
-              <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-gray-800 bg-[#111821] text-gray-200 text-sm">
-                <span>
-                  {isAllFilteredSelected ? (
-                    deselectedProdutoIds.size === 0 ? (
-                      <>Todos os {totalProdutos} produtos filtrados estão selecionados.</>
+              <div className="flex flex-col gap-3 px-4 py-3 border-b border-gray-800 bg-[#111821] text-gray-200 text-sm md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span>
+                    {isAllFilteredSelected ? (
+                      deselectedProdutoIds.size === 0 ? (
+                        <>Todos os {totalProdutos} produtos filtrados estão selecionados.</>
+                      ) : (
+                        <>Selecionados {totalSelectedCount} de {totalProdutos} produtos filtrados.</>
+                      )
                     ) : (
-                      <>Selecionados {totalSelectedCount} de {totalProdutos} produtos filtrados.</>
-                    )
-                  ) : (
-                    <>
-                      {totalSelectedCount} produto{totalSelectedCount === 1 ? '' : 's'} selecionado{totalSelectedCount === 1 ? '' : 's'}.
-                    </>
+                      <>
+                        {totalSelectedCount} produto{totalSelectedCount === 1 ? '' : 's'} selecionado{totalSelectedCount === 1 ? '' : 's'}.
+                      </>
+                    )}
+                  </span>
+                  {!isAllFilteredSelected && totalSelectedCount < totalProdutos && allCurrentPageSelected && (
+                    <Button variant="outline" size="xs" onClick={handleSelectAllFiltered}>
+                      Selecionar todos os {totalProdutos} produtos filtrados
+                    </Button>
                   )}
-                </span>
-                {!isAllFilteredSelected && totalSelectedCount < totalProdutos && allCurrentPageSelected && (
-                  <Button variant="outline" size="xs" onClick={handleSelectAllFiltered}>
-                    Selecionar todos os {totalProdutos} produtos filtrados
+                  <Button variant="outline" size="xs" onClick={limparSelecao}>
+                    Limpar seleção
                   </Button>
-                )}
-                <Button variant="outline" size="xs" onClick={limparSelecao}>
-                  Limpar seleção
+                </div>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  className="inline-flex items-center gap-2 ml-auto md:ml-0"
+                  onClick={abrirExclusaoEmMassa}
+                >
+                  <Trash2 size={16} />
+                  <span>Excluir selecionados</span>
                 </Button>
               </div>
             )}
@@ -737,6 +856,64 @@ export default function ProdutosPage() {
           </>
         )}
       </Card>
+
+      {bulkDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#151921] rounded-lg max-w-lg w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-4">Confirmar exclusão em massa</h3>
+            <p className="text-gray-300 mb-2">
+              {isAllFilteredSelected ? (
+                deselectedProdutoIds.size === 0 ? (
+                  <>Todos os {totalProdutos} produtos filtrados serão excluídos.</>
+                ) : (
+                  <>
+                    {totalSelectedCount} de {totalProdutos} produtos filtrados serão excluídos.
+                  </>
+                )
+              ) : (
+                <>
+                  {totalSelectedCount} produto{totalSelectedCount === 1 ? '' : 's'} selecionado{totalSelectedCount === 1 ? '' : 's'} será excluído.
+                </>
+              )}{' '}
+              Esta ação não pode ser desfeita.
+            </p>
+            <p className="text-gray-400 mb-4">
+              Para confirmar, digite <span className="text-red-400 font-semibold">EXCLUIR</span> no campo abaixo.
+            </p>
+            <Input
+              label="Confirmação"
+              value={bulkDeleteConfirmationText}
+              onChange={event => {
+                setBulkDeleteConfirmationText(event.target.value);
+                if (bulkDeleteValidationError) {
+                  setBulkDeleteValidationError(null);
+                }
+                if (bulkDeleteRequestError) {
+                  setBulkDeleteRequestError(null);
+                }
+              }}
+              placeholder="Digite EXCLUIR"
+              autoFocus
+              error={bulkDeleteValidationError ?? undefined}
+            />
+            {bulkDeleteRequestError && (
+              <p className="text-red-400 text-sm -mt-2 mb-4">{bulkDeleteRequestError}</p>
+            )}
+            <div className="flex justify-end gap-3 mt-6">
+              <Button variant="outline" onClick={fecharExclusaoEmMassa} disabled={bulkDeleting}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmarExclusaoEmMassa}
+                disabled={!bulkDeleteConfirmationValid || bulkDeleting}
+              >
+                {bulkDeleting ? 'Excluindo...' : 'Excluir'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {produtoParaExcluir && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

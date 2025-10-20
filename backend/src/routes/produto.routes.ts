@@ -6,7 +6,8 @@ import {
   criarProduto,
   atualizarProduto,
   removerProduto,
-  clonarProduto
+  clonarProduto,
+  removerProdutosEmMassa
 } from '../controllers/produto.controller';
 import {
   importarProdutosPorPlanilha,
@@ -21,7 +22,8 @@ import { validate } from '../middlewares/validate.middleware';
 import {
   createProdutoSchema,
   updateProdutoSchema,
-  cloneProdutoSchema
+  cloneProdutoSchema,
+  deleteProdutosEmMassaSchema
 } from '../validators/produto.validator';
 
 const router = Router();
@@ -40,6 +42,7 @@ router.get('/:id', obterProduto);
 router.post('/', validate(createProdutoSchema), criarProduto);
 router.put('/:id', validate(updateProdutoSchema), atualizarProduto);
 router.post('/:id/clonar', validate(cloneProdutoSchema), clonarProduto);
+router.post('/excluir-em-massa', validate(deleteProdutosEmMassaSchema), removerProdutosEmMassa);
 router.delete('/:id', removerProduto);
 
 export default router;
