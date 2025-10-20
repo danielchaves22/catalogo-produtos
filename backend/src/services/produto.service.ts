@@ -129,11 +129,12 @@ export class ProdutoService {
 
     if (filtros.busca?.trim()) {
       const termo = filtros.busca.trim();
-      const like = {
+      const like: Prisma.StringFilter = {
         contains: termo
       };
+      const termoNumerico = termo.replace(/\D/g, '');
 
-      where.OR = [
+      const condicoesOr: Prisma.ProdutoWhereInput[] = [
         { denominacao: like },
         { descricao: like },
         { codigo: like },
@@ -145,6 +146,16 @@ export class ProdutoService {
           }
         }
       ];
+
+      if (termoNumerico) {
+        condicoesOr.push({
+          ncmCodigo: {
+            contains: termoNumerico
+          }
+        });
+      }
+
+      where.OR = condicoesOr;
     }
 
     const page = Math.max(1, paginacao.page ?? 1);
