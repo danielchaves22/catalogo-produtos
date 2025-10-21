@@ -193,7 +193,7 @@ export default function PreenchimentoMassaListaPage() {
                   <th className="px-4 py-3">Produtos atualizados</th>
                   <th className="px-4 py-3">Executado em</th>
                   <th className="px-4 py-3">Responsável</th>
-                  <th className="px-4 py-3 text-right">Ações</th>
+                  <th className="px-4 py-3">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800 text-sm text-gray-200">
@@ -206,7 +206,7 @@ export default function PreenchimentoMassaListaPage() {
                     <td className="px-4 py-3">{formatarData(item.criadoEm)}</td>
                     <td className="px-4 py-3">{item.criadoPor || '-'}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-start gap-2">
                         <Button
                           variant="outline"
                           size="sm"

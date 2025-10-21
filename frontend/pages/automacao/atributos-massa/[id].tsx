@@ -3,7 +3,6 @@ import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
 import { ArrowLeft, Calendar, CheckCircle2, User } from 'lucide-react';
@@ -172,8 +171,7 @@ export default function PreenchimentoMassaDetalhePage() {
       {erro && <p className="text-red-400">{erro}</p>}
 
       {registro && !loading && !erro && (
-        <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-          <div className="space-y-6">
+        <div className="space-y-6">
             <Card>
               <h2 className="mb-4 text-lg font-semibold text-white">Informações principais</h2>
               <div className="space-y-2 text-sm text-gray-200">
@@ -247,23 +245,6 @@ export default function PreenchimentoMassaDetalhePage() {
                 </ul>
               )}
             </Card>
-          </div>
-
-          <div className="space-y-6">
-            <Card>
-              <h2 className="mb-3 text-lg font-semibold text-white">Estrutura utilizada</h2>
-              <p className="text-sm text-gray-400">
-                A estrutura de atributos foi registrada no momento da execução para consulta futura.
-              </p>
-              <p className="mt-2 text-xs text-gray-500">
-                Total de atributos conhecidos: {mapaEstrutura.size}
-              </p>
-            </Card>
-
-            <Button variant="outline" onClick={voltar} className="w-full">
-              Voltar para o histórico
-            </Button>
-          </div>
         </div>
       )}
     </DashboardLayout>
