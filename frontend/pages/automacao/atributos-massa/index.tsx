@@ -187,37 +187,33 @@ export default function PreenchimentoMassaListaPage() {
             <table className="min-w-full divide-y divide-gray-800">
               <thead>
                 <tr className="text-left text-xs font-semibold uppercase text-gray-400">
+                  <th className="w-16 px-4 py-3 text-center">Ações</th>
                   <th className="px-4 py-3">NCM</th>
                   <th className="px-4 py-3">Modalidade</th>
                   <th className="px-4 py-3">Catálogos</th>
                   <th className="px-4 py-3">Produtos atualizados</th>
                   <th className="px-4 py-3">Executado em</th>
                   <th className="px-4 py-3">Responsável</th>
-                  <th className="px-4 py-3">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800 text-sm text-gray-200">
                 {registrosFiltrados.map(item => (
                   <tr key={item.id} className="hover:bg-gray-900/50">
+                    <td className="px-4 py-3 flex gap-2">
+                      <button
+                        className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
+                        onClick={() => router.push(`/automacao/atributos-massa/${item.id}`)}
+                        title="Ver detalhes"
+                      >
+                        <Eye size={16} />
+                      </button>
+                    </td>
                     <td className="px-4 py-3 font-medium">{formatarNCM(item.ncmCodigo)}</td>
                     <td className="px-4 py-3">{formatarModalidade(item.modalidade)}</td>
                     <td className="px-4 py-3">{descreverCatalogos(item.catalogos)}</td>
                     <td className="px-4 py-3">{item.produtosImpactados}</td>
                     <td className="px-4 py-3">{formatarData(item.criadoEm)}</td>
                     <td className="px-4 py-3">{item.criadoPor || '-'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-start gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex items-center gap-2"
-                          onClick={() => router.push(`/automacao/atributos-massa/${item.id}`)}
-                        >
-                          <Eye size={16} />
-                          Detalhes
-                        </Button>
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
