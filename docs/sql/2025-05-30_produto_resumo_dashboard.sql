@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS produto_resumo_dashboard (
   produto_id INT NOT NULL,
-  catalogo_id INT NOT NULL,
+  catalogo_id INT UNSIGNED NOT NULL,
   atributos_total INT NOT NULL DEFAULT 0,
   obrigatorios_pendentes INT NOT NULL DEFAULT 0,
   validos_transmissao INT NOT NULL DEFAULT 0,

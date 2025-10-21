@@ -13,6 +13,5 @@ CREATE TABLE IF NOT EXISTS atributo_preenchimento_massa (
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     criado_por VARCHAR(255) NULL,
     PRIMARY KEY (id),
-    INDEX idx_attr_massa_super_user (super_user_id),
-    CONSTRAINT fk_attr_massa_super_user FOREIGN KEY (super_user_id) REFERENCES comex(idv32) ON DELETE CASCADE
+    INDEX idx_attr_massa_super_user (super_user_id)
 );

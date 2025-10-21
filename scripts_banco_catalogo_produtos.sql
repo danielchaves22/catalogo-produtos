@@ -248,7 +248,7 @@ CREATE TABLE IF NOT EXISTS catalogo (
 
     CREATE TABLE IF NOT EXISTS produto_resumo_dashboard (
         produto_id INT NOT NULL,
-        catalogo_id INT NOT NULL,
+        catalogo_id INT UNSIGNED NOT NULL,
         atributos_total INT NOT NULL DEFAULT 0,
         obrigatorios_pendentes INT NOT NULL DEFAULT 0,
         validos_transmissao INT NOT NULL DEFAULT 0,
@@ -397,8 +397,7 @@ CREATE TABLE IF NOT EXISTS catalogo (
         criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         criado_por VARCHAR(255) NULL,
         PRIMARY KEY (id),
-        INDEX idx_attr_massa_super_user (super_user_id),
-        CONSTRAINT fk_attr_massa_super_user FOREIGN KEY (super_user_id) REFERENCES comex(idv32) ON DELETE CASCADE
+        INDEX idx_attr_massa_super_user (super_user_id)
     );
 
     -- FUNCTIONS e TRIGGERS
