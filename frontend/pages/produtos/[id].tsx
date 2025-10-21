@@ -772,7 +772,7 @@ export default function ProdutoPage() {
             <Input label="Catálogo" value={workingCatalog ? workingCatalog.nome : catalogoNome} disabled />
           )}
           <Select
-            label="Modalidade"
+            label="Modalidade de operação:"
             options={[
               { value: 'IMPORTACAO', label: 'Importação' },
               { value: 'EXPORTACAO', label: 'Exportação' }
@@ -782,7 +782,7 @@ export default function ProdutoPage() {
           />
           {estruturaCarregada && !loadingEstrutura && (
               <div className="grid grid-cols-1 gap-4">
-                <Input label="Código" value={codigo || '-'} disabled />
+                <Input label="Código do produto:" value={codigo || '-'} disabled />
               </div>
             )}
         </div>
@@ -841,7 +841,7 @@ export default function ProdutoPage() {
                 <Input label="NCM" value={ncm} disabled className="col-span-1" />
               )}
               <Input label="Descrição NCM" value={ncmDescricao} disabled className="col-span-3" />
-              <Input label="Unidade de Medida" value={unidadeMedida} disabled className="col-span-1" />
+              <Input label="Unidade de medida estatística:" value={unidadeMedida} disabled className="col-span-1" />
             </div>
           </>
         )}
@@ -925,7 +925,7 @@ export default function ProdutoPage() {
 
                           <div className="col-span-3">
                           <Card
-                            headerTitle="Códigos Internos"
+                            headerTitle="Código Interno do Produto"
                             headerClassName="bg-[#1a1f2b] px-4 py-2"
                           >
                               <div className="flex gap-2 mb-4">
@@ -965,13 +965,13 @@ export default function ProdutoPage() {
                               )}
                           </Card>
                           <Card
-                            headerTitle="Operadores Estrangeiros"
+                            headerTitle="Fabricante/Produtor"
                             headerClassName="bg-[#1a1f2b] px-4 py-2"
                             className="col-span-3 mt-4"
                           >
                             <div className="grid grid-cols-3 gap-4 mb-4">
                               <Select
-                                label="País"
+                                label="País do Fabricante / Produtor:"
                                 options={getPaisOptions()}
                                 value={novoOperador.paisCodigo}
                                 onChange={e => {
@@ -983,7 +983,7 @@ export default function ProdutoPage() {
                                 error={operadorErro.paisCodigo}
                               />
                               <RadioGroup
-                                label="Conhecido?"
+                                label="Fabricante/produtor conhecido?"
                                 options={[{ value: 'nao', label: 'Não' }, { value: 'sim', label: 'Sim' }]}
                                 value={novoOperador.conhecido}
                                 onChange={v => {
@@ -1022,7 +1022,7 @@ export default function ProdutoPage() {
                                 </div>
                               )}
                             </div>
-                            <Button type="button" onClick={adicionarOperador}>Vincular Operador</Button>
+                            <Button type="button" onClick={adicionarOperador}>Vincular</Button>
 
                             {operadores.length > 0 && (
                               <div className="overflow-x-auto mt-4">
