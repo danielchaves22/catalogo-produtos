@@ -18,6 +18,7 @@ import { API_PREFIX } from './config';
 import uploadRoutes from './routes/upload.routes';
 import mensagemRoutes from './routes/mensagem.routes';
 import ncmValoresPadraoRoutes from './routes/ncm-valores-padrao.routes';
+import atributosMassaRoutes from './routes/atributo-preenchimento-massa.routes';
 
 const app = express();
 
@@ -64,6 +65,7 @@ apiRouter.use('/produtos', produtoRoutes);
 apiRouter.use('/ncm-valores-padrao', ncmValoresPadraoRoutes);
 // Alias alinhado ao menu de Automação; mantém rota antiga para compatibilidade
 apiRouter.use('/automacao/valores-padrao', ncmValoresPadraoRoutes);
+apiRouter.use('/automacao/atributos-massa', atributosMassaRoutes);
 
 // Rotas de usuários (protegidas)
 apiRouter.use('/usuarios', usuarioRoutes);

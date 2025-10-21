@@ -383,6 +383,24 @@ CREATE TABLE IF NOT EXISTS catalogo (
         CONSTRAINT fk_importacao_produto_item_importacao FOREIGN KEY (importacao_id) REFERENCES importacao_produto(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS atributo_preenchimento_massa (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        super_user_id INT UNSIGNED NOT NULL,
+        ncm_codigo VARCHAR(255) NOT NULL,
+        modalidade VARCHAR(255) NULL,
+        catalogo_ids_json JSON NULL,
+        catalogos_json JSON NULL,
+        valores_json JSON NOT NULL,
+        estrutura_snapshot_json JSON NULL,
+        produtos_excecao_json JSON NULL,
+        produtos_impactados INT NOT NULL DEFAULT 0,
+        criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        criado_por VARCHAR(255) NULL,
+        PRIMARY KEY (id),
+        INDEX idx_attr_massa_super_user (super_user_id),
+        CONSTRAINT fk_attr_massa_super_user FOREIGN KEY (super_user_id) REFERENCES comex(idv32) ON DELETE CASCADE
+    );
+
     -- FUNCTIONS e TRIGGERS
 
     -- Função para gerar números aleatórios de 6 dígitos
