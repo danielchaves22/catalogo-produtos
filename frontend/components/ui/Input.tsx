@@ -6,16 +6,25 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   hint?: string;
+  labelRightContent?: React.ReactNode;
 }
 
-export function Input({ label, error, hint, className = '', ...props }: InputProps) {
+export function Input({ label, error, hint, labelRightContent, className = '', ...props }: InputProps) {
   return (
     <div className={`mb-4 ${className}`}>
       {label && (
-        <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor={props.id}>
-          {label}
-          {props.required && <span className="text-red-400 ml-1">*</span>}
-          {hint && <Hint text={hint} />}
+        <label
+          className={`block text-sm font-medium mb-1 text-gray-300 ${
+            labelRightContent ? 'flex items-center justify-between gap-2' : ''
+          }`}
+          htmlFor={props.id}
+        >
+          <span className="flex items-center">
+            {label}
+            {props.required && <span className="text-red-400 ml-1">*</span>}
+            {hint && <Hint text={hint} />}
+          </span>
+          {labelRightContent && <span className="text-xs text-gray-400">{labelRightContent}</span>}
         </label>
       )}
       <input

@@ -28,7 +28,8 @@ import { Hint } from '@/components/ui/Hint';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import useDebounce from '@/hooks/useDebounce';
 
-const DESCRICAO_MAX_LENGTH = 3650;
+const DESCRICAO_MAX_LENGTH = 3700;
+const DENOMINACAO_MAX_LENGTH = 120;
 
 interface AtributoEstrutura {
   codigo: string;
@@ -872,6 +873,7 @@ export default function ProdutoPage() {
                             label="Denominação do Produto"
                             className="col-span-3"
                             value={denominacao}
+                            maxLength={DENOMINACAO_MAX_LENGTH}
                             onChange={e => {
                               setDenominacao(e.target.value);
                               if (errors.denominacao) {
@@ -884,6 +886,7 @@ export default function ProdutoPage() {
                             }}
                             error={errors.denominacao}
                             required
+                            labelRightContent={`${denominacao.length.toLocaleString('pt-BR')} de ${DENOMINACAO_MAX_LENGTH.toLocaleString('pt-BR')}`}
                           />
 
                           <div className="col-span-3 mb-4">
