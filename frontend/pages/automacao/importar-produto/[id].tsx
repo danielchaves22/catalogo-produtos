@@ -33,7 +33,7 @@ interface ImportacaoDetalhe {
   };
   nomeArquivo?: string | null;
   modalidade: string;
-  situacao: 'EM_ANDAMENTO' | 'CONCLUIDA' | 'REVERTIDA';
+  situacao: 'EM_ANDAMENTO' | 'CONCLUIDA' | 'CONCLUIDA_INCOMPLETA' | 'REVERTIDA';
   resultado: 'PENDENTE' | 'SUCESSO' | 'ATENCAO';
   totalRegistros: number;
   totalCriados: number;
@@ -96,6 +96,8 @@ function traduzSituacao(situacao: ImportacaoDetalhe['situacao']) {
   switch (situacao) {
     case 'CONCLUIDA':
       return 'Concluída';
+    case 'CONCLUIDA_INCOMPLETA':
+      return 'Concluída - Incompleta';
     case 'REVERTIDA':
       return 'Revertida';
     default:
@@ -117,6 +119,9 @@ function obterMensagem(lista?: string[]) {
 function obterClasseSituacaoBadge(situacao: ImportacaoDetalhe['situacao']) {
   if (situacao === 'CONCLUIDA') {
     return 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40';
+  }
+  if (situacao === 'CONCLUIDA_INCOMPLETA') {
+    return 'bg-rose-500/10 text-rose-300 border border-rose-500/40';
   }
   if (situacao === 'REVERTIDA') {
     return 'bg-amber-500/10 text-amber-200 border border-amber-500/40';
@@ -338,12 +343,22 @@ export default function ImportacaoDetalhePage() {
         </span>
       </div>
 
-      {detalhe.situacao === 'CONCLUIDA' && (
+      {(detalhe.situacao === 'CONCLUIDA' || detalhe.situacao === 'CONCLUIDA_INCOMPLETA') && (
         <div className="mb-4">
           <Button variant="danger" onClick={abrirConfirmacaoReversao}>
             Reverter importação
           </Button>
         </div>
+      )}
+
+      {detalhe.situacao === 'CONCLUIDA_INCOMPLETA' && (
+        <Card className="mb-4 border border-rose-500/40 bg-rose-500/10 text-rose-100">
+          <p className="text-sm">
+            Esta importação foi concluída de forma incompleta após uma interrupção. Recomendamos
+            reverter o processo antes de iniciar uma nova importação para garantir consistência nos
+            dados do catálogo.
+          </p>
+        </Card>
       )}
 
       <Card className="mb-6">

@@ -341,6 +341,46 @@ CREATE TABLE IF NOT EXISTS catalogo (
         FOREIGN KEY (produto_id) REFERENCES produto(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS async_job (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        tipo ENUM('IMPORTACAO_PRODUTO', 'EXCLUSAO_MASSIVA', 'ALTERACAO_ATRIBUTOS', 'AJUSTE_ESTRUTURA') NOT NULL,
+        status ENUM('PENDENTE', 'PROCESSANDO', 'CONCLUIDO', 'FALHO', 'CANCELADO') NOT NULL DEFAULT 'PENDENTE',
+        tentativas INT UNSIGNED NOT NULL DEFAULT 0,
+        max_tentativas INT UNSIGNED NOT NULL DEFAULT 3,
+        prioridade INT NOT NULL DEFAULT 0,
+        payload JSON NULL,
+        locked_at DATETIME NULL,
+        heartbeat_at DATETIME NULL,
+        finalizado_em DATETIME NULL,
+        criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        INDEX idx_async_job_status (status),
+        INDEX idx_async_job_tipo (tipo)
+    );
+
+    CREATE TABLE IF NOT EXISTS async_job_file (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        job_id INT UNSIGNED NOT NULL,
+        nome VARCHAR(255) NOT NULL,
+        conteudo_base64 LONGTEXT NULL,
+        criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE INDEX uk_async_job_file_job (job_id),
+        CONSTRAINT fk_async_job_file_job FOREIGN KEY (job_id) REFERENCES async_job(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS async_job_log (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        job_id INT UNSIGNED NOT NULL,
+        status ENUM('PENDENTE', 'PROCESSANDO', 'CONCLUIDO', 'FALHO', 'CANCELADO') NOT NULL,
+        mensagem TEXT NULL,
+        criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        INDEX idx_async_job_log_job (job_id),
+        CONSTRAINT fk_async_job_log_job FOREIGN KEY (job_id) REFERENCES async_job(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS importacao_produto (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
         super_user_id INT UNSIGNED NOT NULL,
@@ -348,7 +388,7 @@ CREATE TABLE IF NOT EXISTS catalogo (
         catalogo_id INT UNSIGNED NOT NULL,
         modalidade VARCHAR(50) NOT NULL,
         nome_arquivo VARCHAR(255),
-        situacao ENUM('EM_ANDAMENTO', 'CONCLUIDA', 'REVERTIDA') NOT NULL DEFAULT 'EM_ANDAMENTO',
+        situacao ENUM('EM_ANDAMENTO', 'CONCLUIDA', 'CONCLUIDA_INCOMPLETA', 'REVERTIDA') NOT NULL DEFAULT 'EM_ANDAMENTO',
         resultado ENUM('PENDENTE', 'SUCESSO', 'ATENCAO') NOT NULL DEFAULT 'PENDENTE',
         total_registros INT UNSIGNED NOT NULL DEFAULT 0,
         total_criados INT UNSIGNED NOT NULL DEFAULT 0,
@@ -356,12 +396,15 @@ CREATE TABLE IF NOT EXISTS catalogo (
         total_com_erro INT UNSIGNED NOT NULL DEFAULT 0,
         iniciado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         finalizado_em DATETIME NULL,
+        async_job_id INT UNSIGNED NULL,
         PRIMARY KEY (id),
         INDEX idx_importacao_super_user (super_user_id),
         INDEX idx_importacao_catalogo (catalogo_id),
+        UNIQUE INDEX uk_importacao_async_job (async_job_id),
         -- Integridade com o superusuário garantida via aplicação, conforme catálogo
         CONSTRAINT fk_importacao_produto_catalogo FOREIGN KEY (catalogo_id) REFERENCES catalogo(id),
-        CONSTRAINT fk_importacao_produto_usuario FOREIGN KEY (usuario_catalogo_id) REFERENCES usuario_catalogo(id)
+        CONSTRAINT fk_importacao_produto_usuario FOREIGN KEY (usuario_catalogo_id) REFERENCES usuario_catalogo(id),
+        CONSTRAINT fk_importacao_produto_async_job FOREIGN KEY (async_job_id) REFERENCES async_job(id)
     );
 
     CREATE TABLE IF NOT EXISTS importacao_produto_item (
