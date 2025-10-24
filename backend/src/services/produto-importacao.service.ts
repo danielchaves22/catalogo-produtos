@@ -1,4 +1,5 @@
 import {
+  AsyncJobTipo,
   ImportacaoProdutoItemResultado,
   ImportacaoResultado,
   MensagemCategoria,
@@ -14,11 +15,7 @@ import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { OperadorEstrangeiroProdutoInput, ProdutoService } from './produto.service';
 import { ValidationError } from '../types/validation-error';
-import {
-  enqueueProdutoImportacaoJob,
-  ProdutoImportacaoJobData,
-  registerProdutoImportacaoProcessor,
-} from '../jobs/produto-importacao.job';
+import { createAsyncJob } from '../jobs/async-job.repository';
 import { NcmValoresPadraoService } from './ncm-valores-padrao.service';
 import { NcmLegacyService } from './ncm-legacy.service';
 
@@ -27,6 +24,15 @@ const execFileAsync = promisify(execFile);
 export interface ArquivoImportacao {
   nome: string;
   conteudoBase64: string;
+}
+
+export interface ProdutoImportacaoJobData {
+  importacaoId: number;
+  superUserId: number;
+  usuarioCatalogoId: number | null;
+  catalogoId: number;
+  modalidade: string;
+  arquivo: ArquivoImportacao;
 }
 
 export interface NovaImportacaoPlanilhaInput {
@@ -89,24 +95,39 @@ export class ProdutoImportacaoService {
     });
 
     try {
-      await enqueueProdutoImportacaoJob({
-        importacaoId: importacao.id,
-        superUserId,
-        usuarioCatalogoId,
-        catalogoId: dados.catalogoId,
-        modalidade,
-        arquivo: {
-          nome: dados.arquivo.nome,
-          conteudoBase64: dados.arquivo.conteudoBase64
-        }
+      await catalogoPrisma.$transaction(async tx => {
+        const job = await createAsyncJob(
+          {
+            tipo: AsyncJobTipo.IMPORTACAO_PRODUTO,
+            payload: {
+              importacaoId: importacao.id,
+              superUserId,
+              usuarioCatalogoId,
+              catalogoId: dados.catalogoId,
+              modalidade,
+            },
+            arquivo: {
+              nome: dados.arquivo.nome,
+              conteudoBase64: dados.arquivo.conteudoBase64,
+            },
+          },
+          tx
+        );
+
+        await tx.importacaoProduto.update({
+          where: { id: importacao.id },
+          data: {
+            asyncJobId: job.id,
+          },
+        });
       });
     } catch (error) {
-      logger.error('Falha ao enfileirar processamento de importação de produtos:', error);
+      logger.error('Falha ao registrar job de importação de produtos:', error);
 
       await catalogoPrisma.importacaoProduto.update({
         where: { id: importacao.id },
         data: {
-          situacao: 'CONCLUIDA',
+          situacao: 'CONCLUIDA_INCOMPLETA',
           resultado: 'ATENCAO',
           totalRegistros: 0,
           totalCriados: 0,
@@ -122,7 +143,10 @@ export class ProdutoImportacaoService {
     return importacao;
   }
 
-  async processarImportacaoJob(dados: ProdutoImportacaoJobData) {
+  async processarImportacaoJob(
+    dados: ProdutoImportacaoJobData,
+    onHeartbeat?: () => Promise<void>
+  ) {
     const catalogo = await catalogoPrisma.catalogo.findFirst({
       where: { id: dados.catalogoId, superUserId: dados.superUserId },
       select: { id: true, nome: true, numero: true, cpf_cnpj: true }
@@ -132,6 +156,19 @@ export class ProdutoImportacaoService {
     if (!buffer?.length) {
       throw new Error('Conteúdo do arquivo inválido');
     }
+
+    const emitirHeartbeat = async () => {
+      if (!onHeartbeat) {
+        return;
+      }
+      try {
+        await onHeartbeat();
+      } catch (error) {
+        logger.warn('Falha ao enviar heartbeat durante processamento da importação', error);
+      }
+    };
+
+    await emitirHeartbeat();
 
     let totalRegistros = 0;
     let totalCriados = 0;
@@ -145,6 +182,8 @@ export class ProdutoImportacaoService {
         throw new Error('A planilha não possui dados para importação');
       }
 
+      await emitirHeartbeat();
+
       const cacheValoresPadrao = new Map<string, Prisma.JsonValue | null>();
       const paises = await catalogoPrisma.pais.findMany({ select: { codigo: true } });
       const codigosPaisValidos = new Set(
@@ -156,6 +195,8 @@ export class ProdutoImportacaoService {
         number,
         { id: number; numero: number; paisCodigo: string }
       >();
+
+      let iteracoesDesdeHeartbeat = 0;
 
       for (let index = 1; index < linhas.length; index++) {
         const linha = linhas[index];
@@ -177,6 +218,12 @@ export class ProdutoImportacaoService {
           !operadoresBrutos
         ) {
           continue;
+        }
+
+        iteracoesDesdeHeartbeat += 1;
+        if (iteracoesDesdeHeartbeat >= 20) {
+          await emitirHeartbeat();
+          iteracoesDesdeHeartbeat = 0;
         }
 
         totalRegistros += 1;
@@ -365,6 +412,7 @@ export class ProdutoImportacaoService {
             });
           });
           itemPersistido = true;
+          await emitirHeartbeat();
         };
 
         const podeCriarProduto =
@@ -433,6 +481,8 @@ export class ProdutoImportacaoService {
             if (mensagens.atencao.length > 0) {
               totalComAtencao += 1;
             }
+
+            await emitirHeartbeat();
           } catch (error) {
             if (error instanceof ValidationError) {
               mensagens.impeditivos.push(
@@ -482,6 +532,8 @@ export class ProdutoImportacaoService {
         }
       });
 
+      await emitirHeartbeat();
+
       await this.registrarConclusaoImportacao({
         importacaoId: dados.importacaoId,
         superUserId: dados.superUserId,
@@ -498,10 +550,12 @@ export class ProdutoImportacaoService {
     } catch (error) {
       logger.error('Falha ao processar planilha de importação:', error);
 
+      await emitirHeartbeat();
+
       await catalogoPrisma.importacaoProduto.update({
         where: { id: dados.importacaoId },
         data: {
-          situacao: 'CONCLUIDA',
+          situacao: 'CONCLUIDA_INCOMPLETA',
           resultado: 'ATENCAO',
           totalRegistros,
           totalCriados,
@@ -819,8 +873,3 @@ export class ProdutoImportacaoService {
   }
 }
 
-const produtoImportacaoWorkerService = new ProdutoImportacaoService();
-
-registerProdutoImportacaoProcessor(dados =>
-  produtoImportacaoWorkerService.processarImportacaoJob(dados)
-);

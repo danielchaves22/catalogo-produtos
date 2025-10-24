@@ -142,6 +142,54 @@ model Mensagem {
   @@index([criadaEm], map: "idx_mensagem_criada_em")
 }
 
+model AsyncJob {
+  id            Int            @id @default(autoincrement()) @map("id")
+  tipo          AsyncJobTipo   @map("tipo")
+  status        AsyncJobStatus @default(PENDENTE) @map("status")
+  tentativas    Int            @default(0) @map("tentativas")
+  maxTentativas Int            @default(3) @map("max_tentativas")
+  prioridade    Int            @default(0) @map("prioridade")
+  payload       Json?          @map("payload")
+  lockedAt      DateTime?      @map("locked_at")
+  heartbeatAt   DateTime?      @map("heartbeat_at")
+  finalizadoEm  DateTime?      @map("finalizado_em")
+  criadoEm      DateTime       @default(now()) @map("criado_em")
+  atualizadoEm  DateTime       @updatedAt @map("atualizado_em")
+
+  importacaoProduto ImportacaoProduto?
+  arquivo           AsyncJobFile?
+  logs              AsyncJobLog[]
+
+  @@index([status], map: "idx_async_job_status")
+  @@index([tipo], map: "idx_async_job_tipo")
+  @@map("async_job")
+}
+
+model AsyncJobFile {
+  id             Int      @id @default(autoincrement()) @map("id")
+  jobId          Int      @unique @map("job_id")
+  nome           String   @map("nome")
+  conteudoBase64 String?  @map("conteudo_base64") @db.LongText
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  job AsyncJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("async_job_file")
+}
+
+model AsyncJobLog {
+  id       Int            @id @default(autoincrement()) @map("id")
+  jobId    Int            @map("job_id")
+  status   AsyncJobStatus @map("status")
+  mensagem String?        @map("mensagem") @db.Text
+  criadoEm DateTime       @default(now()) @map("criado_em")
+
+  job AsyncJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId], map: "idx_async_job_log_job")
+  @@map("async_job_log")
+}
+
 model Pais {
   codigo String @id @map("codigo")
   sigla  String @map("sigla")
@@ -245,6 +293,7 @@ enum OperadorEstrangeiroStatus {
 enum ImportacaoSituacao {
   EM_ANDAMENTO
   CONCLUIDA
+  CONCLUIDA_INCOMPLETA
   REVERTIDA
 }
 
@@ -272,6 +321,21 @@ enum ProdutoSituacao {
   RASCUNHO
   ATIVADO
   DESATIVADO
+}
+
+enum AsyncJobStatus {
+  PENDENTE
+  PROCESSANDO
+  CONCLUIDO
+  FALHO
+  CANCELADO
+}
+
+enum AsyncJobTipo {
+  IMPORTACAO_PRODUTO
+  EXCLUSAO_MASSIVA
+  ALTERACAO_ATRIBUTOS
+  AJUSTE_ESTRUTURA
 }
 
 // Tabela de cache de NCM
@@ -539,10 +603,12 @@ model ImportacaoProduto {
   totalComErro       Int                 @default(0) @map("total_com_erro")
   iniciadoEm         DateTime            @default(now()) @map("iniciado_em")
   finalizadoEm       DateTime?           @map("finalizado_em")
+  asyncJobId         Int?                @unique @map("async_job_id")
 
   superUser        User                @relation(fields: [superUserId], references: [id])
   catalogo         Catalogo         @relation(fields: [catalogoId], references: [id])
   usuarioCatalogo  UsuarioCatalogo? @relation(fields: [usuarioCatalogoId], references: [id])
+  asyncJob         AsyncJob?         @relation(fields: [asyncJobId], references: [id])
   itens            ImportacaoProdutoItem[]
 
   @@index([superUserId], map: "idx_importacao_super_user")

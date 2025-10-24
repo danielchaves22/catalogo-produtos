@@ -1,10 +1,9 @@
 import { ProdutoImportacaoService } from '../produto-importacao.service';
-import { enqueueProdutoImportacaoJob } from '../../jobs/produto-importacao.job';
+import { createAsyncJob } from '../../jobs/async-job.repository';
 import { ProdutoService } from '../produto.service';
 
-jest.mock('../../jobs/produto-importacao.job', () => ({
-  enqueueProdutoImportacaoJob: jest.fn().mockResolvedValue(undefined),
-  registerProdutoImportacaoProcessor: jest.fn(),
+jest.mock('../../jobs/async-job.repository', () => ({
+  createAsyncJob: jest.fn().mockResolvedValue({ id: 999 }),
 }));
 
 const mockCatalogoPrisma = {
@@ -49,6 +48,8 @@ describe('ProdutoImportacaoService', () => {
     mockCatalogoPrisma.pais.findMany.mockResolvedValue([]);
     mockCatalogoPrisma.operadorEstrangeiro.findMany.mockResolvedValue([]);
     mockCatalogoPrisma.importacaoProdutoItem.create.mockResolvedValue({ id: 1 });
+    (createAsyncJob as jest.Mock).mockClear();
+    (createAsyncJob as jest.Mock).mockResolvedValue({ id: 999 });
     service = new ProdutoImportacaoService();
   });
 
@@ -82,9 +83,18 @@ describe('ProdutoImportacaoService', () => {
     );
 
     expect(mockCatalogoPrisma.importacaoProduto.create).toHaveBeenCalledTimes(1);
-    expect(enqueueProdutoImportacaoJob).toHaveBeenCalledWith(
-      expect.objectContaining({ importacaoId: 55, catalogoId: 1, superUserId: 99 })
+    expect(createAsyncJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tipo: 'IMPORTACAO_PRODUTO',
+        payload: expect.objectContaining({ importacaoId: 55, catalogoId: 1, superUserId: 99 }),
+        arquivo: { nome: 'produtos.xlsx', conteudoBase64: arquivoBase64 },
+      }),
+      mockCatalogoPrisma
     );
+    expect(mockCatalogoPrisma.importacaoProduto.update).toHaveBeenCalledWith({
+      where: { id: 55 },
+      data: { asyncJobId: 999 },
+    });
     expect(resultado).toEqual(
       expect.objectContaining({ id: 55, situacao: 'EM_ANDAMENTO', resultado: 'PENDENTE' })
     );
