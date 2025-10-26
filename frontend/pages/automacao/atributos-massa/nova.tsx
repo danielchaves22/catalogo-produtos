@@ -10,6 +10,7 @@ import { MaskedInput } from '@/components/ui/MaskedInput';
 import { Select } from '@/components/ui/Select';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { RadioGroup } from '@/components/ui/RadioGroup';
+import { AutocompleteTagInput } from '@/components/ui/AutocompleteTagInput';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
 import {
@@ -19,7 +20,7 @@ import {
   normalizarValoresMultivalorados
 } from '@/lib/atributos';
 import useDebounce from '@/hooks/useDebounce';
-import { ArrowLeft, CheckCircle2, Loader2, Plus, Save, Search, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, Save, Search, X } from 'lucide-react';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 
 interface AtributoEstrutura {
@@ -200,6 +201,14 @@ export default function PreenchimentoMassaNovoPage() {
     coletar(estrutura);
     return map;
   }, [estrutura]);
+
+  const produtoSugestoesDisponiveis = useMemo(
+    () =>
+      produtoSugestoes.filter(
+        item => !produtosExcecao.some(produto => produto.id === item.id)
+      ),
+    [produtoSugestoes, produtosExcecao]
+  );
 
   const catalogoOptions = useMemo(
     () =>
@@ -562,12 +571,12 @@ export default function PreenchimentoMassaNovoPage() {
   function adicionarProdutoExcecao(produto: ProdutoBuscaItem) {
     if (produtosExcecao.some(item => item.id === produto.id)) {
       setProdutoBusca('');
-      setProdutoSugestoes([]);
+      setProdutoSugestoes(prev => prev.filter(item => item.id !== produto.id));
       return;
     }
     setProdutosExcecao(prev => [...prev, produto]);
     setProdutoBusca('');
-    setProdutoSugestoes([]);
+    setProdutoSugestoes(prev => prev.filter(item => item.id !== produto.id));
   }
 
   function removerProdutoExcecao(id: number) {
@@ -869,38 +878,37 @@ export default function PreenchimentoMassaNovoPage() {
               Os produtos selecionados abaixo não terão os atributos atualizados.
             </p>
 
-            <div className="mb-4">
-              <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-300">
-                <Search size={16} /> Produtos (nome ou código)
-              </label>
-              <Input
-                value={produtoBusca}
-                onChange={event => setProdutoBusca(event.target.value)}
-                placeholder="Digite para buscar produtos"
-              />
-              {carregandoProdutos && <p className="mt-2 text-xs text-gray-400">Buscando produtos...</p>}
-              {!carregandoProdutos && produtoSugestoes.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  {produtoSugestoes.map(item => (
-                    <button
-                      key={item.id}
-                      className="flex w-full items-center justify-between rounded border border-gray-800 bg-gray-900 px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
-                      onClick={() => adicionarProdutoExcecao(item)}
-                    >
-                      <div>
-                        <p className="font-semibold">{item.denominacao}</p>
-                        <p className="text-xs text-gray-400">
-                          {item.codigo ? `Código: ${item.codigo}` : 'Sem código interno'} •{' '}
-                          {item.catalogoNome || 'Catálogo desconhecido'}
-                          {item.catalogoNumero ? ` • Catálogo ${item.catalogoNumero}` : ''}
-                        </p>
-                      </div>
-                      <Plus size={16} />
-                    </button>
-                  ))}
+            <AutocompleteTagInput
+              label="Produtos (nome ou código)"
+              icon={<Search size={16} />}
+              placeholder="Digite para buscar produtos"
+              searchValue={produtoBusca}
+              onSearchChange={valor => setProdutoBusca(valor)}
+              suggestions={produtoSugestoesDisponiveis}
+              onSelect={adicionarProdutoExcecao}
+              selectedItems={produtosExcecao}
+              onRemove={(item: ProdutoBuscaItem) => removerProdutoExcecao(item.id)}
+              getItemKey={item => item.id}
+              renderTagLabel={item =>
+                item.codigo ? `${item.codigo} • ${item.denominacao}` : item.denominacao
+              }
+              renderSuggestion={(item: ProdutoBuscaItem) => (
+                <div className="flex w-full flex-col">
+                  <span className="font-semibold text-white">{item.denominacao}</span>
+                  <span className="text-xs text-gray-400">
+                    {item.codigo ? `Código: ${item.codigo}` : 'Sem código interno'} •{' '}
+                    {item.catalogoNome || 'Catálogo desconhecido'}
+                    {item.catalogoNumero ? ` • Catálogo ${item.catalogoNumero}` : ''}
+                  </span>
                 </div>
               )}
-            </div>
+              isLoading={carregandoProdutos}
+              emptyMessage={
+                produtoBusca.trim().length > 0
+                  ? 'Nenhum produto encontrado.'
+                  : 'Digite para buscar produtos.'
+              }
+            />
 
             {produtosExcecao.length > 0 ? (
               <div className="space-y-3">
