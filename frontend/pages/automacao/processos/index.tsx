@@ -1,0 +1,314 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/router';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { PageLoader } from '@/components/ui/PageLoader';
+import { useToast } from '@/components/ui/ToastContext';
+import api from '@/lib/api';
+import { Activity, Eye, RefreshCcw } from 'lucide-react';
+
+interface AsyncJobLogResumo {
+  id: number;
+  status: 'PENDENTE' | 'PROCESSANDO' | 'CONCLUIDO' | 'FALHO' | 'CANCELADO';
+  mensagem?: string | null;
+  criadoEm: string;
+}
+
+interface AsyncJobCatalogoResumo {
+  id: number;
+  nome: string;
+  numero: number | null;
+}
+
+interface AsyncJobImportacaoResumo {
+  id: number;
+  situacao: 'EM_ANDAMENTO' | 'CONCLUIDA' | 'CONCLUIDA_INCOMPLETA' | 'REVERTIDA';
+  resultado: 'PENDENTE' | 'SUCESSO' | 'ATENCAO';
+  catalogo?: AsyncJobCatalogoResumo | null;
+}
+
+interface AsyncJobResumo {
+  id: number;
+  tipo: 'IMPORTACAO_PRODUTO' | 'EXCLUSAO_MASSIVA' | 'ALTERACAO_ATRIBUTOS' | 'AJUSTE_ESTRUTURA';
+  status: 'PENDENTE' | 'PROCESSANDO' | 'CONCLUIDO' | 'FALHO' | 'CANCELADO';
+  tentativas: number;
+  maxTentativas: number;
+  prioridade: number;
+  payload: unknown;
+  lockedAt: string | null;
+  heartbeatAt: string | null;
+  finalizadoEm: string | null;
+  criadoEm: string;
+  atualizadoEm: string;
+  arquivo?: { nome: string | null } | null;
+  ultimoLog?: AsyncJobLogResumo | null;
+  importacaoProduto?: AsyncJobImportacaoResumo | null;
+}
+
+function formatarData(data?: string | null) {
+  if (!data) return '-';
+  const instancia = new Date(data);
+  if (Number.isNaN(instancia.getTime())) return '-';
+  return `${instancia.toLocaleDateString('pt-BR')} ${instancia.toLocaleTimeString('pt-BR')}`;
+}
+
+function obterClasseStatus(status: AsyncJobResumo['status']) {
+  switch (status) {
+    case 'CONCLUIDO':
+      return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/40';
+    case 'FALHO':
+    case 'CANCELADO':
+      return 'bg-rose-500/10 text-rose-300 border border-rose-500/40';
+    case 'PROCESSANDO':
+      return 'bg-sky-500/10 text-sky-300 border border-sky-500/40';
+    default:
+      return 'bg-slate-500/10 text-slate-300 border border-slate-500/40';
+  }
+}
+
+function traduzirStatus(status: AsyncJobResumo['status']) {
+  switch (status) {
+    case 'CONCLUIDO':
+      return 'Concluído';
+    case 'FALHO':
+      return 'Falho';
+    case 'CANCELADO':
+      return 'Cancelado';
+    case 'PROCESSANDO':
+      return 'Em processamento';
+    default:
+      return 'Pendente';
+  }
+}
+
+function traduzirTipo(tipo: AsyncJobResumo['tipo']) {
+  switch (tipo) {
+    case 'IMPORTACAO_PRODUTO':
+      return 'Importação de Produto';
+    case 'EXCLUSAO_MASSIVA':
+      return 'Exclusão em Massa';
+    case 'ALTERACAO_ATRIBUTOS':
+      return 'Alteração de Atributos em Massa';
+    case 'AJUSTE_ESTRUTURA':
+      return 'Ajuste de Estrutura';
+    default:
+      return tipo;
+  }
+}
+
+function obterDescricaoCatalogo(catalogo?: AsyncJobCatalogoResumo | null) {
+  if (!catalogo) return null;
+  const partes = [] as string[];
+  if (catalogo.nome) partes.push(catalogo.nome);
+  if (catalogo.numero != null) partes.push(`Catálogo ${catalogo.numero}`);
+  return partes.join(' · ');
+}
+
+export default function ProcessosAssincronosPage() {
+  const router = useRouter();
+  const { addToast } = useToast();
+  const [jobs, setJobs] = useState<AsyncJobResumo[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [recarregando, setRecarregando] = useState(false);
+
+  const carregar = useCallback(async () => {
+    try {
+      setRecarregando(true);
+      const resposta = await api.get<AsyncJobResumo[]>('/automacao/jobs');
+      setJobs(resposta.data);
+    } catch (error) {
+      console.error('Erro ao carregar jobs assíncronos', error);
+      addToast('Não foi possível carregar os processos assíncronos.', 'error');
+    } finally {
+      setCarregando(false);
+      setRecarregando(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  const possuiEmExecucao = useMemo(
+    () => jobs.some(job => job.status === 'PENDENTE' || job.status === 'PROCESSANDO'),
+    [jobs]
+  );
+
+  useEffect(() => {
+    if (!possuiEmExecucao) return undefined;
+
+    const intervalo = setInterval(() => {
+      carregar();
+    }, 5000);
+
+    return () => clearInterval(intervalo);
+  }, [carregar, possuiEmExecucao]);
+
+  if (carregando) {
+    return (
+      <DashboardLayout title="Processos Assíncronos">
+        <PageLoader message="Carregando processos assíncronos..." />
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout title="Processos Assíncronos">
+      <Breadcrumb
+        items={[
+          { label: 'Inicio', href: '/' },
+          { label: 'Automacao' },
+          { label: 'Processos Assincronos' },
+        ]}
+      />
+
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-white">Acompanhamento de Processos</h1>
+          <p className="mt-1 text-sm text-slate-300">
+            Consulte o andamento das importações, exclusões e demais rotinas pesadas registradas no orquestrador.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <Button
+            variant="outline"
+            onClick={carregar}
+            disabled={recarregando}
+            className="flex items-center gap-2"
+          >
+            <RefreshCcw size={16} />
+            Atualizar
+          </Button>
+          <Button
+            variant="accent"
+            onClick={() => router.push('/automacao/importar-produto')}
+            className="flex items-center gap-2"
+          >
+            <Activity size={16} />
+            Acessar Importações
+          </Button>
+        </div>
+      </div>
+
+      {possuiEmExecucao && (
+        <p className="mb-4 text-sm text-sky-300">
+          Existem processos em execução. A listagem é atualizada automaticamente a cada 5 segundos.
+        </p>
+      )}
+
+      <Card>
+        {jobs.length === 0 ? (
+          <p className="p-6 text-center text-slate-300">
+            Nenhum processo assíncrono foi encontrado ainda.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[960px] text-left text-sm">
+              <thead className="bg-[#0f1419] text-xs uppercase text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">ID</th>
+                  <th className="px-4 py-3">Tipo</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Último evento</th>
+                  <th className="px-4 py-3">Relacionamento</th>
+                  <th className="px-4 py-3">Datas</th>
+                  <th className="px-4 py-3">Tentativas</th>
+                  <th className="px-4 py-3">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map(job => {
+                  const catalogoDescricao = obterDescricaoCatalogo(job.importacaoProduto?.catalogo ?? null);
+                  const importacaoId = job.importacaoProduto?.id ?? null;
+                  return (
+                    <tr key={job.id} className="border-b border-gray-800 hover:bg-[#1a1f2b]">
+                      <td className="px-4 py-3 font-mono text-white">#{job.id}</td>
+                      <td className="px-4 py-3 text-white">
+                        <div className="font-medium">{traduzirTipo(job.tipo)}</div>
+                        {job.arquivo?.nome && (
+                          <div className="text-xs text-slate-300">Arquivo: {job.arquivo.nome}</div>
+                        )}
+                        <div className="mt-1 text-xs text-slate-400">Prioridade: {job.prioridade}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${obterClasseStatus(job.status)}`}>
+                          {traduzirStatus(job.status)}
+                        </span>
+                        {job.heartbeatAt && (
+                          <div className="mt-2 text-[11px] uppercase tracking-wide text-slate-400">
+                            Heartbeat: {formatarData(job.heartbeatAt)}
+                          </div>
+                        )}
+                        {job.lockedAt && (
+                          <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                            Bloqueado em: {formatarData(job.lockedAt)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-white">
+                        {job.ultimoLog ? (
+                          <>
+                            <div className="text-sm font-medium text-slate-200">
+                              {job.ultimoLog.mensagem || 'Atualização registrada.'}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-400">
+                              {formatarData(job.ultimoLog.criadoEm)}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-xs text-slate-400">Nenhum log registrado.</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-white">
+                        {job.importacaoProduto ? (
+                          <div className="space-y-1 text-xs">
+                            <div className="font-medium text-slate-100">Importação #{job.importacaoProduto.id}</div>
+                            <div className="text-slate-300">
+                              Situação: {job.importacaoProduto.situacao.replace(/_/g, ' ')}
+                            </div>
+                            <div className="text-slate-300">
+                              Resultado: {job.importacaoProduto.resultado}
+                            </div>
+                            {catalogoDescricao && (
+                              <div className="text-slate-400">{catalogoDescricao}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-300">
+                        <div>Iniciado: {formatarData(job.criadoEm)}</div>
+                        <div>Atualizado: {formatarData(job.atualizadoEm)}</div>
+                        <div>Finalizado: {formatarData(job.finalizadoEm)}</div>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-300">
+                        {job.tentativas} / {job.maxTentativas}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-2">
+                          {importacaoId && (
+                            <Button
+                              variant="outline"
+                              className="flex items-center gap-2 border-slate-600 text-sky-300 hover:bg-slate-800/40 hover:text-sky-200"
+                              onClick={() => router.push(`/automacao/importar-produto/${importacaoId}`)}
+                            >
+                              <Eye size={16} />
+                              Ver importação
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </DashboardLayout>
+  );
+}
