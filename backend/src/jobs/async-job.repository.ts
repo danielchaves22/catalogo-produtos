@@ -1,4 +1,12 @@
-import { AsyncJob, AsyncJobFile, AsyncJobStatus, Prisma, PrismaClient } from '@prisma/client';
+import {
+  AsyncJob,
+  AsyncJobFile,
+  AsyncJobLog,
+  AsyncJobStatus,
+  AsyncJobTipo,
+  Prisma,
+  PrismaClient,
+} from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
@@ -6,6 +14,46 @@ export type AsyncJobWithRelations = AsyncJob & {
   arquivo?: AsyncJobFile | null;
   importacaoProduto?: { id: number } | null;
 };
+
+export interface AsyncJobLogResumo {
+  id: AsyncJobLog['id'];
+  status: AsyncJobStatus;
+  mensagem?: string | null;
+  criadoEm: Date;
+}
+
+export interface AsyncJobResumo {
+  id: AsyncJob['id'];
+  tipo: AsyncJobTipo;
+  status: AsyncJobStatus;
+  tentativas: number;
+  maxTentativas: number;
+  prioridade: number;
+  payload: Prisma.JsonValue | null;
+  lockedAt: Date | null;
+  heartbeatAt: Date | null;
+  finalizadoEm: Date | null;
+  criadoEm: Date;
+  atualizadoEm: Date;
+  arquivo?: { nome: string | null } | null;
+  ultimoLog?: AsyncJobLogResumo | null;
+  importacaoProduto?: {
+    id: number;
+    situacao: string;
+    resultado: string;
+    catalogo?: {
+      id: number;
+      nome: string;
+      numero: number | null;
+    } | null;
+  } | null;
+}
+
+export interface ListAsyncJobsParams {
+  status?: AsyncJobStatus[];
+  tipos?: AsyncJobTipo[];
+  limite?: number;
+}
 
 export interface CreateAsyncJobInput {
   tipo: AsyncJob['tipo'];
@@ -186,6 +234,91 @@ export async function registerJobLog(
       mensagem: mensagem ?? null,
     },
   });
+}
+
+export async function listAsyncJobs(
+  parametros: ListAsyncJobsParams = {}
+): Promise<AsyncJobResumo[]> {
+  const where: Prisma.AsyncJobWhereInput = {};
+
+  if (parametros.status?.length) {
+    where.status = { in: parametros.status };
+  }
+
+  if (parametros.tipos?.length) {
+    where.tipo = { in: parametros.tipos };
+  }
+
+  const jobs = await catalogoPrisma.asyncJob.findMany({
+    where,
+    orderBy: { criadoEm: 'desc' },
+    take: parametros.limite,
+    include: {
+      arquivo: { select: { nome: true } },
+      importacaoProduto: {
+        select: {
+          id: true,
+          situacao: true,
+          resultado: true,
+          catalogo: {
+            select: {
+              id: true,
+              nome: true,
+              numero: true,
+            },
+          },
+        },
+      },
+      logs: {
+        orderBy: { criadoEm: 'desc' },
+        take: 1,
+        select: {
+          id: true,
+          status: true,
+          mensagem: true,
+          criadoEm: true,
+        },
+      },
+    },
+  });
+
+  return jobs.map(job => ({
+    id: job.id,
+    tipo: job.tipo,
+    status: job.status,
+    tentativas: job.tentativas,
+    maxTentativas: job.maxTentativas,
+    prioridade: job.prioridade,
+    payload: job.payload ?? null,
+    lockedAt: job.lockedAt ?? null,
+    heartbeatAt: job.heartbeatAt ?? null,
+    finalizadoEm: job.finalizadoEm ?? null,
+    criadoEm: job.criadoEm,
+    atualizadoEm: job.atualizadoEm,
+    arquivo: job.arquivo ? { nome: job.arquivo.nome } : null,
+    ultimoLog: job.logs[0]
+      ? {
+          id: job.logs[0].id,
+          status: job.logs[0].status,
+          mensagem: job.logs[0].mensagem,
+          criadoEm: job.logs[0].criadoEm,
+        }
+      : null,
+    importacaoProduto: job.importacaoProduto
+      ? {
+          id: job.importacaoProduto.id,
+          situacao: job.importacaoProduto.situacao,
+          resultado: job.importacaoProduto.resultado,
+          catalogo: job.importacaoProduto.catalogo
+            ? {
+                id: job.importacaoProduto.catalogo.id,
+                nome: job.importacaoProduto.catalogo.nome,
+                numero: job.importacaoProduto.catalogo.numero,
+              }
+            : null,
+        }
+      : null,
+  }));
 }
 
 export interface ReleaseStalledJobsResult {

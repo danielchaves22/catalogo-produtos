@@ -8,7 +8,7 @@ import { PageLoader } from '@/components/ui/PageLoader';
 import api from '@/lib/api';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 import { useToast } from '@/components/ui/ToastContext';
-import { Eye, PlusCircle, RefreshCcw, RotateCcw, Trash, Trash2 } from 'lucide-react';
+import { Activity, Eye, PlusCircle, RefreshCcw, RotateCcw, Trash, Trash2 } from 'lucide-react';
 
 interface ImportacaoResumo {
   id: number;
@@ -229,6 +229,14 @@ export default function ImportacoesPage() {
           >
             <RefreshCcw size={16} />
             Atualizar
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/automacao/processos')}
+            className="flex items-center gap-2"
+          >
+            <Activity size={16} />
+            Acompanhar processos
           </Button>
           {dados.length > 0 && (
             <Button
