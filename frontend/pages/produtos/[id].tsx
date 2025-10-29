@@ -20,7 +20,7 @@ import {
   isValorPreenchido,
   normalizarValoresMultivalorados
 } from '@/lib/atributos';
-import { Trash2, BrainCog, ArrowLeft, Save } from 'lucide-react';
+import { Trash2, BrainCog, ArrowLeft, Save, X } from 'lucide-react';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
@@ -75,6 +75,7 @@ export default function ProdutoPage() {
   const [loadingEstrutura, setLoadingEstrutura] = useState(false);
   const [estruturaCarregada, setEstruturaCarregada] = useState(false);
   const [activeTab, setActiveTab] = useState('informacoes');
+  const [defesaTab, setDefesaTab] = useState('dados-produto');
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
   const router = useRouter();
@@ -83,11 +84,19 @@ export default function ProdutoPage() {
   const { workingCatalog } = useWorkingCatalog();
 
   const [attrsFaltando, setAttrsFaltando] = useState<string[] | null>(null);
+  const [atoModalAberto, setAtoModalAberto] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [ncmSugestoes, setNcmSugestoes] = useState<Array<{ codigo: string; descricao: string | null }>>([]);
   const [mostrarSugestoesNcm, setMostrarSugestoesNcm] = useState(false);
   const [carregandoSugestoesNcm, setCarregandoSugestoesNcm] = useState(false);
   const debouncedNcm = useDebounce(ncm, 1000);
+  const abrirModalAto = React.useCallback(() => {
+    setAtoModalAberto(true);
+  }, []);
+
+  const fecharModalAto = React.useCallback(() => {
+    setAtoModalAberto(false);
+  }, []);
 
   // Format NCM code for display (9999.99.99)
   function formatarNCMExibicao(codigo?: string) {
@@ -1080,6 +1089,65 @@ export default function ProdutoPage() {
                 />
               </Card>
 
+              <Card className="mb-6">
+                <Tabs
+                  activeId={defesaTab}
+                  onChange={setDefesaTab}
+                  tabs={[
+                    {
+                      id: 'dados-produto',
+                      label: 'Dados do Produto',
+                      content: (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm text-left">
+                            <tbody>
+                              <tr className="border-b border-gray-700">
+                                <th className="w-56 px-4 py-3 align-top text-gray-400">Descrição</th>
+                                <td className="px-4 py-3 align-top">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <p className="flex-1 whitespace-pre-wrap text-gray-200">
+                                      {descricao || 'Nenhuma descrição informada.'}
+                                    </p>
+                                    <div className="shrink-0">
+                                      <Button size="sm" onClick={abrirModalAto}>
+                                        Abrir ato
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                              <tr>
+                                <th className="w-56 px-4 py-3 align-top text-gray-400">Modalidade</th>
+                                <td className="px-4 py-3 align-top text-gray-200">
+                                  {modalidade === 'EXPORTACAO' ? 'Exportação' : 'Importação'}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      )
+                    },
+                    {
+                      id: 'notas-defesa',
+                      label: 'Notas',
+                      content: (
+                        <div className="space-y-4 text-sm">
+                          <div className="flex items-start justify-between gap-4 rounded-md border border-gray-700 bg-[#1a1f2b] p-4">
+                            <div className="text-gray-200">Nenhuma nota registrada para este produto.</div>
+                            <Button size="sm" variant="outline" onClick={abrirModalAto}>
+                              Abrir ato
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            As notas são exibidas conforme os registros do processo de defesa comercial.
+                          </p>
+                        </div>
+                      )
+                    }
+                  ]}
+                />
+              </Card>
+
               <div className="flex justify-end gap-3">
                 <Button
                   type="button"
@@ -1116,6 +1184,37 @@ export default function ProdutoPage() {
           selectedOperadores={[]}
           catalogoId={catalogoId ? Number(catalogoId) : undefined}
         />
+      )}
+
+      {atoModalAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="w-full max-w-lg p-6">
+            <div className="mb-4 flex items-start justify-between">
+              <h3 className="text-xl font-semibold text-white">Ato normativo relacionado</h3>
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-200"
+                onClick={fecharModalAto}
+                aria-label="Fechar modal de ato"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-3 text-sm text-gray-200">
+              <p>
+                Utilize este ato como referência para revisar a descrição do produto e demais notas do processo.
+              </p>
+              <div className="rounded-md border border-gray-700 bg-[#1a1f2b] p-4 text-gray-100">
+                {descricao || 'Nenhuma descrição cadastrada para o produto.'}
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={fecharModalAto}>
+                Fechar
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
 
       {attrsFaltando && (
