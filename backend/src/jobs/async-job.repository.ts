@@ -368,3 +368,88 @@ export async function releaseStalledJobs(
 
   return { reencarregados, marcadosComoFalhos };
 }
+
+export class AsyncJobEmExecucaoError extends Error {
+  constructor(message = 'O job ainda está em execução.') {
+    super(message);
+    this.name = 'AsyncJobEmExecucaoError';
+  }
+}
+
+export class AsyncJobsEmExecucaoError extends Error {
+  constructor(message = 'Existem jobs em execução no momento.') {
+    super(message);
+    this.name = 'AsyncJobsEmExecucaoError';
+  }
+}
+
+export async function deleteAsyncJob(jobId: number): Promise<boolean> {
+  return catalogoPrisma.$transaction(async tx => {
+    const existente = await tx.asyncJob.findUnique({
+      where: { id: jobId },
+      select: {
+        id: true,
+        status: true,
+        importacaoProduto: { select: { id: true } },
+      },
+    });
+
+    if (!existente) {
+      return false;
+    }
+
+    if (
+      existente.status === AsyncJobStatus.PENDENTE ||
+      existente.status === AsyncJobStatus.PROCESSANDO
+    ) {
+      throw new AsyncJobEmExecucaoError();
+    }
+
+    if (existente.importacaoProduto) {
+      await tx.importacaoProduto.update({
+        where: { id: existente.importacaoProduto.id },
+        data: { asyncJobId: null },
+      });
+    }
+
+    await tx.asyncJob.delete({ where: { id: existente.id } });
+    return true;
+  });
+}
+
+export async function clearAsyncJobHistory(): Promise<number> {
+  return catalogoPrisma.$transaction(async tx => {
+    const ativos = await tx.asyncJob.count({
+      where: {
+        status: {
+          in: [AsyncJobStatus.PENDENTE, AsyncJobStatus.PROCESSANDO],
+        },
+      },
+    });
+
+    if (ativos > 0) {
+      throw new AsyncJobsEmExecucaoError();
+    }
+
+    const jobsParaRemover = await tx.asyncJob.findMany({
+      select: { id: true },
+    });
+
+    if (jobsParaRemover.length === 0) {
+      return 0;
+    }
+
+    const ids = jobsParaRemover.map(job => job.id);
+
+    await tx.importacaoProduto.updateMany({
+      where: { asyncJobId: { in: ids } },
+      data: { asyncJobId: null },
+    });
+
+    const resultado = await tx.asyncJob.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    return resultado.count;
+  });
+}

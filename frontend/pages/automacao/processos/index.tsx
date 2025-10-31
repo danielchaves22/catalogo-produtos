@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
-import { Activity, Eye, RefreshCcw } from 'lucide-react';
+import { Activity, Eye, RefreshCcw, Trash, Trash2 } from 'lucide-react';
 
 interface AsyncJobLogResumo {
   id: number;
@@ -112,6 +112,10 @@ export default function ProcessosAssincronosPage() {
   const [jobs, setJobs] = useState<AsyncJobResumo[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [recarregando, setRecarregando] = useState(false);
+  const [jobParaExcluir, setJobParaExcluir] = useState<AsyncJobResumo | null>(null);
+  const [excluindoId, setExcluindoId] = useState<number | null>(null);
+  const [mostrarConfirmacaoLimpeza, setMostrarConfirmacaoLimpeza] = useState(false);
+  const [limpandoHistorico, setLimpandoHistorico] = useState(false);
 
   const carregar = useCallback(async () => {
     try {
@@ -130,6 +134,60 @@ export default function ProcessosAssincronosPage() {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  const solicitarExclusaoJob = useCallback((job: AsyncJobResumo) => {
+    setJobParaExcluir(job);
+  }, []);
+
+  const confirmarExclusaoJob = useCallback(async () => {
+    if (!jobParaExcluir) return;
+
+    try {
+      setExcluindoId(jobParaExcluir.id);
+      await api.delete(`/automacao/jobs/${jobParaExcluir.id}`);
+      addToast('Job removido do histórico com sucesso.', 'success');
+      await carregar();
+    } catch (error: unknown) {
+      console.error('Erro ao remover job assíncrono', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const resposta = (error as any).response;
+        if (resposta?.status === 409) {
+          addToast('Não é possível remover um job que está em execução.', 'error');
+        } else {
+          addToast('Não foi possível remover o job selecionado.', 'error');
+        }
+      } else {
+        addToast('Não foi possível remover o job selecionado.', 'error');
+      }
+    } finally {
+      setExcluindoId(null);
+      setJobParaExcluir(null);
+    }
+  }, [addToast, carregar, jobParaExcluir]);
+
+  const limparHistorico = useCallback(async () => {
+    try {
+      setLimpandoHistorico(true);
+      await api.delete('/automacao/jobs');
+      addToast('Histórico de processos limpo com sucesso.', 'success');
+      await carregar();
+    } catch (error: unknown) {
+      console.error('Erro ao limpar histórico de jobs', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const resposta = (error as any).response;
+        if (resposta?.status === 409) {
+          addToast('Há processos em execução. Aguarde a finalização antes de limpar.', 'error');
+        } else {
+          addToast('Não foi possível limpar o histórico de processos.', 'error');
+        }
+      } else {
+        addToast('Não foi possível limpar o histórico de processos.', 'error');
+      }
+    } finally {
+      setLimpandoHistorico(false);
+      setMostrarConfirmacaoLimpeza(false);
+    }
+  }, [addToast, carregar]);
 
   const possuiEmExecucao = useMemo(
     () => jobs.some(job => job.status === 'PENDENTE' || job.status === 'PROCESSANDO'),
@@ -181,6 +239,17 @@ export default function ProcessosAssincronosPage() {
             <RefreshCcw size={16} />
             Atualizar
           </Button>
+          {jobs.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => setMostrarConfirmacaoLimpeza(true)}
+              className="flex items-center gap-2 border-red-500/60 text-red-300 hover:bg-red-500/10"
+              disabled={limpandoHistorico}
+            >
+              <Trash size={16} />
+              Limpar histórico
+            </Button>
+          )}
           <Button
             variant="accent"
             onClick={() => router.push('/automacao/importar-produto')}
@@ -299,6 +368,20 @@ export default function ProcessosAssincronosPage() {
                               Ver importação
                             </Button>
                           )}
+                          <Button
+                            variant="outline"
+                            className="flex items-center gap-2 border-red-500/60 text-red-300 hover:bg-red-500/10"
+                            onClick={() => solicitarExclusaoJob(job)}
+                            disabled={
+                              job.status === 'PENDENTE' ||
+                              job.status === 'PROCESSANDO' ||
+                              excluindoId === job.id ||
+                              limpandoHistorico
+                            }
+                          >
+                            <Trash2 size={16} />
+                            Excluir registro
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -309,6 +392,48 @@ export default function ProcessosAssincronosPage() {
           </div>
         )}
       </Card>
+
+      {jobParaExcluir && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg border border-gray-700 bg-[#151921] p-6">
+            <h3 className="mb-4 text-xl font-semibold text-white">Excluir registro do processo</h3>
+            <p className="mb-6 text-gray-300">
+              Deseja remover o histórico do job <strong>#{jobParaExcluir.id}</strong>? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setJobParaExcluir(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmarExclusaoJob}
+                disabled={excluindoId === jobParaExcluir.id}
+              >
+                Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mostrarConfirmacaoLimpeza && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg border border-gray-700 bg-[#151921] p-6">
+            <h3 className="mb-4 text-xl font-semibold text-white">Limpar histórico de processos</h3>
+            <p className="mb-6 text-gray-300">
+              Confirma a remoção de todos os registros de jobs concluídos? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setMostrarConfirmacaoLimpeza(false)}>
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={limparHistorico} disabled={limpandoHistorico}>
+                Limpar histórico
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
