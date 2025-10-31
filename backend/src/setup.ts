@@ -22,3 +22,4 @@ if (process.env.NODE_ENV === 'development') {
 
 // Importações iniciais para garantir que os serviços estejam prontos
 import './utils/prisma';
+import './jobs';

@@ -19,6 +19,7 @@ import uploadRoutes from './routes/upload.routes';
 import mensagemRoutes from './routes/mensagem.routes';
 import ncmValoresPadraoRoutes from './routes/ncm-valores-padrao.routes';
 import atributosMassaRoutes from './routes/atributo-preenchimento-massa.routes';
+import asyncJobRoutes from './routes/async-job.routes';
 
 const app = express();
 
@@ -66,6 +67,7 @@ apiRouter.use('/ncm-valores-padrao', ncmValoresPadraoRoutes);
 // Alias alinhado ao menu de Automação; mantém rota antiga para compatibilidade
 apiRouter.use('/automacao/valores-padrao', ncmValoresPadraoRoutes);
 apiRouter.use('/automacao/atributos-massa', atributosMassaRoutes);
+apiRouter.use('/automacao/jobs', asyncJobRoutes);
 
 // Rotas de usuários (protegidas)
 apiRouter.use('/usuarios', usuarioRoutes);

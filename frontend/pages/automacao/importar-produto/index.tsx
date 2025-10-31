@@ -8,13 +8,13 @@ import { PageLoader } from '@/components/ui/PageLoader';
 import api from '@/lib/api';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 import { useToast } from '@/components/ui/ToastContext';
-import { Eye, PlusCircle, RefreshCcw, RotateCcw, Trash, Trash2 } from 'lucide-react';
+import { Activity, Eye, PlusCircle, RefreshCcw, RotateCcw, Trash, Trash2 } from 'lucide-react';
 
 interface ImportacaoResumo {
   id: number;
   catalogoId: number;
   modalidade: string;
-  situacao: 'EM_ANDAMENTO' | 'CONCLUIDA' | 'REVERTIDA';
+  situacao: 'EM_ANDAMENTO' | 'CONCLUIDA' | 'CONCLUIDA_INCOMPLETA' | 'REVERTIDA';
   resultado: 'PENDENTE' | 'SUCESSO' | 'ATENCAO';
   totalRegistros: number;
   totalCriados: number;
@@ -76,6 +76,9 @@ function obterClasseSituacaoChip(situacao: ImportacaoResumo['situacao']) {
   if (situacao === 'CONCLUIDA') {
     return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/40';
   }
+  if (situacao === 'CONCLUIDA_INCOMPLETA') {
+    return 'bg-rose-500/10 text-rose-300 border border-rose-500/40';
+  }
   if (situacao === 'REVERTIDA') {
     return 'bg-amber-500/10 text-amber-400 border border-amber-500/40';
   }
@@ -105,6 +108,8 @@ function traduzSituacao(situacao: ImportacaoResumo['situacao']) {
   switch (situacao) {
     case 'CONCLUIDA':
       return 'Concluida';
+    case 'CONCLUIDA_INCOMPLETA':
+      return 'Concluida - Incompleta';
     case 'REVERTIDA':
       return 'Revertida';
     default:
@@ -130,6 +135,7 @@ export default function ImportacoesPage() {
   const { addToast } = useToast();
 
   const possuiProcessando = dados.some((imp) => imp.situacao === 'EM_ANDAMENTO');
+  const possuiIncompleta = dados.some((imp) => imp.situacao === 'CONCLUIDA_INCOMPLETA');
   useEffect(() => {
     if (!possuiProcessando) return;
     const interval = setInterval(() => {
@@ -224,6 +230,14 @@ export default function ImportacoesPage() {
             <RefreshCcw size={16} />
             Atualizar
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/automacao/processos')}
+            className="flex items-center gap-2"
+          >
+            <Activity size={16} />
+            Acompanhar processos
+          </Button>
           {dados.length > 0 && (
             <Button
               variant="outline"
@@ -250,6 +264,16 @@ export default function ImportacoesPage() {
         <p className="mb-4 text-sm text-sky-300">
           Ha importacoes em andamento. A lista e atualizada automaticamente a cada 5 segundos.
         </p>
+      )}
+
+      {possuiIncompleta && (
+        <Card className="mb-4 border border-amber-500/40 bg-amber-500/10 text-amber-100">
+          <p className="text-sm">
+            Identificamos importacoes marcadas como <strong>Concluida - Incompleta</strong> apos uma
+            interrupcao do processamento. Utilize a acao de reverter para limpar o catalogo antes de
+            iniciar uma nova importacao.
+          </p>
+        </Card>
       )}
 
       {erro && (
@@ -296,7 +320,8 @@ export default function ImportacoesPage() {
                         >
                           <Eye size={16} />
                         </button>
-                        {importacao.situacao === 'CONCLUIDA' && (
+                        {(importacao.situacao === 'CONCLUIDA' ||
+                          importacao.situacao === 'CONCLUIDA_INCOMPLETA') && (
                           <button
                             type="button"
                             onClick={() => reverterImportacaoClick(importacao)}
