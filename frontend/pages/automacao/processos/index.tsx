@@ -277,6 +277,7 @@ export default function ProcessosAssincronosPage() {
             <table className="w-full min-w-[960px] text-left text-sm">
               <thead className="bg-[#0f1419] text-xs uppercase text-gray-400">
                 <tr>
+                  <th className="px-4 py-3">Ações</th>
                   <th className="px-4 py-3">ID</th>
                   <th className="px-4 py-3">Tipo</th>
                   <th className="px-4 py-3">Status</th>
@@ -284,15 +285,44 @@ export default function ProcessosAssincronosPage() {
                   <th className="px-4 py-3">Relacionamento</th>
                   <th className="px-4 py-3">Datas</th>
                   <th className="px-4 py-3">Tentativas</th>
-                  <th className="px-4 py-3">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {jobs.map(job => {
                   const catalogoDescricao = obterDescricaoCatalogo(job.importacaoProduto?.catalogo ?? null);
                   const importacaoId = job.importacaoProduto?.id ?? null;
+                  const desabilitarExclusao =
+                    job.status === 'PENDENTE' ||
+                    job.status === 'PROCESSANDO' ||
+                    excluindoId === job.id ||
+                    limpandoHistorico;
                   return (
                     <tr key={job.id} className="border-b border-gray-800 hover:bg-[#1a1f2b]">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {importacaoId && (
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/automacao/importar-produto/${importacaoId}`)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 bg-slate-800/60 text-slate-200 transition hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                              title="Ver detalhes da importação"
+                              aria-label="Ver detalhes da importação"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => solicitarExclusaoJob(job)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-500/50 bg-red-500/10 text-red-200 transition hover:bg-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                            title="Excluir processo"
+                            aria-label="Excluir processo"
+                            disabled={desabilitarExclusao}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
                       <td className="px-4 py-3 font-mono text-white">#{job.id}</td>
                       <td className="px-4 py-3 text-white">
                         <div className="font-medium">{traduzirTipo(job.tipo)}</div>
@@ -355,34 +385,6 @@ export default function ProcessosAssincronosPage() {
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-300">
                         {job.tentativas} / {job.maxTentativas}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-2">
-                          {importacaoId && (
-                            <Button
-                              variant="outline"
-                              className="flex items-center gap-2 border-slate-600 text-sky-300 hover:bg-slate-800/40 hover:text-sky-200"
-                              onClick={() => router.push(`/automacao/importar-produto/${importacaoId}`)}
-                            >
-                              <Eye size={16} />
-                              Ver importação
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            className="flex items-center gap-2 border-red-500/60 text-red-300 hover:bg-red-500/10"
-                            onClick={() => solicitarExclusaoJob(job)}
-                            disabled={
-                              job.status === 'PENDENTE' ||
-                              job.status === 'PROCESSANDO' ||
-                              excluindoId === job.id ||
-                              limpandoHistorico
-                            }
-                          >
-                            <Trash2 size={16} />
-                            Excluir registro
-                          </Button>
-                        </div>
                       </td>
                     </tr>
                   );
