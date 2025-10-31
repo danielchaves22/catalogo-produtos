@@ -475,7 +475,7 @@ CREATE TABLE IF NOT EXISTS catalogo (
         -- Se não conseguiu um número único após várias tentativas, usar fallback
         IF NOT is_unique THEN
             -- Fallback: Pegar o maior número existente e adicionar 1
-            SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM catalogo;
+            SELECT IFNULL(MAX(numero), 1000000) + 1 INTO random_num FROM catalogo;
         END IF;
         
         RETURN random_num;
@@ -527,7 +527,7 @@ CREATE TABLE IF NOT EXISTS catalogo (
         END WHILE;
 
         IF NOT is_unique THEN
-            SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM produto;
+            SELECT IFNULL(MAX(numero), 1000000) + 1 INTO random_num FROM produto;
         END IF;
 
         RETURN random_num;
@@ -575,7 +575,7 @@ CREATE TABLE IF NOT EXISTS catalogo (
         END WHILE;
 
         IF NOT is_unique THEN
-            SELECT IFNULL(MAX(numero), 100000) + 1 INTO random_num FROM operador_estrangeiro;
+            SELECT IFNULL(MAX(numero), 1000000) + 1 INTO random_num FROM operador_estrangeiro;
         END IF;
 
         RETURN random_num;
