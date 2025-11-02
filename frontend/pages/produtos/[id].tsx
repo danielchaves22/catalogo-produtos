@@ -77,11 +77,14 @@ export default function ProdutoPage() {
   const [estruturaCarregada, setEstruturaCarregada] = useState(false);
   const [activeTab, setActiveTab] = useState('informacoes');
   const [loading, setLoading] = useState(false);
+  const [cloneOrigemNome, setCloneOrigemNome] = useState<string | null>(null);
+  const [pularCarregamentoEstrutura, setPularCarregamentoEstrutura] = useState(false);
   const { addToast } = useToast();
   const router = useRouter();
   const { id } = router.query;
   const isNew = !id || id === 'novo';
   const { workingCatalog } = useWorkingCatalog();
+  const cloneId = typeof router.query.clonar === 'string' ? router.query.clonar : undefined;
 
   const [attrsFaltando, setAttrsFaltando] = useState<string[] | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -89,6 +92,20 @@ export default function ProdutoPage() {
   const [mostrarSugestoesNcm, setMostrarSugestoesNcm] = useState(false);
   const [carregandoSugestoesNcm, setCarregandoSugestoesNcm] = useState(false);
   const debouncedNcm = useDebounce(ncm, 1000);
+  const pageTitle = isNew
+    ? cloneOrigemNome
+      ? `Cópia de produto ${cloneOrigemNome}`
+      : cloneId
+        ? 'Cópia de produto'
+        : 'Novo Produto'
+    : 'Editar Produto';
+  const headerTitle = isNew
+    ? cloneOrigemNome
+      ? `Cadastrar cópia de ${cloneOrigemNome}`
+      : cloneId
+        ? 'Cadastrar cópia de produto'
+        : 'Cadastrar Novo Produto'
+    : 'Editar Produto';
 
   // Format NCM code for display (9999.99.99)
   function formatarNCMExibicao(codigo?: string) {
@@ -111,19 +128,25 @@ export default function ProdutoPage() {
   }, [isNew, workingCatalog]);
 
   useEffect(() => {
-    if (isNew && workingCatalog) {
+    if (!isNew) return;
+    if (cloneId) return;
+    if (workingCatalog) {
       setCatalogoId(String(workingCatalog.id));
       setCatalogoNome(workingCatalog.nome);
       setCatalogoCnpj(workingCatalog.cpf_cnpj || '');
-    } else if (isNew && !workingCatalog) {
+    } else {
       setCatalogoId('');
       setCatalogoNome('');
       setCatalogoCnpj('');
     }
-  }, [workingCatalog, isNew]);
+  }, [workingCatalog, isNew, cloneId]);
 
   useEffect(() => {
     if (!isNew) return;
+    if (pularCarregamentoEstrutura) {
+      setPularCarregamentoEstrutura(false);
+      return;
+    }
     if (!catalogoId) {
       setValores({});
       return;
@@ -131,7 +154,7 @@ export default function ProdutoPage() {
     if (ncm.length === 8) {
       carregarEstrutura(ncm);
     }
-  }, [catalogoId, isNew, ncm]);
+  }, [catalogoId, isNew, ncm, pularCarregamentoEstrutura]);
 
   useEffect(() => {
     if (!catalogoCnpj) {
@@ -280,10 +303,14 @@ export default function ProdutoPage() {
   }
 
   useEffect(() => {
+    if (pularCarregamentoEstrutura) {
+      setPularCarregamentoEstrutura(false);
+      return;
+    }
     if (ncm.length === 8) {
       carregarEstrutura(ncm);
     }
-  }, [modalidade]);
+  }, [modalidade, ncm, pularCarregamentoEstrutura]);
 
   useEffect(() => {
     if (debouncedNcm.length >= 4 && debouncedNcm.length < 8) {
@@ -572,6 +599,65 @@ export default function ProdutoPage() {
     }
   }
 
+  async function carregarClone(produtoId: string) {
+    try {
+      setLoading(true);
+      setPularCarregamentoEstrutura(true);
+      const response = await api.get(`/produtos/${produtoId}`);
+      const dados = response.data;
+      const denominacaoOrigem = dados.denominacao || dados.codigo || `ID ${produtoId}`;
+      setCloneOrigemNome(denominacaoOrigem);
+      const baseNome = dados.denominacao ?? '';
+      const sugestaoNome = baseNome && baseNome.length <= 90 ? `${baseNome} (cópia)` : baseNome;
+      setDenominacao(sugestaoNome);
+      setDescricao(dados.descricao || '');
+      setCatalogoId(String(dados.catalogo?.id || ''));
+      setCatalogoNome(dados.catalogo?.nome || '');
+      setCatalogoCnpj(dados.catalogo?.cpf_cnpj || '');
+      setNcm(dados.ncmCodigo);
+      setModalidade(dados.modalidade);
+      setCodigosInternos(dados.codigosInternos || []);
+      setCodigo('');
+      setNovoCodigoInterno('');
+      setOperadores(
+        (dados.operadoresEstrangeiros || []).map((o: any) => ({
+          paisCodigo: o.paisCodigo,
+          conhecido: o.conhecido ? 'sim' : 'nao',
+          operador: o.operadorEstrangeiro || null
+        }))
+      );
+      setNovoOperador({ paisCodigo: '', conhecido: 'nao', operador: undefined });
+      try {
+        const resp = await api.get(
+          `/siscomex/atributos/ncm/${dados.ncmCodigo}?modalidade=${dados.modalidade}`
+        );
+        setNcmDescricao(resp.data.descricaoNcm || '');
+        setUnidadeMedida(resp.data.unidadeMedida || '');
+      } catch (e) {
+        setNcmDescricao('');
+        setUnidadeMedida('');
+      }
+      const estr = dados.atributos?.[0]?.estruturaSnapshotJson || [];
+      setEstrutura(ordenarAtributos(estr));
+      setEstruturaCarregada(true);
+      setLoadingEstrutura(false);
+      setValores((dados.atributos?.[0]?.valoresJson || {}) as Record<string, string | string[]>);
+      setAttrsFaltando(null);
+      setErrors({});
+      setOperadorErro({});
+      setActiveTab('informacoes');
+      setMostrarSugestoesNcm(false);
+      setNcmSugestoes([]);
+      setCarregandoSugestoesNcm(false);
+    } catch (error) {
+      console.error('Erro ao carregar dados para clonagem:', error);
+      addToast('Não foi possível carregar os dados do produto a ser copiado.', 'error');
+      router.push('/produtos');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function carregarProduto(produtoId: string) {
     try {
       setLoading(true);
@@ -622,6 +708,16 @@ export default function ProdutoPage() {
       carregarProduto(id as string);
     }
   }, [router.isReady, id, isNew]);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (isNew && cloneId) {
+      carregarClone(cloneId);
+    }
+    if (isNew && !cloneId) {
+      setCloneOrigemNome(null);
+    }
+  }, [router.isReady, isNew, cloneId]);
 
   function coletarFaltantes(lista: AtributoEstrutura[]): AtributoEstrutura[] {
     const faltantes: AtributoEstrutura[] = [];
@@ -713,12 +809,12 @@ export default function ProdutoPage() {
   }
 
   return (
-    <DashboardLayout title={isNew ? 'Novo Produto' : 'Editar Produto'}>
+    <DashboardLayout title={pageTitle}>
       <Breadcrumb
         items={[
           { label: 'Início', href: '/' },
           { label: 'Produtos', href: '/produtos' },
-          { label: isNew ? 'Novo Produto' : 'Editar Produto' }
+          { label: pageTitle }
         ]}
       />
 
@@ -727,9 +823,7 @@ export default function ProdutoPage() {
           <button onClick={voltar} className="text-gray-400 hover:text-white transition-colors">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-2xl font-semibold text-white">
-            {isNew ? 'Cadastrar Novo Produto' : 'Editar Produto'}
-          </h1>
+          <h1 className="text-2xl font-semibold text-white">{headerTitle}</h1>
         </div>
         <div className="flex items-center gap-3 self-end md:self-auto">
           <Button type="button" variant="outline" onClick={voltar}>
