@@ -34,6 +34,13 @@ interface ProdutoResumo {
   catalogo?: CatalogoResumo | null;
 }
 
+interface ProdutoImpactadoDetalhe {
+  id: number;
+  denominacao: string;
+  codigos: string[];
+  catalogo?: CatalogoResumo | null;
+}
+
 interface RegistroDetalhe {
   id: number;
   ncmCodigo: string;
@@ -43,6 +50,7 @@ interface RegistroDetalhe {
   estruturaSnapshot: AtributoEstrutura[] | null;
   produtosExcecao: ProdutoResumo[];
   produtosImpactados: number;
+  produtosImpactadosDetalhes: ProdutoImpactadoDetalhe[];
   criadoEm: string;
   criadoPor: string | null;
   jobId: number | null;
@@ -291,6 +299,67 @@ export default function PreenchimentoMassaDetalhePage() {
                     </li>
                   ))}
                 </ul>
+              )}
+            </Card>
+
+            <Card>
+              <div className="mb-3">
+                <h2 className="text-lg font-semibold text-white">Produtos impactados</h2>
+                <p className="text-xs text-gray-400">
+                  Clique em um item para abrir a tela de edição do produto correspondente.
+                </p>
+              </div>
+              {registro.produtosImpactadosDetalhes.length === 0 ? (
+                <p className="text-sm text-gray-400">
+                  Nenhum produto foi identificado como impactado nesta atribuição.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-800 text-sm text-gray-200">
+                    <thead>
+                      <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+                        <th className="px-4 py-3 font-medium">Código(s)</th>
+                        <th className="px-4 py-3 font-medium">Produto</th>
+                        <th className="px-4 py-3 font-medium">Catálogo</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-900/60">
+                      {registro.produtosImpactadosDetalhes.map(produto => {
+                        const codigos = produto.codigos.length
+                          ? produto.codigos.join(', ')
+                          : 'Sem código interno';
+                        const catalogoDescricao = produto.catalogo
+                          ? [
+                              produto.catalogo.nome || undefined,
+                              produto.catalogo.numero ? `Catálogo ${produto.catalogo.numero}` : undefined,
+                              produto.catalogo.cpf_cnpj ? formatCPFOrCNPJ(produto.catalogo.cpf_cnpj) : undefined
+                            ]
+                              .filter(Boolean)
+                              .join(' • ')
+                          : '-';
+                        return (
+                          <tr
+                            key={produto.id}
+                            className="cursor-pointer transition-colors hover:bg-gray-900/60"
+                            onClick={() => router.push(`/produtos/${produto.id}`)}
+                            tabIndex={0}
+                            role="button"
+                            onKeyDown={event => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                router.push(`/produtos/${produto.id}`);
+                              }
+                            }}
+                          >
+                            <td className="px-4 py-3 font-medium text-white">{codigos}</td>
+                            <td className="px-4 py-3">{produto.denominacao || `Produto #${produto.id}`}</td>
+                            <td className="px-4 py-3 text-gray-400">{catalogoDescricao}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </Card>
         </div>

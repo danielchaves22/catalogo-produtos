@@ -51,6 +51,13 @@ export interface AtributoPreenchimentoMassaJobAgendado {
   jobId: number;
 }
 
+export interface ProdutoImpactadoResumo {
+  id: number;
+  denominacao: string;
+  codigos: string[];
+  catalogo?: { id: number; nome: string | null; numero: number | null; cpf_cnpj: string | null } | null;
+}
+
 export interface AtributoPreenchimentoMassaResumo {
   id: number;
   superUserId: number;
@@ -67,6 +74,7 @@ export interface AtributoPreenchimentoMassaResumo {
     catalogo?: { id: number; nome: string | null; numero: number | null; cpf_cnpj: string | null } | null;
   }>;
   produtosImpactados: number;
+  produtosImpactadosDetalhes: ProdutoImpactadoResumo[];
   criadoEm: Date;
   criadoPor: string | null;
   jobId: number | null;
@@ -96,7 +104,10 @@ export class AtributoPreenchimentoMassaService {
 
     if (!registro) return null;
 
-    return this.montarResposta(registro);
+    const resposta = this.montarResposta(registro);
+    const produtosImpactadosDetalhes = await this.carregarProdutosImpactadosDetalhes(resposta);
+
+    return { ...resposta, produtosImpactadosDetalhes };
   }
 
   async criar(
@@ -412,12 +423,57 @@ export class AtributoPreenchimentoMassaService {
       estruturaSnapshot,
       produtosExcecao,
       produtosImpactados: registro.produtosImpactados,
+      produtosImpactadosDetalhes: [],
       criadoEm: registro.criadoEm,
       criadoPor: registro.criadoPor ?? null,
       jobId: registro.asyncJob?.id ?? null,
       jobStatus: registro.asyncJob?.status ?? null,
       jobFinalizadoEm: registro.asyncJob?.finalizadoEm ?? null
     };
+  }
+
+  private async carregarProdutosImpactadosDetalhes(
+    registro: AtributoPreenchimentoMassaResumo
+  ): Promise<ProdutoImpactadoResumo[]> {
+    const catalogoFiltro = registro.catalogoIds.length
+      ? { id: { in: registro.catalogoIds } }
+      : {};
+
+    const excecoesIds = new Set(registro.produtosExcecao.map(produto => produto.id));
+
+    const produtos = await catalogoPrisma.produto.findMany({
+      where: {
+        ncmCodigo: registro.ncmCodigo,
+        ...(registro.modalidade ? { modalidade: registro.modalidade } : {}),
+        catalogo: {
+          superUserId: registro.superUserId,
+          ...catalogoFiltro
+        }
+      },
+      select: {
+        id: true,
+        denominacao: true,
+        catalogo: { select: { id: true, nome: true, numero: true, cpf_cnpj: true } },
+        codigosInternos: { select: { codigo: true }, orderBy: { id: 'asc' } }
+      },
+      orderBy: { id: 'asc' }
+    });
+
+    return produtos
+      .filter(produto => !excecoesIds.has(produto.id))
+      .map(produto => ({
+        id: produto.id,
+        denominacao: produto.denominacao,
+        catalogo: produto.catalogo
+          ? {
+              id: produto.catalogo.id,
+              nome: produto.catalogo.nome ?? null,
+              numero: produto.catalogo.numero ?? null,
+              cpf_cnpj: produto.catalogo.cpf_cnpj ?? null
+            }
+          : null,
+        codigos: produto.codigosInternos.map(item => item.codigo)
+      }));
   }
 
   private montarDadosRegistro(
