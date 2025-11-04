@@ -279,7 +279,7 @@ export class AtributoPreenchimentoMassaService {
         },
         ...(payload.modalidade ? { modalidade: payload.modalidade } : {})
       },
-      select: { id: true }
+      select: { id: true, status: true }
     });
 
     const excecaoSet = new Set(payload.produtosExcecaoIds);
@@ -288,6 +288,7 @@ export class AtributoPreenchimentoMassaService {
     let atualizados = 0;
 
     for (const produto of produtosParaAtualizar) {
+      let statusAtual = produto.status;
       await catalogoPrisma.$transaction(async tx => {
         await tx.produto.update({
           where: { id: produto.id },
@@ -336,7 +337,25 @@ export class AtributoPreenchimentoMassaService {
           });
         }
 
-        await this.produtoResumoService.recalcularResumoProduto(produto.id, tx);
+        const resumo = await this.produtoResumoService.recalcularResumoProduto(produto.id, tx);
+
+        if (resumo) {
+          let novoStatus = statusAtual;
+
+          if (resumo.obrigatoriosPendentes > 0) {
+            novoStatus = 'PENDENTE';
+          } else if (statusAtual === 'PENDENTE') {
+            novoStatus = 'APROVADO';
+          }
+
+          if (novoStatus !== statusAtual) {
+            await tx.produto.update({
+              where: { id: produto.id },
+              data: { status: novoStatus }
+            });
+            statusAtual = novoStatus;
+          }
+        }
       });
 
       atualizados += 1;
