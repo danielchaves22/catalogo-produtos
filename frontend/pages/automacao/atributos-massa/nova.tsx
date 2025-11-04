@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
+import ReactDOM from 'react-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
@@ -170,7 +171,15 @@ export default function PreenchimentoMassaNovoPage() {
   const [ncmSugestoes, setNcmSugestoes] = useState<Array<{ codigo: string; descricao: string | null }>>([]);
   const [mostrarSugestoesNcm, setMostrarSugestoesNcm] = useState(false);
   const [carregandoSugestoesNcm, setCarregandoSugestoesNcm] = useState(false);
+  const [ncmSugestoesMontadas, setNcmSugestoesMontadas] = useState(false);
   const debouncedNcm = useDebounce(ncm, 800);
+  const ncmInputContainerRef = useRef<HTMLDivElement>(null);
+  const ncmSugestoesPortalRef = useRef<HTMLDivElement>(null);
+  const [ncmSugestoesPosicao, setNcmSugestoesPosicao] = useState<{ top: number; left: number; width: number }>({
+    top: 0,
+    left: 0,
+    width: 0
+  });
 
   const [produtoBusca, setProdutoBusca] = useState('');
   const [produtoSugestoes, setProdutoSugestoes] = useState<ProdutoBuscaItem[]>([]);
@@ -270,6 +279,53 @@ export default function PreenchimentoMassaNovoPage() {
     setMostrarSugestoesNcm(false);
     setCarregandoSugestoesNcm(false);
   }, [debouncedNcm]);
+
+  useEffect(() => {
+    setNcmSugestoesMontadas(true);
+  }, []);
+
+  const ncmSugestoesVisiveis = (carregandoSugestoesNcm || mostrarSugestoesNcm) && debouncedNcm.length >= 4;
+
+  useLayoutEffect(() => {
+    if (!ncmSugestoesVisiveis || typeof window === 'undefined') return;
+
+    function atualizarPosicao() {
+      const container = ncmInputContainerRef.current;
+      if (!container) return;
+      const input = container.querySelector('input');
+      const referencia = input || container;
+      const rect = referencia.getBoundingClientRect();
+      setNcmSugestoesPosicao({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width
+      });
+    }
+
+    atualizarPosicao();
+    window.addEventListener('resize', atualizarPosicao);
+    window.addEventListener('scroll', atualizarPosicao, true);
+    return () => {
+      window.removeEventListener('resize', atualizarPosicao);
+      window.removeEventListener('scroll', atualizarPosicao, true);
+    };
+  }, [ncmSugestoesVisiveis]);
+
+  useEffect(() => {
+    if (!ncmSugestoesVisiveis || typeof document === 'undefined') return;
+
+    function handleClickFora(event: MouseEvent) {
+      const alvo = event.target as Node;
+      if (ncmInputContainerRef.current?.contains(alvo)) return;
+      if (ncmSugestoesPortalRef.current?.contains(alvo)) return;
+      setMostrarSugestoesNcm(false);
+    }
+
+    document.addEventListener('mousedown', handleClickFora);
+    return () => {
+      document.removeEventListener('mousedown', handleClickFora);
+    };
+  }, [ncmSugestoesVisiveis]);
 
   useEffect(() => {
     let ativo = true;
@@ -653,7 +709,7 @@ export default function PreenchimentoMassaNovoPage() {
               <div className="md:col-span-2">
                 <div className="grid gap-4 md:grid-cols-5">
                   <div className="md:col-span-1">
-                    <div className="relative">
+                    <div className="relative" ref={ncmInputContainerRef}>
                       <MaskedInput
                         label="NCM"
                         mask="ncm"
@@ -673,32 +729,6 @@ export default function PreenchimentoMassaNovoPage() {
                           setTimeout(() => setMostrarSugestoesNcm(false), 100);
                         }}
                       />
-                      {(carregandoSugestoesNcm || mostrarSugestoesNcm) && (
-                        <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-700 bg-gray-900">
-                          {carregandoSugestoesNcm && (
-                            <p className="px-3 py-2 text-sm text-gray-400">Carregando sugestões...</p>
-                          )}
-                          {!carregandoSugestoesNcm && ncmSugestoes.length === 0 && (
-                            <p className="px-3 py-2 text-sm text-gray-500">Nenhuma sugestão encontrada.</p>
-                          )}
-                          {!carregandoSugestoesNcm &&
-                            ncmSugestoes.map(item => (
-                              <button
-                                key={item.codigo}
-                                className="flex w-full flex-col items-start px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
-                                type="button"
-                                onMouseDown={event => event.preventDefault()}
-                                onClick={() => {
-                                  setNcm(item.codigo);
-                                  setMostrarSugestoesNcm(false);
-                                }}
-                              >
-                                <span className="font-medium">{formatarNCMExibicao(item.codigo)}</span>
-                                <span className="text-gray-400">{item.descricao || '-'}</span>
-                              </button>
-                            ))}
-                        </div>
-                      )}
                     </div>
                   </div>
 
@@ -744,6 +774,41 @@ export default function PreenchimentoMassaNovoPage() {
               />
             </div>
           </Card>
+
+          {ncmSugestoesMontadas &&
+            ncmSugestoesVisiveis &&
+            typeof document !== 'undefined' &&
+            ReactDOM.createPortal(
+              <div
+                ref={ncmSugestoesPortalRef}
+                className="z-[9999] max-h-64 overflow-y-auto rounded-lg border border-gray-700 bg-gray-900 shadow-xl"
+                style={{ position: 'fixed', top: ncmSugestoesPosicao.top, left: ncmSugestoesPosicao.left, width: ncmSugestoesPosicao.width }}
+              >
+                {carregandoSugestoesNcm && (
+                  <p className="px-3 py-2 text-sm text-gray-400">Carregando sugestões...</p>
+                )}
+                {!carregandoSugestoesNcm && ncmSugestoes.length === 0 && (
+                  <p className="px-3 py-2 text-sm text-gray-500">Nenhuma sugestão encontrada.</p>
+                )}
+                {!carregandoSugestoesNcm &&
+                  ncmSugestoes.map(item => (
+                    <button
+                      key={item.codigo}
+                      className="flex w-full flex-col items-start px-3 py-2 text-left text-sm text-gray-200 transition-colors hover:bg-gray-800"
+                      type="button"
+                      onMouseDown={event => event.preventDefault()}
+                      onClick={() => {
+                        setNcm(item.codigo);
+                        setMostrarSugestoesNcm(false);
+                      }}
+                    >
+                      <span className="font-medium">{formatarNCMExibicao(item.codigo)}</span>
+                      <span className="text-gray-400">{item.descricao || '-'}</span>
+                    </button>
+                  ))}
+              </div>,
+              document.body
+            )}
 
           <Card>
             <div className="mb-4 flex items-center justify-between">

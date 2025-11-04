@@ -108,7 +108,7 @@ export function MultiSelect({
   return (
     <div className={`mb-4 ${className}`} ref={containerRef}>
       {label && (
-        <label className="block text-sm font-medium mb-2 text-gray-300">
+        <label className="mb-1 block text-sm font-medium text-gray-300">
           {label}
           {required && <span className="text-red-400 ml-1">*</span>}
           {hint && <Hint text={hint} />}
@@ -120,9 +120,9 @@ export function MultiSelect({
           disabled={disabled}
           onClick={toggle}
           ref={buttonRef}
-          className={`w-full px-3 py-2 bg-[#1e2126] border rounded-md text-left text-sm flex items-center justify-between ${
-            error ? 'border-red-500' : 'border-gray-700'
-          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-600'}`}
+          className={`flex w-full items-center justify-between gap-2 rounded-md border bg-[#1e2126] px-3 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus-visible:border-blue-500 ${
+            error ? 'border-red-500 focus-visible:border-red-500 focus:ring-red-500/20' : 'border-gray-700 hover:border-gray-600'
+          } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
         >
           <span className={selectedLabels.length === 0 ? 'text-gray-400' : 'text-white'}>
             {renderButtonText()}
