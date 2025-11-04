@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
-import { Activity, Eye, RefreshCcw, Trash, Trash2 } from 'lucide-react';
+import { Eye, RefreshCcw, Trash, Trash2 } from 'lucide-react';
 
 interface AsyncJobLogResumo {
   id: number;
@@ -250,14 +250,6 @@ export default function ProcessosAssincronosPage() {
               Limpar histórico
             </Button>
           )}
-          <Button
-            variant="accent"
-            onClick={() => router.push('/automacao/importar-produto')}
-            className="flex items-center gap-2"
-          >
-            <Activity size={16} />
-            Acessar Importações
-          </Button>
         </div>
       </div>
 

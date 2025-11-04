@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { AsyncJobTipo, Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import {
   AtributoLegacyService,
@@ -6,6 +6,7 @@ import {
   AtributoEstruturaDTO
 } from './atributo-legacy.service';
 import { ProdutoResumoService } from './produto-resumo.service';
+import { createAsyncJob } from '../jobs/async-job.repository';
 
 export interface AtributoPreenchimentoMassaCreateInput {
   ncmCodigo: string;
@@ -17,6 +18,35 @@ export interface AtributoPreenchimentoMassaCreateInput {
 }
 
 type RegistroMassaPayload = Prisma.AtributoPreenchimentoMassaGetPayload<{}>;
+
+export interface AtributoPreenchimentoMassaJobPayload {
+  superUserId: number;
+  solicitanteNome?: string | null;
+  ncmCodigo: string;
+  modalidade: string | null;
+  catalogoIds: number[];
+  catalogosDetalhes: Array<{ id: number; nome: string | null; numero: number | null; cpf_cnpj: string | null }>;
+  valoresAtributos: Record<string, unknown>;
+  atributosParaAtualizar: Array<{
+    atributoId: number;
+    codigo: string;
+    valores: Prisma.InputJsonValue[];
+  }>;
+  estruturaVersaoId: number;
+  estruturaVersaoNumero: number;
+  estruturaSnapshot: EstruturaComVersao['estrutura'] | null;
+  produtosExcecaoIds: number[];
+  produtosExcecaoDetalhes: Array<{
+    id: number;
+    codigo: string | null;
+    denominacao: string;
+    catalogo?: { id: number; nome: string | null; numero: number | null; cpf_cnpj: string | null } | null;
+  }>;
+}
+
+export interface AtributoPreenchimentoMassaJobAgendado {
+  jobId: number;
+}
 
 export interface AtributoPreenchimentoMassaResumo {
   id: number;
@@ -65,7 +95,22 @@ export class AtributoPreenchimentoMassaService {
     dados: AtributoPreenchimentoMassaCreateInput,
     superUserId: number,
     usuario?: { nome?: string }
-  ): Promise<AtributoPreenchimentoMassaResumo> {
+  ): Promise<AtributoPreenchimentoMassaJobAgendado> {
+    const payload = await this.montarJobPayload(dados, superUserId, usuario?.nome ?? null);
+
+    const job = await createAsyncJob({
+      tipo: AsyncJobTipo.ALTERACAO_ATRIBUTOS,
+      payload: payload as unknown as Prisma.InputJsonValue
+    });
+
+    return { jobId: job.id };
+  }
+
+  private async montarJobPayload(
+    dados: AtributoPreenchimentoMassaCreateInput,
+    superUserId: number,
+    solicitanteNome?: string | null
+  ): Promise<AtributoPreenchimentoMassaJobPayload> {
     const modalidadeNormalizada = dados.modalidade?.toUpperCase() ?? null;
     const catalogoIdsUnicos = dados.catalogoIds
       ? Array.from(
@@ -75,9 +120,9 @@ export class AtributoPreenchimentoMassaService {
               .filter(valor => Number.isInteger(valor) && valor > 0)
           )
         )
-      : undefined;
+      : [];
 
-    if (catalogoIdsUnicos?.length) {
+    if (catalogoIdsUnicos.length) {
       const catalogosValidos = await catalogoPrisma.catalogo.findMany({
         where: { id: { in: catalogoIdsUnicos }, superUserId },
         select: { id: true, nome: true, numero: true, cpf_cnpj: true }
@@ -95,15 +140,23 @@ export class AtributoPreenchimentoMassaService {
 
     const mapaEstrutura = this.mapearEstruturaPorCodigo(estruturaInfo.estrutura);
     const valoresFiltrados: Record<string, unknown> = {};
+    const atributosParaAtualizar: AtributoPreenchimentoMassaJobPayload['atributosParaAtualizar'] = [];
+
     for (const [codigo, valor] of Object.entries(valoresEntrada)) {
       const atributo = mapaEstrutura.get(codigo);
       if (!atributo?.id) continue;
       const valoresNormalizados = this.normalizarValorEntrada(valor);
       if (!valoresNormalizados.length) continue;
+
       valoresFiltrados[codigo] = valor as unknown;
+      atributosParaAtualizar.push({
+        atributoId: atributo.id,
+        codigo,
+        valores: valoresNormalizados.map(item => item as Prisma.InputJsonValue)
+      });
     }
 
-    if (Object.keys(valoresFiltrados).length === 0) {
+    if (!atributosParaAtualizar.length) {
       throw new Error('Informe ao menos um atributo válido para aplicar em massa.');
     }
 
@@ -115,12 +168,7 @@ export class AtributoPreenchimentoMassaService {
       )
     );
 
-    let produtosExcecaoDetalhes: Array<{
-      id: number;
-      codigo: string | null;
-      denominacao: string;
-      catalogo?: { id: number; nome: string | null; numero: number | null; cpf_cnpj: string | null } | null;
-    }> = [];
+    let produtosExcecaoDetalhes: AtributoPreenchimentoMassaJobPayload['produtosExcecaoDetalhes'] = [];
 
     if (produtosExcecaoIds.length) {
       const produtos = await catalogoPrisma.produto.findMany({
@@ -150,69 +198,104 @@ export class AtributoPreenchimentoMassaService {
       }));
     }
 
+    const catalogosDetalhes = catalogoIdsUnicos.length
+      ? await catalogoPrisma.catalogo.findMany({
+          where: { id: { in: catalogoIdsUnicos } },
+          select: { id: true, nome: true, numero: true, cpf_cnpj: true }
+        })
+      : [];
+
+    const estruturaSnapshot = Array.isArray(dados.estruturaSnapshot)
+      ? (dados.estruturaSnapshot as unknown as EstruturaComVersao['estrutura'])
+      : estruturaInfo.estrutura;
+
+    return {
+      superUserId,
+      solicitanteNome: solicitanteNome ?? null,
+      ncmCodigo: dados.ncmCodigo,
+      modalidade: modalidadeNormalizada,
+      catalogoIds: catalogoIdsUnicos,
+      catalogosDetalhes: catalogosDetalhes.map(item => ({
+        id: item.id,
+        nome: item.nome ?? null,
+        numero: item.numero ?? null,
+        cpf_cnpj: item.cpf_cnpj ?? null
+      })),
+      valoresAtributos: valoresFiltrados,
+      atributosParaAtualizar,
+      estruturaVersaoId: estruturaInfo.versaoId,
+      estruturaVersaoNumero: estruturaInfo.versaoNumero,
+      estruturaSnapshot,
+      produtosExcecaoIds,
+      produtosExcecaoDetalhes
+    };
+  }
+
+  async processarJob(
+    payload: AtributoPreenchimentoMassaJobPayload,
+    heartbeat?: () => Promise<void>
+  ): Promise<AtributoPreenchimentoMassaResumo> {
+    await heartbeat?.();
+
     const produtos = await catalogoPrisma.produto.findMany({
       where: {
-        ncmCodigo: dados.ncmCodigo,
+        ncmCodigo: payload.ncmCodigo,
         catalogo: {
-          superUserId,
-          ...(catalogoIdsUnicos?.length ? { id: { in: catalogoIdsUnicos } } : {})
+          superUserId: payload.superUserId,
+          ...(payload.catalogoIds.length ? { id: { in: payload.catalogoIds } } : {})
         },
-        ...(modalidadeNormalizada ? { modalidade: modalidadeNormalizada } : {})
+        ...(payload.modalidade ? { modalidade: payload.modalidade } : {})
       },
-      select: {
-        id: true,
-        codigo: true,
-        denominacao: true,
-        catalogoId: true,
-        versaoAtributoId: true,
-        versaoEstruturaAtributos: true,
-        catalogo: { select: { id: true, nome: true, numero: true, cpf_cnpj: true } }
-      }
+      select: { id: true }
     });
 
-    const excecaoSet = new Set(produtosExcecaoIds);
+    const excecaoSet = new Set(payload.produtosExcecaoIds);
     const produtosParaAtualizar = produtos.filter(produto => !excecaoSet.has(produto.id));
 
-    await catalogoPrisma.$transaction(async tx => {
-      for (const produto of produtosParaAtualizar) {
+    let atualizados = 0;
+
+    for (const produto of produtosParaAtualizar) {
+      await catalogoPrisma.$transaction(async tx => {
         await tx.produto.update({
           where: { id: produto.id },
           data: {
-            versaoAtributoId: estruturaInfo.versaoId,
-            versaoEstruturaAtributos: estruturaInfo.versaoNumero
+            versaoAtributoId: payload.estruturaVersaoId,
+            versaoEstruturaAtributos: payload.estruturaVersaoNumero
           }
         });
 
-        for (const [codigo, valor] of Object.entries(valoresFiltrados)) {
-          const atributo = mapaEstrutura.get(codigo);
-          if (!atributo?.id) continue;
-          const valoresNormalizados = this.normalizarValorEntrada(valor);
-          if (!valoresNormalizados.length) {
+        for (const atributo of payload.atributosParaAtualizar) {
+          if (!atributo.valores.length) {
             await tx.produtoAtributo.deleteMany({
-              where: { produtoId: produto.id, atributoId: atributo.id }
+              where: { produtoId: produto.id, atributoId: atributo.atributoId }
             });
             continue;
           }
 
           await tx.produtoAtributo.upsert({
-            where: { uk_produto_atributo: { produtoId: produto.id, atributoId: atributo.id } },
+            where: {
+              uk_produto_atributo: {
+                produtoId: produto.id,
+                atributoId: atributo.atributoId
+              }
+            },
             create: {
               produtoId: produto.id,
-              atributoId: atributo.id,
-              atributoVersaoId: estruturaInfo.versaoId,
+              atributoId: atributo.atributoId,
+              atributoVersaoId: payload.estruturaVersaoId,
               valores: {
-                create: valoresNormalizados.map((item, ordem) => ({
-                  valorJson: item as Prisma.InputJsonValue,
+                create: atributo.valores.map((item, ordem) => ({
+                  valorJson: item,
                   ordem
                 }))
               }
             },
             update: {
-              atributoVersaoId: estruturaInfo.versaoId,
+              atributoVersaoId: payload.estruturaVersaoId,
               valores: {
                 deleteMany: {},
-                create: valoresNormalizados.map((item, ordem) => ({
-                  valorJson: item as Prisma.InputJsonValue,
+                create: atributo.valores.map((item, ordem) => ({
+                  valorJson: item,
                   ordem
                 }))
               }
@@ -221,35 +304,36 @@ export class AtributoPreenchimentoMassaService {
         }
 
         await this.produtoResumoService.recalcularResumoProduto(produto.id, tx);
-      }
-    });
+      });
 
-    const catalogosDetalhes = catalogoIdsUnicos?.length
-      ? await catalogoPrisma.catalogo.findMany({
-          where: { id: { in: catalogoIdsUnicos } },
-          select: { id: true, nome: true, numero: true, cpf_cnpj: true }
-        })
-      : [];
+      atualizados += 1;
+
+      if (heartbeat && atualizados % 10 === 0) {
+        await heartbeat();
+      }
+    }
 
     const registro = await catalogoPrisma.atributoPreenchimentoMassa.create({
       data: {
-        superUserId,
-        ncmCodigo: dados.ncmCodigo,
-        modalidade: modalidadeNormalizada,
+        superUserId: payload.superUserId,
+        ncmCodigo: payload.ncmCodigo,
+        modalidade: payload.modalidade,
         catalogoIdsJson:
-          catalogoIdsUnicos && catalogoIdsUnicos.length > 0
-            ? (catalogoIdsUnicos as Prisma.InputJsonValue)
+          payload.catalogoIds.length > 0
+            ? (payload.catalogoIds as unknown as Prisma.InputJsonValue)
             : Prisma.DbNull,
-        catalogosJson: catalogosDetalhes,
-        valoresJson: valoresFiltrados as Prisma.InputJsonValue,
-        estruturaSnapshotJson:
-          (dados.estruturaSnapshot as Prisma.InputJsonValue | undefined) ??
-          ((estruturaInfo.estrutura as unknown) as Prisma.InputJsonValue),
-        produtosExcecaoJson: produtosExcecaoDetalhes,
+        catalogosJson: payload.catalogosDetalhes,
+        valoresJson: payload.valoresAtributos as unknown as Prisma.InputJsonValue,
+        estruturaSnapshotJson: payload.estruturaSnapshot
+          ? (payload.estruturaSnapshot as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+        produtosExcecaoJson: payload.produtosExcecaoDetalhes,
         produtosImpactados: produtosParaAtualizar.length,
-        criadoPor: usuario?.nome ?? null
+        criadoPor: payload.solicitanteNome ?? null
       }
     });
+
+    await heartbeat?.();
 
     return this.montarResposta(registro);
   }

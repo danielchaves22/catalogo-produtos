@@ -30,7 +30,7 @@ export async function obterPreenchimentoMassa(req: Request, res: Response) {
 
 export async function criarPreenchimentoMassa(req: Request, res: Response) {
   try {
-    const registro = await service.criar(
+    const resultado = await service.criar(
       {
         ncmCodigo: req.body.ncmCodigo,
         modalidade: req.body.modalidade,
@@ -42,7 +42,10 @@ export async function criarPreenchimentoMassa(req: Request, res: Response) {
       req.user!.superUserId,
       { nome: req.user!.name }
     );
-    res.status(201).json(registro);
+    res.status(202).json({
+      jobId: resultado.jobId,
+      mensagem: 'Processamento de atributos em massa enfileirado. Acompanhe em Processos Assíncronos.'
+    });
   } catch (error: any) {
     if (
       error.message?.includes('Catálogo inválido') ||

@@ -65,6 +65,11 @@ interface ProdutosResponse {
   pageSize: number;
 }
 
+interface PreenchimentoMassaAgendamentoResponse {
+  jobId: number;
+  mensagem?: string;
+}
+
 function formatarNCMExibicao(codigo?: string) {
   if (!codigo) return '';
   const digits = String(codigo).replace(/\D/g, '').slice(0, 8);
@@ -560,22 +565,25 @@ export default function PreenchimentoMassaNovoPage() {
         }
       }
 
-      const resposta = await api.post('/automacao/atributos-massa', {
-        ncmCodigo: ncm.replace(/\D/g, ''),
-        modalidade,
-        catalogoIds: catalogoIdsPayload.length ? catalogoIdsPayload : undefined,
-        valoresAtributos: atributosPreenchidos,
-        estruturaSnapshot: estrutura,
-        produtosExcecao: produtosExcecao.map(item => ({ id: item.id }))
-      });
-
-      const produtosAtualizados = resposta.data?.produtosImpactados ?? 0;
-      addToast(
-        produtosAtualizados > 0
-          ? `Atributos aplicados em ${produtosAtualizados} produto(s).`
-          : 'Operação concluída sem produtos atualizados.',
-        'success'
+      const resposta = await api.post<PreenchimentoMassaAgendamentoResponse>(
+        '/automacao/atributos-massa',
+        {
+          ncmCodigo: ncm.replace(/\D/g, ''),
+          modalidade,
+          catalogoIds: catalogoIdsPayload.length ? catalogoIdsPayload : undefined,
+          valoresAtributos: atributosPreenchidos,
+          estruturaSnapshot: estrutura,
+          produtosExcecao: produtosExcecao.map(item => ({ id: item.id }))
+        }
       );
+
+      const jobId = resposta.data?.jobId;
+      const mensagemSucesso =
+        resposta.data?.mensagem ||
+        (jobId
+          ? `Processo enfileirado com sucesso (Job #${jobId}). Acompanhe em Processos Assíncronos.`
+          : 'Processo de preenchimento em massa enfileirado. Acompanhe em Processos Assíncronos.');
+      addToast(mensagemSucesso, 'success');
       router.push('/automacao/atributos-massa');
     } catch (error: any) {
       console.error('Erro ao aplicar atributos em massa:', error);
