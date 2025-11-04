@@ -545,7 +545,7 @@ CREATE TABLE IF NOT EXISTS catalogo (
     FOR EACH ROW
     BEGIN
         IF NEW.numero IS NULL OR NEW.numero = 0 THEN
-            SET NEW.numero = generate_unique_random_numero();
+            SET NEW.numero = generate_unique_random_produto_numero();
         END IF;
     END$$
 
