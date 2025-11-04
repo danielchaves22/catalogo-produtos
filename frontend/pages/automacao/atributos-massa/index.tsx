@@ -10,6 +10,8 @@ import { Eye, Plus, Search } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 
+type AsyncJobStatus = 'PENDENTE' | 'PROCESSANDO' | 'CONCLUIDO' | 'FALHO' | 'CANCELADO';
+
 interface CatalogoResumo {
   id: number;
   nome: string | null;
@@ -35,6 +37,9 @@ interface RegistroPreenchimentoMassa {
   valoresAtributos: Record<string, unknown>;
   estruturaSnapshot: any;
   produtosExcecao: ProdutoResumo[];
+  jobId: number | null;
+  jobStatus: AsyncJobStatus | null;
+  jobFinalizadoEm: string | null;
 }
 
 function formatarNCM(ncm: string) {
@@ -78,6 +83,35 @@ function descreverCatalogos(lista: CatalogoResumo[]) {
       return partes.join(' • ') || `Catálogo #${item.id}`;
     })
     .join(', ');
+}
+
+function traduzirStatusProcesso(status?: AsyncJobStatus | null) {
+  switch (status) {
+    case 'CONCLUIDO':
+      return 'Concluído';
+    case 'PROCESSANDO':
+      return 'Em processamento';
+    case 'FALHO':
+      return 'Falho';
+    case 'CANCELADO':
+      return 'Cancelado';
+    default:
+      return 'Pendente';
+  }
+}
+
+function classeStatusProcesso(status?: AsyncJobStatus | null) {
+  switch (status) {
+    case 'CONCLUIDO':
+      return 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40';
+    case 'PROCESSANDO':
+      return 'bg-sky-500/10 text-sky-300 border border-sky-500/40';
+    case 'FALHO':
+    case 'CANCELADO':
+      return 'bg-rose-500/10 text-rose-300 border border-rose-500/40';
+    default:
+      return 'bg-slate-500/10 text-slate-300 border border-slate-500/40';
+  }
 }
 
 export default function PreenchimentoMassaListaPage() {
@@ -191,6 +225,7 @@ export default function PreenchimentoMassaListaPage() {
                   <th className="px-4 py-3">NCM</th>
                   <th className="px-4 py-3">Modalidade</th>
                   <th className="px-4 py-3">Catálogos</th>
+                  <th className="px-4 py-3">Status do processo</th>
                   <th className="px-4 py-3">Produtos atualizados</th>
                   <th className="px-4 py-3">Executado em</th>
                   <th className="px-4 py-3">Responsável</th>
@@ -211,6 +246,17 @@ export default function PreenchimentoMassaListaPage() {
                     <td className="px-4 py-3 font-medium">{formatarNCM(item.ncmCodigo)}</td>
                     <td className="px-4 py-3">{formatarModalidade(item.modalidade)}</td>
                     <td className="px-4 py-3">{descreverCatalogos(item.catalogos)}</td>
+                    <td className="px-4 py-3">
+                      {item.jobStatus ? (
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${classeStatusProcesso(item.jobStatus)}`}
+                        >
+                          {traduzirStatusProcesso(item.jobStatus)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{item.produtosImpactados}</td>
                     <td className="px-4 py-3">{formatarData(item.criadoEm)}</td>
                     <td className="px-4 py-3">{item.criadoPor || '-'}</td>

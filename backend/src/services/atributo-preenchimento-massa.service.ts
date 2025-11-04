@@ -1,4 +1,4 @@
-import { AsyncJobTipo, Prisma } from '@prisma/client';
+import { AsyncJobStatus, AsyncJobTipo, Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import {
   AtributoLegacyService,
@@ -17,9 +17,12 @@ export interface AtributoPreenchimentoMassaCreateInput {
   produtosExcecao?: Array<{ id: number } | { id: number; [chave: string]: any }>;
 }
 
-type RegistroMassaPayload = Prisma.AtributoPreenchimentoMassaGetPayload<{}>;
+type RegistroMassaPayload = Prisma.AtributoPreenchimentoMassaGetPayload<{
+  include: { asyncJob: { select: { id: true; status: true; finalizadoEm: true } } };
+}>;
 
 export interface AtributoPreenchimentoMassaJobPayload {
+  registroId: number;
   superUserId: number;
   solicitanteNome?: string | null;
   ncmCodigo: string;
@@ -66,6 +69,9 @@ export interface AtributoPreenchimentoMassaResumo {
   produtosImpactados: number;
   criadoEm: Date;
   criadoPor: string | null;
+  jobId: number | null;
+  jobStatus: AsyncJobStatus | null;
+  jobFinalizadoEm: Date | null;
 }
 
 export class AtributoPreenchimentoMassaService {
@@ -75,7 +81,8 @@ export class AtributoPreenchimentoMassaService {
   async listar(superUserId: number): Promise<AtributoPreenchimentoMassaResumo[]> {
     const registros = await catalogoPrisma.atributoPreenchimentoMassa.findMany({
       where: { superUserId },
-      orderBy: { criadoEm: 'desc' }
+      orderBy: { criadoEm: 'desc' },
+      include: { asyncJob: { select: { id: true, status: true, finalizadoEm: true } } }
     });
 
     return registros.map(registro => this.montarResposta(registro));
@@ -83,7 +90,8 @@ export class AtributoPreenchimentoMassaService {
 
   async buscarPorId(id: number, superUserId: number): Promise<AtributoPreenchimentoMassaResumo | null> {
     const registro = await catalogoPrisma.atributoPreenchimentoMassa.findFirst({
-      where: { id, superUserId }
+      where: { id, superUserId },
+      include: { asyncJob: { select: { id: true, status: true, finalizadoEm: true } } }
     });
 
     if (!registro) return null;
@@ -96,14 +104,34 @@ export class AtributoPreenchimentoMassaService {
     superUserId: number,
     usuario?: { nome?: string }
   ): Promise<AtributoPreenchimentoMassaJobAgendado> {
-    const payload = await this.montarJobPayload(dados, superUserId, usuario?.nome ?? null);
+    const payloadBase = await this.montarJobPayload(dados, superUserId, usuario?.nome ?? null);
 
-    const job = await createAsyncJob({
-      tipo: AsyncJobTipo.ALTERACAO_ATRIBUTOS,
-      payload: payload as unknown as Prisma.InputJsonValue
+    const resultado = await catalogoPrisma.$transaction(async tx => {
+      const registro = await tx.atributoPreenchimentoMassa.create({
+        data: this.montarDadosRegistro(payloadBase, 0),
+        include: { asyncJob: { select: { id: true, status: true, finalizadoEm: true } } }
+      });
+
+      const job = await createAsyncJob(
+        {
+          tipo: AsyncJobTipo.ALTERACAO_ATRIBUTOS,
+          payload: {
+            ...payloadBase,
+            registroId: registro.id
+          } as unknown as Prisma.InputJsonValue
+        },
+        tx
+      );
+
+      await tx.atributoPreenchimentoMassa.update({
+        where: { id: registro.id },
+        data: { asyncJobId: job.id }
+      });
+
+      return { jobId: job.id };
     });
 
-    return { jobId: job.id };
+    return resultado;
   }
 
   private async montarJobPayload(
@@ -210,6 +238,7 @@ export class AtributoPreenchimentoMassaService {
       : estruturaInfo.estrutura;
 
     return {
+      registroId: 0,
       superUserId,
       solicitanteNome: solicitanteNome ?? null,
       ncmCodigo: dados.ncmCodigo,
@@ -235,6 +264,10 @@ export class AtributoPreenchimentoMassaService {
     payload: AtributoPreenchimentoMassaJobPayload,
     heartbeat?: () => Promise<void>
   ): Promise<AtributoPreenchimentoMassaResumo> {
+    if (!payload.registroId || payload.registroId <= 0) {
+      throw new Error('Registro associado ao job de preenchimento em massa não informado.');
+    }
+
     await heartbeat?.();
 
     const produtos = await catalogoPrisma.produto.findMany({
@@ -313,24 +346,10 @@ export class AtributoPreenchimentoMassaService {
       }
     }
 
-    const registro = await catalogoPrisma.atributoPreenchimentoMassa.create({
-      data: {
-        superUserId: payload.superUserId,
-        ncmCodigo: payload.ncmCodigo,
-        modalidade: payload.modalidade,
-        catalogoIdsJson:
-          payload.catalogoIds.length > 0
-            ? (payload.catalogoIds as unknown as Prisma.InputJsonValue)
-            : Prisma.DbNull,
-        catalogosJson: payload.catalogosDetalhes,
-        valoresJson: payload.valoresAtributos as unknown as Prisma.InputJsonValue,
-        estruturaSnapshotJson: payload.estruturaSnapshot
-          ? (payload.estruturaSnapshot as unknown as Prisma.InputJsonValue)
-          : Prisma.DbNull,
-        produtosExcecaoJson: payload.produtosExcecaoDetalhes,
-        produtosImpactados: produtosParaAtualizar.length,
-        criadoPor: payload.solicitanteNome ?? null
-      }
+    const registro = await catalogoPrisma.atributoPreenchimentoMassa.update({
+      where: { id: payload.registroId },
+      data: this.montarDadosRegistro(payload, produtosParaAtualizar.length),
+      include: { asyncJob: { select: { id: true, status: true, finalizadoEm: true } } }
     });
 
     await heartbeat?.();
@@ -394,7 +413,39 @@ export class AtributoPreenchimentoMassaService {
       produtosExcecao,
       produtosImpactados: registro.produtosImpactados,
       criadoEm: registro.criadoEm,
-      criadoPor: registro.criadoPor ?? null
+      criadoPor: registro.criadoPor ?? null,
+      jobId: registro.asyncJob?.id ?? null,
+      jobStatus: registro.asyncJob?.status ?? null,
+      jobFinalizadoEm: registro.asyncJob?.finalizadoEm ?? null
+    };
+  }
+
+  private montarDadosRegistro(
+    payload: AtributoPreenchimentoMassaJobPayload,
+    produtosImpactados: number
+  ): Omit<Prisma.AtributoPreenchimentoMassaUncheckedCreateInput, 'id' | 'asyncJobId'> {
+    return {
+      superUserId: payload.superUserId,
+      ncmCodigo: payload.ncmCodigo,
+      modalidade: payload.modalidade ?? null,
+      catalogoIdsJson:
+        payload.catalogoIds.length > 0
+          ? (payload.catalogoIds as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+      catalogosJson:
+        payload.catalogosDetalhes.length > 0
+          ? (payload.catalogosDetalhes as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+      valoresJson: payload.valoresAtributos as unknown as Prisma.InputJsonValue,
+      estruturaSnapshotJson: payload.estruturaSnapshot
+        ? (payload.estruturaSnapshot as unknown as Prisma.InputJsonValue)
+        : Prisma.DbNull,
+      produtosExcecaoJson:
+        payload.produtosExcecaoDetalhes.length > 0
+          ? (payload.produtosExcecaoDetalhes as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+      produtosImpactados,
+      criadoPor: payload.solicitanteNome ?? null,
     };
   }
 

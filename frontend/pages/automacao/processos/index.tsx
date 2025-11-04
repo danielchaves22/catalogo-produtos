@@ -45,6 +45,7 @@ interface AsyncJobResumo {
   arquivo?: { nome: string | null } | null;
   ultimoLog?: AsyncJobLogResumo | null;
   importacaoProduto?: AsyncJobImportacaoResumo | null;
+  atributoPreenchimentoMassa?: { id: number } | null;
 }
 
 function formatarData(data?: string | null) {
@@ -283,6 +284,9 @@ export default function ProcessosAssincronosPage() {
                 {jobs.map(job => {
                   const catalogoDescricao = obterDescricaoCatalogo(job.importacaoProduto?.catalogo ?? null);
                   const importacaoId = job.importacaoProduto?.id ?? null;
+                  const atributoId = job.atributoPreenchimentoMassa?.id ?? null;
+                  const podeVerAtribuicao =
+                    job.tipo === 'ALTERACAO_ATRIBUTOS' && atributoId && job.status === 'CONCLUIDO';
                   const desabilitarExclusao =
                     job.status === 'PENDENTE' ||
                     job.status === 'PROCESSANDO' ||
@@ -299,6 +303,17 @@ export default function ProcessosAssincronosPage() {
                               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 bg-slate-800/60 text-slate-200 transition hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                               title="Ver detalhes da importação"
                               aria-label="Ver detalhes da importação"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          )}
+                          {podeVerAtribuicao && (
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/automacao/atributos-massa/${atributoId}`)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-emerald-500/50 bg-emerald-500/10 text-emerald-200 transition hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              title="Ver detalhes da atribuição em massa"
+                              aria-label="Ver detalhes da atribuição em massa"
                             >
                               <Eye size={16} />
                             </button>
@@ -365,6 +380,17 @@ export default function ProcessosAssincronosPage() {
                             {catalogoDescricao && (
                               <div className="text-slate-400">{catalogoDescricao}</div>
                             )}
+                          </div>
+                        ) : job.atributoPreenchimentoMassa ? (
+                          <div className="space-y-1 text-xs">
+                            <div className="font-medium text-slate-100">
+                              Atribuição em massa #{job.atributoPreenchimentoMassa.id}
+                            </div>
+                            <div className="text-slate-300">
+                              {job.status === 'CONCLUIDO'
+                                ? 'Processo concluído. Utilize o botão de ações para revisar os detalhes.'
+                                : 'Processo em andamento. O status é atualizado automaticamente.'}
+                            </div>
                           </div>
                         ) : (
                           <span className="text-xs text-slate-400">-</span>

@@ -8,6 +8,8 @@ import api from '@/lib/api';
 import { ArrowLeft, Calendar, CheckCircle2, User } from 'lucide-react';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 
+type AsyncJobStatus = 'PENDENTE' | 'PROCESSANDO' | 'CONCLUIDO' | 'FALHO' | 'CANCELADO';
+
 interface AtributoEstrutura {
   codigo: string;
   nome: string;
@@ -43,6 +45,9 @@ interface RegistroDetalhe {
   produtosImpactados: number;
   criadoEm: string;
   criadoPor: string | null;
+  jobId: number | null;
+  jobStatus: AsyncJobStatus | null;
+  jobFinalizadoEm: string | null;
 }
 
 function formatarNCM(ncm: string) {
@@ -92,6 +97,35 @@ function formatarValorAtributo(atributo: AtributoEstrutura | undefined, valor: u
     })
     .filter(Boolean)
     .join(', ');
+}
+
+function traduzirStatusProcesso(status?: AsyncJobStatus | null) {
+  switch (status) {
+    case 'CONCLUIDO':
+      return 'Concluído';
+    case 'PROCESSANDO':
+      return 'Em processamento';
+    case 'FALHO':
+      return 'Falho';
+    case 'CANCELADO':
+      return 'Cancelado';
+    default:
+      return 'Pendente';
+  }
+}
+
+function classeStatusProcesso(status?: AsyncJobStatus | null) {
+  switch (status) {
+    case 'CONCLUIDO':
+      return 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40';
+    case 'PROCESSANDO':
+      return 'bg-sky-500/10 text-sky-300 border border-sky-500/40';
+    case 'FALHO':
+    case 'CANCELADO':
+      return 'bg-rose-500/10 text-rose-300 border border-rose-500/40';
+    default:
+      return 'bg-slate-500/10 text-slate-300 border border-slate-500/40';
+  }
 }
 
 export default function PreenchimentoMassaDetalhePage() {
@@ -196,11 +230,25 @@ export default function PreenchimentoMassaDetalhePage() {
                     : 'Todos os catálogos vinculados ao superusuário'}
                 </p>
                 <p>
+                  <span className="text-gray-400">Status do processo:</span>{' '}
+                  <span
+                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${classeStatusProcesso(registro.jobStatus)}`}
+                  >
+                    {traduzirStatusProcesso(registro.jobStatus)}
+                  </span>
+                </p>
+                <p>
                   <span className="text-gray-400">Produtos atualizados:</span> {registro.produtosImpactados}
                 </p>
                 <p className="flex items-center gap-2">
-                  <Calendar size={16} className="text-gray-400" /> {formatarData(registro.criadoEm)}
+                  <Calendar size={16} className="text-gray-400" /> Solicitado em: {formatarData(registro.criadoEm)}
                 </p>
+                {registro.jobFinalizadoEm && (
+                  <p className="flex items-center gap-2">
+                    <Calendar size={16} className="text-gray-400" /> Concluído em:{' '}
+                    {formatarData(registro.jobFinalizadoEm)}
+                  </p>
+                )}
                 <p className="flex items-center gap-2">
                   <User size={16} className="text-gray-400" /> {registro.criadoPor || 'Usuário não informado'}
                 </p>

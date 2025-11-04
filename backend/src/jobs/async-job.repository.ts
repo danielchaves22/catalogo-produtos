@@ -13,6 +13,7 @@ import { logger } from '../utils/logger';
 export type AsyncJobWithRelations = AsyncJob & {
   arquivo?: AsyncJobFile | null;
   importacaoProduto?: { id: number } | null;
+  atributoPreenchimentoMassa?: { id: number } | null;
 };
 
 export interface AsyncJobLogResumo {
@@ -47,6 +48,7 @@ export interface AsyncJobResumo {
       numero: number | null;
     } | null;
   } | null;
+  atributoPreenchimentoMassa?: { id: number } | null;
 }
 
 export interface ListAsyncJobsParams {
@@ -104,6 +106,7 @@ export async function createAsyncJob(
     include: {
       arquivo: true,
       importacaoProduto: { select: { id: true } },
+      atributoPreenchimentoMassa: { select: { id: true } },
     },
   });
 
@@ -151,6 +154,7 @@ export async function claimNextPendingJob(): Promise<AsyncJobWithRelations | nul
       include: {
         arquivo: true,
         importacaoProduto: { select: { id: true } },
+        atributoPreenchimentoMassa: { select: { id: true } },
       },
     });
 
@@ -269,6 +273,7 @@ export async function listAsyncJobs(
           },
         },
       },
+      atributoPreenchimentoMassa: { select: { id: true } },
       logs: {
         orderBy: { criadoEm: 'desc' },
         take: 1,
@@ -317,6 +322,9 @@ export async function listAsyncJobs(
               }
             : null,
         }
+      : null,
+    atributoPreenchimentoMassa: job.atributoPreenchimentoMassa
+      ? { id: job.atributoPreenchimentoMassa.id }
       : null,
   }));
 }

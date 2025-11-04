@@ -159,6 +159,7 @@ model AsyncJob {
   importacaoProduto ImportacaoProduto?
   arquivo           AsyncJobFile?
   logs              AsyncJobLog[]
+  atributoPreenchimentoMassa AtributoPreenchimentoMassa?
 
   @@index([status], map: "idx_async_job_status")
   @@index([tipo], map: "idx_async_job_tipo")
@@ -557,8 +558,10 @@ model AtributoPreenchimentoMassa {
   produtosImpactados    Int      @default(0) @map("produtos_impactados")
   criadoEm              DateTime @default(now()) @map("criado_em")
   criadoPor             String?  @map("criado_por")
+  asyncJobId            Int?     @unique @map("async_job_id")
 
   superUser User @relation(fields: [superUserId], references: [id])
+  asyncJob   AsyncJob? @relation(fields: [asyncJobId], references: [id])
 
   @@index([superUserId], map: "idx_attr_massa_super_user")
   @@map("atributo_preenchimento_massa")
