@@ -651,39 +651,71 @@ export default function PreenchimentoMassaNovoPage() {
             <h2 className="mb-4 text-lg font-semibold text-white">Parâmetros da atribuição</h2>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-gray-300">NCM</label>
-                <MaskedInput
-                  mask="ncm"
-                  value={ncm}
-                  onChange={(valorLimpo) => {
-                    setNcm(valorLimpo);
-                  }}
-                  placeholder="Digite a NCM"
-                />
-                {mostrarSugestoesNcm && (
-                  <div className="mt-2 rounded-lg border border-gray-700 bg-gray-900">
-                    {carregandoSugestoesNcm && (
-                      <p className="px-3 py-2 text-sm text-gray-400">Carregando sugestões...</p>
-                    )}
-                    {!carregandoSugestoesNcm && ncmSugestoes.length === 0 && (
-                      <p className="px-3 py-2 text-sm text-gray-500">Nenhuma sugestão encontrada.</p>
-                    )}
-                    {!carregandoSugestoesNcm &&
-                      ncmSugestoes.map(item => (
-                        <button
-                          key={item.codigo}
-                          className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
-                          onClick={() => {
-                            setNcm(item.codigo);
-                            setMostrarSugestoesNcm(false);
-                          }}
-                        >
-                          <span>{formatarNCMExibicao(item.codigo)}</span>
-                          <span className="text-gray-400">{item.descricao || '-'}</span>
-                        </button>
-                      ))}
+                <div className="grid gap-4 md:grid-cols-5">
+                  <div className="md:col-span-1">
+                    <div className="relative">
+                      <MaskedInput
+                        label="NCM"
+                        mask="ncm"
+                        value={ncm}
+                        onChange={valorLimpo => {
+                          setNcm(valorLimpo);
+                        }}
+                        placeholder="Digite a NCM"
+                        className="mb-0"
+                        autoComplete="off"
+                        onFocus={() => {
+                          if (ncm.length >= 4 && ncm.length < 8 && ncmSugestoes.length > 0) {
+                            setMostrarSugestoesNcm(true);
+                          }
+                        }}
+                        onBlur={() => {
+                          setTimeout(() => setMostrarSugestoesNcm(false), 100);
+                        }}
+                      />
+                      {(carregandoSugestoesNcm || mostrarSugestoesNcm) && (
+                        <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-700 bg-gray-900">
+                          {carregandoSugestoesNcm && (
+                            <p className="px-3 py-2 text-sm text-gray-400">Carregando sugestões...</p>
+                          )}
+                          {!carregandoSugestoesNcm && ncmSugestoes.length === 0 && (
+                            <p className="px-3 py-2 text-sm text-gray-500">Nenhuma sugestão encontrada.</p>
+                          )}
+                          {!carregandoSugestoesNcm &&
+                            ncmSugestoes.map(item => (
+                              <button
+                                key={item.codigo}
+                                className="flex w-full flex-col items-start px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
+                                type="button"
+                                onMouseDown={event => event.preventDefault()}
+                                onClick={() => {
+                                  setNcm(item.codigo);
+                                  setMostrarSugestoesNcm(false);
+                                }}
+                              >
+                                <span className="font-medium">{formatarNCMExibicao(item.codigo)}</span>
+                                <span className="text-gray-400">{item.descricao || '-'}</span>
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
+
+                  <Input
+                    label="Descrição NCM"
+                    value={ncmDescricao || ''}
+                    disabled
+                    className="md:col-span-3"
+                  />
+
+                  <Input
+                    label="Unidade de medida estatística"
+                    value={unidadeMedida || ''}
+                    disabled
+                    className="md:col-span-1"
+                  />
+                </div>
               </div>
 
               <Select
@@ -711,13 +743,6 @@ export default function PreenchimentoMassaNovoPage() {
                 onChange={valores => setCatalogosSelecionados(valores)}
               />
             </div>
-
-            {ncmDescricao && (
-              <div className="mt-4 rounded border border-gray-700 bg-gray-900 p-3 text-sm text-gray-300">
-                <p className="font-medium text-white">{ncmDescricao}</p>
-                {unidadeMedida && <p className="text-gray-400">Unidade de medida: {unidadeMedida}</p>}
-              </div>
-            )}
           </Card>
 
           <Card>
