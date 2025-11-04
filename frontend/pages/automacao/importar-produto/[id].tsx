@@ -254,6 +254,58 @@ export default function ImportacaoDetalhePage() {
     [detalhe]
   );
 
+  const totaisResumo = useMemo(() => {
+    if (!detalhe) {
+      return {
+        registrosAnalisados: 0,
+        produtosCriados: 0,
+        comAtencao: 0,
+        comErro: 0
+      };
+    }
+
+    if (detalhe.situacao !== 'EM_ANDAMENTO') {
+      return {
+        registrosAnalisados: detalhe.totalRegistros,
+        produtosCriados: detalhe.totalCriados,
+        comAtencao: detalhe.totalComAtencao,
+        comErro: detalhe.totalComErro
+      };
+    }
+
+    const itens = detalhe.itens ?? [];
+
+    return itens.reduce(
+      (
+        acumulado,
+        item
+      ) => {
+        const possuiErro = item.resultado === 'ERRO' || item.possuiErroImpeditivo;
+        const possuiAtencao = item.resultado === 'ATENCAO' || item.possuiAlerta;
+
+        if (!possuiErro) {
+          acumulado.produtosCriados += 1;
+        } else {
+          acumulado.comErro += 1;
+        }
+
+        if (possuiAtencao) {
+          acumulado.comAtencao += 1;
+        }
+
+        acumulado.registrosAnalisados += 1;
+
+        return acumulado;
+      },
+      {
+        registrosAnalisados: 0,
+        produtosCriados: 0,
+        comAtencao: 0,
+        comErro: 0
+      }
+    );
+  }, [detalhe]);
+
   const abrirConfirmacaoReversao = useCallback(() => {
     setMostrarConfirmacaoReversao(true);
   }, []);
@@ -391,19 +443,19 @@ export default function ImportacaoDetalhePage() {
           <div className="flex flex-wrap gap-3 text-sm">
             <div className="min-w-[150px] rounded-lg border border-slate-700 bg-slate-800/40 p-3 text-gray-300">
               <p className="text-xs uppercase tracking-wide text-gray-400">Registros analisados</p>
-              <p className="mt-1 text-xl font-semibold text-white">{detalhe.totalRegistros}</p>
+              <p className="mt-1 text-xl font-semibold text-white">{totaisResumo.registrosAnalisados}</p>
             </div>
             <div className="min-w-[150px] rounded-lg border border-emerald-600/40 bg-emerald-600/10 p-3 text-emerald-100">
               <p className="text-xs uppercase tracking-wide text-emerald-200">Produtos criados</p>
-              <p className="mt-1 text-xl font-semibold text-emerald-50">{detalhe.totalCriados}</p>
+              <p className="mt-1 text-xl font-semibold text-emerald-50">{totaisResumo.produtosCriados}</p>
             </div>
             <div className="min-w-[150px] rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-100">
               <p className="text-xs uppercase tracking-wide text-amber-200">Com atenção</p>
-              <p className="mt-1 text-xl font-semibold text-amber-50">{detalhe.totalComAtencao}</p>
+              <p className="mt-1 text-xl font-semibold text-amber-50">{totaisResumo.comAtencao}</p>
             </div>
             <div className="min-w-[150px] rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-red-100">
               <p className="text-xs uppercase tracking-wide text-red-200">Com erro</p>
-              <p className="mt-1 text-xl font-semibold text-red-50">{detalhe.totalComErro}</p>
+              <p className="mt-1 text-xl font-semibold text-red-50">{totaisResumo.comErro}</p>
             </div>
           </div>
         </div>
