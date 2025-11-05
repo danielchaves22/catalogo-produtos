@@ -230,7 +230,6 @@ export default function PreenchimentoMassaDetalhePage() {
                         .map(item => {
                           const partes: string[] = [];
                           if (item.nome) partes.push(item.nome);
-                          if (item.numero) partes.push(`Catálogo ${item.numero}`);
                           if (item.cpf_cnpj) partes.push(formatCPFOrCNPJ(item.cpf_cnpj));
                           return partes.join(' • ') || `Catálogo #${item.id}`;
                         })
