@@ -555,6 +555,7 @@ model AtributoPreenchimentoMassa {
   valoresJson           Json     @map("valores_json")
   estruturaSnapshotJson Json?    @map("estrutura_snapshot_json")
   produtosExcecaoJson   Json?    @map("produtos_excecao_json")
+  produtosImpactadosDetalhesJson Json? @map("produtos_impactados_detalhes_json")
   produtosImpactados    Int      @default(0) @map("produtos_impactados")
   criadoEm              DateTime @default(now()) @map("criado_em")
   criadoPor             String?  @map("criado_por")
