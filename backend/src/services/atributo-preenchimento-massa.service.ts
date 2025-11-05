@@ -119,7 +119,7 @@ export class AtributoPreenchimentoMassaService {
 
     const resultado = await catalogoPrisma.$transaction(async tx => {
       const registro = await tx.atributoPreenchimentoMassa.create({
-        data: this.montarDadosRegistro(payloadBase, 0),
+        data: this.montarDadosRegistro(payloadBase, 0, []),
         include: { asyncJob: { select: { id: true, status: true, finalizadoEm: true } } }
       });
 
@@ -376,9 +376,38 @@ export class AtributoPreenchimentoMassaService {
       }
     }
 
+    const produtosImpactadosDetalhes = produtosParaAtualizar.length
+      ? await catalogoPrisma.produto.findMany({
+          where: { id: { in: produtosParaAtualizar.map(produto => produto.id) } },
+          select: {
+            id: true,
+            denominacao: true,
+            catalogo: { select: { id: true, nome: true, numero: true, cpf_cnpj: true } },
+            codigosInternos: { select: { codigo: true }, orderBy: { id: 'asc' } }
+          },
+          orderBy: { id: 'asc' }
+        })
+      : [];
+
     const registro = await catalogoPrisma.atributoPreenchimentoMassa.update({
       where: { id: payload.registroId },
-      data: this.montarDadosRegistro(payload, produtosParaAtualizar.length),
+      data: this.montarDadosRegistro(
+        payload,
+        produtosParaAtualizar.length,
+        produtosImpactadosDetalhes.map(produto => ({
+          id: produto.id,
+          denominacao: produto.denominacao,
+          catalogo: produto.catalogo
+            ? {
+                id: produto.catalogo.id,
+                nome: produto.catalogo.nome ?? null,
+                numero: produto.catalogo.numero ?? null,
+                cpf_cnpj: produto.catalogo.cpf_cnpj ?? null
+              }
+            : null,
+          codigos: produto.codigosInternos.map(item => item.codigo)
+        }))
+      ),
       include: { asyncJob: { select: { id: true, status: true, finalizadoEm: true } } }
     });
 
@@ -431,6 +460,27 @@ export class AtributoPreenchimentoMassaService {
       ? (registro.estruturaSnapshotJson as unknown as EstruturaComVersao['estrutura'])
       : null;
 
+    const produtosImpactadosDetalhes = Array.isArray(registro.produtosImpactadosDetalhesJson)
+      ? (registro.produtosImpactadosDetalhesJson as Array<{
+          id: number;
+          denominacao?: string;
+          codigos?: string[];
+          catalogo?: { id: number; nome?: string | null; numero?: number | null; cpf_cnpj?: string | null } | null;
+        }>).map(item => ({
+          id: item.id,
+          denominacao: item.denominacao ?? '',
+          codigos: Array.isArray(item.codigos) ? item.codigos.filter(Boolean) : [],
+          catalogo: item.catalogo
+            ? {
+                id: item.catalogo.id,
+                nome: item.catalogo.nome ?? null,
+                numero: item.catalogo.numero ?? null,
+                cpf_cnpj: item.catalogo.cpf_cnpj ?? null
+              }
+            : null
+        }))
+      : [];
+
     return {
       id: registro.id,
       superUserId: registro.superUserId,
@@ -442,7 +492,7 @@ export class AtributoPreenchimentoMassaService {
       estruturaSnapshot,
       produtosExcecao,
       produtosImpactados: registro.produtosImpactados,
-      produtosImpactadosDetalhes: [],
+      produtosImpactadosDetalhes,
       criadoEm: registro.criadoEm,
       criadoPor: registro.criadoPor ?? null,
       jobId: registro.asyncJob?.id ?? null,
@@ -454,50 +504,17 @@ export class AtributoPreenchimentoMassaService {
   private async carregarProdutosImpactadosDetalhes(
     registro: AtributoPreenchimentoMassaResumo
   ): Promise<ProdutoImpactadoResumo[]> {
-    const catalogoFiltro = registro.catalogoIds.length
-      ? { id: { in: registro.catalogoIds } }
-      : {};
+    if (registro.produtosImpactadosDetalhes.length || registro.produtosImpactados === 0) {
+      return registro.produtosImpactadosDetalhes;
+    }
 
-    const excecoesIds = new Set(registro.produtosExcecao.map(produto => produto.id));
-
-    const produtos = await catalogoPrisma.produto.findMany({
-      where: {
-        ncmCodigo: registro.ncmCodigo,
-        ...(registro.modalidade ? { modalidade: registro.modalidade } : {}),
-        catalogo: {
-          superUserId: registro.superUserId,
-          ...catalogoFiltro
-        }
-      },
-      select: {
-        id: true,
-        denominacao: true,
-        catalogo: { select: { id: true, nome: true, numero: true, cpf_cnpj: true } },
-        codigosInternos: { select: { codigo: true }, orderBy: { id: 'asc' } }
-      },
-      orderBy: { id: 'asc' }
-    });
-
-    return produtos
-      .filter(produto => !excecoesIds.has(produto.id))
-      .map(produto => ({
-        id: produto.id,
-        denominacao: produto.denominacao,
-        catalogo: produto.catalogo
-          ? {
-              id: produto.catalogo.id,
-              nome: produto.catalogo.nome ?? null,
-              numero: produto.catalogo.numero ?? null,
-              cpf_cnpj: produto.catalogo.cpf_cnpj ?? null
-            }
-          : null,
-        codigos: produto.codigosInternos.map(item => item.codigo)
-      }));
+    return [];
   }
 
   private montarDadosRegistro(
     payload: AtributoPreenchimentoMassaJobPayload,
-    produtosImpactados: number
+    produtosImpactados: number,
+    produtosImpactadosDetalhes: ProdutoImpactadoResumo[]
   ): Omit<Prisma.AtributoPreenchimentoMassaUncheckedCreateInput, 'id' | 'asyncJobId'> {
     return {
       superUserId: payload.superUserId,
@@ -518,6 +535,10 @@ export class AtributoPreenchimentoMassaService {
       produtosExcecaoJson:
         payload.produtosExcecaoDetalhes.length > 0
           ? (payload.produtosExcecaoDetalhes as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+      produtosImpactadosDetalhesJson:
+        produtosImpactadosDetalhes.length > 0
+          ? (produtosImpactadosDetalhes as unknown as Prisma.InputJsonValue)
           : Prisma.DbNull,
       produtosImpactados,
       criadoPor: payload.solicitanteNome ?? null,
