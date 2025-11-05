@@ -1,5 +1,5 @@
 ALTER TABLE atributo_preenchimento_massa
-  ADD COLUMN async_job_id INT NULL UNIQUE;
+  ADD COLUMN async_job_id INT UNSIGNED NULL UNIQUE;
 
 ALTER TABLE atributo_preenchimento_massa
   ADD CONSTRAINT fk_atributo_preenchimento_massa_async_job
