@@ -31,6 +31,7 @@ interface AutocompleteTagInputProps<S, T = S> {
   emptyMessage?: string;
   className?: string;
   actionButton?: AutocompleteTagInputAction;
+  onPaste?: (event: React.ClipboardEvent<HTMLInputElement>) => void;
 }
 
 export function AutocompleteTagInput<S, T = S>({
@@ -55,6 +56,7 @@ export function AutocompleteTagInput<S, T = S>({
   emptyMessage = 'Nenhum resultado encontrado.',
   className = '',
   actionButton,
+  onPaste,
 }: AutocompleteTagInputProps<S, T>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -215,6 +217,7 @@ export function AutocompleteTagInput<S, T = S>({
             onFocus={handleInputFocus}
             onBlur={handleInputBlur}
             onKeyDown={handleKeyDown}
+            onPaste={onPaste}
             disabled={disabled}
             placeholder={selectedItems.length === 0 ? placeholder : ''}
             className="flex-1 min-w-[140px] bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none"
