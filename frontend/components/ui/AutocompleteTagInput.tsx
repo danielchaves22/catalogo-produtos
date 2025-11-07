@@ -1,29 +1,39 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Search, X } from 'lucide-react';
 import { Hint } from './Hint';
+import { Button } from './Button';
 
-interface AutocompleteTagInputProps<T> {
+interface AutocompleteTagInputAction {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+interface AutocompleteTagInputProps<S, T = S> {
   label?: string;
   hint?: string;
   required?: boolean;
   placeholder?: string;
   searchValue: string;
   onSearchChange: (value: string) => void;
-  suggestions: T[];
-  onSelect: (item: T) => void;
+  suggestions: S[];
+  onSelect: (item: S) => void;
   selectedItems: T[];
   onRemove: (item: T) => void;
   getItemKey: (item: T) => string | number;
+  getSuggestionKey?: (item: S) => string | number;
   renderTagLabel: (item: T) => React.ReactNode;
-  renderSuggestion?: (item: T, isActive: boolean) => React.ReactNode;
+  renderSuggestion?: (item: S, isActive: boolean) => React.ReactNode;
+  renderTag?: (item: T, onRemove: (item: T) => void) => React.ReactNode;
   isLoading?: boolean;
   disabled?: boolean;
   icon?: React.ReactNode;
   emptyMessage?: string;
   className?: string;
+  actionButton?: AutocompleteTagInputAction;
 }
 
-export function AutocompleteTagInput<T>({
+export function AutocompleteTagInput<S, T = S>({
   label,
   hint,
   required,
@@ -35,14 +45,17 @@ export function AutocompleteTagInput<T>({
   selectedItems,
   onRemove,
   getItemKey,
+  getSuggestionKey,
   renderTagLabel,
   renderSuggestion,
+  renderTag,
   isLoading = false,
   disabled = false,
   icon,
   emptyMessage = 'Nenhum resultado encontrado.',
   className = '',
-}: AutocompleteTagInputProps<T>) {
+  actionButton,
+}: AutocompleteTagInputProps<S, T>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -142,6 +155,13 @@ export function AutocompleteTagInput<T>({
     () =>
       selectedItems.map(item => {
         const key = getItemKey(item);
+        if (renderTag) {
+          return (
+            <React.Fragment key={key}>
+              {renderTag(item, onRemove)}
+            </React.Fragment>
+          );
+        }
         return (
           <span
             key={key}
@@ -159,7 +179,7 @@ export function AutocompleteTagInput<T>({
           </span>
         );
       }),
-    [selectedItems, getItemKey, renderTagLabel, onRemove]
+    [selectedItems, getItemKey, renderTagLabel, onRemove, renderTag]
   );
 
   return (
@@ -174,33 +194,45 @@ export function AutocompleteTagInput<T>({
           {hint && <Hint text={hint} />}
         </label>
       )}
-      <div
-        className={`flex min-h-[44px] w-full cursor-text flex-wrap items-center gap-2 rounded-md border bg-[#1e2126] px-2 py-2 text-sm transition-colors ${
-          disabled
-            ? 'border-gray-800 opacity-60'
-            : hasFocus
-              ? 'border-blue-500 ring-1 ring-blue-500'
-              : 'border-gray-700 hover:border-gray-600'
-        }`}
-        onClick={handleContainerClick}
-        aria-disabled={disabled}
-      >
-        {!label && icon && <span className="text-gray-400">{icon}</span>}
-        {chips}
-        <input
-          ref={inputRef}
-          value={searchValue}
-          onChange={event => onSearchChange(event.target.value)}
-          onFocus={handleInputFocus}
-          onBlur={handleInputBlur}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          placeholder={selectedItems.length === 0 ? placeholder : ''}
-          className="flex-1 min-w-[140px] bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none"
-          aria-expanded={isOpen}
-          aria-autocomplete="list"
-          aria-haspopup="listbox"
-        />
+      <div className="flex items-stretch gap-2">
+        <div
+          className={`flex min-h-[44px] w-full cursor-text flex-wrap items-center gap-2 rounded-md border bg-[#1e2126] px-2 py-2 text-sm transition-colors ${
+            disabled
+              ? 'border-gray-800 opacity-60'
+              : hasFocus
+                ? 'border-blue-500 ring-1 ring-blue-500'
+                : 'border-gray-700 hover:border-gray-600'
+          }`}
+          onClick={handleContainerClick}
+          aria-disabled={disabled}
+        >
+          {!label && icon && <span className="text-gray-400">{icon}</span>}
+          {chips}
+          <input
+            ref={inputRef}
+            value={searchValue}
+            onChange={event => onSearchChange(event.target.value)}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            onKeyDown={handleKeyDown}
+            disabled={disabled}
+            placeholder={selectedItems.length === 0 ? placeholder : ''}
+            className="flex-1 min-w-[140px] bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none"
+            aria-expanded={isOpen}
+            aria-autocomplete="list"
+            aria-haspopup="listbox"
+          />
+        </div>
+        {actionButton && (
+          <Button
+            type="button"
+            onClick={actionButton.onClick}
+            disabled={disabled || actionButton.disabled}
+            className="shrink-0"
+          >
+            {actionButton.label}
+          </Button>
+        )}
       </div>
       {isOpen && (
         <div className="relative">
@@ -212,14 +244,18 @@ export function AutocompleteTagInput<T>({
             )}
             {!isLoading && hasSuggestions && (
               <div role="listbox" className="max-h-60 overflow-y-auto">
-                {suggestions.map((item, index) => (
-                  <button
-                    key={getItemKey(item)}
-                    type="button"
-                    onMouseDown={event => event.preventDefault()}
-                    onClick={() => {
-                      onSelect(item);
-                      requestAnimationFrame(() => inputRef.current?.focus());
+                {suggestions.map((item, index) => {
+                  const key = getSuggestionKey
+                    ? getSuggestionKey(item)
+                    : (getItemKey(item as unknown as T) as string | number);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onMouseDown={event => event.preventDefault()}
+                      onClick={() => {
+                        onSelect(item);
+                        requestAnimationFrame(() => inputRef.current?.focus());
                     }}
                     onMouseEnter={() => setHighlightedIndex(index)}
                     className={`flex w-full items-start gap-2 px-3 py-2 text-left text-sm transition-colors ${
@@ -227,10 +263,13 @@ export function AutocompleteTagInput<T>({
                     }`}
                     role="option"
                     aria-selected={index === highlightedIndex}
-                  >
-                    {renderSuggestion ? renderSuggestion(item, index === highlightedIndex) : renderTagLabel(item)}
-                  </button>
-                ))}
+                    >
+                      {renderSuggestion
+                        ? renderSuggestion(item, index === highlightedIndex)
+                        : renderTagLabel(item as unknown as T)}
+                    </button>
+                  );
+                })}
               </div>
             )}
             {showEmptyState && (

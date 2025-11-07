@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import ReactDOM from 'react-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -72,12 +72,35 @@ interface PreenchimentoMassaAgendamentoResponse {
   mensagem?: string;
 }
 
+type ProdutoEntrada =
+  | {
+      id: string;
+      tipo: 'valido';
+      produto: ProdutoBuscaItem;
+      origem: 'busca' | 'codigo';
+    }
+  | {
+      id: string;
+      tipo: 'invalido';
+      valor: string;
+      mensagem: string;
+      motivo: 'nao-encontrado' | 'duplicado' | 'erro';
+    };
+
 function formatarNCMExibicao(codigo?: string) {
   if (!codigo) return '';
   const digits = String(codigo).replace(/\D/g, '').slice(0, 8);
   if (digits.length <= 4) return digits;
   if (digits.length <= 6) return digits.replace(/(\d{4})(\d{1,2})/, '$1.$2');
   return digits.replace(/(\d{4})(\d{2})(\d{1,2})/, '$1.$2.$3');
+}
+
+function gerarIdTemporario() {
+  return `pendente-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizarCodigoProduto(codigo?: string | null) {
+  return (codigo ?? '').trim().toLowerCase();
 }
 
 function ordenarAtributos(estrutura: AtributoEstrutura[]): AtributoEstrutura[] {
@@ -187,6 +210,9 @@ export default function PreenchimentoMassaNovoPage() {
   const [carregandoProdutos, setCarregandoProdutos] = useState(false);
   const debouncedProdutoBusca = useDebounce(produtoBusca, 600);
   const [produtosExcecao, setProdutosExcecao] = useState<ProdutoBuscaItem[]>([]);
+  const [produtosPendentes, setProdutosPendentes] = useState<ProdutoEntrada[]>([]);
+  const [modoBuscaProduto, setModoBuscaProduto] = useState<'nome' | 'codigo'>('nome');
+  const [verificandoCodigo, setVerificandoCodigo] = useState(false);
 
   const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
 
@@ -202,12 +228,24 @@ export default function PreenchimentoMassaNovoPage() {
     return map;
   }, [estrutura]);
 
+  const pendentesValidos = useMemo(
+    () => produtosPendentes.filter(item => item.tipo === 'valido'),
+    [produtosPendentes]
+  );
+
+  const pendentesInvalidos = useMemo(
+    () => produtosPendentes.filter(item => item.tipo === 'invalido'),
+    [produtosPendentes]
+  );
+
   const produtoSugestoesDisponiveis = useMemo(
     () =>
       produtoSugestoes.filter(
-        item => !produtosExcecao.some(produto => produto.id === item.id)
+        item =>
+          !produtosExcecao.some(produto => produto.id === item.id) &&
+          !pendentesValidos.some(pendente => pendente.produto.id === item.id)
       ),
-    [produtoSugestoes, produtosExcecao]
+    [produtoSugestoes, produtosExcecao, pendentesValidos]
   );
 
   const catalogoOptions = useMemo(
@@ -338,7 +376,8 @@ export default function PreenchimentoMassaNovoPage() {
 
   useEffect(() => {
     let ativo = true;
-    if (!debouncedProdutoBusca.trim()) {
+    const termoBusca = debouncedProdutoBusca.trim();
+    if (!termoBusca) {
       setProdutoSugestoes([]);
       return () => {
         ativo = false;
@@ -349,16 +388,26 @@ export default function PreenchimentoMassaNovoPage() {
       try {
         setCarregandoProdutos(true);
         const params: Record<string, string | number> = {
-          busca: debouncedProdutoBusca,
+          busca: termoBusca,
           page: 1,
-          pageSize: 5
+          pageSize: 10
         };
         if (ncm.replace(/\D/g, '').length === 8) {
           params.ncm = ncm.replace(/\D/g, '');
         }
         const resposta = await api.get<ProdutosResponse>('/produtos', { params });
         if (!ativo) return;
-        setProdutoSugestoes(resposta.data.items || []);
+        const itens = resposta.data.items || [];
+        const termoNormalizado = termoBusca.toLowerCase();
+        const filtrados =
+          modoBuscaProduto === 'nome'
+            ? itens.filter(item => item.denominacao.toLowerCase().includes(termoNormalizado))
+            : itens.filter(item =>
+                normalizarCodigoProduto(item.codigo).includes(
+                  termoNormalizado.replace(/\s+/g, '')
+                )
+              );
+        setProdutoSugestoes(filtrados);
       } catch (error) {
         if (!ativo) return;
         console.error('Erro ao buscar produtos para exceção:', error);
@@ -374,7 +423,7 @@ export default function PreenchimentoMassaNovoPage() {
     return () => {
       ativo = false;
     };
-  }, [debouncedProdutoBusca, ncm]);
+  }, [debouncedProdutoBusca, ncm, modoBuscaProduto]);
 
   async function carregarEstrutura(ncmCodigo: string, modalidadeSelecionada: string) {
     if (ncmCodigo.length < 8) return;
@@ -419,6 +468,11 @@ export default function PreenchimentoMassaNovoPage() {
       setValores({});
     }
   }, [ncm, modalidade]);
+
+  useEffect(() => {
+    setProdutoBusca('');
+    setProdutoSugestoes([]);
+  }, [modoBuscaProduto]);
 
   function handleValor(codigo: string, valor: string | string[]) {
     setValores(prev => ({ ...prev, [codigo]: valor }));
@@ -568,16 +622,224 @@ export default function PreenchimentoMassaNovoPage() {
     }
   }
 
-  function adicionarProdutoExcecao(produto: ProdutoBuscaItem) {
-    if (produtosExcecao.some(item => item.id === produto.id)) {
-      setProdutoBusca('');
+  const adicionarProdutoInvalido = useCallback(
+    (valor: string, motivo: 'nao-encontrado' | 'duplicado' | 'erro') => {
+      const mensagem =
+        motivo === 'nao-encontrado'
+          ? 'Código não encontrado. Selecione o produto na lista para confirmar.'
+          : motivo === 'duplicado'
+            ? 'Mais de um produto possui este código. Escolha manualmente qual deseja incluir.'
+            : 'Não foi possível validar o código informado. Tente novamente.';
+      setProdutosPendentes(prev => [
+        ...prev,
+        {
+          id: gerarIdTemporario(),
+          tipo: 'invalido',
+          valor,
+          mensagem,
+          motivo
+        }
+      ]);
+    },
+    []
+  );
+
+  const adicionarProdutoPendente = useCallback(
+    (produto: ProdutoBuscaItem, origem: 'busca' | 'codigo') => {
+      if (produtosExcecao.some(item => item.id === produto.id)) {
+        addToast('Produto já incluído como exceção.', 'error');
+        setProdutoBusca('');
+        return;
+      }
+      if (
+        produtosPendentes.some(
+          entrada => entrada.tipo === 'valido' && entrada.produto.id === produto.id
+        )
+      ) {
+        addToast('Produto já está na lista para inclusão.', 'error');
+        setProdutoBusca('');
+        return;
+      }
+      setProdutosPendentes(prev => [
+        ...prev,
+        {
+          id: gerarIdTemporario(),
+          tipo: 'valido',
+          produto,
+          origem
+        }
+      ]);
       setProdutoSugestoes(prev => prev.filter(item => item.id !== produto.id));
+      setProdutoBusca('');
+    },
+    [addToast, produtosExcecao, produtosPendentes]
+  );
+
+  const removerProdutoPendente = useCallback((entrada: ProdutoEntrada) => {
+    setProdutosPendentes(prev => prev.filter(item => item.id !== entrada.id));
+  }, []);
+
+  const incluirProdutosPendentes = useCallback(() => {
+    const validos = produtosPendentes.filter(item => item.tipo === 'valido');
+    if (validos.length === 0) {
+      addToast('Nenhum produto válido para incluir.', 'error');
       return;
     }
-    setProdutosExcecao(prev => [...prev, produto]);
-    setProdutoBusca('');
-    setProdutoSugestoes(prev => prev.filter(item => item.id !== produto.id));
-  }
+
+    const existentes = new Set(produtosExcecao.map(item => item.id));
+    const novosProdutos: ProdutoBuscaItem[] = [];
+    let duplicados = 0;
+
+    for (const entrada of validos) {
+      if (existentes.has(entrada.produto.id)) {
+        duplicados += 1;
+        continue;
+      }
+      existentes.add(entrada.produto.id);
+      novosProdutos.push(entrada.produto);
+    }
+
+    if (novosProdutos.length > 0) {
+      setProdutosExcecao(prev => [...prev, ...novosProdutos]);
+      addToast(
+        `${novosProdutos.length} produto${novosProdutos.length > 1 ? 's' : ''} incluído${
+          novosProdutos.length > 1 ? 's' : ''
+        } como exceção.`,
+        'success'
+      );
+    }
+
+    if (duplicados > 0) {
+      addToast('Alguns produtos já estavam na lista de exceção e foram ignorados.', 'error');
+    }
+
+    const restantes = produtosPendentes.filter(item => item.tipo !== 'valido');
+    setProdutosPendentes(restantes);
+
+    if (restantes.some(item => item.tipo === 'invalido')) {
+      addToast('Revise os códigos destacados em vermelho antes de continuar.', 'error');
+    }
+
+    if (novosProdutos.length === 0 && duplicados === 0) {
+      addToast('Nenhum produto válido foi encontrado para inclusão.', 'error');
+    }
+  }, [addToast, produtosPendentes, produtosExcecao]);
+
+  const processarCodigoDigitado = useCallback(
+    async (codigoDigitado: string) => {
+      const codigoNormalizado = normalizarCodigoProduto(codigoDigitado);
+      if (!codigoNormalizado) {
+        setProdutoBusca('');
+        return;
+      }
+
+      if (
+        produtosExcecao.some(item => normalizarCodigoProduto(item.codigo) === codigoNormalizado) ||
+        produtosPendentes.some(
+          entrada =>
+            entrada.tipo === 'valido' &&
+            normalizarCodigoProduto(entrada.produto.codigo) === codigoNormalizado
+        )
+      ) {
+        addToast('Produto já selecionado como exceção.', 'error');
+        setProdutoBusca('');
+        return;
+      }
+
+      try {
+        setVerificandoCodigo(true);
+        const params: Record<string, string | number> = {
+          busca: codigoDigitado,
+          page: 1,
+          pageSize: 10
+        };
+        if (ncm.replace(/\D/g, '').length === 8) {
+          params.ncm = ncm.replace(/\D/g, '');
+        }
+        const resposta = await api.get<ProdutosResponse>('/produtos', { params });
+        const itens = resposta.data.items || [];
+        const correspondentes = itens.filter(
+          item => normalizarCodigoProduto(item.codigo) === codigoNormalizado
+        );
+
+        if (correspondentes.length === 1) {
+          adicionarProdutoPendente(correspondentes[0], 'codigo');
+        } else if (correspondentes.length === 0) {
+          adicionarProdutoInvalido(codigoDigitado, 'nao-encontrado');
+        } else {
+          adicionarProdutoInvalido(codigoDigitado, 'duplicado');
+        }
+      } catch (error) {
+        console.error('Erro ao validar código do produto:', error);
+        adicionarProdutoInvalido(codigoDigitado, 'erro');
+      } finally {
+        setVerificandoCodigo(false);
+        setProdutoBusca('');
+      }
+    },
+    [
+      addToast,
+      ncm,
+      produtosExcecao,
+      produtosPendentes,
+      adicionarProdutoPendente,
+      adicionarProdutoInvalido
+    ]
+  );
+
+  useEffect(() => {
+    if (modoBuscaProduto !== 'codigo') return;
+    if (verificandoCodigo) return;
+    if (!produtoBusca.endsWith(' ')) return;
+
+    const codigoDigitado = produtoBusca.trim();
+    if (!codigoDigitado) {
+      setProdutoBusca('');
+      return;
+    }
+    processarCodigoDigitado(codigoDigitado);
+  }, [modoBuscaProduto, produtoBusca, processarCodigoDigitado, verificandoCodigo]);
+
+  const obterDescricaoProduto = useCallback((produto: ProdutoBuscaItem) => {
+    return produto.codigo ? `${produto.codigo} • ${produto.denominacao}` : produto.denominacao;
+  }, []);
+
+  const renderTagPendente = useCallback(
+    (entrada: ProdutoEntrada, remover: (item: ProdutoEntrada) => void) => {
+      if (entrada.tipo === 'valido') {
+        return (
+          <span className="flex items-center gap-1 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100">
+            <span className="max-w-[160px] truncate">{obterDescricaoProduto(entrada.produto)}</span>
+            <button
+              type="button"
+              onClick={() => remover(entrada)}
+              className="rounded p-0.5 text-gray-400 hover:text-white"
+              aria-label="Remover produto pendente"
+            >
+              <X size={12} />
+            </button>
+          </span>
+        );
+      }
+      return (
+        <span
+          className="flex items-center gap-1 rounded border border-red-500 bg-red-950 px-2 py-1 text-xs text-red-200"
+          title={entrada.mensagem}
+        >
+          <span className="max-w-[160px] truncate">{entrada.valor}</span>
+          <button
+            type="button"
+            onClick={() => remover(entrada)}
+            className="rounded p-0.5 text-red-300 hover:text-red-100"
+            aria-label={`Remover código ${entrada.valor} inválido`}
+          >
+            <X size={12} />
+          </button>
+        </span>
+      );
+    },
+    [obterDescricaoProduto]
+  );
 
   function removerProdutoExcecao(id: number) {
     setProdutosExcecao(prev => prev.filter(item => item.id !== id));
@@ -878,20 +1140,47 @@ export default function PreenchimentoMassaNovoPage() {
               Os produtos selecionados abaixo não terão os atributos atualizados.
             </p>
 
-            <AutocompleteTagInput
-              label="Produtos (nome ou código)"
+            <RadioGroup
+              className="mb-2"
+              label="Buscar produto por"
+              value={modoBuscaProduto}
+              onChange={valor => setModoBuscaProduto((valor as 'nome' | 'codigo') || 'nome')}
+              options={[
+                { value: 'nome', label: 'Nome' },
+                { value: 'codigo', label: 'Código' }
+              ]}
+            />
+
+            {modoBuscaProduto === 'codigo' && (
+              <p className="-mt-2 mb-2 text-xs text-gray-400">
+                Digite o código e pressione espaço para adicioná-lo automaticamente.
+              </p>
+            )}
+
+            <AutocompleteTagInput<ProdutoBuscaItem, ProdutoEntrada>
+              label={`Produtos (${modoBuscaProduto === 'codigo' ? 'código' : 'nome'})`}
               icon={<Search size={16} />}
-              placeholder="Digite para buscar produtos"
+              placeholder={
+                modoBuscaProduto === 'codigo'
+                  ? 'Digite o código do produto'
+                  : 'Digite o nome do produto'
+              }
               searchValue={produtoBusca}
               onSearchChange={valor => setProdutoBusca(valor)}
               suggestions={produtoSugestoesDisponiveis}
-              onSelect={adicionarProdutoExcecao}
-              selectedItems={produtosExcecao}
-              onRemove={(item: ProdutoBuscaItem) => removerProdutoExcecao(item.id)}
+              onSelect={produto => adicionarProdutoPendente(produto, 'busca')}
+              selectedItems={produtosPendentes}
+              onRemove={entrada => removerProdutoPendente(entrada)}
               getItemKey={item => item.id}
-              renderTagLabel={item =>
-                item.codigo ? `${item.codigo} • ${item.denominacao}` : item.denominacao
+              getSuggestionKey={item => item.id}
+              renderTagLabel={entrada =>
+                entrada.tipo === 'valido'
+                  ? entrada.produto.codigo
+                    ? `${entrada.produto.codigo} • ${entrada.produto.denominacao}`
+                    : entrada.produto.denominacao
+                  : entrada.valor
               }
+              renderTag={renderTagPendente}
               renderSuggestion={(item: ProdutoBuscaItem) => (
                 <div className="flex w-full flex-col">
                   <span className="font-semibold text-white">{item.denominacao}</span>
@@ -902,13 +1191,27 @@ export default function PreenchimentoMassaNovoPage() {
                   </span>
                 </div>
               )}
-              isLoading={carregandoProdutos}
+              isLoading={carregandoProdutos || verificandoCodigo}
               emptyMessage={
                 produtoBusca.trim().length > 0
-                  ? 'Nenhum produto encontrado.'
-                  : 'Digite para buscar produtos.'
+                  ? `Nenhum produto encontrado pelo ${
+                      modoBuscaProduto === 'codigo' ? 'código informado' : 'nome informado'
+                    }.`
+                  : `Digite para buscar pelo ${modoBuscaProduto === 'codigo' ? 'código' : 'nome'} do produto.`
               }
+              actionButton={{
+                label: 'Incluir',
+                onClick: incluirProdutosPendentes,
+                disabled: pendentesValidos.length === 0
+              }}
             />
+
+            {pendentesInvalidos.length > 0 && (
+              <p className="mb-3 text-xs text-red-300">
+                Os códigos destacados em vermelho não foram encontrados ou possuem mais de um resultado.
+                Escolha o produto correto antes de incluí-los.
+              </p>
+            )}
 
             {produtosExcecao.length > 0 ? (
               <div className="space-y-3">
