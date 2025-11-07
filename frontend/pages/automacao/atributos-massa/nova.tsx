@@ -860,6 +860,35 @@ export default function PreenchimentoMassaNovoPage() {
     ]
   );
 
+  const handlePasteProdutosCodigo = useCallback(
+    (event: React.ClipboardEvent<HTMLInputElement>) => {
+      if (modoBuscaProduto !== 'codigo') return;
+
+      const texto = event.clipboardData.getData('text');
+      if (!texto) return;
+
+      event.preventDefault();
+
+      const codigos = texto
+        .split(/\s+/)
+        .map(codigo => codigo.trim())
+        .filter(Boolean);
+
+      setProdutoBusca('');
+
+      if (codigos.length === 0) {
+        return;
+      }
+
+      void (async () => {
+        for (const codigo of codigos) {
+          await processarCodigoDigitado(codigo);
+        }
+      })();
+    },
+    [modoBuscaProduto, processarCodigoDigitado]
+  );
+
   useEffect(() => {
     if (modoBuscaProduto !== 'codigo') return;
     if (verificandoCodigo) return;
@@ -1289,6 +1318,7 @@ export default function PreenchimentoMassaNovoPage() {
                 onClick: incluirProdutosPendentes,
                 disabled: pendentesValidos.length === 0
               }}
+              onPaste={handlePasteProdutosCodigo}
             />
 
             {pendentesInvalidos.length > 0 && (
