@@ -883,8 +883,12 @@ export default function PreenchimentoMassaNovoPage() {
   const renderTagPendente = useCallback(
     (entrada: ProdutoEntrada, remover: (item: ProdutoEntrada) => void) => {
       if (entrada.tipo === 'valido') {
+        const descricaoTooltip = obterDescricaoProduto(entrada.produto);
         return (
-          <span className="flex items-center gap-1 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100">
+          <span
+            className="flex items-center gap-1 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100"
+            title={entrada.origem === 'codigo' ? descricaoTooltip : undefined}
+          >
             <span className="max-w-[160px] truncate">{obterDescricaoProduto(entrada.produto)}</span>
             <button
               type="button"
