@@ -287,7 +287,7 @@ export default function PreenchimentoMassaNovoPage() {
   const debouncedProdutoBusca = useDebounce(produtoBusca, 600);
   const [produtosExcecao, setProdutosExcecao] = useState<ProdutoBuscaItem[]>([]);
   const [produtosPendentes, setProdutosPendentes] = useState<ProdutoEntrada[]>([]);
-  const [modoBuscaProduto, setModoBuscaProduto] = useState<'nome' | 'codigo'>('nome');
+  const [modoBuscaProduto, setModoBuscaProduto] = useState<'codigo' | 'nome'>('codigo');
   const [verificandoCodigo, setVerificandoCodigo] = useState(false);
 
   const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
@@ -1253,10 +1253,10 @@ export default function PreenchimentoMassaNovoPage() {
               className="mb-2"
               label="Buscar produto por"
               value={modoBuscaProduto}
-              onChange={valor => setModoBuscaProduto((valor as 'nome' | 'codigo') || 'nome')}
+              onChange={valor => setModoBuscaProduto((valor as 'codigo' | 'nome') || 'codigo')}
               options={[
-                { value: 'nome', label: 'Nome' },
-                { value: 'codigo', label: 'Código' }
+                { value: 'codigo', label: 'Código' },
+                { value: 'nome', label: 'Nome' }
               ]}
             />
 
