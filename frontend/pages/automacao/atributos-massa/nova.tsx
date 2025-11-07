@@ -53,6 +53,7 @@ interface CatalogoResumo {
 interface ProdutoBuscaItem {
   id: number;
   codigo: string | null;
+  codigosInternos?: string[] | null;
   denominacao: string;
   catalogoId: number;
   catalogoNome?: string | null;
@@ -101,6 +102,81 @@ function gerarIdTemporario() {
 
 function normalizarCodigoProduto(codigo?: string | null) {
   return (codigo ?? '').trim().toLowerCase();
+}
+
+function obterCodigosAssociados(produto?: {
+  codigo?: string | null;
+  codigosInternos?: string[] | null;
+}) {
+  const conjunto = new Set<string>();
+  if (!produto) return conjunto;
+
+  const principal = normalizarCodigoProduto(produto.codigo);
+  if (principal) {
+    conjunto.add(principal);
+  }
+
+  for (const codigoInterno of produto.codigosInternos ?? []) {
+    const normalizado = normalizarCodigoProduto(codigoInterno);
+    if (normalizado) {
+      conjunto.add(normalizado);
+    }
+  }
+
+  return conjunto;
+}
+
+function produtoPossuiCodigo(
+  produto: { codigo?: string | null; codigosInternos?: string[] | null },
+  codigoNormalizado: string
+) {
+  if (!codigoNormalizado) return false;
+  return obterCodigosAssociados(produto).has(codigoNormalizado);
+}
+
+function produtoPossuiTrechoCodigo(
+  produto: { codigo?: string | null; codigosInternos?: string[] | null },
+  trechoNormalizado: string
+) {
+  if (!trechoNormalizado) return false;
+  return Array.from(obterCodigosAssociados(produto)).some(codigo =>
+    codigo.includes(trechoNormalizado)
+  );
+}
+
+function obterCodigoPreferencial(
+  produto: { codigo?: string | null; codigosInternos?: string[] | null }
+) {
+  const codigoPrincipal = produto.codigo?.trim();
+  if (codigoPrincipal) {
+    return codigoPrincipal;
+  }
+
+  const codigoInternoValido = produto.codigosInternos?.find(codigo =>
+    Boolean(codigo?.trim())
+  );
+
+  return codigoInternoValido?.trim() ?? null;
+}
+
+function obterCodigosExibicao(
+  produto: { codigo?: string | null; codigosInternos?: string[] | null }
+) {
+  const codigos: string[] = [];
+  const principal = produto.codigo?.trim();
+  if (principal) {
+    codigos.push(principal);
+  }
+
+  for (const codigoInterno of produto.codigosInternos ?? []) {
+    const valor = codigoInterno?.trim();
+    if (!valor) continue;
+    if (!codigos.includes(valor)) {
+      codigos.push(valor);
+    }
+  }
+
+  return codigos;
 }
 
 function ordenarAtributos(estrutura: AtributoEstrutura[]): AtributoEstrutura[] {
@@ -399,14 +475,11 @@ export default function PreenchimentoMassaNovoPage() {
         if (!ativo) return;
         const itens = resposta.data.items || [];
         const termoNormalizado = termoBusca.toLowerCase();
+        const codigoBusca = termoNormalizado.replace(/\s+/g, '');
         const filtrados =
           modoBuscaProduto === 'nome'
             ? itens.filter(item => item.denominacao.toLowerCase().includes(termoNormalizado))
-            : itens.filter(item =>
-                normalizarCodigoProduto(item.codigo).includes(
-                  termoNormalizado.replace(/\s+/g, '')
-                )
-              );
+            : itens.filter(item => produtoPossuiTrechoCodigo(item, codigoBusca));
         setProdutoSugestoes(filtrados);
       } catch (error) {
         if (!ativo) return;
@@ -734,11 +807,11 @@ export default function PreenchimentoMassaNovoPage() {
       }
 
       if (
-        produtosExcecao.some(item => normalizarCodigoProduto(item.codigo) === codigoNormalizado) ||
+        produtosExcecao.some(item => produtoPossuiCodigo(item, codigoNormalizado)) ||
         produtosPendentes.some(
           entrada =>
             entrada.tipo === 'valido' &&
-            normalizarCodigoProduto(entrada.produto.codigo) === codigoNormalizado
+            produtoPossuiCodigo(entrada.produto, codigoNormalizado)
         )
       ) {
         addToast('Produto já selecionado como exceção.', 'error');
@@ -758,8 +831,8 @@ export default function PreenchimentoMassaNovoPage() {
         }
         const resposta = await api.get<ProdutosResponse>('/produtos', { params });
         const itens = resposta.data.items || [];
-        const correspondentes = itens.filter(
-          item => normalizarCodigoProduto(item.codigo) === codigoNormalizado
+        const correspondentes = itens.filter(item =>
+          produtoPossuiCodigo(item, codigoNormalizado)
         );
 
         if (correspondentes.length === 1) {
@@ -801,7 +874,10 @@ export default function PreenchimentoMassaNovoPage() {
   }, [modoBuscaProduto, produtoBusca, processarCodigoDigitado, verificandoCodigo]);
 
   const obterDescricaoProduto = useCallback((produto: ProdutoBuscaItem) => {
-    return produto.codigo ? `${produto.codigo} • ${produto.denominacao}` : produto.denominacao;
+    const codigoPreferencial = obterCodigoPreferencial(produto);
+    return codigoPreferencial
+      ? `${codigoPreferencial} • ${produto.denominacao}`
+      : produto.denominacao;
   }, []);
 
   const renderTagPendente = useCallback(
@@ -1175,22 +1251,27 @@ export default function PreenchimentoMassaNovoPage() {
               getSuggestionKey={item => item.id}
               renderTagLabel={entrada =>
                 entrada.tipo === 'valido'
-                  ? entrada.produto.codigo
-                    ? `${entrada.produto.codigo} • ${entrada.produto.denominacao}`
-                    : entrada.produto.denominacao
+                  ? obterDescricaoProduto(entrada.produto)
                   : entrada.valor
               }
               renderTag={renderTagPendente}
-              renderSuggestion={(item: ProdutoBuscaItem) => (
-                <div className="flex w-full flex-col">
-                  <span className="font-semibold text-white">{item.denominacao}</span>
-                  <span className="text-xs text-gray-400">
-                    {item.codigo ? `Código: ${item.codigo}` : 'Sem código interno'} •{' '}
-                    {item.catalogoNome || 'Catálogo desconhecido'}
-                    {item.catalogoNumero ? ` • Catálogo ${item.catalogoNumero}` : ''}
-                  </span>
-                </div>
-              )}
+              renderSuggestion={(item: ProdutoBuscaItem) => {
+                const codigos = obterCodigosExibicao(item);
+                const descricaoCodigo =
+                  codigos.length > 0
+                    ? `Código${codigos.length > 1 ? 's' : ''}: ${codigos.join(', ')}`
+                    : 'Sem código cadastrado';
+
+                return (
+                  <div className="flex w-full flex-col">
+                    <span className="font-semibold text-white">{item.denominacao}</span>
+                    <span className="text-xs text-gray-400">
+                      {descricaoCodigo} • {item.catalogoNome || 'Catálogo desconhecido'}
+                      {item.catalogoNumero ? ` • Catálogo ${item.catalogoNumero}` : ''}
+                    </span>
+                  </div>
+                );
+              }}
               isLoading={carregandoProdutos || verificandoCodigo}
               emptyMessage={
                 produtoBusca.trim().length > 0
