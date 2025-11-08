@@ -798,6 +798,12 @@ export default function PreenchimentoMassaNovoPage() {
     }
   }, [addToast, produtosPendentes, produtosExcecao]);
 
+  const limparProdutosPendentes = useCallback(() => {
+    setProdutosPendentes([]);
+    setProdutoBusca('');
+    setProdutoSugestoes([]);
+  }, []);
+
   const processarCodigoDigitado = useCallback(
     async (codigoDigitado: string) => {
       const codigoNormalizado = normalizarCodigoProduto(codigoDigitado);
@@ -1313,11 +1319,19 @@ export default function PreenchimentoMassaNovoPage() {
                     }.`
                   : `Digite para buscar pelo ${modoBuscaProduto === 'codigo' ? 'código' : 'nome'} do produto.`
               }
-              actionButton={{
-                label: 'Incluir',
-                onClick: incluirProdutosPendentes,
-                disabled: pendentesValidos.length === 0
-              }}
+              actionButtons={[
+                {
+                  label: 'Incluir',
+                  onClick: incluirProdutosPendentes,
+                  disabled: pendentesValidos.length === 0
+                },
+                {
+                  label: 'Limpar campo',
+                  onClick: limparProdutosPendentes,
+                  disabled: produtosPendentes.length === 0 && produtoBusca.trim().length === 0,
+                  variant: 'outline'
+                }
+              ]}
               onPaste={handlePasteProdutosCodigo}
             />
 

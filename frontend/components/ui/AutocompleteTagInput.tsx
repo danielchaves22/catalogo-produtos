@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Search, X } from 'lucide-react';
 import { Hint } from './Hint';
-import { Button } from './Button';
+import { Button, ButtonSize, ButtonVariant } from './Button';
 
 interface AutocompleteTagInputAction {
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
 }
 
 interface AutocompleteTagInputProps<S, T = S> {
@@ -31,6 +33,7 @@ interface AutocompleteTagInputProps<S, T = S> {
   emptyMessage?: string;
   className?: string;
   actionButton?: AutocompleteTagInputAction;
+  actionButtons?: AutocompleteTagInputAction[];
   onPaste?: (event: React.ClipboardEvent<HTMLInputElement>) => void;
 }
 
@@ -56,6 +59,7 @@ export function AutocompleteTagInput<S, T = S>({
   emptyMessage = 'Nenhum resultado encontrado.',
   className = '',
   actionButton,
+  actionButtons = [],
   onPaste,
 }: AutocompleteTagInputProps<S, T>) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -184,6 +188,14 @@ export function AutocompleteTagInput<S, T = S>({
     [selectedItems, getItemKey, renderTagLabel, onRemove, renderTag]
   );
 
+  const combinedActions = useMemo(() => {
+    const actions = [...actionButtons];
+    if (actionButton) {
+      actions.unshift(actionButton);
+    }
+    return actions;
+  }, [actionButton, actionButtons]);
+
   return (
     <div className={`mb-4 ${className}`} ref={containerRef}>
       {label && (
@@ -220,21 +232,28 @@ export function AutocompleteTagInput<S, T = S>({
             onPaste={onPaste}
             disabled={disabled}
             placeholder={selectedItems.length === 0 ? placeholder : ''}
-            className="flex-1 min-w-[140px] bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none"
+            className="flex-1 min-w-[140px] border-none bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-none focus:ring-0"
             aria-expanded={isOpen}
             aria-autocomplete="list"
             aria-haspopup="listbox"
           />
         </div>
-        {actionButton && (
-          <Button
-            type="button"
-            onClick={actionButton.onClick}
-            disabled={disabled || actionButton.disabled}
-            className="shrink-0"
-          >
-            {actionButton.label}
-          </Button>
+        {combinedActions.length > 0 && (
+          <div className="flex items-center gap-2">
+            {combinedActions.map(({ label, onClick, disabled: actionDisabled, variant, size }, index) => (
+              <Button
+                key={`${label}-${index}`}
+                type="button"
+                onClick={onClick}
+                disabled={disabled || actionDisabled}
+                variant={variant}
+                size={size}
+                className="shrink-0"
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
         )}
       </div>
       {isOpen && (
