@@ -8,13 +8,17 @@ import {
 import { ProdutoResumoService } from './produto-resumo.service';
 import { createAsyncJob } from '../jobs/async-job.repository';
 
+type ModoAtribuicao = 'TODOS_COM_EXCECOES' | 'SELECIONADOS';
+
 export interface AtributoPreenchimentoMassaCreateInput {
   ncmCodigo: string;
   modalidade?: string | null;
   catalogoIds?: number[];
   valoresAtributos?: Prisma.InputJsonValue;
   estruturaSnapshot?: Prisma.InputJsonValue;
+  modoAtribuicao?: ModoAtribuicao | string | null;
   produtosExcecao?: Array<{ id: number } | { id: number; [chave: string]: any }>;
+  produtosSelecionados?: Array<{ id: number } | { id: number; [chave: string]: any }>;
 }
 
 type RegistroMassaPayload = Prisma.AtributoPreenchimentoMassaGetPayload<{
@@ -27,6 +31,7 @@ export interface AtributoPreenchimentoMassaJobPayload {
   solicitanteNome?: string | null;
   ncmCodigo: string;
   modalidade: string | null;
+  modoAtribuicao: ModoAtribuicao;
   catalogoIds: number[];
   catalogosDetalhes: Array<{ id: number; nome: string | null; numero: number | null; cpf_cnpj: string | null }>;
   valoresAtributos: Record<string, unknown>;
@@ -40,6 +45,13 @@ export interface AtributoPreenchimentoMassaJobPayload {
   estruturaSnapshot: EstruturaComVersao['estrutura'] | null;
   produtosExcecaoIds: number[];
   produtosExcecaoDetalhes: Array<{
+    id: number;
+    codigo: string | null;
+    denominacao: string;
+    catalogo?: { id: number; nome: string | null; numero: number | null; cpf_cnpj: string | null } | null;
+  }>;
+  produtosSelecionadosIds: number[];
+  produtosSelecionadosDetalhes: Array<{
     id: number;
     codigo: string | null;
     denominacao: string;
@@ -63,11 +75,18 @@ export interface AtributoPreenchimentoMassaResumo {
   superUserId: number;
   ncmCodigo: string;
   modalidade: string | null;
+  modoAtribuicao: ModoAtribuicao;
   catalogoIds: number[];
   catalogos: Array<{ id: number; nome: string | null; numero: number | null; cpf_cnpj: string | null }>;
   valoresAtributos: Record<string, unknown>;
   estruturaSnapshot: EstruturaComVersao['estrutura'] | null;
   produtosExcecao: Array<{
+    id: number;
+    codigo: string | null;
+    denominacao: string;
+    catalogo?: { id: number; nome: string | null; numero: number | null; cpf_cnpj: string | null } | null;
+  }>;
+  produtosSelecionados: Array<{
     id: number;
     codigo: string | null;
     denominacao: string;
@@ -172,6 +191,20 @@ export class AtributoPreenchimentoMassaService {
     }
 
     const valoresEntrada = (dados.valoresAtributos ?? {}) as Record<string, unknown>;
+    const modoInformado =
+      typeof dados.modoAtribuicao === 'string'
+        ? (dados.modoAtribuicao.toUpperCase() as string)
+        : 'TODOS_COM_EXCECOES';
+    if (
+      typeof dados.modoAtribuicao === 'string' &&
+      modoInformado !== 'TODOS_COM_EXCECOES' &&
+      modoInformado !== 'SELECIONADOS'
+    ) {
+      throw new Error('Modo de atribuição inválido.');
+    }
+
+    const modoAtribuicao: ModoAtribuicao =
+      modoInformado === 'SELECIONADOS' ? 'SELECIONADOS' : 'TODOS_COM_EXCECOES';
     const estruturaInfo = await this.obterEstruturaAtributos(
       dados.ncmCodigo,
       modalidadeNormalizada || 'IMPORTACAO'
@@ -237,6 +270,58 @@ export class AtributoPreenchimentoMassaService {
       }));
     }
 
+    const produtosSelecionadosIds = Array.from(
+      new Set(
+        (dados.produtosSelecionados ?? [])
+          .map(item => Number(item?.id))
+          .filter(valor => Number.isInteger(valor) && valor > 0)
+      )
+    );
+
+    if (modoAtribuicao === 'SELECIONADOS' && produtosSelecionadosIds.length === 0) {
+      throw new Error('Informe ao menos um produto para aplicar a atribuição em massa.');
+    }
+
+    let produtosSelecionadosDetalhes: AtributoPreenchimentoMassaJobPayload['produtosSelecionadosDetalhes'] = [];
+
+    if (produtosSelecionadosIds.length) {
+      const produtos = await catalogoPrisma.produto.findMany({
+        where: {
+          id: { in: produtosSelecionadosIds },
+          ncmCodigo: dados.ncmCodigo,
+          ...(modalidadeNormalizada ? { modalidade: modalidadeNormalizada } : {}),
+          catalogo: {
+            superUserId,
+            ...(catalogoIdsUnicos.length ? { id: { in: catalogoIdsUnicos } } : {})
+          }
+        },
+        select: {
+          id: true,
+          codigo: true,
+          denominacao: true,
+          catalogo: { select: { id: true, nome: true, numero: true, cpf_cnpj: true } }
+        }
+      });
+
+      if (produtos.length !== produtosSelecionadosIds.length) {
+        throw new Error('Produto selecionado não encontrado ou não pertence aos filtros informados.');
+      }
+
+      produtosSelecionadosDetalhes = produtos.map(produto => ({
+        id: produto.id,
+        codigo: produto.codigo ?? null,
+        denominacao: produto.denominacao,
+        catalogo: produto.catalogo
+          ? {
+              id: produto.catalogo.id,
+              nome: produto.catalogo.nome ?? null,
+              numero: produto.catalogo.numero ?? null,
+              cpf_cnpj: produto.catalogo.cpf_cnpj ?? null
+            }
+          : null
+      }));
+    }
+
     const catalogosDetalhes = catalogoIdsUnicos.length
       ? await catalogoPrisma.catalogo.findMany({
           where: { id: { in: catalogoIdsUnicos } },
@@ -255,6 +340,7 @@ export class AtributoPreenchimentoMassaService {
       ncmCodigo: dados.ncmCodigo,
       modalidade: modalidadeNormalizada,
       catalogoIds: catalogoIdsUnicos,
+      modoAtribuicao,
       catalogosDetalhes: catalogosDetalhes.map(item => ({
         id: item.id,
         nome: item.nome ?? null,
@@ -267,7 +353,9 @@ export class AtributoPreenchimentoMassaService {
       estruturaVersaoNumero: estruturaInfo.versaoNumero,
       estruturaSnapshot,
       produtosExcecaoIds,
-      produtosExcecaoDetalhes
+      produtosExcecaoDetalhes,
+      produtosSelecionadosIds,
+      produtosSelecionadosDetalhes
     };
   }
 
@@ -281,20 +369,40 @@ export class AtributoPreenchimentoMassaService {
 
     await heartbeat?.();
 
-    const produtos = await catalogoPrisma.produto.findMany({
-      where: {
-        ncmCodigo: payload.ncmCodigo,
-        catalogo: {
-          superUserId: payload.superUserId,
-          ...(payload.catalogoIds.length ? { id: { in: payload.catalogoIds } } : {})
-        },
-        ...(payload.modalidade ? { modalidade: payload.modalidade } : {})
-      },
-      select: { id: true, status: true }
-    });
+    const filtrosCatalogo = {
+      catalogo: {
+        superUserId: payload.superUserId,
+        ...(payload.catalogoIds.length ? { id: { in: payload.catalogoIds } } : {})
+      } as const
+    };
+
+    const produtos =
+      payload.modoAtribuicao === 'SELECIONADOS'
+        ? payload.produtosSelecionadosIds.length
+          ? await catalogoPrisma.produto.findMany({
+              where: {
+                id: { in: payload.produtosSelecionadosIds },
+                ncmCodigo: payload.ncmCodigo,
+                ...(payload.modalidade ? { modalidade: payload.modalidade } : {}),
+                ...filtrosCatalogo
+              },
+              select: { id: true, status: true }
+            })
+          : []
+        : await catalogoPrisma.produto.findMany({
+            where: {
+              ncmCodigo: payload.ncmCodigo,
+              ...(payload.modalidade ? { modalidade: payload.modalidade } : {}),
+              ...filtrosCatalogo
+            },
+            select: { id: true, status: true }
+          });
 
     const excecaoSet = new Set(payload.produtosExcecaoIds);
-    const produtosParaAtualizar = produtos.filter(produto => !excecaoSet.has(produto.id));
+    const produtosParaAtualizar =
+      payload.modoAtribuicao === 'SELECIONADOS'
+        ? produtos
+        : produtos.filter(produto => !excecaoSet.has(produto.id));
 
     let atualizados = 0;
 
@@ -434,8 +542,36 @@ export class AtributoPreenchimentoMassaService {
         )
       : [];
 
+    const modoRegistro =
+      typeof registro.modoAtribuicao === 'string'
+        ? (registro.modoAtribuicao as string).toUpperCase()
+        : 'TODOS_COM_EXCECOES';
+    const modoAtribuicao: ModoAtribuicao =
+      modoRegistro === 'SELECIONADOS' ? 'SELECIONADOS' : 'TODOS_COM_EXCECOES';
+
     const produtosExcecao = Array.isArray(registro.produtosExcecaoJson)
       ? (registro.produtosExcecaoJson as Array<{
+          id: number;
+          codigo?: string | null;
+          denominacao?: string;
+          catalogo?: { id: number; nome?: string | null; numero?: number | null; cpf_cnpj?: string | null } | null;
+        }>).map(item => ({
+          id: item.id,
+          codigo: item.codigo ?? null,
+          denominacao: item.denominacao ?? '',
+          catalogo: item.catalogo
+            ? {
+                id: item.catalogo.id,
+                nome: item.catalogo.nome ?? null,
+                numero: item.catalogo.numero ?? null,
+                cpf_cnpj: item.catalogo.cpf_cnpj ?? null
+              }
+            : null
+        }))
+      : [];
+
+    const produtosSelecionados = Array.isArray(registro.produtosSelecionadosJson)
+      ? (registro.produtosSelecionadosJson as Array<{
           id: number;
           codigo?: string | null;
           denominacao?: string;
@@ -486,11 +622,13 @@ export class AtributoPreenchimentoMassaService {
       superUserId: registro.superUserId,
       ncmCodigo: registro.ncmCodigo,
       modalidade: registro.modalidade ?? null,
+      modoAtribuicao,
       catalogoIds,
       catalogos,
       valoresAtributos,
       estruturaSnapshot,
       produtosExcecao,
+      produtosSelecionados,
       produtosImpactados: registro.produtosImpactados,
       produtosImpactadosDetalhes,
       criadoEm: registro.criadoEm,
@@ -520,6 +658,7 @@ export class AtributoPreenchimentoMassaService {
       superUserId: payload.superUserId,
       ncmCodigo: payload.ncmCodigo,
       modalidade: payload.modalidade ?? null,
+      modoAtribuicao: payload.modoAtribuicao,
       catalogoIdsJson:
         payload.catalogoIds.length > 0
           ? (payload.catalogoIds as unknown as Prisma.InputJsonValue)
@@ -535,6 +674,10 @@ export class AtributoPreenchimentoMassaService {
       produtosExcecaoJson:
         payload.produtosExcecaoDetalhes.length > 0
           ? (payload.produtosExcecaoDetalhes as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+      produtosSelecionadosJson:
+        payload.produtosSelecionadosDetalhes.length > 0
+          ? (payload.produtosSelecionadosDetalhes as unknown as Prisma.InputJsonValue)
           : Prisma.DbNull,
       produtosImpactadosDetalhesJson:
         produtosImpactadosDetalhes.length > 0
