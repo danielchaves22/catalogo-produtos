@@ -369,6 +369,20 @@ export class AtributoPreenchimentoMassaService {
 
     await heartbeat?.();
 
+    const produtosSelecionadosIds = Array.isArray(payload.produtosSelecionadosIds)
+      ? payload.produtosSelecionadosIds
+      : [];
+
+    const produtosSelecionadosDetalhes = Array.isArray(payload.produtosSelecionadosDetalhes)
+      ? payload.produtosSelecionadosDetalhes
+      : [];
+
+    const payloadNormalizado: AtributoPreenchimentoMassaJobPayload = {
+      ...payload,
+      produtosSelecionadosIds,
+      produtosSelecionadosDetalhes
+    };
+
     const filtrosCatalogo = {
       catalogo: {
         superUserId: payload.superUserId,
@@ -378,10 +392,10 @@ export class AtributoPreenchimentoMassaService {
 
     const produtos =
       payload.modoAtribuicao === 'SELECIONADOS'
-        ? payload.produtosSelecionadosIds.length
+        ? produtosSelecionadosIds.length
           ? await catalogoPrisma.produto.findMany({
               where: {
-                id: { in: payload.produtosSelecionadosIds },
+                id: { in: produtosSelecionadosIds },
                 ncmCodigo: payload.ncmCodigo,
                 ...(payload.modalidade ? { modalidade: payload.modalidade } : {}),
                 ...filtrosCatalogo
@@ -500,7 +514,7 @@ export class AtributoPreenchimentoMassaService {
     const registro = await catalogoPrisma.atributoPreenchimentoMassa.update({
       where: { id: payload.registroId },
       data: this.montarDadosRegistro(
-        payload,
+        payloadNormalizado,
         produtosParaAtualizar.length,
         produtosImpactadosDetalhes.map(produto => ({
           id: produto.id,
@@ -654,6 +668,14 @@ export class AtributoPreenchimentoMassaService {
     produtosImpactados: number,
     produtosImpactadosDetalhes: ProdutoImpactadoResumo[]
   ): Omit<Prisma.AtributoPreenchimentoMassaUncheckedCreateInput, 'id' | 'asyncJobId'> {
+    const produtosExcecaoDetalhes = Array.isArray(payload.produtosExcecaoDetalhes)
+      ? payload.produtosExcecaoDetalhes
+      : [];
+
+    const produtosSelecionadosDetalhes = Array.isArray(payload.produtosSelecionadosDetalhes)
+      ? payload.produtosSelecionadosDetalhes
+      : [];
+
     return {
       superUserId: payload.superUserId,
       ncmCodigo: payload.ncmCodigo,
@@ -672,12 +694,12 @@ export class AtributoPreenchimentoMassaService {
         ? (payload.estruturaSnapshot as unknown as Prisma.InputJsonValue)
         : Prisma.DbNull,
       produtosExcecaoJson:
-        payload.produtosExcecaoDetalhes.length > 0
-          ? (payload.produtosExcecaoDetalhes as unknown as Prisma.InputJsonValue)
+        produtosExcecaoDetalhes.length > 0
+          ? (produtosExcecaoDetalhes as unknown as Prisma.InputJsonValue)
           : Prisma.DbNull,
       produtosSelecionadosJson:
-        payload.produtosSelecionadosDetalhes.length > 0
-          ? (payload.produtosSelecionadosDetalhes as unknown as Prisma.InputJsonValue)
+        produtosSelecionadosDetalhes.length > 0
+          ? (produtosSelecionadosDetalhes as unknown as Prisma.InputJsonValue)
           : Prisma.DbNull,
       produtosImpactadosDetalhesJson:
         produtosImpactadosDetalhes.length > 0
