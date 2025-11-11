@@ -1296,11 +1296,7 @@ export default function PreenchimentoMassaNovoPage() {
           </Card>
 
           <Card>
-            <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-white">{tituloProdutosMarcados}</h2>
-                <p className="text-sm text-gray-400">{descricaoProdutosMarcados}</p>
-              </div>
+            <div className="mb-4 space-y-4">
               <div className="w-full md:w-80">
                 <RadioGroup
                   label="Modo de atribuição"
@@ -1315,6 +1311,10 @@ export default function PreenchimentoMassaNovoPage() {
                     { value: 'SELECIONADOS', label: 'Somente produtos selecionados' }
                   ]}
                 />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white">{tituloProdutosMarcados}</h2>
+                <p className="text-sm text-gray-400">{descricaoProdutosMarcados}</p>
               </div>
             </div>
 
