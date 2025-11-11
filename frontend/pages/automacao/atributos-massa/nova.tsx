@@ -1298,8 +1298,8 @@ export default function PreenchimentoMassaNovoPage() {
           <Card>
             <div className="mb-4 space-y-4">
               <div className="w-full md:w-80">
+                <h2 className="text-lg font-semibold text-white">Modo de Atribuição</h2>
                 <RadioGroup
-                  label="Modo de atribuição"
                   value={modoAtribuicao}
                   onChange={valor =>
                     setModoAtribuicao(
@@ -1313,7 +1313,7 @@ export default function PreenchimentoMassaNovoPage() {
                 />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-white">{tituloProdutosMarcados}</h2>
+                
                 <p className="text-sm text-gray-400">{descricaoProdutosMarcados}</p>
               </div>
             </div>
