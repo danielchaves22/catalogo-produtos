@@ -118,6 +118,7 @@ async function processarFila() {
       if (job.tentativas >= job.maxTentativas) {
         await markJobAsFailed(job.id, mensagemErro);
         await atualizarImportacaoComoFalha(job, mensagemErro);
+        await atualizarExportacaoComoFalha(job);
       } else {
         await returnJobToQueue(job.id, mensagemErro);
       }
@@ -149,9 +150,26 @@ async function atualizarImportacaoComoFalha(
   );
 }
 
+async function atualizarExportacaoComoFalha(job: AsyncJobWithRelations) {
+  if (!job.produtoExportacao) {
+    return;
+  }
+
+  await catalogoPrisma.produtoExportacao.update({
+    where: { id: job.produtoExportacao.id },
+    data: {
+      arquivoPath: null,
+      arquivoExpiraEm: null,
+      arquivoTamanho: null,
+      totalItens: null,
+    },
+  });
+}
+
 export async function liberarJobsTravados() {
   const resultado: ReleaseStalledJobsResult = await releaseStalledJobs();
   for (const job of resultado.marcadosComoFalhos) {
     await atualizarImportacaoComoFalha(job);
+    await atualizarExportacaoComoFalha(job);
   }
 }
