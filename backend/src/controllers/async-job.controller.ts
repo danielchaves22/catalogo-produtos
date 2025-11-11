@@ -6,8 +6,10 @@ import {
   clearAsyncJobHistory,
   deleteAsyncJob,
   listAsyncJobs,
+  obterAsyncJobComArquivo,
 } from '../jobs/async-job.repository';
 import { logger } from '../utils/logger';
+import { storageFactory } from '../services/storage.factory';
 
 function normalizarLista(valor: unknown): string[] {
   if (!valor) {
@@ -98,5 +100,65 @@ export async function limparAsyncJobs(_req: Request, res: Response) {
 
     logger.error('Erro ao limpar histórico de jobs assíncronos:', error);
     return res.status(500).json({ error: 'Erro ao limpar histórico de jobs assíncronos.' });
+  }
+}
+
+export async function gerarLinkArquivoJob(req: Request, res: Response) {
+  const id = Number(req.params.id);
+
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: 'Identificador inválido.' });
+  }
+
+  const job = await obterAsyncJobComArquivo(id);
+
+  if (!job || job.tipo !== AsyncJobTipo.EXPORTACAO_PRODUTO) {
+    return res.status(404).json({ error: 'Arquivo não encontrado para o job informado.' });
+  }
+
+  if (!job.produtoExportacao || job.produtoExportacao.superUserId !== req.user!.superUserId) {
+    return res.status(404).json({ error: 'Arquivo não disponível.' });
+  }
+
+  if (job.status !== AsyncJobStatus.CONCLUIDO) {
+    return res.status(409).json({ error: 'O arquivo só fica disponível após a conclusão do processo.' });
+  }
+
+  const caminho = job.arquivo?.storagePath ?? job.produtoExportacao.arquivoPath;
+  if (!caminho) {
+    return res.status(404).json({ error: 'Arquivo ainda não foi gerado para este processo.' });
+  }
+
+  const expiraEm = job.produtoExportacao.arquivoExpiraEm ?? job.arquivo?.expiraEm ?? null;
+  if (expiraEm && expiraEm.getTime() < Date.now()) {
+    return res.status(410).json({ error: 'O arquivo expirou. Solicite uma nova exportação.' });
+  }
+
+  const provider = storageFactory();
+  const nome = job.produtoExportacao.arquivoNome ?? job.arquivo?.nome ?? `exportacao-${job.id}.json`;
+
+  if (typeof provider.getSignedUrl === 'function') {
+    const segundosRestantes = expiraEm
+      ? Math.max(60, Math.floor((expiraEm.getTime() - Date.now()) / 1000))
+      : 3600;
+
+    try {
+      const url = await provider.getSignedUrl(caminho, segundosRestantes, { filename: nome });
+      return res.json({ nome, url, expiraEm: expiraEm?.toISOString() ?? null });
+    } catch (error) {
+      logger.error('Falha ao gerar URL assinada para arquivo de exportação', error);
+      return res.status(500).json({ error: 'Não foi possível gerar o link temporário do arquivo.' });
+    }
+  }
+
+  try {
+    const arquivo = await provider.get(caminho);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${nome}"`);
+    res.setHeader('Content-Length', arquivo.byteLength);
+    return res.send(arquivo);
+  } catch (error) {
+    logger.error('Falha ao recuperar arquivo de exportação', error);
+    return res.status(500).json({ error: 'Não foi possível recuperar o arquivo solicitado.' });
   }
 }

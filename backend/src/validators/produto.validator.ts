@@ -61,23 +61,24 @@ export const cloneProdutoSchema = z.object({
 const statusEnum = z.enum(['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO']);
 const situacaoEnum = z.enum(['RASCUNHO', 'ATIVADO', 'DESATIVADO']);
 
-export const deleteProdutosEmMassaSchema = z
-  .object({
-    todosFiltrados: z.boolean(),
-    idsSelecionados: z.array(z.number().int().positive()).optional(),
-    idsDeselecionados: z.array(z.number().int().positive()).optional(),
-    filtros: z
-      .object({
-        status: z.array(statusEnum).optional(),
-        situacoes: z.array(situacaoEnum).optional(),
-        ncm: z.string().optional(),
-        catalogoId: z.number().int().optional()
-      })
-      .partial()
-      .optional(),
-    busca: z.string().optional()
-  })
-  .refine(
+const produtosSelecaoBaseSchema = z.object({
+  todosFiltrados: z.boolean(),
+  idsSelecionados: z.array(z.number().int().positive()).optional(),
+  idsDeselecionados: z.array(z.number().int().positive()).optional(),
+  filtros: z
+    .object({
+      status: z.array(statusEnum).optional(),
+      situacoes: z.array(situacaoEnum).optional(),
+      ncm: z.string().optional(),
+      catalogoId: z.number().int().optional()
+    })
+    .partial()
+    .optional(),
+  busca: z.string().optional()
+});
+
+function criarSelecaoSchema(mensagem: string) {
+  return produtosSelecaoBaseSchema.refine(
     data => {
       if (!data.todosFiltrados) {
         return Array.isArray(data.idsSelecionados) && data.idsSelecionados.length > 0;
@@ -85,7 +86,11 @@ export const deleteProdutosEmMassaSchema = z
       return true;
     },
     {
-      message: 'Informe ao menos um produto para exclusão',
+      message: mensagem,
       path: ['idsSelecionados']
     }
   );
+}
+
+export const deleteProdutosEmMassaSchema = criarSelecaoSchema('Informe ao menos um produto para exclusão');
+export const exportarProdutosSchema = criarSelecaoSchema('Informe ao menos um produto para exportação');

@@ -9,6 +9,7 @@ import {
   clonarProduto,
   removerProdutosEmMassa
 } from '../controllers/produto.controller';
+import { solicitarExportacaoProdutos } from '../controllers/produto-exportacao.controller';
 import {
   importarProdutosPorPlanilha,
   listarImportacoes,
@@ -23,7 +24,8 @@ import {
   createProdutoSchema,
   updateProdutoSchema,
   cloneProdutoSchema,
-  deleteProdutosEmMassaSchema
+  deleteProdutosEmMassaSchema,
+  exportarProdutosSchema
 } from '../validators/produto.validator';
 
 const router = Router();
@@ -41,6 +43,7 @@ router.get('/', listarProdutos);
 router.get('/:id', obterProduto);
 router.post('/', validate(createProdutoSchema), criarProduto);
 router.put('/:id', validate(updateProdutoSchema), atualizarProduto);
+router.post('/exportacoes', validate(exportarProdutosSchema), solicitarExportacaoProdutos);
 router.post('/:id/clonar', validate(cloneProdutoSchema), clonarProduto);
 router.post('/excluir-em-massa', validate(deleteProdutosEmMassaSchema), removerProdutosEmMassa);
 router.delete('/:id', removerProduto);

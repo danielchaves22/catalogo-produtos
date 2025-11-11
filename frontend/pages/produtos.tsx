@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { AlertCircle, Plus, Search, Trash2, Pencil, Copy, X } from 'lucide-react';
+import { AlertCircle, Plus, Search, Trash2, Pencil, Copy, X, Download, Loader2 } from 'lucide-react';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Hint } from '@/components/ui/Hint';
 import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
@@ -85,6 +85,7 @@ export default function ProdutosPage() {
   const [bulkDeleteValidationError, setBulkDeleteValidationError] = useState<string | null>(null);
   const [bulkDeleteRequestError, setBulkDeleteRequestError] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [exportandoProdutos, setExportandoProdutos] = useState(false);
   const router = useRouter();
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
@@ -206,19 +207,9 @@ export default function ProdutosPage() {
     filtros.catalogoId
   ]);
 
-  const confirmarExclusaoEmMassa = useCallback(async () => {
-    if (bulkDeleteConfirmationText.trim().toUpperCase() !== 'EXCLUIR') {
-      setBulkDeleteValidationError('Digite EXCLUIR para confirmar a exclusão.');
-      return;
-    }
-
-    setBulkDeleteValidationError(null);
-    setBulkDeleteRequestError(null);
-    setBulkDeleting(true);
-
+  const montarSelecaoPayload = useCallback(() => {
     const filtrosParaEnviar: Record<string, unknown> = {
-      status:
-        filtrosStatusSelecionados.length > 0 ? filtrosStatusSelecionados : undefined,
+      status: filtrosStatusSelecionados.length > 0 ? filtrosStatusSelecionados : undefined,
       situacoes:
         filtrosSituacoesSelecionadas.length > 0 ? filtrosSituacoesSelecionadas : undefined,
       catalogoId: filtroCatalogoSelecionado ? Number(filtroCatalogoSelecionado) : undefined
@@ -254,6 +245,29 @@ export default function ProdutosPage() {
       payload.idsSelecionados = Array.from(selectedProdutoIds);
     }
 
+    return payload;
+  }, [
+    filtrosStatusSelecionados,
+    filtrosSituacoesSelecionadas,
+    filtroCatalogoSelecionado,
+    isAllFilteredSelected,
+    deselectedProdutoIds,
+    selectedProdutoIds,
+    busca
+  ]);
+
+  const confirmarExclusaoEmMassa = useCallback(async () => {
+    if (bulkDeleteConfirmationText.trim().toUpperCase() !== 'EXCLUIR') {
+      setBulkDeleteValidationError('Digite EXCLUIR para confirmar a exclusão.');
+      return;
+    }
+
+    setBulkDeleteValidationError(null);
+    setBulkDeleteRequestError(null);
+    setBulkDeleting(true);
+
+    const payload = montarSelecaoPayload();
+
     try {
       await api.post('/produtos/excluir-em-massa', payload);
       addToast('Produtos excluídos com sucesso.', 'success');
@@ -278,9 +292,31 @@ export default function ProdutosPage() {
     isAllFilteredSelected,
     limparSelecao,
     bulkDeleteConfirmationText,
-    selectedProdutoIds,
-    busca
+    montarSelecaoPayload
   ]);
+
+  const handleExportarProdutos = useCallback(async () => {
+    if (exportandoProdutos || totalSelectedCount === 0) {
+      return;
+    }
+
+    setExportandoProdutos(true);
+
+    try {
+      const payload = montarSelecaoPayload();
+      const resposta = await api.post('/produtos/exportacoes', payload);
+      const jobId = resposta?.data?.jobId;
+      const mensagem = jobId
+        ? `Exportação agendada. Processo #${jobId} disponível em Automatização > Processos.`
+        : 'Exportação agendada. Acompanhe em Automatização > Processos.';
+      addToast(mensagem, 'success');
+    } catch (err: any) {
+      const mensagem = err?.response?.data?.error || 'Não foi possível agendar a exportação.';
+      addToast(mensagem, 'error');
+    } finally {
+      setExportandoProdutos(false);
+    }
+  }, [addToast, exportandoProdutos, montarSelecaoPayload, totalSelectedCount]);
 
   useEffect(() => {
     if (workingCatalog) {
@@ -696,15 +732,31 @@ export default function ProdutosPage() {
                     Limpar seleção
                   </Button>
                 </div>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  className="inline-flex items-center gap-2 ml-auto md:ml-0"
-                  onClick={abrirExclusaoEmMassa}
-                >
-                  <Trash2 size={16} />
-                  <span>Excluir selecionados</span>
-                </Button>
+                <div className="flex items-center gap-2 ml-auto md:ml-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="inline-flex items-center gap-2"
+                    onClick={handleExportarProdutos}
+                    disabled={exportandoProdutos}
+                  >
+                    {exportandoProdutos ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Download size={16} />
+                    )}
+                    <span>{exportandoProdutos ? 'Agendando...' : 'Exportar JSON SISCOMEX'}</span>
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    className="inline-flex items-center gap-2"
+                    onClick={abrirExclusaoEmMassa}
+                  >
+                    <Trash2 size={16} />
+                    <span>Excluir selecionados</span>
+                  </Button>
+                </div>
               </div>
             )}
             <div className="overflow-x-auto">
