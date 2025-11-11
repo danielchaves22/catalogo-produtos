@@ -30,6 +30,7 @@ interface RegistroPreenchimentoMassa {
   id: number;
   ncmCodigo: string;
   modalidade: string | null;
+  modoAtribuicao: 'TODOS_COM_EXCECOES' | 'SELECIONADOS';
   catalogos: CatalogoResumo[];
   produtosImpactados: number;
   criadoEm: string;
@@ -37,6 +38,7 @@ interface RegistroPreenchimentoMassa {
   valoresAtributos: Record<string, unknown>;
   estruturaSnapshot: any;
   produtosExcecao: ProdutoResumo[];
+  produtosSelecionados: ProdutoResumo[];
   jobId: number | null;
   jobStatus: AsyncJobStatus | null;
   jobFinalizadoEm: string | null;
@@ -55,6 +57,10 @@ function formatarModalidade(modalidade?: string | null) {
   if (valor === 'IMPORTACAO') return 'Importação';
   if (valor === 'EXPORTACAO') return 'Exportação';
   return modalidade;
+}
+
+function descreverModo(modo: 'TODOS_COM_EXCECOES' | 'SELECIONADOS') {
+  return modo === 'SELECIONADOS' ? 'Somente produtos selecionados' : 'Todos os produtos com exceções';
 }
 
 function formatarData(dataIso: string) {
@@ -147,6 +153,7 @@ export default function PreenchimentoMassaListaPage() {
     return registros.filter(item => {
       const ncmMatch = formatarNCM(item.ncmCodigo).replace(/\./g, '').includes(termo.replace(/\D/g, ''));
       const modalidadeMatch = (item.modalidade || '').toLowerCase().includes(termo);
+      const modoMatch = descreverModo(item.modoAtribuicao).toLowerCase().includes(termo);
       const catalogoMatch = item.catalogos?.some(catalogo => {
         const nome = catalogo.nome?.toLowerCase() || '';
         const numero = catalogo.numero ? String(catalogo.numero) : '';
@@ -158,7 +165,7 @@ export default function PreenchimentoMassaListaPage() {
           (documento && termoNumerico && documento.includes(termoNumerico))
         );
       });
-      return ncmMatch || modalidadeMatch || Boolean(catalogoMatch);
+      return ncmMatch || modalidadeMatch || modoMatch || Boolean(catalogoMatch);
     });
   }, [filtro, registros]);
 
@@ -223,6 +230,7 @@ export default function PreenchimentoMassaListaPage() {
                   <th className="w-16 px-4 py-3 text-center">Ações</th>
                   <th className="px-4 py-3">NCM</th>
                   <th className="px-4 py-3">Modalidade</th>
+                  <th className="px-4 py-3">Modo</th>
                   <th className="px-4 py-3">Catálogos</th>
                   <th className="px-4 py-3">Status do processo</th>
                   <th className="px-4 py-3">Produtos atualizados</th>
@@ -244,6 +252,7 @@ export default function PreenchimentoMassaListaPage() {
                     </td>
                     <td className="px-4 py-3 font-medium">{formatarNCM(item.ncmCodigo)}</td>
                     <td className="px-4 py-3">{formatarModalidade(item.modalidade)}</td>
+                    <td className="px-4 py-3">{descreverModo(item.modoAtribuicao)}</td>
                     <td className="px-4 py-3">{descreverCatalogos(item.catalogos)}</td>
                     <td className="px-4 py-3">
                       {item.jobStatus ? (

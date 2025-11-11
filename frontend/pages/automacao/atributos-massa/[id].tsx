@@ -45,10 +45,12 @@ interface RegistroDetalhe {
   id: number;
   ncmCodigo: string;
   modalidade: string | null;
+  modoAtribuicao: 'TODOS_COM_EXCECOES' | 'SELECIONADOS';
   catalogos: CatalogoResumo[];
   valoresAtributos: Record<string, unknown>;
   estruturaSnapshot: AtributoEstrutura[] | null;
   produtosExcecao: ProdutoResumo[];
+  produtosSelecionados: ProdutoResumo[];
   produtosImpactados: number;
   produtosImpactadosDetalhes: ProdutoImpactadoDetalhe[];
   criadoEm: string;
@@ -71,6 +73,10 @@ function formatarModalidade(modalidade?: string | null) {
   if (valor === 'IMPORTACAO') return 'Importação';
   if (valor === 'EXPORTACAO') return 'Exportação';
   return modalidade;
+}
+
+function descreverModo(modo: 'TODOS_COM_EXCECOES' | 'SELECIONADOS') {
+  return modo === 'SELECIONADOS' ? 'Somente produtos selecionados' : 'Todos os produtos com exceções';
 }
 
 function formatarData(dataIso: string) {
@@ -187,6 +193,21 @@ export default function PreenchimentoMassaDetalhePage() {
     }));
   }, [registro, mapaEstrutura]);
 
+  const produtosMarcados = useMemo(() => {
+    if (!registro) return [] as ProdutoResumo[];
+    return registro.modoAtribuicao === 'SELECIONADOS'
+      ? registro.produtosSelecionados
+      : registro.produtosExcecao;
+  }, [registro]);
+
+  const tituloProdutosMarcados = registro?.modoAtribuicao === 'SELECIONADOS'
+    ? 'Produtos selecionados para aplicar'
+    : 'Produtos marcados como exceção';
+
+  const mensagemProdutosMarcados = registro?.modoAtribuicao === 'SELECIONADOS'
+    ? 'Nenhum produto foi selecionado diretamente nesta atribuição.'
+    : 'Nenhum produto foi marcado como exceção.';
+
   function voltar() {
     router.push('/automacao/atributos-massa');
   }
@@ -222,6 +243,9 @@ export default function PreenchimentoMassaDetalhePage() {
                 </p>
                 <p>
                   <span className="text-gray-400">Modalidade:</span> {formatarModalidade(registro.modalidade)}
+                </p>
+                <p>
+                  <span className="text-gray-400">Modo de atribuição:</span> {descreverModo(registro.modoAtribuicao)}
                 </p>
                 <p>
                   <span className="text-gray-400">Catálogos impactados:</span>{' '}
@@ -282,12 +306,12 @@ export default function PreenchimentoMassaDetalhePage() {
             </Card>
 
             <Card>
-              <h2 className="mb-3 text-lg font-semibold text-white">Produtos marcados como exceção</h2>
-              {registro.produtosExcecao.length === 0 ? (
-                <p className="text-sm text-gray-400">Nenhum produto foi marcado como exceção.</p>
+              <h2 className="mb-3 text-lg font-semibold text-white">{tituloProdutosMarcados}</h2>
+              {produtosMarcados.length === 0 ? (
+                <p className="text-sm text-gray-400">{mensagemProdutosMarcados}</p>
               ) : (
                 <ul className="space-y-2 text-sm text-gray-200">
-                  {registro.produtosExcecao.map(item => (
+                  {produtosMarcados.map(item => (
                     <li key={item.id} className="rounded border border-gray-800 bg-gray-900 p-3">
                       <p className="font-semibold text-white">{item.denominacao}</p>
                       <p className="text-xs text-gray-400">
