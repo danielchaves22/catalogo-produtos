@@ -285,9 +285,12 @@ export default function PreenchimentoMassaNovoPage() {
   const [produtoSugestoes, setProdutoSugestoes] = useState<ProdutoBuscaItem[]>([]);
   const [carregandoProdutos, setCarregandoProdutos] = useState(false);
   const debouncedProdutoBusca = useDebounce(produtoBusca, 600);
-  const [produtosExcecao, setProdutosExcecao] = useState<ProdutoBuscaItem[]>([]);
+  const [produtosMarcados, setProdutosMarcados] = useState<ProdutoBuscaItem[]>([]);
   const [produtosPendentes, setProdutosPendentes] = useState<ProdutoEntrada[]>([]);
   const [modoBuscaProduto, setModoBuscaProduto] = useState<'codigo' | 'nome'>('codigo');
+  const [modoAtribuicao, setModoAtribuicao] = useState<'TODOS_COM_EXCECOES' | 'SELECIONADOS'>(
+    'TODOS_COM_EXCECOES'
+  );
   const [verificandoCodigo, setVerificandoCodigo] = useState(false);
 
   const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
@@ -318,10 +321,10 @@ export default function PreenchimentoMassaNovoPage() {
     () =>
       produtoSugestoes.filter(
         item =>
-          !produtosExcecao.some(produto => produto.id === item.id) &&
+          !produtosMarcados.some(produto => produto.id === item.id) &&
           !pendentesValidos.some(pendente => pendente.produto.id === item.id)
       ),
-    [produtoSugestoes, produtosExcecao, pendentesValidos]
+    [produtoSugestoes, produtosMarcados, pendentesValidos]
   );
 
   const catalogoOptions = useMemo(
@@ -342,6 +345,23 @@ export default function PreenchimentoMassaNovoPage() {
       }),
     [catalogos]
   );
+
+  const tituloProdutosMarcados =
+    modoAtribuicao === 'SELECIONADOS' ? 'Produtos selecionados para aplicar' : 'Produtos como exceção';
+  const descricaoProdutosMarcados =
+    modoAtribuicao === 'SELECIONADOS'
+      ? 'A atribuição será aplicada somente aos produtos listados abaixo.'
+      : 'Os produtos selecionados abaixo não terão os atributos atualizados.';
+  const mensagemSemProdutosMarcados =
+    modoAtribuicao === 'SELECIONADOS'
+      ? 'Nenhum produto selecionado até o momento.'
+      : 'Nenhum produto foi marcado como exceção.';
+  const resumoProdutosLabel =
+    modoAtribuicao === 'SELECIONADOS' ? 'Produtos selecionados:' : 'Produtos como exceção:';
+  const tituloResumoProdutos =
+    modoAtribuicao === 'SELECIONADOS'
+      ? 'Produtos que receberão a atribuição'
+      : 'Produtos que serão mantidos sem alteração';
 
   useEffect(() => {
     let ativo = true;
@@ -719,7 +739,7 @@ export default function PreenchimentoMassaNovoPage() {
 
   const adicionarProdutoPendente = useCallback(
     (produto: ProdutoBuscaItem, origem: 'busca' | 'codigo') => {
-      if (produtosExcecao.some(item => item.id === produto.id)) {
+      if (produtosMarcados.some(item => item.id === produto.id)) {
         addToast('Produto já incluído como exceção.', 'error');
         setProdutoBusca('');
         return;
@@ -745,7 +765,7 @@ export default function PreenchimentoMassaNovoPage() {
       setProdutoSugestoes(prev => prev.filter(item => item.id !== produto.id));
       setProdutoBusca('');
     },
-    [addToast, produtosExcecao, produtosPendentes]
+    [addToast, produtosMarcados, produtosPendentes]
   );
 
   const removerProdutoPendente = useCallback((entrada: ProdutoEntrada) => {
@@ -759,7 +779,7 @@ export default function PreenchimentoMassaNovoPage() {
       return;
     }
 
-    const existentes = new Set(produtosExcecao.map(item => item.id));
+    const existentes = new Set(produtosMarcados.map(item => item.id));
     const novosProdutos: ProdutoBuscaItem[] = [];
     let duplicados = 0;
 
@@ -773,7 +793,7 @@ export default function PreenchimentoMassaNovoPage() {
     }
 
     if (novosProdutos.length > 0) {
-      setProdutosExcecao(prev => [...prev, ...novosProdutos]);
+      setProdutosMarcados(prev => [...prev, ...novosProdutos]);
       addToast(
         `${novosProdutos.length} produto${novosProdutos.length > 1 ? 's' : ''} incluído${
           novosProdutos.length > 1 ? 's' : ''
@@ -796,7 +816,7 @@ export default function PreenchimentoMassaNovoPage() {
     if (novosProdutos.length === 0 && duplicados === 0) {
       addToast('Nenhum produto válido foi encontrado para inclusão.', 'error');
     }
-  }, [addToast, produtosPendentes, produtosExcecao]);
+  }, [addToast, produtosPendentes, produtosMarcados]);
 
   const limparProdutosPendentes = useCallback(() => {
     setProdutosPendentes([]);
@@ -813,7 +833,7 @@ export default function PreenchimentoMassaNovoPage() {
       }
 
       if (
-        produtosExcecao.some(item => produtoPossuiCodigo(item, codigoNormalizado)) ||
+        produtosMarcados.some(item => produtoPossuiCodigo(item, codigoNormalizado)) ||
         produtosPendentes.some(
           entrada =>
             entrada.tipo === 'valido' &&
@@ -859,7 +879,7 @@ export default function PreenchimentoMassaNovoPage() {
     [
       addToast,
       ncm,
-      produtosExcecao,
+      produtosMarcados,
       produtosPendentes,
       adicionarProdutoPendente,
       adicionarProdutoInvalido
@@ -956,8 +976,8 @@ export default function PreenchimentoMassaNovoPage() {
     [obterDescricaoProduto]
   );
 
-  function removerProdutoExcecao(id: number) {
-    setProdutosExcecao(prev => prev.filter(item => item.id !== id));
+  function removerProdutoMarcado(id: number) {
+    setProdutosMarcados(prev => prev.filter(item => item.id !== id));
   }
 
   function validarFormulario(): boolean {
@@ -977,6 +997,12 @@ export default function PreenchimentoMassaNovoPage() {
     if (preenchidos.length === 0) {
       setErroFormulario('Informe ao menos um atributo para aplicar em massa.');
       addToast('Informe ao menos um atributo para aplicar em massa.', 'error');
+      return false;
+    }
+
+    if (modoAtribuicao === 'SELECIONADOS' && produtosMarcados.length === 0) {
+      setErroFormulario('Selecione ao menos um produto para aplicar a atribuição.');
+      addToast('Selecione ao menos um produto para aplicar a atribuição.', 'error');
       return false;
     }
 
@@ -1007,16 +1033,36 @@ export default function PreenchimentoMassaNovoPage() {
         }
       }
 
+      const payload: {
+        ncmCodigo: string;
+        modalidade: 'IMPORTACAO' | 'EXPORTACAO';
+        catalogoIds?: number[];
+        valoresAtributos: Record<string, string | string[]>;
+        estruturaSnapshot: AtributoEstrutura[];
+        modoAtribuicao: 'TODOS_COM_EXCECOES' | 'SELECIONADOS';
+        produtosExcecao?: Array<{ id: number }>;
+        produtosSelecionados?: Array<{ id: number }>;
+      } = {
+        ncmCodigo: ncm.replace(/\D/g, ''),
+        modalidade,
+        valoresAtributos: atributosPreenchidos,
+        estruturaSnapshot: estrutura,
+        modoAtribuicao
+      };
+
+      if (catalogoIdsPayload.length) {
+        payload.catalogoIds = catalogoIdsPayload;
+      }
+
+      if (modoAtribuicao === 'SELECIONADOS') {
+        payload.produtosSelecionados = produtosMarcados.map(item => ({ id: item.id }));
+      } else if (produtosMarcados.length > 0) {
+        payload.produtosExcecao = produtosMarcados.map(item => ({ id: item.id }));
+      }
+
       const resposta = await api.post<PreenchimentoMassaAgendamentoResponse>(
         '/automacao/atributos-massa',
-        {
-          ncmCodigo: ncm.replace(/\D/g, ''),
-          modalidade,
-          catalogoIds: catalogoIdsPayload.length ? catalogoIdsPayload : undefined,
-          valoresAtributos: atributosPreenchidos,
-          estruturaSnapshot: estrutura,
-          produtosExcecao: produtosExcecao.map(item => ({ id: item.id }))
-        }
+        payload
       );
 
       const jobId = resposta.data?.jobId;
@@ -1250,10 +1296,27 @@ export default function PreenchimentoMassaNovoPage() {
           </Card>
 
           <Card>
-            <h2 className="mb-4 text-lg font-semibold text-white">Produtos como exceção</h2>
-            <p className="mb-4 text-sm text-gray-400">
-              Os produtos selecionados abaixo não terão os atributos atualizados.
-            </p>
+            <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white">{tituloProdutosMarcados}</h2>
+                <p className="text-sm text-gray-400">{descricaoProdutosMarcados}</p>
+              </div>
+              <div className="w-full md:w-80">
+                <RadioGroup
+                  label="Modo de atribuição"
+                  value={modoAtribuicao}
+                  onChange={valor =>
+                    setModoAtribuicao(
+                      (valor as 'TODOS_COM_EXCECOES' | 'SELECIONADOS') ?? 'TODOS_COM_EXCECOES'
+                    )
+                  }
+                  options={[
+                    { value: 'TODOS_COM_EXCECOES', label: 'Todos os produtos com exceções' },
+                    { value: 'SELECIONADOS', label: 'Somente produtos selecionados' }
+                  ]}
+                />
+              </div>
+            </div>
 
             <RadioGroup
               className="mb-2"
@@ -1342,9 +1405,9 @@ export default function PreenchimentoMassaNovoPage() {
               </p>
             )}
 
-            {produtosExcecao.length > 0 ? (
+            {produtosMarcados.length > 0 ? (
               <div className="space-y-3">
-                {produtosExcecao.map(item => (
+                {produtosMarcados.map(item => (
                   <div
                     key={item.id}
                     className="flex items-center justify-between rounded border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200"
@@ -1361,7 +1424,7 @@ export default function PreenchimentoMassaNovoPage() {
                       variant="outline"
                       size="sm"
                       className="flex h-8 w-8 items-center justify-center"
-                      onClick={() => removerProdutoExcecao(item.id)}
+                      onClick={() => removerProdutoMarcado(item.id)}
                     >
                       <X size={16} />
                     </Button>
@@ -1369,7 +1432,7 @@ export default function PreenchimentoMassaNovoPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-400">Nenhum produto marcado como exceção.</p>
+              <p className="text-sm text-gray-400">{mensagemSemProdutosMarcados}</p>
             )}
           </Card>
         </div>
@@ -1409,7 +1472,13 @@ export default function PreenchimentoMassaNovoPage() {
                   )}
                 </p>
                 <p>
-                  <span className="text-gray-400">Produtos como exceção:</span> {produtosExcecao.length}
+                  <span className="text-gray-400">Modo de atribuição:</span>{' '}
+                  {modoAtribuicao === 'SELECIONADOS'
+                    ? 'Somente produtos selecionados'
+                    : 'Todos os produtos com exceções'}
+                </p>
+                <p>
+                  <span className="text-gray-400">{resumoProdutosLabel}</span> {produtosMarcados.length}
                 </p>
               </div>
 
@@ -1431,13 +1500,13 @@ export default function PreenchimentoMassaNovoPage() {
                 )}
               </div>
 
-              {produtosExcecao.length > 0 && (
+              {produtosMarcados.length > 0 && (
                 <div>
                   <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                    Produtos que serão mantidos sem alteração
+                    {tituloResumoProdutos}
                   </h3>
                   <ul className="space-y-2">
-                    {produtosExcecao.map(item => (
+                    {produtosMarcados.map(item => (
                       <li key={item.id} className="rounded border border-gray-800 bg-gray-950 p-3">
                         <p className="font-semibold text-white">{item.denominacao}</p>
                         <p className="text-xs text-gray-400">

@@ -37,7 +37,9 @@ export async function criarPreenchimentoMassa(req: Request, res: Response) {
         catalogoIds: req.body.catalogoIds,
         valoresAtributos: req.body.valoresAtributos,
         estruturaSnapshot: req.body.estruturaSnapshot,
-        produtosExcecao: req.body.produtosExcecao
+        modoAtribuicao: req.body.modoAtribuicao,
+        produtosExcecao: req.body.produtosExcecao,
+        produtosSelecionados: req.body.produtosSelecionados
       },
       req.user!.superUserId,
       { nome: req.user!.name }
