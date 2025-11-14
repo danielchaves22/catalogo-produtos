@@ -20,7 +20,7 @@ import {
   normalizarValoresMultivalorados
 } from '@/lib/atributos';
 import useDebounce from '@/hooks/useDebounce';
-import { ArrowLeft, CheckCircle2, Loader2, Save, Search, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2, Save, Search, X } from 'lucide-react';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 
 interface AtributoEstrutura {
@@ -368,8 +368,6 @@ export default function PreenchimentoMassaNovoPage() {
     modoAtribuicao === 'SELECIONADOS'
       ? 'Nenhum produto selecionado até o momento.'
       : 'Nenhum produto foi marcado como exceção.';
-  const resumoProdutosLabel =
-    modoAtribuicao === 'SELECIONADOS' ? 'Produtos selecionados:' : 'Produtos como exceção:';
   const tituloResumoProdutos =
     modoAtribuicao === 'SELECIONADOS'
       ? 'Produtos que receberão a atribuição'
@@ -1553,9 +1551,6 @@ export default function PreenchimentoMassaNovoPage() {
                       ? 'Somente produtos selecionados'
                       : 'Todos os produtos com exceções'}
                   </p>
-                  <p>
-                    <span className="text-gray-400">{resumoProdutosLabel}</span> {produtosMarcados.length}
-                  </p>
                 </div>
                 <p className="mt-2 text-sm">
                   <span className="text-gray-400">Catálogos:</span>{' '}
@@ -1587,10 +1582,22 @@ export default function PreenchimentoMassaNovoPage() {
 
               {produtosMarcados.length > 0 && (
                 <div className="flex h-full flex-col">
-                  <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                    {tituloResumoProdutos}
-                  </h3>
-                  <div className="max-h-60 overflow-y-auto rounded border border-gray-800 bg-gray-950">
+                  <div className="rounded border border-amber-500/40 bg-amber-500/10 p-3">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle size={20} className="text-amber-300" />
+                      <h3 className="text-base font-semibold uppercase tracking-wide text-amber-200">
+                        {tituloResumoProdutos}
+                      </h3>
+                    </div>
+                    <p className="mt-2 text-xs text-amber-100">
+                      {descricaoProdutosMarcados}{' '}
+                      <span className="font-semibold text-white">
+                        Quantidade: {produtosMarcados.length}{' '}
+                        {produtosMarcados.length === 1 ? 'produto' : 'produtos'}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="mt-3 max-h-60 overflow-y-auto rounded border border-gray-800 bg-gray-950">
                     <ul className="divide-y divide-gray-800">
                       {produtosMarcados.map(item => (
                         <li key={item.id} className="px-3 py-2">
