@@ -179,6 +179,24 @@ function obterCodigosExibicao(
   return codigos;
 }
 
+function montarDescricaoCatalogo(nome?: string | null, cpfCnpj?: string | null) {
+  const partes: string[] = [];
+  if (nome) {
+    partes.push(nome);
+  }
+
+  const cnpjFormatado = formatCPFOrCNPJ(cpfCnpj || '');
+  if (cnpjFormatado) {
+    partes.push(cnpjFormatado);
+  }
+
+  if (partes.length === 0) {
+    return 'Catálogo desconhecido';
+  }
+
+  return partes.join(' • ');
+}
+
 function ordenarAtributos(estrutura: AtributoEstrutura[]): AtributoEstrutura[] {
   const resultado: AtributoEstrutura[] = [];
   const visitados = new Set<string>();
@@ -329,20 +347,10 @@ export default function PreenchimentoMassaNovoPage() {
 
   const catalogoOptions = useMemo(
     () =>
-      catalogos.map(catalogo => {
-        const partes: string[] = [catalogo.nome];
-        if (catalogo.numero) {
-          partes.push(`Catálogo ${catalogo.numero}`);
-        }
-        if (catalogo.cpf_cnpj) {
-          partes.push(formatCPFOrCNPJ(catalogo.cpf_cnpj));
-        }
-
-        return {
-          value: String(catalogo.id),
-          label: partes.join(' • ')
-        };
-      }),
+      catalogos.map(catalogo => ({
+        value: String(catalogo.id),
+        label: montarDescricaoCatalogo(catalogo.nome, catalogo.cpf_cnpj)
+      })),
     [catalogos]
   );
 
@@ -1295,7 +1303,7 @@ export default function PreenchimentoMassaNovoPage() {
             )}
           </Card>
 
-          <Card>
+          <Card className="overflow-visible">
             <div className="mb-4 space-y-4">
               <div className="w-full md:w-80">
                 <h2 className="text-lg font-semibold text-white">Modo de Atribuição</h2>
@@ -1363,13 +1371,13 @@ export default function PreenchimentoMassaNovoPage() {
                   codigos.length > 0
                     ? `Código${codigos.length > 1 ? 's' : ''}: ${codigos.join(', ')}`
                     : 'Sem código cadastrado';
+                const descricaoCatalogo = montarDescricaoCatalogo(item.catalogoNome, item.catalogoCpfCnpj);
 
                 return (
                   <div className="flex w-full flex-col">
                     <span className="font-semibold text-white">{item.denominacao}</span>
                     <span className="text-xs text-gray-400">
-                      {descricaoCodigo} • {item.catalogoNome || 'Catálogo desconhecido'}
-                      {item.catalogoNumero ? ` • Catálogo ${item.catalogoNumero}` : ''}
+                      {descricaoCodigo} • {descricaoCatalogo}
                     </span>
                   </div>
                 );
@@ -1414,11 +1422,20 @@ export default function PreenchimentoMassaNovoPage() {
                   >
                     <div>
                       <p className="font-semibold">{item.denominacao}</p>
-                      <p className="text-xs text-gray-400">
-                        {item.codigo ? `Código: ${item.codigo}` : 'Sem código interno'}
-                        {item.catalogoNome ? ` • ${item.catalogoNome}` : ''}
-                        {item.catalogoNumero ? ` • Catálogo ${item.catalogoNumero}` : ''}
-                      </p>
+                      {(() => {
+                        const codigosInternos = (item.codigosInternos ?? []).map(codigo => codigo?.trim()).filter(Boolean) as string[];
+                        const descricaoCodigos =
+                          codigosInternos.length > 0
+                            ? `Códigos internos: ${codigosInternos.join(', ')}`
+                            : 'Sem código interno';
+                        const descricaoCatalogo = montarDescricaoCatalogo(item.catalogoNome, item.catalogoCpfCnpj);
+
+                        return (
+                          <p className="text-xs text-gray-400">
+                            {descricaoCodigos} • {descricaoCatalogo}
+                          </p>
+                        );
+                      })()}
                     </div>
                     <Button
                       variant="outline"
@@ -1463,7 +1480,7 @@ export default function PreenchimentoMassaNovoPage() {
                   {catalogosSelecionados.length > 0 ? (
                     catalogos
                       .filter(cat => catalogosSelecionados.includes(String(cat.id)))
-                      .map(cat => cat.nome)
+                      .map(cat => montarDescricaoCatalogo(cat.nome, cat.cpf_cnpj))
                       .join(', ')
                   ) : (
                     <span className="font-semibold text-amber-400">
@@ -1509,10 +1526,20 @@ export default function PreenchimentoMassaNovoPage() {
                     {produtosMarcados.map(item => (
                       <li key={item.id} className="rounded border border-gray-800 bg-gray-950 p-3">
                         <p className="font-semibold text-white">{item.denominacao}</p>
-                        <p className="text-xs text-gray-400">
-                          {item.codigo ? `Código: ${item.codigo}` : 'Sem código'}
-                          {item.catalogoNome ? ` • ${item.catalogoNome}` : ''}
-                        </p>
+                        {(() => {
+                          const codigosInternos = (item.codigosInternos ?? []).map(codigo => codigo?.trim()).filter(Boolean) as string[];
+                          const descricaoCodigos =
+                            codigosInternos.length > 0
+                              ? `Códigos internos: ${codigosInternos.join(', ')}`
+                              : 'Sem código interno';
+                          const descricaoCatalogo = montarDescricaoCatalogo(item.catalogoNome, item.catalogoCpfCnpj);
+
+                          return (
+                            <p className="text-xs text-gray-400">
+                              {descricaoCodigos} • {descricaoCatalogo}
+                            </p>
+                          );
+                        })()}
                       </li>
                     ))}
                   </ul>

@@ -3,6 +3,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { useWorkingCatalog, WorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
+import { formatCPFOrCNPJ } from '@/lib/validation';
 
 type CatalogoAmbiente = 'HOMOLOGACAO' | 'PRODUCAO';
 
@@ -77,7 +78,9 @@ export function WorkingCatalogModal({ isOpen, onClose }: WorkingCatalogModalProp
           <option value="">Todos os catálogos</option>
           {catalogos.map(cat => (
             <option key={cat.id} value={cat.id}>
-              {cat.numero} - {cat.nome} ({cat.ambiente === 'PRODUCAO' ? 'Produção' : 'Homologação'})
+              {cat.nome}
+              {cat.cpf_cnpj ? ` • ${formatCPFOrCNPJ(cat.cpf_cnpj)}` : ''}
+              {` (${cat.ambiente === 'PRODUCAO' ? 'Produção' : 'Homologação'})`}
             </option>
           ))}
         </select>
@@ -91,7 +94,10 @@ export function WorkingCatalogModal({ isOpen, onClose }: WorkingCatalogModalProp
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex flex-col">
                     <span className="text-gray-300">Ambiente selecionado</span>
-                    <span className="text-gray-200 font-medium">{cat.nome}</span>
+                    <span className="text-gray-200 font-medium">
+                      {cat.nome}
+                      {cat.cpf_cnpj ? ` • ${formatCPFOrCNPJ(cat.cpf_cnpj)}` : ''}
+                    </span>
                   </div>
                   <EnvironmentBadge ambiente={cat.ambiente} size="sm" />
                 </div>
