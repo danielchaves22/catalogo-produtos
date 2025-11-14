@@ -6,6 +6,16 @@ import { ValidationError } from '../types/validation-error';
 import { createAsyncJob } from '../jobs/async-job.repository';
 import { logger } from '../utils/logger';
 
+type ProdutoExportacaoDelegate = {
+  create: (...args: any[]) => Promise<any>;
+  update: (...args: any[]) => Promise<any>;
+  findUnique: (...args: any[]) => Promise<any>;
+};
+
+const catalogoPrismaExportacao = catalogoPrisma as typeof catalogoPrisma & {
+  produtoExportacao: ProdutoExportacaoDelegate;
+};
+
 export interface ExportarProdutosDTO extends RemoverProdutosEmMassaDTO {}
 
 export interface ProdutoExportacaoSelecao {
@@ -30,11 +40,15 @@ export interface ProdutoExportacaoRegistro {
 }
 
 export interface ProdutoExportacaoProdutoDTO {
-  id: number;
+  seq: number;
+  codigo: string | null;
   descricao: string;
   denominacao: string;
   modalidade: string | null;
-  ncmCodigo: string;
+  ncm: string;
+  cpfCnpjRaiz: string | null;
+  status: string;
+  versao: string;
   atributos: Array<{
     atributo: string;
     valor: unknown;
@@ -56,6 +70,9 @@ export interface ProdutoExportacaoProdutoDTO {
 
 interface ProdutoComAtributos {
   id: number;
+  codigo: string | null;
+  versao: number | null;
+  status: string;
   descricao: string;
   denominacao: string;
   modalidade: string | null;
@@ -74,6 +91,7 @@ interface ProdutoComAtributos {
     valores: Array<{ valorJson: Prisma.JsonValue; ordem: number }>;
   }>;
   codigosInternos: Array<{ codigo: string }>;
+  catalogo: { cpf_cnpj: string | null } | null;
 }
 
 export class ProdutoExportacaoService {
@@ -95,10 +113,11 @@ export class ProdutoExportacaoService {
 
     const arquivoNomeBase = `produtos-siscomex-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
 
-    return catalogoPrisma.$transaction(async tx => {
+    return catalogoPrismaExportacao.$transaction(async tx => {
+      const prismaTx = tx as typeof tx & { produtoExportacao: ProdutoExportacaoDelegate };
       const usuarioCatalogoId = await this.obterUsuarioCatalogoId(superUserId, usuario);
 
-      const exportacao = await tx.produtoExportacao.create({
+      const exportacao = await prismaTx.produtoExportacao.create({
         data: {
           superUserId,
           usuarioCatalogoId,
@@ -111,9 +130,11 @@ export class ProdutoExportacaoService {
         },
       });
 
+      const tipoExportacao = 'EXPORTACAO_PRODUTO' as unknown as AsyncJobTipo;
+
       const job = await createAsyncJob(
         {
-          tipo: AsyncJobTipo.EXPORTACAO_PRODUTO,
+          tipo: tipoExportacao,
           payload: {
             exportacaoId: exportacao.id,
             superUserId,
@@ -125,7 +146,7 @@ export class ProdutoExportacaoService {
         tx
       );
 
-      await tx.produtoExportacao.update({
+      await prismaTx.produtoExportacao.update({
         where: { id: exportacao.id },
         data: { asyncJobId: job.id },
       });
@@ -135,7 +156,7 @@ export class ProdutoExportacaoService {
   }
 
   async obterExportacaoPorId(id: number): Promise<ProdutoExportacaoRegistro | null> {
-    const registro = await catalogoPrisma.produtoExportacao.findUnique({
+    const registro = await catalogoPrismaExportacao.produtoExportacao.findUnique({
       where: { id },
       select: {
         id: true,
@@ -188,7 +209,7 @@ export class ProdutoExportacaoService {
       totalItens?: number | null;
     }
   ) {
-    await catalogoPrisma.produtoExportacao.update({
+    await catalogoPrismaExportacao.produtoExportacao.update({
       where: { id: exportacaoId },
       data: {
         arquivoPath: dados.arquivoPath ?? null,
@@ -231,7 +252,16 @@ export class ProdutoExportacaoService {
         catalogo: { superUserId },
       },
       orderBy: { id: 'asc' },
-      include: {
+      select: {
+        id: true,
+        codigo: true,
+        versao: true,
+        status: true,
+        descricao: true,
+        denominacao: true,
+        modalidade: true,
+        ncmCodigo: true,
+        catalogo: { select: { cpf_cnpj: true } },
         atributos: {
           include: {
             atributo: {
@@ -259,7 +289,7 @@ export class ProdutoExportacaoService {
   }
 
   transformarParaSiscomex(produtos: ProdutoComAtributos[]): ProdutoExportacaoProdutoDTO[] {
-    return produtos.map(produto => {
+    return produtos.map((produto, index) => {
       const simples: ProdutoExportacaoProdutoDTO['atributos'] = [];
       const multivalorados: ProdutoExportacaoProdutoDTO['atributosMultivalorados'] = [];
       const compostos = new Map<string, Array<{ atributo: string; valor: unknown }>>();
@@ -313,12 +343,19 @@ export class ProdutoExportacaoService {
         })
       );
 
+      const cpfCnpjRaiz = produto.catalogo?.cpf_cnpj ? produto.catalogo.cpf_cnpj.replace(/\D/g, '') : null;
+      const versao = typeof produto.versao === 'number' && Number.isFinite(produto.versao) ? String(produto.versao) : '';
+
       return {
-        id: produto.id,
+        seq: index + 1,
+        codigo: produto.codigo ?? null,
         descricao: produto.descricao,
         denominacao: produto.denominacao,
         modalidade: produto.modalidade,
-        ncmCodigo: produto.ncmCodigo,
+        ncm: produto.ncmCodigo,
+        cpfCnpjRaiz,
+        status: produto.status,
+        versao,
         atributos: simples,
         atributosMultivalorados: multivalorados,
         atributosCompostos,
