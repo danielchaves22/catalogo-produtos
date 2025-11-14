@@ -251,56 +251,56 @@ export function AutocompleteTagInput<S, T = S>({
           {hint && <Hint text={hint} />}
         </label>
       )}
-      <div className="flex items-stretch gap-2">
-        <div
-          className={`flex min-h-[44px] w-full cursor-text flex-wrap items-center gap-2 rounded-md border bg-[#1e2126] px-2 py-2 text-sm transition-colors ${
-            disabled
-              ? 'border-gray-800 opacity-60'
-              : hasFocus
-                ? 'border-blue-500 ring-1 ring-blue-500'
-                : 'border-gray-700 hover:border-gray-600'
-          }`}
-          onClick={handleContainerClick}
-          aria-disabled={disabled}
-        >
-          {!label && icon && <span className="text-gray-400">{icon}</span>}
-          {chips}
-          <input
-            ref={inputRef}
-            value={searchValue}
-            onChange={event => onSearchChange(event.target.value)}
-            onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
-            onKeyDown={handleKeyDown}
-            onPaste={onPaste}
-            disabled={disabled}
-            placeholder={selectedItems.length === 0 ? placeholder : ''}
-            className="flex-1 min-w-[140px] border-none bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-none focus:ring-0"
-            aria-expanded={isOpen}
-            aria-autocomplete="list"
-            aria-haspopup="listbox"
-          />
-        </div>
-        {combinedActions.length > 0 && (
-          <div className="flex items-center gap-2">
-            {combinedActions.map(({ label, onClick, disabled: actionDisabled, variant, size }, index) => (
-              <Button
-                key={`${label}-${index}`}
-                type="button"
-                onClick={onClick}
-                disabled={disabled || actionDisabled}
-                variant={variant}
-                size={size}
-                className="shrink-0"
-              >
-                {label}
-              </Button>
-            ))}
+      <div className="relative">
+        <div className="flex items-stretch gap-2">
+          <div
+            className={`flex min-h-[44px] w-full cursor-text flex-wrap items-center gap-2 rounded-md border bg-[#1e2126] px-2 py-2 text-sm transition-colors ${
+              disabled
+                ? 'border-gray-800 opacity-60'
+                : hasFocus
+                  ? 'border-blue-500 ring-1 ring-blue-500'
+                  : 'border-gray-700 hover:border-gray-600'
+            }`}
+            onClick={handleContainerClick}
+            aria-disabled={disabled}
+          >
+            {!label && icon && <span className="text-gray-400">{icon}</span>}
+            {chips}
+            <input
+              ref={inputRef}
+              value={searchValue}
+              onChange={event => onSearchChange(event.target.value)}
+              onFocus={handleInputFocus}
+              onBlur={handleInputBlur}
+              onKeyDown={handleKeyDown}
+              onPaste={onPaste}
+              disabled={disabled}
+              placeholder={selectedItems.length === 0 ? placeholder : ''}
+              className="flex-1 min-w-[140px] border-none bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-none focus:ring-0"
+              aria-expanded={isOpen}
+              aria-autocomplete="list"
+              aria-haspopup="listbox"
+            />
           </div>
-        )}
-      </div>
-      {isOpen && (
-        <div className="relative">
+          {combinedActions.length > 0 && (
+            <div className="flex items-center gap-2">
+              {combinedActions.map(({ label, onClick, disabled: actionDisabled, variant, size }, index) => (
+                <Button
+                  key={`${label}-${index}`}
+                  type="button"
+                  onClick={onClick}
+                  disabled={disabled || actionDisabled}
+                  variant={variant}
+                  size={size}
+                  className="shrink-0"
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+        {isOpen && (
           <div
             ref={dropdownRef}
             className={`absolute left-0 right-0 z-50 w-full overflow-hidden rounded-md border border-gray-700 bg-[#1e2126] shadow-xl ${
@@ -326,13 +326,13 @@ export function AutocompleteTagInput<S, T = S>({
                       onClick={() => {
                         onSelect(item);
                         requestAnimationFrame(() => inputRef.current?.focus());
-                    }}
-                    onMouseEnter={() => setHighlightedIndex(index)}
-                    className={`flex w-full items-start gap-2 px-3 py-2 text-left text-sm transition-colors ${
-                      index === highlightedIndex ? 'bg-[#262b36] text-white' : 'text-gray-200 hover:bg-[#242936]'
-                    }`}
-                    role="option"
-                    aria-selected={index === highlightedIndex}
+                      }}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                      className={`flex w-full items-start gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                        index === highlightedIndex ? 'bg-[#262b36] text-white' : 'text-gray-200 hover:bg-[#242936]'
+                      }`}
+                      role="option"
+                      aria-selected={index === highlightedIndex}
                     >
                       {renderSuggestion
                         ? renderSuggestion(item, index === highlightedIndex)
@@ -346,8 +346,8 @@ export function AutocompleteTagInput<S, T = S>({
               <p className="px-3 py-2 text-sm text-gray-400">{emptyMessage}</p>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
