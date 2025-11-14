@@ -1,5 +1,5 @@
 // frontend/components/layout/DashboardLayout.tsx - CORREÇÃO
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -10,6 +10,7 @@ import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { WorkingCatalogModal } from '@/components/catalogos/WorkingCatalogModal';
 import { useMessages } from '@/contexts/MessagesContext';
+import { formatCPFOrCNPJ } from '@/lib/validation';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -22,9 +23,20 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
   const { workingCatalog } = useWorkingCatalog();
   const [catalogModalOpen, setCatalogModalOpen] = useState(false);
 
-  const catalogLabel = workingCatalog
-    ? [workingCatalog.numero, workingCatalog.nome].filter(Boolean).join(' - ')
-    : 'Todos os catálogos';
+  const catalogLabel = useMemo(() => {
+    if (!workingCatalog) {
+      return 'Todos os catálogos';
+    }
+
+    const partes: string[] = [workingCatalog.nome];
+    const cnpjFormatado = formatCPFOrCNPJ(workingCatalog.cpf_cnpj || '');
+
+    if (cnpjFormatado) {
+      partes.push(cnpjFormatado);
+    }
+
+    return partes.join(' • ');
+  }, [workingCatalog]);
   
   // Estado para controlar a visibilidade do menu do usuário
   const [userMenuOpen, setUserMenuOpen] = useState(false);
