@@ -313,6 +313,10 @@ export default function PreenchimentoMassaNovoPage() {
 
   const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
 
+  const ncmNormalizada = useMemo(() => ncm.replace(/\D/g, ''), [ncm]);
+  const ncmValida = ncmNormalizada.length === 8;
+  const ncmAnteriorRef = useRef<string>(ncmNormalizada);
+
   const mapaEstrutura = useMemo(() => {
     const map = new Map<string, AtributoEstrutura>();
     function coletar(lista: AtributoEstrutura[]) {
@@ -479,10 +483,31 @@ export default function PreenchimentoMassaNovoPage() {
   }, [ncmSugestoesVisiveis]);
 
   useEffect(() => {
+    if (ncmAnteriorRef.current === ncmNormalizada) return;
+    ncmAnteriorRef.current = ncmNormalizada;
+
+    setProdutosMarcados([]);
+    setProdutosPendentes([]);
+    setProdutoSugestoes([]);
+    setProdutoBusca('');
+    setModoAtribuicao('TODOS_COM_EXCECOES');
+    setConfirmacaoAberta(false);
+  }, [ncmNormalizada]);
+
+  useEffect(() => {
     let ativo = true;
     const termoBusca = debouncedProdutoBusca.trim();
     if (!termoBusca) {
       setProdutoSugestoes([]);
+      setCarregandoProdutos(false);
+      return () => {
+        ativo = false;
+      };
+    }
+
+    if (!ncmValida) {
+      setProdutoSugestoes([]);
+      setCarregandoProdutos(false);
       return () => {
         ativo = false;
       };
@@ -496,9 +521,7 @@ export default function PreenchimentoMassaNovoPage() {
           page: 1,
           pageSize: 10
         };
-        if (ncm.replace(/\D/g, '').length === 8) {
-          params.ncm = ncm.replace(/\D/g, '');
-        }
+        params.ncm = ncmNormalizada;
         const resposta = await api.get<ProdutosResponse>('/produtos', { params });
         if (!ativo) return;
         const itens = resposta.data.items || [];
@@ -524,7 +547,7 @@ export default function PreenchimentoMassaNovoPage() {
     return () => {
       ativo = false;
     };
-  }, [debouncedProdutoBusca, ncm, modoBuscaProduto]);
+  }, [debouncedProdutoBusca, modoBuscaProduto, ncmNormalizada, ncmValida]);
 
   async function carregarEstrutura(ncmCodigo: string, modalidadeSelecionada: string) {
     if (ncmCodigo.length < 8) return;
@@ -560,15 +583,14 @@ export default function PreenchimentoMassaNovoPage() {
   }
 
   useEffect(() => {
-    const digits = ncm.replace(/\D/g, '');
-    if (digits.length === 8) {
-      carregarEstrutura(digits, modalidade);
+    if (ncmValida) {
+      carregarEstrutura(ncmNormalizada, modalidade);
     } else {
       setEstruturaCarregada(false);
       setEstrutura([]);
       setValores({});
     }
-  }, [ncm, modalidade]);
+  }, [ncmValida, ncmNormalizada, modalidade]);
 
   useEffect(() => {
     setProdutoBusca('');
@@ -840,6 +862,12 @@ export default function PreenchimentoMassaNovoPage() {
         return;
       }
 
+      if (!ncmValida) {
+        addToast('Informe uma NCM válida antes de buscar produtos.', 'error');
+        setProdutoBusca('');
+        return;
+      }
+
       if (
         produtosMarcados.some(item => produtoPossuiCodigo(item, codigoNormalizado)) ||
         produtosPendentes.some(
@@ -860,9 +888,7 @@ export default function PreenchimentoMassaNovoPage() {
           page: 1,
           pageSize: 10
         };
-        if (ncm.replace(/\D/g, '').length === 8) {
-          params.ncm = ncm.replace(/\D/g, '');
-        }
+        params.ncm = ncmNormalizada;
         const resposta = await api.get<ProdutosResponse>('/produtos', { params });
         const itens = resposta.data.items || [];
         const correspondentes = itens.filter(item =>
@@ -886,7 +912,8 @@ export default function PreenchimentoMassaNovoPage() {
     },
     [
       addToast,
-      ncm,
+      ncmValida,
+      ncmNormalizada,
       produtosMarcados,
       produtosPendentes,
       adicionarProdutoPendente,
@@ -982,6 +1009,27 @@ export default function PreenchimentoMassaNovoPage() {
       );
     },
     [obterDescricaoProduto]
+  );
+
+  const handleModoAtribuicaoChange = useCallback(
+    (valor: string) => {
+      const novoModo = (valor as 'TODOS_COM_EXCECOES' | 'SELECIONADOS') ?? 'TODOS_COM_EXCECOES';
+      if (novoModo === modoAtribuicao) return;
+
+      if (produtosMarcados.length > 0) {
+        const mensagem =
+          'Ao alterar o modo de atribuição, os produtos já adicionados serão removidos da lista. Deseja continuar?';
+        const confirmado = typeof window === 'undefined' ? true : window.confirm(mensagem);
+        if (!confirmado) {
+          return;
+        }
+      }
+
+      setModoAtribuicao(novoModo);
+      setProdutosMarcados([]);
+      setProdutosPendentes([]);
+    },
+    [modoAtribuicao, produtosMarcados.length]
   );
 
   function removerProdutoMarcado(id: number) {
@@ -1103,6 +1151,20 @@ export default function PreenchimentoMassaNovoPage() {
     }
     return preenchidos;
   }, [valores, mapaEstrutura]);
+
+  const atributosResumoCompacto = useMemo(() => {
+    if (atributosPreenchidosLista.length === 0) {
+      return '';
+    }
+
+    return atributosPreenchidosLista
+      .map(({ atributo, valor }) => {
+        const chave = atributo?.nome || atributo?.codigo || 'Atributo';
+        const valorFormatado = formatarValorAtributo(atributo, valor);
+        return `${chave} = ${valorFormatado}`;
+      })
+      .join('; ');
+  }, [atributosPreenchidosLista]);
 
   return (
     <DashboardLayout title="Preencher Atributos em Massa">
@@ -1250,70 +1312,75 @@ export default function PreenchimentoMassaNovoPage() {
               document.body
             )}
 
-          <Card>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Valores dos atributos</h2>
-              {loadingEstrutura && (
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <Loader2 size={16} className="animate-spin" />
-                  Carregando estrutura
-                </div>
+          {!ncmValida && (
+            <p className="rounded border border-gray-800 bg-gray-900 p-4 text-sm text-gray-400">
+              Informe uma NCM válida para habilitar o preenchimento de atributos e a seleção de produtos.
+            </p>
+          )}
+
+          {ncmValida && (
+            <Card>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white">Valores dos atributos</h2>
+                {loadingEstrutura && (
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <Loader2 size={16} className="animate-spin" />
+                    Carregando estrutura
+                  </div>
+                )}
+              </div>
+
+              {!estruturaCarregada && (
+                <p className="text-sm text-gray-400">
+                  Informe uma NCM válida para carregar os atributos disponíveis.
+                </p>
               )}
-            </div>
 
-            {!estruturaCarregada && (
-              <p className="text-sm text-gray-400">
-                Informe uma NCM válida para carregar os atributos disponíveis.
-              </p>
-            )}
+              {estruturaCarregada && estrutura.length === 0 && (
+                <p className="text-sm text-gray-400">
+                  Nenhum atributo disponível para a combinação informada.
+                </p>
+              )}
 
-            {estruturaCarregada && estrutura.length === 0 && (
-              <p className="text-sm text-gray-400">
-                Nenhum atributo disponível para a combinação informada.
-              </p>
-            )}
-
-            {estruturaCarregada && estrutura.length > 0 && (
-              <div className="grid gap-4">
-                {coletarAtributos(estrutura)
-                  .filter(attr => !attr.parentCodigo || mapaEstrutura.get(attr.parentCodigo)?.tipo === 'COMPOSTO')
-                  .map(attr => {
-                    const isComposto = attr.tipo === 'COMPOSTO';
-                    if (!isComposto) {
-                      return <div key={attr.codigo}>{renderCampo(attr)}</div>;
-                    }
-                    return (
-                      <div key={attr.codigo} className="rounded-lg border border-gray-800 bg-gray-900 p-4">
-                        <div className="mb-3 flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-white">{attr.nome}</p>
-                            {attr.orientacaoPreenchimento && (
-                              <p className="text-xs text-gray-400">{attr.orientacaoPreenchimento}</p>
+              {estruturaCarregada && estrutura.length > 0 && (
+                <div className="grid gap-4">
+                  {coletarAtributos(estrutura)
+                    .filter(attr => !attr.parentCodigo || mapaEstrutura.get(attr.parentCodigo)?.tipo === 'COMPOSTO')
+                    .map(attr => {
+                      const isComposto = attr.tipo === 'COMPOSTO';
+                      if (!isComposto) {
+                        return <div key={attr.codigo}>{renderCampo(attr)}</div>;
+                      }
+                      return (
+                        <div key={attr.codigo} className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                          <div className="mb-3 flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-white">{attr.nome}</p>
+                              {attr.orientacaoPreenchimento && (
+                                <p className="text-xs text-gray-400">{attr.orientacaoPreenchimento}</p>
+                              )}
+                            </div>
+                            {attr.obrigatorio && (
+                              <span className="text-xs font-semibold uppercase text-amber-400">Obrigatório</span>
                             )}
                           </div>
-                          {attr.obrigatorio && (
-                            <span className="text-xs font-semibold uppercase text-amber-400">Obrigatório</span>
-                          )}
+                          <div className="space-y-4">{renderCampo(attr)}</div>
                         </div>
-                        <div className="space-y-4">{renderCampo(attr)}</div>
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
-          </Card>
+                      );
+                    })}
+                </div>
+              )}
+            </Card>
+          )}
 
-          <Card className="overflow-visible">
+          {ncmValida && (
+            <Card className="overflow-visible">
             <div className="mb-4 space-y-4">
               <div className="w-full md:w-80">
                 <h2 className="text-lg font-semibold text-white">Modo de Atribuição</h2>
                 <RadioGroup
                   value={modoAtribuicao}
-                  onChange={valor =>
-                    setModoAtribuicao(
-                      (valor as 'TODOS_COM_EXCECOES' | 'SELECIONADOS') ?? 'TODOS_COM_EXCECOES'
-                    )
-                  }
+                  onChange={handleModoAtribuicaoChange}
                   options={[
                     { value: 'TODOS_COM_EXCECOES', label: 'Todos os produtos com exceções' },
                     { value: 'SELECIONADOS', label: 'Somente produtos selecionados' }
@@ -1451,14 +1518,15 @@ export default function PreenchimentoMassaNovoPage() {
             ) : (
               <p className="text-sm text-gray-400">{mensagemSemProdutosMarcados}</p>
             )}
-          </Card>
+            </Card>
+          )}
         </div>
 
       </div>
 
       {confirmacaoAberta && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-3xl rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-xl">
+          <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-xl max-h-[90vh]">
             <div className="mb-4 flex items-center gap-3">
               <CheckCircle2 size={32} className="text-emerald-400" />
               <div>
@@ -1469,13 +1537,27 @@ export default function PreenchimentoMassaNovoPage() {
               </div>
             </div>
 
-            <div className="space-y-4 text-sm text-gray-200">
+            <div className="flex-1 overflow-hidden space-y-4 text-sm text-gray-200">
               <div className="rounded border border-gray-800 bg-gray-950 p-4">
-                <p><span className="text-gray-400">NCM:</span> {formatarNCMExibicao(ncm)}</p>
-                <p>
-                  <span className="text-gray-400">Modalidade:</span> {modalidade === 'IMPORTACAO' ? 'Importação' : 'Exportação'}
-                </p>
-                <p>
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                  <p>
+                    <span className="text-gray-400">NCM:</span> {formatarNCMExibicao(ncm)}
+                  </p>
+                  <p>
+                    <span className="text-gray-400">Modalidade:</span>{' '}
+                    {modalidade === 'IMPORTACAO' ? 'Importação' : 'Exportação'}
+                  </p>
+                  <p>
+                    <span className="text-gray-400">Modo:</span>{' '}
+                    {modoAtribuicao === 'SELECIONADOS'
+                      ? 'Somente produtos selecionados'
+                      : 'Todos os produtos com exceções'}
+                  </p>
+                  <p>
+                    <span className="text-gray-400">{resumoProdutosLabel}</span> {produtosMarcados.length}
+                  </p>
+                </div>
+                <p className="mt-2 text-sm">
                   <span className="text-gray-400">Catálogos:</span>{' '}
                   {catalogosSelecionados.length > 0 ? (
                     catalogos
@@ -1488,15 +1570,6 @@ export default function PreenchimentoMassaNovoPage() {
                     </span>
                   )}
                 </p>
-                <p>
-                  <span className="text-gray-400">Modo de atribuição:</span>{' '}
-                  {modoAtribuicao === 'SELECIONADOS'
-                    ? 'Somente produtos selecionados'
-                    : 'Todos os produtos com exceções'}
-                </p>
-                <p>
-                  <span className="text-gray-400">{resumoProdutosLabel}</span> {produtosMarcados.length}
-                </p>
               </div>
 
               <div>
@@ -1506,43 +1579,42 @@ export default function PreenchimentoMassaNovoPage() {
                 {atributosPreenchidosLista.length === 0 ? (
                   <p className="text-sm text-gray-400">Nenhum atributo preenchido.</p>
                 ) : (
-                  <ul className="space-y-2">
-                    {atributosPreenchidosLista.map(({ atributo, valor }) => (
-                      <li key={atributo?.codigo || String(valor)} className="rounded border border-gray-800 bg-gray-950 p-3">
-                        <p className="font-semibold text-white">{atributo?.nome || atributo?.codigo || 'Atributo'}</p>
-                        <p className="text-sm text-gray-300">{formatarValorAtributo(atributo, valor)}</p>
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="rounded border border-gray-800 bg-gray-950 p-3 text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">
+                    {atributosResumoCompacto}
+                  </p>
                 )}
               </div>
 
               {produtosMarcados.length > 0 && (
-                <div>
+                <div className="flex h-full flex-col">
                   <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
                     {tituloResumoProdutos}
                   </h3>
-                  <ul className="space-y-2">
-                    {produtosMarcados.map(item => (
-                      <li key={item.id} className="rounded border border-gray-800 bg-gray-950 p-3">
-                        <p className="font-semibold text-white">{item.denominacao}</p>
-                        {(() => {
-                          const codigosInternos = (item.codigosInternos ?? []).map(codigo => codigo?.trim()).filter(Boolean) as string[];
-                          const descricaoCodigos =
-                            codigosInternos.length > 0
-                              ? `Códigos internos: ${codigosInternos.join(', ')}`
-                              : 'Sem código interno';
-                          const descricaoCatalogo = montarDescricaoCatalogo(item.catalogoNome, item.catalogoCpfCnpj);
+                  <div className="max-h-60 overflow-y-auto rounded border border-gray-800 bg-gray-950">
+                    <ul className="divide-y divide-gray-800">
+                      {produtosMarcados.map(item => (
+                        <li key={item.id} className="px-3 py-2">
+                          <p className="font-semibold text-white">{item.denominacao}</p>
+                          {(() => {
+                            const codigosInternos = (item.codigosInternos ?? [])
+                              .map(codigo => codigo?.trim())
+                              .filter(Boolean) as string[];
+                            const descricaoCodigos =
+                              codigosInternos.length > 0
+                                ? `Códigos internos: ${codigosInternos.join(', ')}`
+                                : 'Sem código interno';
+                            const descricaoCatalogo = montarDescricaoCatalogo(item.catalogoNome, item.catalogoCpfCnpj);
 
-                          return (
-                            <p className="text-xs text-gray-400">
-                              {descricaoCodigos} • {descricaoCatalogo}
-                            </p>
-                          );
-                        })()}
-                      </li>
-                    ))}
-                  </ul>
+                            return (
+                              <p className="text-xs text-gray-400">
+                                {descricaoCodigos} • {descricaoCatalogo}
+                              </p>
+                            );
+                          })()}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               )}
             </div>

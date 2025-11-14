@@ -67,6 +67,8 @@ export function AutocompleteTagInput<S, T = S>({
   const [isOpen, setIsOpen] = useState(false);
   const [hasFocus, setHasFocus] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+  const [dropdownPosition, setDropdownPosition] = useState<'top' | 'bottom'>('bottom');
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const hasSuggestions = suggestions.length > 0;
   const showEmptyState = !isLoading && isOpen && searchValue.trim().length > 0 && !hasSuggestions;
@@ -96,6 +98,24 @@ export function AutocompleteTagInput<S, T = S>({
       return index;
     });
   }, [hasSuggestions, suggestions.length]);
+
+  const atualizarPosicionamentoDropdown = () => {
+    if (typeof window === 'undefined') return;
+    const container = containerRef.current;
+    const dropdown = dropdownRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || 0;
+    const espacoInferior = viewportHeight - rect.bottom;
+    const alturaDropdown = dropdown?.offsetHeight ?? 240;
+
+    if (espacoInferior < alturaDropdown && rect.top > alturaDropdown) {
+      setDropdownPosition('top');
+    } else {
+      setDropdownPosition('bottom');
+    }
+  };
 
   const handleContainerClick = () => {
     if (disabled) return;
@@ -196,6 +216,29 @@ export function AutocompleteTagInput<S, T = S>({
     return actions;
   }, [actionButton, actionButtons]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    atualizarPosicionamentoDropdown();
+
+    function handleWindowChange() {
+      atualizarPosicionamentoDropdown();
+    }
+
+    window.addEventListener('resize', handleWindowChange);
+    window.addEventListener('scroll', handleWindowChange, true);
+
+    return () => {
+      window.removeEventListener('resize', handleWindowChange);
+      window.removeEventListener('scroll', handleWindowChange, true);
+    };
+  }, [isOpen, suggestions.length]);
+
+  useEffect(() => {
+    if (isOpen) {
+      requestAnimationFrame(atualizarPosicionamentoDropdown);
+    }
+  }, [isOpen, suggestions.length]);
+
   return (
     <div className={`mb-4 ${className}`} ref={containerRef}>
       {label && (
@@ -258,7 +301,12 @@ export function AutocompleteTagInput<S, T = S>({
       </div>
       {isOpen && (
         <div className="relative">
-          <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-md border border-gray-700 bg-[#1e2126] shadow-xl">
+          <div
+            ref={dropdownRef}
+            className={`absolute left-0 right-0 z-50 w-full overflow-hidden rounded-md border border-gray-700 bg-[#1e2126] shadow-xl ${
+              dropdownPosition === 'bottom' ? 'mt-2 top-full' : 'mb-2 bottom-full'
+            }`}
+          >
             {isLoading && (
               <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300">
                 <Loader2 size={16} className="animate-spin" /> Carregando...
