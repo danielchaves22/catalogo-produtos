@@ -47,7 +47,7 @@ export interface ProdutoExportacaoProdutoDTO {
   modalidade: string | null;
   ncm: string;
   cpfCnpjRaiz: string | null;
-  status: string;
+  situacao: string;
   versao: string;
   atributos: Array<{
     atributo: string;
@@ -343,7 +343,19 @@ export class ProdutoExportacaoService {
         })
       );
 
-      const cpfCnpjRaiz = produto.catalogo?.cpf_cnpj ? produto.catalogo.cpf_cnpj.replace(/\D/g, '') : null;
+      const cpfCnpjSemMascara = produto.catalogo?.cpf_cnpj
+        ? produto.catalogo.cpf_cnpj.replace(/\D/g, '')
+        : '';
+
+      let cpfCnpjRaiz: string | null = null;
+
+      if (cpfCnpjSemMascara) {
+        if (cpfCnpjSemMascara.length <= 11) {
+          cpfCnpjRaiz = cpfCnpjSemMascara;
+        } else {
+          cpfCnpjRaiz = cpfCnpjSemMascara.slice(0, 8);
+        }
+      }
       const versao = typeof produto.versao === 'number' && Number.isFinite(produto.versao) ? String(produto.versao) : '';
 
       return {
@@ -354,7 +366,7 @@ export class ProdutoExportacaoService {
         modalidade: produto.modalidade,
         ncm: produto.ncmCodigo,
         cpfCnpjRaiz,
-        status: produto.status,
+        situacao: produto.status,
         versao,
         atributos: simples,
         atributosMultivalorados: multivalorados,
