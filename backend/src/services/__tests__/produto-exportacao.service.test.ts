@@ -1,4 +1,3 @@
-import { AsyncJobTipo } from '@prisma/client'
 import { ProdutoExportacaoService } from '../produto-exportacao.service'
 import { ProdutoService } from '../produto.service'
 import { createAsyncJob } from '../../jobs/async-job.repository'
@@ -73,7 +72,7 @@ describe('ProdutoExportacaoService', () => {
     )
     expect(createAsyncJob).toHaveBeenCalledWith(
       expect.objectContaining({
-        tipo: AsyncJobTipo.EXPORTACAO_PRODUTO,
+        tipo: 'EXPORTACAO_PRODUTO',
         payload: { exportacaoId: 10, superUserId: 7 },
         arquivo: { nome: expect.stringContaining('produtos-siscomex-') },
       }),
@@ -90,10 +89,14 @@ describe('ProdutoExportacaoService', () => {
     const produtos = [
       {
         id: 1,
+        codigo: 'PRD-1',
+        versao: 2,
+        status: 'APROVADO',
         descricao: 'Produto 1',
         denominacao: 'Denominação 1',
         modalidade: 'EXPORTACAO',
         ncmCodigo: '01010101',
+        catalogo: { cpf_cnpj: '12.345.678/0001-90' },
         atributos: [
           {
             atributo: {
@@ -142,17 +145,34 @@ describe('ProdutoExportacaoService', () => {
         ],
         codigosInternos: [{ codigo: 'SKU-1' }],
       },
+      {
+        id: 5,
+        codigo: null,
+        versao: null,
+        status: 'RASCUNHO',
+        descricao: 'Produto 2',
+        denominacao: 'Denominação 2',
+        modalidade: null,
+        ncmCodigo: '02020202',
+        catalogo: { cpf_cnpj: null },
+        atributos: [],
+        codigosInternos: [],
+      },
     ] as any
 
     const resultado = service.transformarParaSiscomex(produtos)
 
     expect(resultado).toEqual([
       {
-        id: 1,
+        seq: 1,
+        codigo: 'PRD-1',
         descricao: 'Produto 1',
         denominacao: 'Denominação 1',
         modalidade: 'EXPORTACAO',
-        ncmCodigo: '01010101',
+        ncm: '01010101',
+        cpfCnpjRaiz: '12345678000190',
+        status: 'APROVADO',
+        versao: '2',
         atributos: [{ atributo: 'ATT_1', valor: 'A' }],
         atributosMultivalorados: [{ atributo: 'ATT_MULTI', valores: ['V1', 'V2'] }],
         atributosCompostos: [{ atributo: 'ATT_PAI', valores: [{ atributo: 'ATT_FILHO', valor: 'C1' }] }],
@@ -166,6 +186,22 @@ describe('ProdutoExportacaoService', () => {
           },
         ],
         codigosInternos: ['SKU-1'],
+      },
+      {
+        seq: 2,
+        codigo: null,
+        descricao: 'Produto 2',
+        denominacao: 'Denominação 2',
+        modalidade: null,
+        ncm: '02020202',
+        cpfCnpjRaiz: null,
+        status: 'RASCUNHO',
+        versao: '',
+        atributos: [],
+        atributosMultivalorados: [],
+        atributosCompostos: [],
+        atributosCompostosMultivalorados: [],
+        codigosInternos: [],
       },
     ])
   })
