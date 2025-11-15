@@ -1508,12 +1508,7 @@ export default function PreenchimentoMassaNovoPage() {
               }
               actionButtons={[
                 {
-                  label: 'Incluir',
-                  onClick: incluirProdutosPendentes,
-                  disabled: pendentesValidos.length === 0
-                },
-                {
-                  label: 'Limpar campo',
+                  label: 'Limpar',
                   onClick: limparProdutosPendentes,
                   disabled: produtosPendentes.length === 0 && produtoBusca.trim().length === 0,
                   variant: 'outline'
