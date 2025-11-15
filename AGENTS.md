@@ -115,6 +115,9 @@ As migrations do Prisma não são utilizadas. Caso haja alteração na DDL do ba
 - Endpoints API: veja `backend/src/routes/*` e `swagger.ts`.
 - Permissões/autorização: `backend/src/constants/permissoes.ts` e `policies/permission.policy.ts`.
 - Upload/Storage: `services/storage.*` (S3 e local) e `docs/STORAGE_S3.md`.
+  - Sempre utilizar `storageFactory()` para determinar o provedor adequado.
+  - Em novos fluxos de upload, respeitar a regra: ambiente local salva em disco (`LocalStorageProvider`) e demais ambientes utilizam S3 (`S3StorageProvider`).
+  - Registre metadados de expiração ou caminhos no job/entidade correspondente em vez de persistir blobs diretamente no banco.
 
 —
 Se algo não estiver coberto aqui, siga o padrão dos arquivos existentes na mesma pasta e mantenha as mudanças mínimas, coesas e testáveis.
