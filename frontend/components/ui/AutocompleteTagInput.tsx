@@ -158,7 +158,10 @@ export function AutocompleteTagInput<S, T = S>({
         event.preventDefault();
         const item = suggestions[highlightedIndex];
         onSelect(item);
-        requestAnimationFrame(() => inputRef.current?.focus());
+        requestAnimationFrame(() => {
+          inputRef.current?.focus();
+          inputRef.current?.select();
+        });
         return;
       }
     }
@@ -325,7 +328,10 @@ export function AutocompleteTagInput<S, T = S>({
                       onMouseDown={event => event.preventDefault()}
                       onClick={() => {
                         onSelect(item);
-                        requestAnimationFrame(() => inputRef.current?.focus());
+                        requestAnimationFrame(() => {
+                          inputRef.current?.focus();
+                          inputRef.current?.select();
+                        });
                       }}
                       onMouseEnter={() => setHighlightedIndex(index)}
                       className={`flex w-full items-start gap-2 px-3 py-2 text-left text-sm transition-colors ${
