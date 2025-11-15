@@ -73,6 +73,7 @@ interface ProdutoComAtributos {
   codigo: string | null;
   versao: number | null;
   status: string;
+  situacao: string;
   descricao: string;
   denominacao: string;
   modalidade: string | null;
@@ -257,6 +258,7 @@ export class ProdutoExportacaoService {
         codigo: true,
         versao: true,
         status: true,
+        situacao: true,
         descricao: true,
         denominacao: true,
         modalidade: true,
@@ -289,7 +291,7 @@ export class ProdutoExportacaoService {
   }
 
   transformarParaSiscomex(produtos: ProdutoComAtributos[]): ProdutoExportacaoProdutoDTO[] {
-    return produtos.map((produto, index) => {
+    return produtos.map(produto => {
       const simples: ProdutoExportacaoProdutoDTO['atributos'] = [];
       const multivalorados: ProdutoExportacaoProdutoDTO['atributosMultivalorados'] = [];
       const compostos = new Map<string, Array<{ atributo: string; valor: unknown }>>();
@@ -359,14 +361,14 @@ export class ProdutoExportacaoService {
       const versao = typeof produto.versao === 'number' && Number.isFinite(produto.versao) ? String(produto.versao) : '';
 
       return {
-        seq: index + 1,
+        seq: produto.id,
         codigo: produto.codigo ?? null,
         descricao: produto.descricao,
         denominacao: produto.denominacao,
         modalidade: produto.modalidade,
         ncm: produto.ncmCodigo,
         cpfCnpjRaiz,
-        situacao: produto.status,
+        situacao: produto.situacao,
         versao,
         atributos: simples,
         atributosMultivalorados: multivalorados,
