@@ -187,7 +187,7 @@ describe('ProdutoExportacaoService', () => {
             ],
           },
         ],
-        codigosInternos: ['SKU-1'],
+        codigosInterno: ['SKU-1'],
       },
       {
         seq: 5,
@@ -203,7 +203,7 @@ describe('ProdutoExportacaoService', () => {
         atributosMultivalorados: [],
         atributosCompostos: [],
         atributosCompostosMultivalorados: [],
-        codigosInternos: [],
+        codigosInterno: [],
       },
     ])
   })
