@@ -312,6 +312,10 @@ export default function PreenchimentoMassaNovoPage() {
   const [verificandoCodigo, setVerificandoCodigo] = useState(false);
 
   const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
+  const [confirmacaoModoAberta, setConfirmacaoModoAberta] = useState(false);
+  const [modoAtribuicaoPendente, setModoAtribuicaoPendente] = useState<
+    'TODOS_COM_EXCECOES' | 'SELECIONADOS' | null
+  >(null);
 
   const ncmNormalizada = useMemo(() => ncm.replace(/\D/g, ''), [ncm]);
   const ncmValida = ncmNormalizada.length === 8;
@@ -766,10 +770,18 @@ export default function PreenchimentoMassaNovoPage() {
   );
 
   const adicionarProdutoPendente = useCallback(
-    (produto: ProdutoBuscaItem, origem: 'busca' | 'codigo') => {
+    (
+      produto: ProdutoBuscaItem,
+      origem: 'busca' | 'codigo',
+      opcoes?: { incluirAutomaticamente?: boolean; manterBusca?: boolean }
+    ) => {
+      const { incluirAutomaticamente = false, manterBusca = false } = opcoes ?? {};
+
       if (produtosMarcados.some(item => item.id === produto.id)) {
-        addToast('Produto já incluído como exceção.', 'error');
-        setProdutoBusca('');
+        addToast('Produto já foi incluído na lista.', 'error');
+        if (!manterBusca) {
+          setProdutoBusca('');
+        }
         return;
       }
       if (
@@ -777,21 +789,41 @@ export default function PreenchimentoMassaNovoPage() {
           entrada => entrada.tipo === 'valido' && entrada.produto.id === produto.id
         )
       ) {
-        addToast('Produto já está na lista para inclusão.', 'error');
-        setProdutoBusca('');
+        addToast('Produto já está aguardando inclusão.', 'error');
+        if (!manterBusca) {
+          setProdutoBusca('');
+        }
         return;
       }
-      setProdutosPendentes(prev => [
-        ...prev,
-        {
-          id: gerarIdTemporario(),
-          tipo: 'valido',
-          produto,
-          origem
-        }
-      ]);
+
+      if (incluirAutomaticamente) {
+        setProdutosMarcados(prev => {
+          if (prev.some(item => item.id === produto.id)) {
+            return prev;
+          }
+          return [...prev, produto];
+        });
+        setProdutosPendentes(prev =>
+          prev.filter(
+            entrada => !(entrada.tipo === 'valido' && entrada.produto.id === produto.id)
+          )
+        );
+      } else {
+        setProdutosPendentes(prev => [
+          ...prev,
+          {
+            id: gerarIdTemporario(),
+            tipo: 'valido',
+            produto,
+            origem
+          }
+        ]);
+      }
+
       setProdutoSugestoes(prev => prev.filter(item => item.id !== produto.id));
-      setProdutoBusca('');
+      if (!manterBusca) {
+        setProdutoBusca('');
+      }
     },
     [addToast, produtosMarcados, produtosPendentes]
   );
@@ -894,7 +926,9 @@ export default function PreenchimentoMassaNovoPage() {
         );
 
         if (correspondentes.length === 1) {
-          adicionarProdutoPendente(correspondentes[0], 'codigo');
+          adicionarProdutoPendente(correspondentes[0], 'codigo', {
+            incluirAutomaticamente: true
+          });
         } else if (correspondentes.length === 0) {
           adicionarProdutoInvalido(codigoDigitado, 'nao-encontrado');
         } else {
@@ -1015,12 +1049,9 @@ export default function PreenchimentoMassaNovoPage() {
       if (novoModo === modoAtribuicao) return;
 
       if (produtosMarcados.length > 0) {
-        const mensagem =
-          'Ao alterar o modo de atribuição, os produtos já adicionados serão removidos da lista. Deseja continuar?';
-        const confirmado = typeof window === 'undefined' ? true : window.confirm(mensagem);
-        if (!confirmado) {
-          return;
-        }
+        setModoAtribuicaoPendente(novoModo);
+        setConfirmacaoModoAberta(true);
+        return;
       }
 
       setModoAtribuicao(novoModo);
@@ -1029,6 +1060,21 @@ export default function PreenchimentoMassaNovoPage() {
     },
     [modoAtribuicao, produtosMarcados.length]
   );
+
+  const confirmarMudancaModo = useCallback(() => {
+    if (!modoAtribuicaoPendente) return;
+
+    setModoAtribuicao(modoAtribuicaoPendente);
+    setProdutosMarcados([]);
+    setProdutosPendentes([]);
+    setModoAtribuicaoPendente(null);
+    setConfirmacaoModoAberta(false);
+  }, [modoAtribuicaoPendente]);
+
+  const cancelarMudancaModo = useCallback(() => {
+    setModoAtribuicaoPendente(null);
+    setConfirmacaoModoAberta(false);
+  }, []);
 
   function removerProdutoMarcado(id: number) {
     setProdutosMarcados(prev => prev.filter(item => item.id !== id));
@@ -1419,7 +1465,12 @@ export default function PreenchimentoMassaNovoPage() {
               searchValue={produtoBusca}
               onSearchChange={valor => setProdutoBusca(valor)}
               suggestions={produtoSugestoesDisponiveis}
-              onSelect={produto => adicionarProdutoPendente(produto, 'busca')}
+              onSelect={produto =>
+                adicionarProdutoPendente(produto, 'busca', {
+                  incluirAutomaticamente: true,
+                  manterBusca: true
+                })
+              }
               selectedItems={produtosPendentes}
               onRemove={entrada => removerProdutoPendente(entrada)}
               getItemKey={item => item.id}
@@ -1521,6 +1572,42 @@ export default function PreenchimentoMassaNovoPage() {
         </div>
 
       </div>
+
+      {confirmacaoModoAberta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-xl rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-xl">
+            <div className="mb-4 flex items-center gap-3">
+              <AlertTriangle size={28} className="text-amber-300" />
+              <div>
+                <h2 className="text-lg font-semibold text-white">Alterar modo de atribuição</h2>
+                <p className="text-sm text-gray-400">
+                  Os produtos selecionados serão removidos ao confirmar a troca de modo.
+                </p>
+              </div>
+            </div>
+
+            {modoAtribuicaoPendente && (
+              <div className="rounded border border-gray-800 bg-gray-950 p-4 text-sm text-gray-200">
+                <p className="font-semibold text-white">Novo modo selecionado</p>
+                <p className="mt-1 text-gray-300">
+                  {modoAtribuicaoPendente === 'SELECIONADOS'
+                    ? 'Somente os produtos selecionados receberão os atributos.'
+                    : 'Todos os produtos serão atualizados, permitindo exceções.'}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={cancelarMudancaModo}>
+                Manter modo atual
+              </Button>
+              <Button variant="danger" onClick={confirmarMudancaModo}>
+                Alterar modo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmacaoAberta && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
