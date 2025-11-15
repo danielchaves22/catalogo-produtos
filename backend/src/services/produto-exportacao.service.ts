@@ -65,7 +65,7 @@ export interface ProdutoExportacaoProdutoDTO {
     atributo: string;
     valores: Array<Array<{ atributo: string; valor: unknown }>>;
   }>;
-  codigosInternos: string[];
+  codigosInterno: string[];
 }
 
 interface ProdutoComAtributos {
@@ -374,7 +374,7 @@ export class ProdutoExportacaoService {
         atributosMultivalorados: multivalorados,
         atributosCompostos,
         atributosCompostosMultivalorados,
-        codigosInternos: produto.codigosInternos.map(item => item.codigo),
+        codigosInterno: produto.codigosInternos.map(item => item.codigo),
       };
     });
   }
