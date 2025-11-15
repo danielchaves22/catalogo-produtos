@@ -526,46 +526,10 @@ export class ProdutoService {
     dados: RemoverProdutosEmMassaDTO,
     superUserId: number
   ): Promise<number> {
-    const idsSelecionados = Array.isArray(dados.idsSelecionados)
-      ? [...new Set(
-          dados.idsSelecionados
-            .map(id => Number(id))
-            .filter(id => Number.isInteger(id) && id > 0)
-        )]
-      : [];
-    const idsDeselecionados = Array.isArray(dados.idsDeselecionados)
-      ? [...new Set(
-          dados.idsDeselecionados
-            .map(id => Number(id))
-            .filter(id => Number.isInteger(id) && id > 0)
-        )]
-      : [];
-
-    if (!dados.todosFiltrados && idsSelecionados.length === 0) {
-      throw new ValidationError({ produtos: 'Nenhum produto selecionado para exclusão' });
-    }
-
-    const whereBase = this.montarCondicoesBase(dados.filtros ?? {}, superUserId, dados.busca);
-    const where: Prisma.ProdutoWhereInput = { ...whereBase };
-
-    if (dados.todosFiltrados) {
-      if (idsDeselecionados.length > 0) {
-        where.id = { notIn: idsDeselecionados };
-      }
-    } else {
-      where.id = { in: idsSelecionados };
-    }
-
-    const produtosParaExcluir = await catalogoPrisma.produto.findMany({
-      where,
-      select: { id: true }
+    const idsParaExcluir = await this.resolverSelecaoProdutos(dados, superUserId, {
+      mensagemErroVazio: 'Nenhum produto selecionado para exclusão',
+      mensagemErroConsulta: 'Nenhum produto correspondente encontrado para exclusão'
     });
-
-    if (!produtosParaExcluir.length) {
-      throw new ValidationError({ produtos: 'Nenhum produto correspondente encontrado para exclusão' });
-    }
-
-    const idsParaExcluir = produtosParaExcluir.map(p => p.id);
 
     const removidos = await catalogoPrisma.$transaction(async tx => {
       await tx.produtoAtributo.deleteMany({ where: { produtoId: { in: idsParaExcluir } } });
@@ -585,6 +549,60 @@ export class ProdutoService {
     }
 
     return removidos;
+  }
+
+  async resolverSelecaoProdutos(
+    dados: RemoverProdutosEmMassaDTO,
+    superUserId: number,
+    mensagens?: {
+      mensagemErroVazio?: string;
+      mensagemErroConsulta?: string;
+    }
+  ): Promise<number[]> {
+    const idsSelecionados = Array.isArray(dados.idsSelecionados)
+      ? [...new Set(
+          dados.idsSelecionados
+            .map(id => Number(id))
+            .filter(id => Number.isInteger(id) && id > 0)
+        )]
+      : [];
+    const idsDeselecionados = Array.isArray(dados.idsDeselecionados)
+      ? [...new Set(
+          dados.idsDeselecionados
+            .map(id => Number(id))
+            .filter(id => Number.isInteger(id) && id > 0)
+        )]
+      : [];
+
+    if (!dados.todosFiltrados && idsSelecionados.length === 0) {
+      throw new ValidationError({
+        produtos: mensagens?.mensagemErroVazio ?? 'Nenhum produto selecionado',
+      });
+    }
+
+    const whereBase = this.montarCondicoesBase(dados.filtros ?? {}, superUserId, dados.busca);
+    const where: Prisma.ProdutoWhereInput = { ...whereBase };
+
+    if (dados.todosFiltrados) {
+      if (idsDeselecionados.length > 0) {
+        where.id = { notIn: idsDeselecionados };
+      }
+    } else {
+      where.id = { in: idsSelecionados };
+    }
+
+    const produtos = await catalogoPrisma.produto.findMany({
+      where,
+      select: { id: true },
+    });
+
+    if (!produtos.length) {
+      throw new ValidationError({
+        produtos: mensagens?.mensagemErroConsulta ?? 'Nenhum produto correspondente encontrado',
+      });
+    }
+
+    return produtos.map(p => p.id);
   }
 
   async clonar(id: number, data: CloneProdutoDTO, superUserId: number) {

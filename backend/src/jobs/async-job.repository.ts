@@ -10,10 +10,21 @@ import {
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
+type AsyncJobProdutoExportacaoResumo = {
+  id: number;
+  superUserId: number;
+  arquivoNome: string | null;
+  arquivoExpiraEm: Date | null;
+  arquivoPath: string | null;
+  arquivoTamanho: number | null;
+  totalItens: number | null;
+};
+
 export type AsyncJobWithRelations = AsyncJob & {
   arquivo?: AsyncJobFile | null;
   importacaoProduto?: { id: number } | null;
   atributoPreenchimentoMassa?: { id: number } | null;
+  produtoExportacao?: AsyncJobProdutoExportacaoResumo | null;
 };
 
 export interface AsyncJobLogResumo {
@@ -36,7 +47,7 @@ export interface AsyncJobResumo {
   finalizadoEm: Date | null;
   criadoEm: Date;
   atualizadoEm: Date;
-  arquivo?: { nome: string | null } | null;
+  arquivo?: { nome: string | null; expiraEm: Date | null; storagePath: string | null; storageProvider: string | null } | null;
   ultimoLog?: AsyncJobLogResumo | null;
   importacaoProduto?: {
     id: number;
@@ -49,6 +60,7 @@ export interface AsyncJobResumo {
     } | null;
   } | null;
   atributoPreenchimentoMassa?: { id: number } | null;
+  produtoExportacao?: AsyncJobProdutoExportacaoResumo | null;
 }
 
 export interface ListAsyncJobsParams {
@@ -65,6 +77,9 @@ export interface CreateAsyncJobInput {
   arquivo?: {
     nome: string;
     conteudoBase64?: string | null;
+    storagePath?: string | null;
+    storageProvider?: string | null;
+    expiraEm?: Date | null;
   };
 }
 
@@ -95,6 +110,9 @@ export async function createAsyncJob(
         jobId: job.id,
         nome: dados.arquivo.nome,
         conteudoBase64: dados.arquivo.conteudoBase64 ?? null,
+        storagePath: dados.arquivo.storagePath ?? null,
+        storageProvider: dados.arquivo.storageProvider ?? null,
+        expiraEm: dados.arquivo.expiraEm ?? null,
       },
     });
   }
@@ -107,6 +125,17 @@ export async function createAsyncJob(
       arquivo: true,
       importacaoProduto: { select: { id: true } },
       atributoPreenchimentoMassa: { select: { id: true } },
+      produtoExportacao: {
+        select: {
+          id: true,
+          superUserId: true,
+          arquivoNome: true,
+          arquivoExpiraEm: true,
+          arquivoPath: true,
+          arquivoTamanho: true,
+          totalItens: true,
+        },
+      },
     },
   });
 
@@ -115,6 +144,48 @@ export async function createAsyncJob(
   }
 
   return completo;
+}
+
+export async function atualizarArquivoJob(
+  jobId: number,
+  dados: {
+    nome?: string;
+    conteudoBase64?: string | null;
+    storagePath?: string | null;
+    storageProvider?: string | null;
+    expiraEm?: Date | null;
+  }
+): Promise<AsyncJobFile> {
+  const data: Prisma.AsyncJobFileUpdateInput = {};
+
+  if (dados.nome !== undefined) {
+    data.nome = dados.nome;
+  }
+  if (dados.conteudoBase64 !== undefined) {
+    data.conteudoBase64 = dados.conteudoBase64;
+  }
+  if (dados.storagePath !== undefined) {
+    data.storagePath = dados.storagePath;
+  }
+  if (dados.storageProvider !== undefined) {
+    data.storageProvider = dados.storageProvider;
+  }
+  if (dados.expiraEm !== undefined) {
+    data.expiraEm = dados.expiraEm;
+  }
+
+  return catalogoPrisma.asyncJobFile.upsert({
+    where: { jobId },
+    update: data,
+    create: {
+      jobId,
+      nome: dados.nome ?? 'arquivo',
+      conteudoBase64: dados.conteudoBase64 ?? null,
+      storagePath: dados.storagePath ?? null,
+      storageProvider: dados.storageProvider ?? null,
+      expiraEm: dados.expiraEm ?? null,
+    },
+  });
 }
 
 export async function claimNextPendingJob(): Promise<AsyncJobWithRelations | null> {
@@ -155,6 +226,17 @@ export async function claimNextPendingJob(): Promise<AsyncJobWithRelations | nul
         arquivo: true,
         importacaoProduto: { select: { id: true } },
         atributoPreenchimentoMassa: { select: { id: true } },
+        produtoExportacao: {
+          select: {
+            id: true,
+            superUserId: true,
+            arquivoNome: true,
+            arquivoExpiraEm: true,
+            arquivoPath: true,
+            arquivoTamanho: true,
+            totalItens: true,
+          },
+        },
       },
     });
 
@@ -258,7 +340,7 @@ export async function listAsyncJobs(
     orderBy: { criadoEm: 'desc' },
     take: parametros.limite,
     include: {
-      arquivo: { select: { nome: true } },
+      arquivo: { select: { nome: true, expiraEm: true, storagePath: true, storageProvider: true } },
       importacaoProduto: {
         select: {
           id: true,
@@ -274,6 +356,17 @@ export async function listAsyncJobs(
         },
       },
       atributoPreenchimentoMassa: { select: { id: true } },
+      produtoExportacao: {
+        select: {
+          id: true,
+          superUserId: true,
+          arquivoNome: true,
+          arquivoExpiraEm: true,
+          arquivoPath: true,
+          arquivoTamanho: true,
+          totalItens: true,
+        },
+      },
       logs: {
         orderBy: { criadoEm: 'desc' },
         take: 1,
@@ -300,7 +393,14 @@ export async function listAsyncJobs(
     finalizadoEm: job.finalizadoEm ?? null,
     criadoEm: job.criadoEm,
     atualizadoEm: job.atualizadoEm,
-    arquivo: job.arquivo ? { nome: job.arquivo.nome } : null,
+    arquivo: job.arquivo
+      ? {
+          nome: job.arquivo.nome,
+          expiraEm: job.arquivo.expiraEm ?? null,
+          storagePath: job.arquivo.storagePath ?? null,
+          storageProvider: job.arquivo.storageProvider ?? null,
+        }
+      : null,
     ultimoLog: job.logs[0]
       ? {
           id: job.logs[0].id,
@@ -326,7 +426,40 @@ export async function listAsyncJobs(
     atributoPreenchimentoMassa: job.atributoPreenchimentoMassa
       ? { id: job.atributoPreenchimentoMassa.id }
       : null,
+    produtoExportacao: job.produtoExportacao
+      ? {
+          id: job.produtoExportacao.id,
+          superUserId: job.produtoExportacao.superUserId,
+          arquivoNome: job.produtoExportacao.arquivoNome,
+          arquivoExpiraEm: job.produtoExportacao.arquivoExpiraEm,
+          arquivoPath: job.produtoExportacao.arquivoPath,
+          arquivoTamanho: job.produtoExportacao.arquivoTamanho,
+          totalItens: job.produtoExportacao.totalItens,
+        }
+      : null,
   }));
+}
+
+export async function obterAsyncJobComArquivo(id: number): Promise<AsyncJobWithRelations | null> {
+  return catalogoPrisma.asyncJob.findUnique({
+    where: { id },
+    include: {
+      arquivo: true,
+      importacaoProduto: { select: { id: true } },
+      atributoPreenchimentoMassa: { select: { id: true } },
+      produtoExportacao: {
+        select: {
+          id: true,
+          superUserId: true,
+          arquivoNome: true,
+          arquivoExpiraEm: true,
+          arquivoPath: true,
+          arquivoTamanho: true,
+          totalItens: true,
+        },
+      },
+    },
+  });
 }
 
 export interface ReleaseStalledJobsResult {
@@ -349,6 +482,17 @@ export async function releaseStalledJobs(
     },
     include: {
       importacaoProduto: { select: { id: true } },
+      produtoExportacao: {
+        select: {
+          id: true,
+          superUserId: true,
+          arquivoNome: true,
+          arquivoExpiraEm: true,
+          arquivoPath: true,
+          arquivoTamanho: true,
+          totalItens: true,
+        },
+      },
     },
   });
 
@@ -399,6 +543,7 @@ export async function deleteAsyncJob(jobId: number): Promise<boolean> {
         id: true,
         status: true,
         importacaoProduto: { select: { id: true } },
+        produtoExportacao: { select: { id: true } },
       },
     });
 
@@ -416,6 +561,13 @@ export async function deleteAsyncJob(jobId: number): Promise<boolean> {
     if (existente.importacaoProduto) {
       await tx.importacaoProduto.update({
         where: { id: existente.importacaoProduto.id },
+        data: { asyncJobId: null },
+      });
+    }
+
+    if (existente.produtoExportacao) {
+      await tx.produtoExportacao.update({
+        where: { id: existente.produtoExportacao.id },
         data: { asyncJobId: null },
       });
     }
@@ -450,6 +602,11 @@ export async function clearAsyncJobHistory(): Promise<number> {
     const ids = jobsParaRemover.map(job => job.id);
 
     await tx.importacaoProduto.updateMany({
+      where: { asyncJobId: { in: ids } },
+      data: { asyncJobId: null },
+    });
+
+    await tx.produtoExportacao.updateMany({
       where: { asyncJobId: { in: ids } },
       data: { asyncJobId: null },
     });

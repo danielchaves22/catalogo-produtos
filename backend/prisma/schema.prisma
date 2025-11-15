@@ -25,6 +25,7 @@ model User {
   importacoes  ImportacaoProduto[]
   ncmValoresPadraoGrupos NcmAtributoValorGrupo[]
   preenchimentosMassa    AtributoPreenchimentoMassa[]
+  exportacoes            ProdutoExportacao[]
 
   @@map("comex")
 }
@@ -67,6 +68,7 @@ model UsuarioCatalogo {
 
   permissoes  UsuarioPermissao[]
   importacoes ImportacaoProduto[]
+  exportacoes ProdutoExportacao[]
 
   @@map("usuario_catalogo")
 }
@@ -160,6 +162,7 @@ model AsyncJob {
   arquivo           AsyncJobFile?
   logs              AsyncJobLog[]
   atributoPreenchimentoMassa AtributoPreenchimentoMassa?
+  produtoExportacao          ProdutoExportacao?
 
   @@index([status], map: "idx_async_job_status")
   @@index([tipo], map: "idx_async_job_tipo")
@@ -171,6 +174,9 @@ model AsyncJobFile {
   jobId          Int      @unique @map("job_id")
   nome           String   @map("nome")
   conteudoBase64 String?  @map("conteudo_base64") @db.LongText
+  storagePath    String?  @map("storage_path")
+  storageProvider String? @map("storage_provider")
+  expiraEm       DateTime? @map("expira_em")
   criadoEm       DateTime @default(now()) @map("criado_em")
 
   job AsyncJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
@@ -337,6 +343,7 @@ enum AsyncJobTipo {
   EXCLUSAO_MASSIVA
   ALTERACAO_ATRIBUTOS
   AJUSTE_ESTRUTURA
+  EXPORTACAO_PRODUTO
 }
 
 // Tabela de cache de NCM
@@ -620,6 +627,32 @@ model ImportacaoProduto {
   @@index([superUserId], map: "idx_importacao_super_user")
   @@index([catalogoId], map: "idx_importacao_catalogo")
   @@map("importacao_produto")
+}
+
+model ProdutoExportacao {
+  id                   Int      @id @default(autoincrement()) @map("id")
+  superUserId          Int      @map("super_user_id")
+  usuarioCatalogoId    Int?     @map("usuario_catalogo_id")
+  todosFiltrados       Boolean  @map("todos_filtrados")
+  filtrosJson          Json?    @map("filtros_json")
+  idsSelecionadosJson  Json?    @map("ids_selecionados_json")
+  idsDeselecionadosJson Json?   @map("ids_deselecionados_json")
+  busca                String?  @map("busca")
+  arquivoNome          String?  @map("arquivo_nome")
+  arquivoPath          String?  @map("arquivo_path")
+  arquivoExpiraEm      DateTime? @map("arquivo_expira_em")
+  arquivoTamanho       Int?     @map("arquivo_tamanho")
+  totalItens           Int?     @map("total_itens")
+  asyncJobId           Int?     @unique @map("async_job_id")
+  criadoEm             DateTime @default(now()) @map("criado_em")
+  atualizadoEm         DateTime @updatedAt @map("atualizado_em")
+
+  superUser        User             @relation(fields: [superUserId], references: [id])
+  usuarioCatalogo  UsuarioCatalogo? @relation(fields: [usuarioCatalogoId], references: [id])
+  asyncJob         AsyncJob?        @relation(fields: [asyncJobId], references: [id])
+
+  @@map("produto_exportacao")
+  @@index([superUserId], map: "idx_exportacao_super_user")
 }
 
 model ImportacaoProdutoItem {

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
-import { Eye, RefreshCcw, Trash, Trash2 } from 'lucide-react';
+import { Download, Eye, Loader2, RefreshCcw, Trash, Trash2 } from 'lucide-react';
 
 interface AsyncJobLogResumo {
   id: number;
@@ -31,7 +31,12 @@ interface AsyncJobImportacaoResumo {
 
 interface AsyncJobResumo {
   id: number;
-  tipo: 'IMPORTACAO_PRODUTO' | 'EXCLUSAO_MASSIVA' | 'ALTERACAO_ATRIBUTOS' | 'AJUSTE_ESTRUTURA';
+  tipo:
+    | 'IMPORTACAO_PRODUTO'
+    | 'EXCLUSAO_MASSIVA'
+    | 'ALTERACAO_ATRIBUTOS'
+    | 'AJUSTE_ESTRUTURA'
+    | 'EXPORTACAO_PRODUTO';
   status: 'PENDENTE' | 'PROCESSANDO' | 'CONCLUIDO' | 'FALHO' | 'CANCELADO';
   tentativas: number;
   maxTentativas: number;
@@ -42,10 +47,17 @@ interface AsyncJobResumo {
   finalizadoEm: string | null;
   criadoEm: string;
   atualizadoEm: string;
-  arquivo?: { nome: string | null } | null;
+  arquivo?: { nome: string | null; expiraEm?: string | null } | null;
   ultimoLog?: AsyncJobLogResumo | null;
   importacaoProduto?: AsyncJobImportacaoResumo | null;
   atributoPreenchimentoMassa?: { id: number } | null;
+  produtoExportacao?: {
+    id: number;
+    arquivoNome: string | null;
+    arquivoExpiraEm: string | null;
+    arquivoTamanho: number | null;
+    totalItens: number | null;
+  } | null;
 }
 
 function formatarData(data?: string | null) {
@@ -94,6 +106,8 @@ function traduzirTipo(tipo: AsyncJobResumo['tipo']) {
       return 'Alteração de Atributos em Massa';
     case 'AJUSTE_ESTRUTURA':
       return 'Ajuste de Estrutura';
+    case 'EXPORTACAO_PRODUTO':
+      return 'Exportação de Produto';
     default:
       return tipo;
   }
@@ -107,6 +121,19 @@ function obterDescricaoCatalogo(catalogo?: AsyncJobCatalogoResumo | null) {
   return partes.join(' · ');
 }
 
+function extrairNomeArquivo(contentDisposition?: string): string | null {
+  if (!contentDisposition) return null;
+  const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utfMatch && utfMatch[1]) {
+    return decodeURIComponent(utfMatch[1]);
+  }
+  const asciiMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  if (asciiMatch && asciiMatch[1]) {
+    return asciiMatch[1];
+  }
+  return null;
+}
+
 export default function ProcessosAssincronosPage() {
   const router = useRouter();
   const { addToast } = useToast();
@@ -117,6 +144,7 @@ export default function ProcessosAssincronosPage() {
   const [excluindoId, setExcluindoId] = useState<number | null>(null);
   const [mostrarConfirmacaoLimpeza, setMostrarConfirmacaoLimpeza] = useState(false);
   const [limpandoHistorico, setLimpandoHistorico] = useState(false);
+  const [baixandoArquivoId, setBaixandoArquivoId] = useState<number | null>(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -189,6 +217,70 @@ export default function ProcessosAssincronosPage() {
       setMostrarConfirmacaoLimpeza(false);
     }
   }, [addToast, carregar]);
+
+  const baixarArquivoJob = useCallback(
+    async (job: AsyncJobResumo) => {
+      if (baixandoArquivoId === job.id) {
+        return;
+      }
+
+      setBaixandoArquivoId(job.id);
+
+      try {
+        const resposta = await api.get(`/automacao/jobs/${job.id}/arquivo`, {
+          responseType: 'blob',
+        });
+
+        const contentType = (resposta.headers['content-type'] as string | undefined) ?? '';
+
+        if (contentType.includes('application/json')) {
+          const texto = await (resposta.data as Blob).text();
+          const dados = JSON.parse(texto);
+          if (dados.url) {
+            window.open(dados.url, '_blank');
+            if (dados.expiraEm) {
+              addToast(
+                `Link válido até ${new Date(dados.expiraEm).toLocaleString('pt-BR')}.`,
+                'success'
+              );
+            } else {
+              addToast('Link temporário gerado para download.', 'success');
+            }
+          } else {
+            addToast('Link do arquivo indisponível.', 'error');
+          }
+        } else {
+          const blob = resposta.data as Blob;
+          const url = window.URL.createObjectURL(blob);
+          const nomeArquivo =
+            extrairNomeArquivo(resposta.headers['content-disposition'] as string | undefined) ||
+            job.produtoExportacao?.arquivoNome ||
+            job.arquivo?.nome ||
+            `exportacao-${job.id}.json`;
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = nomeArquivo;
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          window.URL.revokeObjectURL(url);
+          addToast('Download iniciado.', 'success');
+        }
+      } catch (error: any) {
+        const status = error?.response?.status;
+        if (status === 410) {
+          addToast('O arquivo expirou. Solicite uma nova exportação.', 'error');
+        } else if (status === 404) {
+          addToast('Arquivo não disponível para este processo.', 'error');
+        } else {
+          addToast('Não foi possível obter o arquivo da exportação.', 'error');
+        }
+      } finally {
+        setBaixandoArquivoId(null);
+      }
+    },
+    [addToast, baixandoArquivoId]
+  );
 
   const possuiEmExecucao = useMemo(
     () => jobs.some(job => job.status === 'PENDENTE' || job.status === 'PROCESSANDO'),
@@ -318,6 +410,22 @@ export default function ProcessosAssincronosPage() {
                               <Eye size={16} />
                             </button>
                           )}
+                          {job.tipo === 'EXPORTACAO_PRODUTO' && job.status === 'CONCLUIDO' && (
+                            <button
+                              type="button"
+                              onClick={() => baixarArquivoJob(job)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sky-500/50 bg-sky-500/10 text-sky-200 transition hover:bg-sky-500/20 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+                              title="Baixar arquivo gerado"
+                              aria-label="Baixar arquivo gerado"
+                              disabled={baixandoArquivoId === job.id}
+                            >
+                              {baixandoArquivoId === job.id ? (
+                                <Loader2 size={16} className="animate-spin" />
+                              ) : (
+                                <Download size={16} />
+                              )}
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => solicitarExclusaoJob(job)}
@@ -391,6 +499,22 @@ export default function ProcessosAssincronosPage() {
                                 ? 'Processo concluído. Utilize o botão de ações para revisar os detalhes.'
                                 : 'Processo em andamento. O status é atualizado automaticamente.'}
                             </div>
+                          </div>
+                        ) : job.produtoExportacao ? (
+                          <div className="space-y-1 text-xs">
+                            <div className="font-medium text-slate-100">
+                              Exportação #{job.produtoExportacao.id}
+                            </div>
+                            {job.produtoExportacao.totalItens != null && (
+                              <div className="text-slate-300">
+                                Itens exportados: {job.produtoExportacao.totalItens}
+                              </div>
+                            )}
+                            {job.produtoExportacao.arquivoExpiraEm && (
+                              <div className="text-slate-400">
+                                Expira em: {formatarData(job.produtoExportacao.arquivoExpiraEm)}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <span className="text-xs text-slate-400">-</span>
