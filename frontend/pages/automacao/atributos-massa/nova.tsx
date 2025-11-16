@@ -1196,18 +1196,16 @@ export default function PreenchimentoMassaNovoPage() {
     return preenchidos;
   }, [valores, mapaEstrutura]);
 
-  const atributosResumoCompacto = useMemo(() => {
+  const atributosResumoCompacto = useMemo((): Array<{ chave: string; valor: string }> => {
     if (atributosPreenchidosLista.length === 0) {
-      return '';
+      return [];
     }
 
-    return atributosPreenchidosLista
-      .map(({ atributo, valor }) => {
-        const chave = atributo?.nome || atributo?.codigo || 'Atributo';
-        const valorFormatado = formatarValorAtributo(atributo, valor);
-        return `${chave} = ${valorFormatado}`;
-      })
-      .join('; ');
+    return atributosPreenchidosLista.map(({ atributo, valor }) => {
+      const chave = atributo?.nome || atributo?.codigo || 'Atributo';
+      const valorFormatado = formatarValorAtributo(atributo, valor);
+      return { chave, valor: valorFormatado };
+    });
   }, [atributosPreenchidosLista]);
 
   return (
@@ -1656,9 +1654,16 @@ export default function PreenchimentoMassaNovoPage() {
                 {atributosPreenchidosLista.length === 0 ? (
                   <p className="text-sm text-gray-400">Nenhum atributo preenchido.</p>
                 ) : (
-                  <p className="rounded border border-gray-800 bg-gray-950 p-3 text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">
-                    {atributosResumoCompacto}
-                  </p>
+                  <div className="rounded border border-gray-800 bg-gray-950 p-3 text-sm text-gray-200 leading-relaxed">
+                    <ul className="space-y-2">
+                      {atributosResumoCompacto.map(({ chave, valor }, index) => (
+                        <li key={`${chave}-${index}`} className="text-sm">
+                          <span className="font-semibold text-white">{chave}</span>
+                          <span className="text-gray-300"> = {valor}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </div>
 
