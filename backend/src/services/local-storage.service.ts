@@ -1,9 +1,10 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import os from 'os';
 import { StorageProvider } from './storage.interface';
 
 export class LocalStorageProvider implements StorageProvider {
-  constructor(private baseDir = path.resolve('uploads')) {}
+  constructor(private baseDir = path.join(os.homedir(), '.temp', 'uploads')) {}
 
   async upload(file: Buffer, filePath: string): Promise<string> {
     const fullPath = path.join(this.baseDir, filePath);
