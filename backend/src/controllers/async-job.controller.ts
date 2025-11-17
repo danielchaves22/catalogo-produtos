@@ -52,6 +52,7 @@ export async function listarAsyncJobs(req: Request, res: Response) {
     : undefined;
 
   const jobs = await listAsyncJobs({
+    superUserId: req.user!.superUserId,
     status: status.length ? status : undefined,
     tipos: tipos.length ? tipos : undefined,
     limite: limiteValido,
