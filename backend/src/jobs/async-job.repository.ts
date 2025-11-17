@@ -64,6 +64,7 @@ export interface AsyncJobResumo {
 }
 
 export interface ListAsyncJobsParams {
+  superUserId: number;
   status?: AsyncJobStatus[];
   tipos?: AsyncJobTipo[];
   limite?: number;
@@ -323,9 +324,15 @@ export async function registerJobLog(
 }
 
 export async function listAsyncJobs(
-  parametros: ListAsyncJobsParams = {}
+  parametros: ListAsyncJobsParams
 ): Promise<AsyncJobResumo[]> {
-  const where: Prisma.AsyncJobWhereInput = {};
+  const where: Prisma.AsyncJobWhereInput = {
+    OR: [
+      { importacaoProduto: { superUserId: parametros.superUserId } },
+      { atributoPreenchimentoMassa: { superUserId: parametros.superUserId } },
+      { produtoExportacao: { superUserId: parametros.superUserId } },
+    ],
+  };
 
   if (parametros.status?.length) {
     where.status = { in: parametros.status };

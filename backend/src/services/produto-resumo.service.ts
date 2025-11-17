@@ -226,14 +226,27 @@ function condicaoAtendida(
   const pai = mapa.get(codigoCondicionante);
   if (pai && !condicaoAtendida(pai, valores, mapa)) return false;
 
-  const atual = valores[codigoCondicionante];
-  if (atual === undefined || atual === null || atual === '') return false;
-  const atualStr = String(atual);
-  if (attr.condicao) return avaliarExpressao(attr.condicao, atualStr);
+  const valoresCondicionantes = valoresComoArray(valores[codigoCondicionante]);
+  if (!valoresCondicionantes.length) return false;
+
+  if (attr.condicao) {
+    return valoresCondicionantes.some(valor => avaliarExpressao(attr.condicao, valor));
+  }
+
   if (!attr.descricaoCondicao) return true;
   const match = attr.descricaoCondicao.match(/valor\s*=\s*'?"?(\w+)"?'?/i);
   if (!match) return true;
-  return atualStr === match[1];
+  const esperado = match[1];
+  return valoresCondicionantes.some(valor => valor === esperado);
+}
+
+function valoresComoArray(valor: unknown): string[] {
+  if (Array.isArray(valor)) {
+    return valor.reduce<string[]>((acc, item) => acc.concat(valoresComoArray(item)), []);
+  }
+  if (valor === undefined || valor === null) return [];
+  const texto = String(valor);
+  return texto.trim() === '' ? [] : [texto];
 }
 
 function avaliarExpressao(cond: any, valor: string): boolean {
