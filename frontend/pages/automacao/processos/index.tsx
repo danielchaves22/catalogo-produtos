@@ -232,8 +232,10 @@ export default function ProcessosAssincronosPage() {
         });
 
         const contentType = (resposta.headers['content-type'] as string | undefined) ?? '';
+        const contentDisposition = resposta.headers['content-disposition'] as string | undefined;
+        const respostaEhArquivo = Boolean(contentDisposition?.toLowerCase().includes('attachment'));
 
-        if (contentType.includes('application/json')) {
+        if (!respostaEhArquivo && contentType.includes('application/json')) {
           const texto = await (resposta.data as Blob).text();
           const dados = JSON.parse(texto);
           if (dados.url) {
@@ -253,7 +255,7 @@ export default function ProcessosAssincronosPage() {
           const blob = resposta.data as Blob;
           const url = window.URL.createObjectURL(blob);
           const nomeArquivo =
-            extrairNomeArquivo(resposta.headers['content-disposition'] as string | undefined) ||
+            extrairNomeArquivo(contentDisposition) ||
             job.produtoExportacao?.arquivoNome ||
             job.arquivo?.nome ||
             `exportacao-${job.id}.json`;
