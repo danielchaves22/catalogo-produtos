@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/Select';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { RadioGroup } from '@/components/ui/RadioGroup';
 import { AutocompleteTagInput } from '@/components/ui/AutocompleteTagInput';
+import { Hint } from '@/components/ui/Hint';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
 import {
@@ -230,20 +231,6 @@ function ordenarAtributos(estrutura: AtributoEstrutura[]): AtributoEstrutura[] {
   }
 
   return resultado;
-}
-
-function coletarAtributos(estrutura: AtributoEstrutura[]) {
-  const lista: AtributoEstrutura[] = [];
-  const percorrer = (itens: AtributoEstrutura[]) => {
-    for (const atributo of itens) {
-      lista.push(atributo);
-      if (atributo.subAtributos && atributo.subAtributos.length > 0) {
-        percorrer(atributo.subAtributos);
-      }
-    }
-  };
-  percorrer(estrutura);
-  return lista;
 }
 
 function formatarValorAtributo(atributo: AtributoEstrutura | undefined, valor: unknown): string {
@@ -658,14 +645,15 @@ export default function PreenchimentoMassaNovoPage() {
             label={attr.nome}
             hint={attr.orientacaoPreenchimento}
             required={attr.obrigatorio}
-            value={value}
             options={
-              attr.dominio?.map(opcao => ({
-                value: opcao.codigo,
-                label: `${opcao.codigo} - ${opcao.descricao}`
+              attr.dominio?.map(d => ({
+                value: d.codigo,
+                label: `${d.codigo} - ${d.descricao}`
               })) || []
             }
-            onChange={event => handleValor(attr.codigo, event.target.value)}
+            placeholder="Selecione..."
+            value={value}
+            onChange={e => handleValor(attr.codigo, e.target.value)}
           />
         );
       case 'BOOLEANO':
@@ -688,39 +676,89 @@ export default function PreenchimentoMassaNovoPage() {
         return (
           <Input
             key={attr.codigo}
-            type="number"
             label={attr.nome}
             hint={attr.orientacaoPreenchimento}
+            type="number"
             required={attr.obrigatorio}
             value={value}
-            step={attr.tipo === 'NUMERO_REAL' ? '0.01' : '1'}
-            onChange={event => handleValor(attr.codigo, event.target.value)}
+            step={attr.tipo === 'NUMERO_REAL' ? '0.01' : undefined}
+            onChange={e => handleValor(attr.codigo, e.target.value)}
           />
         );
       case 'COMPOSTO':
         return (
-          <div className="space-y-4">
-            {attr.subAtributos?.map(sub => (
-              <div key={sub.codigo}>{renderCampo(sub)}</div>
-            ))}
+          <div key={attr.codigo} className="col-span-3">
+            <p className="mb-2 text-sm font-medium">{attr.nome}</p>
+            <div className="grid grid-cols-3 gap-4 pl-4">
+              {attr.subAtributos?.map(sa => renderCampo(sa))}
+            </div>
           </div>
         );
-      case 'TEXTO': {
-        const max = attr.validacoes?.tamanho_maximo ?? undefined;
-        const pattern = attr.validacoes?.mascara;
-        if (pattern) {
+      default:
+        if (attr.tipo === 'TEXTO') {
+          const max = attr.validacoes?.tamanho_maximo ?? 0;
+          const pattern = attr.validacoes?.mascara;
+
+          if (pattern) {
+            let span = 'col-span-1';
+            if (max > 30 && max <= 60) span = 'col-span-2';
+            else if (max > 60) span = 'col-span-3';
+
+            return (
+              <MaskedInput
+                key={attr.codigo}
+                label={attr.nome}
+                hint={attr.orientacaoPreenchimento}
+                required={attr.obrigatorio}
+                value={value}
+                pattern={pattern}
+                onChange={(valorLimpo, _formatado) => handleValor(attr.codigo, valorLimpo)}
+                className={span}
+              />
+            );
+          }
+
+          if (max >= 100) {
+            return (
+              <div key={attr.codigo} className="col-span-3 mb-4">
+                <label
+                  htmlFor={attr.codigo}
+                  className="mb-1 block text-sm font-medium text-gray-300"
+                >
+                  {attr.nome}
+                  {attr.obrigatorio && <span className="ml-1 text-red-400">*</span>}
+                  {attr.orientacaoPreenchimento && (
+                    <Hint text={attr.orientacaoPreenchimento} />
+                  )}
+                </label>
+                <textarea
+                  id={attr.codigo}
+                  rows={3}
+                  className="w-full rounded-md border border-gray-700 bg-[#1e2126] px-2 py-1 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring"
+                  value={value}
+                  onChange={e => handleValor(attr.codigo, e.target.value)}
+                />
+              </div>
+            );
+          }
+
+          let span = 'col-span-1';
+          if (max > 30 && max <= 60) span = 'col-span-2';
+          else if (max > 60) span = 'col-span-3';
+
           return (
-            <MaskedInput
+            <Input
               key={attr.codigo}
               label={attr.nome}
               hint={attr.orientacaoPreenchimento}
               required={attr.obrigatorio}
-              pattern={pattern}
               value={value}
-              onChange={(valorLimpo, _formatado) => handleValor(attr.codigo, valorLimpo)}
+              onChange={e => handleValor(attr.codigo, e.target.value)}
+              className={span}
             />
           );
         }
+
         return (
           <Input
             key={attr.codigo}
@@ -728,20 +766,7 @@ export default function PreenchimentoMassaNovoPage() {
             hint={attr.orientacaoPreenchimento}
             required={attr.obrigatorio}
             value={value}
-            maxLength={max}
-            onChange={event => handleValor(attr.codigo, event.target.value)}
-          />
-        );
-      }
-      default:
-        return (
-          <Input
-            key={attr.codigo}
-            label={attr.nome}
-            hint={attr.orientacaoPreenchimento}
-            required={attr.obrigatorio}
-            value={value}
-            onChange={event => handleValor(attr.codigo, event.target.value)}
+            onChange={e => handleValor(attr.codigo, e.target.value)}
           />
         );
     }
@@ -1385,31 +1410,8 @@ export default function PreenchimentoMassaNovoPage() {
               )}
 
               {estruturaCarregada && estrutura.length > 0 && (
-                <div className="grid gap-4">
-                  {coletarAtributos(estrutura)
-                    .filter(attr => !attr.parentCodigo || mapaEstrutura.get(attr.parentCodigo)?.tipo === 'COMPOSTO')
-                    .map(attr => {
-                      const isComposto = attr.tipo === 'COMPOSTO';
-                      if (!isComposto) {
-                        return <div key={attr.codigo}>{renderCampo(attr)}</div>;
-                      }
-                      return (
-                        <div key={attr.codigo} className="rounded-lg border border-gray-800 bg-gray-900 p-4">
-                          <div className="mb-3 flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-semibold text-white">{attr.nome}</p>
-                              {attr.orientacaoPreenchimento && (
-                                <p className="text-xs text-gray-400">{attr.orientacaoPreenchimento}</p>
-                              )}
-                            </div>
-                            {attr.obrigatorio && (
-                              <span className="text-xs font-semibold uppercase text-amber-400">Obrigatório</span>
-                            )}
-                          </div>
-                          <div className="space-y-4">{renderCampo(attr)}</div>
-                        </div>
-                      );
-                    })}
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  {estrutura.map(attr => renderCampo(attr))}
                 </div>
               )}
             </Card>
