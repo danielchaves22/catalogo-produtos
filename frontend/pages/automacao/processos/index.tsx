@@ -234,31 +234,15 @@ export default function ProcessosAssincronosPage() {
         const contentType = (resposta.headers['content-type'] as string | undefined) ?? '';
         const contentDisposition = resposta.headers['content-disposition'] as string | undefined;
         const respostaEhArquivo = Boolean(contentDisposition?.toLowerCase().includes('attachment'));
+        const blob = resposta.data as Blob;
+        const nomeArquivo =
+          extrairNomeArquivo(contentDisposition) ||
+          job.produtoExportacao?.arquivoNome ||
+          job.arquivo?.nome ||
+          `exportacao-${job.id}.json`;
 
-        if (!respostaEhArquivo && contentType.includes('application/json')) {
-          const texto = await (resposta.data as Blob).text();
-          const dados = JSON.parse(texto);
-          if (dados.url) {
-            window.open(dados.url, '_blank');
-            if (dados.expiraEm) {
-              addToast(
-                `Link válido até ${new Date(dados.expiraEm).toLocaleString('pt-BR')}.`,
-                'success'
-              );
-            } else {
-              addToast('Link temporário gerado para download.', 'success');
-            }
-          } else {
-            addToast('Link do arquivo indisponível.', 'error');
-          }
-        } else {
-          const blob = resposta.data as Blob;
-          const url = window.URL.createObjectURL(blob);
-          const nomeArquivo =
-            extrairNomeArquivo(contentDisposition) ||
-            job.produtoExportacao?.arquivoNome ||
-            job.arquivo?.nome ||
-            `exportacao-${job.id}.json`;
+        const iniciarDownload = (dados: Blob) => {
+          const url = window.URL.createObjectURL(dados);
           const anchor = document.createElement('a');
           anchor.href = url;
           anchor.download = nomeArquivo;
@@ -267,6 +251,35 @@ export default function ProcessosAssincronosPage() {
           anchor.remove();
           window.URL.revokeObjectURL(url);
           addToast('Download iniciado.', 'success');
+        };
+
+        if (!respostaEhArquivo && contentType.includes('application/json')) {
+          const texto = await blob.text();
+          try {
+            const dados = JSON.parse(texto);
+            if (
+              dados &&
+              typeof dados === 'object' &&
+              typeof (dados as { url?: unknown }).url === 'string' &&
+              /^https?:\/\//.test((dados as { url: string }).url)
+            ) {
+              const { url, expiraEm } = dados as { url: string; expiraEm?: string | null };
+              window.open(url, '_blank');
+              if (expiraEm) {
+                addToast(`Link válido até ${new Date(expiraEm).toLocaleString('pt-BR')}.`, 'success');
+              } else {
+                addToast('Link temporário gerado para download.', 'success');
+              }
+              return;
+            }
+          } catch (error) {
+            console.warn('Resposta JSON não corresponde a link temporário.', error);
+          }
+
+          const blobJson = new Blob([texto], { type: contentType || 'application/json' });
+          iniciarDownload(blobJson);
+        } else {
+          iniciarDownload(blob);
         }
       } catch (error: any) {
         const status = error?.response?.status;
