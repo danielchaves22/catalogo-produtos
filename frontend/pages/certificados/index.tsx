@@ -83,9 +83,39 @@ export default function CertificadosPage() {
     }
   }
 
-  function baixarCertificado(cert: Certificado) {
-    const url = `${api.defaults.baseURL}/certificados/${cert.id}/download`;
-    window.open(url, '_blank');
+  async function baixarCertificado(cert: Certificado) {
+    try {
+      const response = await api.get(`/certificados/${cert.id}/download`, {
+        responseType: 'blob',
+      });
+
+      const disposition = response.headers['content-disposition'] as string | undefined;
+      let filename = cert.nome || 'certificado';
+
+      if (disposition) {
+        const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+        if (filenameMatch?.[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      if (!filename.toLowerCase().endsWith('.pfx')) {
+        filename = `${filename}.pfx`;
+      }
+
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+
+      addToast('Certificado baixado com sucesso', 'success');
+    } catch (error) {
+      addToast('Erro ao baixar certificado', 'error');
+    }
   }
 
   const certificadosFiltrados = useMemo(() => {

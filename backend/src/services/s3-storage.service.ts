@@ -104,7 +104,7 @@ export class S3StorageProvider implements StorageProvider {
     if (options?.filename) {
       request.query = {
         ...request.query,
-        'response-content-disposition': `attachment; filename="${encodeURIComponent(options.filename)}"`,
+        'response-content-disposition': `attachment; filename="${options.filename}"`,
       };
     }
 
