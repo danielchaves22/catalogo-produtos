@@ -108,6 +108,7 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
         { label: 'Automação', hideWhenExpanded: true },
         { label: 'Processos Assíncronos', href: '/automacao/processos' },
         { label: 'Importar Produto', href: '/automacao/importar-produto' },
+        { label: 'Transmissões ao SISCOMEX', href: '/automacao/transmissoes-siscomex' },
         { label: 'Definir Valor de Atributo Padrão', href: '/automacao/valores-padrao' },
         { label: 'Preencher Atributos em Massa', href: '/automacao/atributos-massa' },
         // { label: 'Ajuste de Produtos em Massa', href: '/automacao/ajuste-de-produtos-em-massa' },
