@@ -34,6 +34,7 @@ export class AuthService {
           email: user.email,
           superUserId: user.id,
           role: 'SUPER',
+          catprodAdmFull: Boolean(user.catprodAdmFull),
           password: user.password,
         };
       }
@@ -49,6 +50,7 @@ export class AuthService {
           email: sub.email,
           superUserId: sub.superUserId,
           role: 'SUB',
+          catprodAdmFull: false,
           password: sub.password,
         };
       }
@@ -79,6 +81,7 @@ export class AuthService {
             email: user.email,
             superUserId: user.id,
             role: 'SUPER',
+            catprodAdmFull: Boolean(user.catprodAdmFull),
           };
         }
         if (role === 'SUPER') {
@@ -95,6 +98,7 @@ export class AuthService {
             email: sub.email,
             superUserId: sub.superUserId,
             role: 'SUB',
+            catprodAdmFull: false,
           };
         }
         if (role === 'SUB') {
@@ -113,6 +117,7 @@ export class AuthService {
             email: user.email,
             superUserId: user.id,
             role: 'SUPER',
+            catprodAdmFull: Boolean(user.catprodAdmFull),
           };
         }
 
@@ -126,6 +131,7 @@ export class AuthService {
             email: sub.email,
             superUserId: sub.superUserId,
             role: 'SUB',
+            catprodAdmFull: false,
           };
         }
       }

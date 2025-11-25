@@ -4,4 +4,5 @@ export interface AuthUser {
   email: string;
   superUserId: number;
   role: 'SUPER' | 'SUB';
+  catprodAdmFull: boolean;
 }
