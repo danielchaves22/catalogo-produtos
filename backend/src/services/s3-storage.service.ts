@@ -1,11 +1,11 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { Readable } from 'stream';
-import { StorageProvider } from './storage.interface';
-import { S3_BUCKET_NAME } from '../config';
 import { HttpRequest as ProtocolHttpRequest } from '@smithy/protocol-http';
 import type { HttpRequest as SmithyHttpRequest } from '@smithy/types';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
+import { Readable } from 'stream';
+import { StorageProvider } from './storage.interface';
+import { S3_BUCKET_NAME } from '../config';
 
 export class S3StorageProvider implements StorageProvider {
   private client: S3Client;
@@ -66,6 +66,7 @@ export class S3StorageProvider implements StorageProvider {
     const regionProvider = typeof this.client.config.region === 'function'
       ? this.client.config.region
       : () => Promise.resolve(String(this.client.config.region ?? process.env.AWS_REGION ?? 'us-east-1'));
+
     const credentialsProvider = typeof this.client.config.credentials === 'function'
       ? this.client.config.credentials
       : () => Promise.resolve(this.client.config.credentials as any);
@@ -85,10 +86,7 @@ export class S3StorageProvider implements StorageProvider {
     });
 
     const host = `${this.bucketRoot}.s3.${region}.amazonaws.com`;
-    const encodedPath = path
-      .split('/')
-      .map(segment => encodeURIComponent(segment))
-      .join('/');
+    const encodedPath = encodeURIComponent(path).replace(/%2F/g, '/');
 
     const request = new ProtocolHttpRequest({
       protocol: 'https:',
@@ -97,6 +95,7 @@ export class S3StorageProvider implements StorageProvider {
       path: `/${encodedPath}`,
       headers: {
         host,
+        'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
       },
       query: {},
     });
@@ -108,11 +107,11 @@ export class S3StorageProvider implements StorageProvider {
       };
     }
 
-    const signed = await signer.presign(request, { expiresIn: expiresInSeconds });
+    const signedRequest = await signer.presign(request, { expiresIn: expiresInSeconds });
 
-    return this.formatSignedUrl(signed);
+    return this.formatSignedUrl(signedRequest);
   }
-
+  
   private formatSignedUrl(request: SmithyHttpRequest): string {
     const protocol = request.protocol ?? 'https:';
     const hostname = request.hostname ?? '';
@@ -120,18 +119,19 @@ export class S3StorageProvider implements StorageProvider {
     const path = request.path ?? '/';
     const query = request.query ?? {};
 
-    const queryEntries: string[] = [];
+    const searchParams = new URLSearchParams();
     for (const [key, value] of Object.entries(query)) {
       if (Array.isArray(value)) {
         for (const item of value) {
-          queryEntries.push(`${encodeURIComponent(key)}=${encodeURIComponent(item ?? '')}`);
+          if (item !== undefined) searchParams.append(key, String(item ?? ''));
         }
       } else if (value !== undefined) {
-        queryEntries.push(`${encodeURIComponent(key)}=${encodeURIComponent(value ?? '')}`);
+        searchParams.append(key, String(value ?? ''));
       }
     }
 
-    const queryString = queryEntries.length ? `?${queryEntries.join('&')}` : '';
-    return `${protocol}//${hostname}${port}${path}${queryString}`;
+    const queryString = searchParams.toString();
+
+    return `${protocol}//${hostname}${port}${path}${queryString ? `?${queryString}` : ''}`;
   }
 }
