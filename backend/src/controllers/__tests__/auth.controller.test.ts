@@ -56,6 +56,7 @@ describe('AuthController - fluxo para subusuário com mesmo ID de super', () => 
     email: 'sub@example.com',
     password: 'hashed',
     superUserId: 999,
+    catprodAdmFull: false,
   };
 
   let verifyPasswordSpy: jest.SpyInstance;
@@ -97,6 +98,7 @@ describe('AuthController - fluxo para subusuário com mesmo ID de super', () => 
       id: subUsuario.id,
       email: subUsuario.email,
       role: 'SUB',
+      catprodAdmFull: false,
     });
 
     const token = loginResponse.body.token;
@@ -112,6 +114,7 @@ describe('AuthController - fluxo para subusuário com mesmo ID de super', () => 
       email: subUsuario.email,
       superUserId: subUsuario.superUserId,
       role: 'SUB',
+      catprodAdmFull: false,
     });
 
     expect(mockedLegacyPrisma.user.findUnique).not.toHaveBeenCalled();
