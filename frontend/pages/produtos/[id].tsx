@@ -51,6 +51,20 @@ interface AtributoEstrutura {
   subAtributos?: AtributoEstrutura[];
 }
 
+interface AtributoParaIa {
+  codigo: string;
+  nome: string;
+  tipo: string;
+  obrigatorio?: boolean;
+  multivalorado?: boolean;
+  dominio: { codigo: string; descricao?: string | null }[];
+  validacoes?: Record<string, unknown>;
+  condicao?: any;
+  descricaoCondicao?: string;
+  parentCodigo?: string;
+  condicionanteCodigo?: string;
+}
+
 export default function ProdutoPage() {
   const [catalogoId, setCatalogoId] = useState('');
   const [catalogoNome, setCatalogoNome] = useState('');
@@ -89,6 +103,8 @@ export default function ProdutoPage() {
   const [mostrarSugestoesNcm, setMostrarSugestoesNcm] = useState(false);
   const [carregandoSugestoesNcm, setCarregandoSugestoesNcm] = useState(false);
   const debouncedNcm = useDebounce(ncm, 1000);
+  const [gerandoSugestoesIa, setGerandoSugestoesIa] = useState(false);
+  const [resumoSugestoesIa, setResumoSugestoesIa] = useState<string | null>(null);
 
   // Format NCM code for display (9999.99.99)
   function formatarNCMExibicao(codigo?: string) {
@@ -323,6 +339,154 @@ export default function ProdutoPage() {
 
   function handleValor(codigo: string, valor: string | string[]) {
     setValores(prev => ({ ...prev, [codigo]: valor }));
+  }
+
+  function compactarDescricaoParaIa(texto: string) {
+    const normalizado = texto.replace(/\s+/g, ' ').trim();
+    const limite = 1200;
+    if (normalizado.length <= limite) return normalizado;
+    return `${normalizado.slice(0, limite)}...`;
+  }
+
+  function coletarAtributosParaIa(lista: AtributoEstrutura[]): AtributoParaIa[] {
+    const resultado: AtributoParaIa[] = [];
+
+    for (const attr of lista) {
+      const validacoesCompactas: Record<string, unknown> = {};
+      const chavesValidacoes = ['tamanho_maximo', 'casas_decimais', 'mascara'];
+      chavesValidacoes.forEach(chave => {
+        if (attr.validacoes?.[chave] !== undefined) {
+          validacoesCompactas[chave] = attr.validacoes[chave];
+        }
+      });
+
+      resultado.push({
+        codigo: attr.codigo,
+        nome: attr.nome,
+        tipo: attr.tipo,
+        obrigatorio: attr.obrigatorio,
+        multivalorado: attr.multivalorado ?? false,
+        dominio: attr.dominio?.map(d => ({ codigo: d.codigo, descricao: d.descricao })) || [],
+        validacoes: Object.keys(validacoesCompactas).length ? validacoesCompactas : undefined,
+        condicao: attr.condicao,
+        descricaoCondicao: attr.descricaoCondicao,
+        parentCodigo: attr.parentCodigo,
+        condicionanteCodigo: attr.condicionanteCodigo
+      });
+
+      if (attr.subAtributos?.length) {
+        resultado.push(...coletarAtributosParaIa(attr.subAtributos));
+      }
+    }
+
+    return resultado;
+  }
+
+  function normalizarValorSugerido(valor: unknown): string[] {
+    if (Array.isArray(valor)) {
+      return valor.map(v => String(v).trim()).filter(Boolean);
+    }
+    if (valor === undefined || valor === null) return [];
+    if (typeof valor === 'string') {
+      const texto = valor.trim();
+      if (!texto) return [];
+      const separadores = /[,;\n]/;
+      if (separadores.test(texto)) {
+        return texto
+          .split(separadores)
+          .map(v => v.trim())
+          .filter(Boolean);
+      }
+      return [texto];
+    }
+    return [String(valor)];
+  }
+
+  function aplicarSugestoesIa(
+    sugestoes: Record<string, unknown>
+  ): { aplicadas: string[]; ignoradas: string[] } {
+    if (!sugestoes) return { aplicadas: [], ignoradas: [] };
+
+    const novosValores = { ...valores };
+    const aplicadas: string[] = [];
+    const ignoradas: string[] = [];
+
+    Object.entries(sugestoes).forEach(([codigo, valor]) => {
+      const attr = mapaEstrutura.get(codigo);
+      if (!attr) {
+        ignoradas.push(codigo);
+        return;
+      }
+
+      let valoresSugeridos = normalizarValorSugerido(valor);
+
+      if (attr.dominio?.length) {
+        const permitidos = new Set(attr.dominio.map(d => String(d.codigo)));
+        valoresSugeridos = valoresSugeridos.filter(v => permitidos.has(v));
+      }
+
+      if (!valoresSugeridos.length) {
+        ignoradas.push(codigo);
+        return;
+      }
+
+      if (attr.multivalorado) {
+        novosValores[codigo] = valoresSugeridos;
+      } else {
+        novosValores[codigo] = valoresSugeridos[0];
+      }
+
+      aplicadas.push(codigo);
+    });
+
+    setValores(novosValores);
+    return { aplicadas, ignoradas };
+  }
+
+  function montarPayloadSugestaoIa() {
+    return {
+      descricao: compactarDescricaoParaIa(descricao),
+      atributos: coletarAtributosParaIa(estrutura),
+      ncm: ncm.length === 8 ? ncm : undefined,
+      modalidade
+    };
+  }
+
+  async function preencherAtributosComIa() {
+    if (!descricao.trim()) {
+      addToast('Informe o detalhamento do produto para sugerir atributos', 'error');
+      setActiveTab('informacoes');
+      return;
+    }
+
+    if (!estrutura.length) {
+      addToast('Carregue a estrutura de atributos antes de usar a IA', 'error');
+      return;
+    }
+
+    setGerandoSugestoesIa(true);
+    try {
+      const payload = montarPayloadSugestaoIa();
+      const response = await api.post('/ia/atributos/sugerir', payload);
+      const { aplicadas, ignoradas } = aplicarSugestoesIa(response.data?.sugestoes || {});
+      const resumoTokens = response.data?.tokens?.total ? ` • ${response.data.tokens.total} tokens` : '';
+      setResumoSugestoesIa(`Sugestões aplicadas: ${aplicadas.length}${resumoTokens}`);
+
+      if (aplicadas.length) {
+        addToast(`Preenchemos ${aplicadas.length} atributo(s) com IA`, 'success');
+      } else {
+        addToast('Nenhum atributo pôde ser sugerido com os dados informados', 'error');
+      }
+
+      if (ignoradas.length) {
+        addToast(`Ignoramos sugestões para ${ignoradas.length} atributo(s) fora do domínio`, 'success');
+      }
+    } catch (error: any) {
+      const mensagem = error?.response?.data?.error || 'Não foi possível gerar sugestões de atributos';
+      addToast(mensagem, 'error');
+    } finally {
+      setGerandoSugestoesIa(false);
+    }
   }
 
   function adicionarCodigoInterno() {
@@ -1074,8 +1238,33 @@ export default function ProdutoPage() {
                       id: 'dinamicos',
                       label: 'Atributos Dinâmicos',
                       content: (
-                        <div className="grid grid-cols-3 gap-4 text-sm">
-                          {estrutura.map(attr => renderCampo(attr))}
+                        <div className="flex flex-col gap-4">
+                          <div className="flex flex-col gap-2 rounded border border-gray-700 bg-[#0f1419] p-3 md:flex-row md:items-center md:justify-between">
+                            <div className="text-sm text-gray-300">
+                              <p className="font-semibold text-white">Sugestão automática de atributos</p>
+                              <p className="text-xs md:text-sm text-gray-400">
+                                Usa o detalhamento complementar para sugerir valores mínimos e respeita domínios e atributos multivalorados.
+                              </p>
+                              {resumoSugestoesIa && (
+                                <p className="text-xs text-gray-400 mt-1">{resumoSugestoesIa}</p>
+                              )}
+                            </div>
+                            <div className="flex gap-2 self-end md:self-auto">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="flex items-center gap-2"
+                                onClick={preencherAtributosComIa}
+                                disabled={gerandoSugestoesIa || !estrutura.length || !descricao.trim()}
+                              >
+                                <BrainCog size={16} />
+                                {gerandoSugestoesIa ? 'Gerando sugestões...' : 'Sugerir com IA'}
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            {estrutura.map(attr => renderCampo(attr))}
+                          </div>
                         </div>
                       )
                     }
