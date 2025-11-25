@@ -5,8 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
 import { PageLoader } from '@/components/ui/PageLoader';
-import { Button } from '@/components/ui/Button';
-import { Eye } from 'lucide-react';
+import { ArrowLeft, Eye } from 'lucide-react';
 import { transmissoesSiscomexMock, TransmissaoSiscomex } from '@/constants/transmissoesSiscomexMocks';
 
 function obterClasseItem(status: TransmissaoSiscomex['itens'][number]['status']) {
@@ -78,17 +77,24 @@ export default function DetalheTransmissaoSiscomexPage() {
       />
 
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">{transmissao.titulo}</h1>
-          <p className="text-gray-400 text-sm">
-            {transmissao.modalidade === 'PRODUTOS'
-              ? 'Envio de produtos aprovados ao SISCOMEX.'
-              : 'Envio de operadores estrangeiros aprovados ao SISCOMEX.'}
-          </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push('/automacao/transmissoes-siscomex')}
+            className="text-gray-400 transition-colors hover:text-white"
+            aria-label="Voltar para a listagem de transmissões"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-semibold text-white">{transmissao.titulo}</h1>
+            <p className="text-gray-400 text-sm">
+              {transmissao.modalidade === 'PRODUTOS'
+                ? 'Envio de produtos aprovados ao SISCOMEX.'
+                : 'Envio de operadores estrangeiros aprovados ao SISCOMEX.'}
+            </p>
+          </div>
         </div>
-        <Button variant="outline" onClick={() => router.push('/automacao/transmissoes-siscomex')}>
-          Voltar para transmissões
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">

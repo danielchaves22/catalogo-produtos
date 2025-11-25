@@ -1,5 +1,6 @@
 // frontend/pages/automacao/transmissoes-siscomex/operadores.tsx
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
@@ -10,7 +11,7 @@ import { PageLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/ToastContext';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
-import { AlertCircle, Check, Download, Search } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Check, Download } from 'lucide-react';
 import api from '@/lib/api';
 
 interface CatalogoResumo {
@@ -36,6 +37,7 @@ export default function NovaTransmissaoOperadoresPage() {
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
   const { buscarOperadores } = useOperadorEstrangeiro();
+  const router = useRouter();
 
   const catalogoBloqueado = Boolean(workingCatalog?.id);
 
@@ -152,11 +154,21 @@ export default function NovaTransmissaoOperadoresPage() {
       />
 
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">Selecionar operadores aprovados</h1>
-          <p className="text-gray-400 text-sm">
-            Apenas operadores aprovados e ainda não enviados são exibidos. Ajuste filtros e confirme o envio.
-          </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push('/automacao/transmissoes-siscomex')}
+            className="text-gray-400 transition-colors hover:text-white"
+            aria-label="Voltar para a listagem de transmissões"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-semibold text-white">Selecionar operadores aprovados</h1>
+            <p className="text-gray-400 text-sm">
+              Apenas operadores aprovados e ainda não enviados são exibidos. Ajuste filtros e confirme o envio.
+            </p>
+          </div>
         </div>
         <Button
           variant="primary"

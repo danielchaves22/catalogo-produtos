@@ -1,5 +1,6 @@
 // frontend/pages/automacao/transmissoes-siscomex/produtos.tsx
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
@@ -10,7 +11,7 @@ import { PageLoader } from '@/components/ui/PageLoader';
 import api from '@/lib/api';
 import { useToast } from '@/components/ui/ToastContext';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
-import { AlertCircle, Check, Download, Search } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Check, Download } from 'lucide-react';
 import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
 import { produtoStatusLegend } from '@/constants/statusLegends';
 
@@ -48,6 +49,7 @@ export default function NovaTransmissaoProdutosPage() {
   const [erro, setErro] = useState<string | null>(null);
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
+  const router = useRouter();
 
   const catalogoBloqueado = Boolean(workingCatalog?.id);
 
@@ -172,11 +174,21 @@ export default function NovaTransmissaoProdutosPage() {
       />
 
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">Selecionar produtos aprovados</h1>
-          <p className="text-gray-400 text-sm">
-            Apenas itens aprovados e ainda não enviados são exibidos. Ajuste filtros e confirme o envio.
-          </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push('/automacao/transmissoes-siscomex')}
+            className="text-gray-400 transition-colors hover:text-white"
+            aria-label="Voltar para a listagem de transmissões"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-semibold text-white">Selecionar produtos aprovados</h1>
+            <p className="text-gray-400 text-sm">
+              Apenas itens aprovados e ainda não enviados são exibidos. Ajuste filtros e confirme o envio.
+            </p>
+          </div>
         </div>
         <Button
           variant="accent"
