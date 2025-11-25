@@ -85,14 +85,15 @@ export class S3StorageProvider implements StorageProvider {
       sha256: Sha256,
     });
 
-    const host = `${this.bucketRoot}.s3.${region}.amazonaws.com`;
+    // Usar path-style evita erro de TLS quando o bucket contém pontos no nome
+    const host = `s3.${region}.amazonaws.com`;
     const encodedPath = encodeURIComponent(path).replace(/%2F/g, '/');
 
     const request = new ProtocolHttpRequest({
       protocol: 'https:',
       hostname: host,
       method: 'GET',
-      path: `/${encodedPath}`,
+      path: `/${this.bucketRoot}/${encodedPath}`,
       headers: {
         host,
         'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
