@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import {
+import { 
   FileText, PieChart, Briefcase, Users,
-  ChevronLeft, ChevronRight, User, Key, UserCog, Mail, MoreHorizontal
+  ChevronLeft, ChevronRight, User, Key, UserCog, Mail, MoreHorizontal, Send
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -108,10 +108,16 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
         { label: 'Automação', hideWhenExpanded: true },
         { label: 'Processos Assíncronos', href: '/automacao/processos' },
         { label: 'Importar Produto', href: '/automacao/importar-produto' },
-        { label: 'Transmissões ao SISCOMEX', href: '/automacao/transmissoes-siscomex' },
         { label: 'Definir Valor de Atributo Padrão', href: '/automacao/valores-padrao' },
         { label: 'Preencher Atributos em Massa', href: '/automacao/atributos-massa' },
         // { label: 'Ajuste de Produtos em Massa', href: '/automacao/ajuste-de-produtos-em-massa' },
+      ],
+    },
+    {
+      icon: <Send size={20} />,
+      label: 'Transmissões ao SISCOMEX',
+      subItems: [
+        { label: 'Transmissões ao SISCOMEX', href: '/automacao/transmissoes-siscomex', hideWhenExpanded: true },
       ],
     },
   ];

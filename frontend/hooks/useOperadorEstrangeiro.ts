@@ -1,5 +1,5 @@
 // frontend/hooks/useOperadorEstrangeiro.ts - CORRIGIDO
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 
@@ -98,7 +98,7 @@ export function useOperadorEstrangeiro() {
     }
   }
 
-  async function buscarOperadores(filtros?: { catalogoId?: number }) {
+  const buscarOperadores = useCallback(async (filtros?: { catalogoId?: number }) => {
     try {
       const params = new URLSearchParams();
       if (filtros?.catalogoId) {
@@ -111,7 +111,7 @@ export function useOperadorEstrangeiro() {
       console.error('Erro ao buscar operadores:', err);
       throw new Error('Erro ao buscar operadores estrangeiros');
     }
-  }
+  }, []);
 
   async function buscarOperadorPorId(id: number | string) {
     try {
