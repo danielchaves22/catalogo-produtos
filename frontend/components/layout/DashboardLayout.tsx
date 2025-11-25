@@ -229,6 +229,12 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
             )}
           </div>
 
+          {user?.catprodAdmFull && (
+            <span className="uppercase text-[11px] font-semibold bg-red-600 text-white px-2 py-1 rounded-md shadow-sm">
+              Admin
+            </span>
+          )}
+
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={toggleUserMenu}

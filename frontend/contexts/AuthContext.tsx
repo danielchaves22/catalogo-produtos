@@ -11,6 +11,7 @@ interface User {
   email: string;
   superUserId: number;
   role: 'SUPER' | 'SUB';
+  catprodAdmFull: boolean;
 }
 
 interface AuthContextData {
@@ -88,7 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await api.get('/auth/me', {
         headers: { Authorization: `Bearer ${authToken}` }
       });
-      setUser(response.data);
+      setUser({
+        ...response.data,
+        catprodAdmFull: Boolean(response.data.catprodAdmFull),
+      });
     } catch (error: any) {
       console.error('Erro ao carregar perfil:', error);
       
@@ -131,7 +135,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSecureCookie(COOKIE_NAME, newToken);
 
       setToken(newToken);
-      setUser(userData);
+      setUser({
+        ...userData,
+        catprodAdmFull: Boolean(userData.catprodAdmFull),
+      });
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem(WORKING_CATALOG_STORAGE_KEY);
       }
