@@ -10,10 +10,32 @@ export interface AuthUserWithPassword extends AuthUser {
 
 export class AuthService {
   private readonly LEGACY_SALT: string;
+  private readonly adminTruthies = new Set(['1', 'true', 's', 'sim']);
 
   constructor() {
     // Lê o salt do arquivo .env com fallback para o valor original
     this.LEGACY_SALT = process.env.LEGACY_PASSWORD_SALT || '$1$Legicex$';
+  }
+
+  private isLegacyAdminFlagEnabled(value: unknown): boolean {
+    if (value === null || value === undefined) {
+      return false;
+    }
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return value === 1;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return this.adminTruthies.has(normalized);
+    }
+
+    return false;
   }
 
   /**
@@ -34,7 +56,7 @@ export class AuthService {
           email: user.email,
           superUserId: user.id,
           role: 'SUPER',
-          catprodAdmFull: Boolean(user.catprodAdmFull),
+          catprodAdmFull: this.isLegacyAdminFlagEnabled(user.catprodAdmFull),
           password: user.password,
         };
       }
@@ -81,7 +103,7 @@ export class AuthService {
             email: user.email,
             superUserId: user.id,
             role: 'SUPER',
-            catprodAdmFull: Boolean(user.catprodAdmFull),
+            catprodAdmFull: this.isLegacyAdminFlagEnabled(user.catprodAdmFull),
           };
         }
         if (role === 'SUPER') {
@@ -117,7 +139,7 @@ export class AuthService {
             email: user.email,
             superUserId: user.id,
             role: 'SUPER',
-            catprodAdmFull: Boolean(user.catprodAdmFull),
+            catprodAdmFull: this.isLegacyAdminFlagEnabled(user.catprodAdmFull),
           };
         }
 

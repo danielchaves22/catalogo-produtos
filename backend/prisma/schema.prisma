@@ -18,7 +18,8 @@ model User {
   email     String   @unique @map("username")
   password  String   @map("senha")
   name      String   @map("nomecompleto")
-  catprodAdmFull Boolean @default(false) @map("catprod_adm_full")
+  // Coluna legada armazena indicadores como "0"/"1", portanto mapeada como string
+  catprodAdmFull String? @map("catprod_adm_full")
 
   subUsuarios SubUsuario[]
   certificados Certificado[]
