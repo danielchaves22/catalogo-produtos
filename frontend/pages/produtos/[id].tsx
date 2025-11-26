@@ -26,6 +26,7 @@ import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperador
 import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
 import { Hint } from '@/components/ui/Hint';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
+import { useAuth } from '@/contexts/AuthContext';
 import useDebounce from '@/hooks/useDebounce';
 
 const DESCRICAO_MAX_LENGTH = 3700;
@@ -105,6 +106,9 @@ export default function ProdutoPage() {
   const debouncedNcm = useDebounce(ncm, 1000);
   const [gerandoSugestoesIa, setGerandoSugestoesIa] = useState(false);
   const [resumoSugestoesIa, setResumoSugestoesIa] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  const podeSugerirComIa = Boolean(user?.catprodAdmFull);
 
   // Format NCM code for display (9999.99.99)
   function formatarNCMExibicao(codigo?: string) {
@@ -1239,29 +1243,31 @@ export default function ProdutoPage() {
                       label: 'Atributos Dinâmicos',
                       content: (
                         <div className="flex flex-col gap-4">
-                          <div className="flex flex-col gap-2 rounded border border-gray-700 bg-[#0f1419] p-3 md:flex-row md:items-center md:justify-between">
-                            <div className="text-sm text-gray-300">
-                              <p className="font-semibold text-white">Sugestão automática de atributos</p>
-                              <p className="text-xs md:text-sm text-gray-400">
-                                Usa o detalhamento complementar para sugerir valores mínimos e respeita domínios e atributos multivalorados.
-                              </p>
-                              {resumoSugestoesIa && (
-                                <p className="text-xs text-gray-400 mt-1">{resumoSugestoesIa}</p>
-                              )}
+                          {podeSugerirComIa && (
+                            <div className="flex flex-col gap-2 rounded border border-gray-700 bg-[#0f1419] p-3 md:flex-row md:items-center md:justify-between">
+                              <div className="text-sm text-gray-300">
+                                <p className="font-semibold text-white">Sugestão automática de atributos</p>
+                                <p className="text-xs md:text-sm text-gray-400">
+                                  Usa o detalhamento complementar para sugerir valores mínimos e respeita domínios e atributos multivalorados.
+                                </p>
+                                {resumoSugestoesIa && (
+                                  <p className="text-xs text-gray-400 mt-1">{resumoSugestoesIa}</p>
+                                )}
+                              </div>
+                              <div className="flex gap-2 self-end md:self-auto">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="flex items-center gap-2"
+                                  onClick={preencherAtributosComIa}
+                                  disabled={gerandoSugestoesIa || !estrutura.length || !descricao.trim()}
+                                >
+                                  <BrainCog size={16} />
+                                  {gerandoSugestoesIa ? 'Gerando sugestões...' : 'Sugerir com IA'}
+                                </Button>
+                              </div>
                             </div>
-                            <div className="flex gap-2 self-end md:self-auto">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="flex items-center gap-2"
-                                onClick={preencherAtributosComIa}
-                                disabled={gerandoSugestoesIa || !estrutura.length || !descricao.trim()}
-                              >
-                                <BrainCog size={16} />
-                                {gerandoSugestoesIa ? 'Gerando sugestões...' : 'Sugerir com IA'}
-                              </Button>
-                            </div>
-                          </div>
+                          )}
                           <div className="grid grid-cols-3 gap-4 text-sm">
                             {estrutura.map(attr => renderCampo(attr))}
                           </div>
