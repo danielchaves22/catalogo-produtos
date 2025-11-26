@@ -3,6 +3,6 @@ export interface AuthUser {
   name: string;
   email: string;
   superUserId: number;
-  role: 'SUPER' | 'SUB';
+  role: 'SUPER' | 'SUB' | 'ADMIN';
   catprodAdmFull: boolean;
 }

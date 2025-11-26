@@ -6,7 +6,7 @@ export class UsuarioService {
   async listar(superUserId: number) {
     // Usuários já cadastrados no catálogo (não SUPER)
     const cadastrados = await catalogoPrisma.usuarioCatalogo.findMany({
-      where: { superUserId, role: { not: 'SUPER' } },
+      where: { superUserId, role: { notIn: ['SUPER', 'ADMIN'] } },
       select: { id: true, username: true, nome: true },
       orderBy: { nome: 'asc' }
     });

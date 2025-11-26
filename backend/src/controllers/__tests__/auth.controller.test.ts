@@ -84,7 +84,7 @@ describe('AuthController - flag administrativa do super usuário', () => {
     expect(loginResponse.body.user).toMatchObject({
       id: superUser.id,
       email: superUser.email,
-      role: 'SUPER',
+      role: 'ADMIN',
       catprodAdmFull: true,
     });
 
@@ -96,6 +96,7 @@ describe('AuthController - flag administrativa do super usuário', () => {
       .expect(200);
 
     expect(meResponse.body.catprodAdmFull).toBe(true);
+    expect(meResponse.body.role).toBe('ADMIN');
     expect(mockedLegacyPrisma.user.findUnique).toHaveBeenCalledWith({ where: { id: superUser.id } });
   });
 });
