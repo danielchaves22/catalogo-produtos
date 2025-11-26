@@ -38,6 +38,14 @@ export class AuthService {
     return false;
   }
 
+  private resolveRole(baseRole: AuthUser['role'], catprodAdmFull: boolean): AuthUser['role'] {
+    if (baseRole === 'SUPER' && catprodAdmFull) {
+      return 'ADMIN';
+    }
+
+    return baseRole;
+  }
+
   /**
    * Busca um usuário pelo identificador (email/username)
    */
@@ -50,13 +58,15 @@ export class AuthService {
         where: { email: { equals: identifier } },
       });
       if (user) {
+        const catprodAdmFull = this.isLegacyAdminFlagEnabled(user.catprodAdmFull);
+
         return {
           id: user.id,
           name: user.name,
           email: user.email,
           superUserId: user.id,
-          role: 'SUPER',
-          catprodAdmFull: this.isLegacyAdminFlagEnabled(user.catprodAdmFull),
+          role: this.resolveRole('SUPER', catprodAdmFull),
+          catprodAdmFull,
           password: user.password,
         };
       }
@@ -94,19 +104,21 @@ export class AuthService {
     const normalizedEmail = options.email?.trim();
     const role = options.role;
     try {
-      if (role === 'SUPER' || (!role && !normalizedEmail)) {
+      if (role === 'SUPER' || role === 'ADMIN' || (!role && !normalizedEmail)) {
         const user = await legacyPrisma.user.findUnique({ where: { id } });
         if (user && (!normalizedEmail || user.email === normalizedEmail)) {
+          const catprodAdmFull = this.isLegacyAdminFlagEnabled(user.catprodAdmFull);
+
           return {
             id: user.id,
             name: user.name,
             email: user.email,
             superUserId: user.id,
-            role: 'SUPER',
-            catprodAdmFull: this.isLegacyAdminFlagEnabled(user.catprodAdmFull),
+            role: this.resolveRole('SUPER', catprodAdmFull),
+            catprodAdmFull,
           };
         }
-        if (role === 'SUPER') {
+        if (role === 'SUPER' || role === 'ADMIN') {
           return null;
         }
       }
@@ -133,13 +145,15 @@ export class AuthService {
           where: { id, email: { equals: normalizedEmail } },
         });
         if (user) {
+          const catprodAdmFull = this.isLegacyAdminFlagEnabled(user.catprodAdmFull);
+
           return {
             id: user.id,
             name: user.name,
             email: user.email,
             superUserId: user.id,
-            role: 'SUPER',
-            catprodAdmFull: this.isLegacyAdminFlagEnabled(user.catprodAdmFull),
+            role: this.resolveRole('SUPER', catprodAdmFull),
+            catprodAdmFull,
           };
         }
 

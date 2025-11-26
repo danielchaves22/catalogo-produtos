@@ -6,8 +6,9 @@ import { legacyPrisma, catalogoPrisma } from '../utils/prisma';
 const service = new UsuarioService();
 
 function ensureSuper(req: Request, res: Response) {
-  if (req.user?.role !== 'SUPER') {
-    res.status(403).json({ error: 'Acesso restrito a superusuários' });
+  const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPER';
+  if (!isAdmin) {
+    res.status(403).json({ error: 'Acesso restrito a administradores' });
     return false;
   }
   return true;
