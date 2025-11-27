@@ -90,7 +90,7 @@ export default function ProdutosPage() {
   const router = useRouter();
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
-  const pageSizeOptions = [10, 20, 50];
+  const pageSizeOptions = [10, 20, 50, 100];
   const totalPages = Math.max(1, Math.ceil(totalProdutos / pageSize));
   const paginaAtual = Math.min(page, totalPages);
   const possuiItensNaPagina = totalProdutos > 0 && produtos.length > 0;

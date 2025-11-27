@@ -389,13 +389,13 @@ export class ProdutoExportacaoService {
 
       return {
         seq: produto.id,
-        codigo: produto.codigo ?? null,
+        codigo: null, // produto.codigo ?? null,
         descricao: produto.descricao,
         denominacao: produto.denominacao,
         modalidade: produto.modalidade,
         ncm: produto.ncmCodigo,
         cpfCnpjRaiz,
-        situacao: produto.situacao,
+        situacao: "Ativo", // produto.situacao,
         versao,
         atributos: simples,
         atributosMultivalorados: multivalorados,
