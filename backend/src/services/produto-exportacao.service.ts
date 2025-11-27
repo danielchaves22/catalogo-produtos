@@ -18,6 +18,16 @@ const catalogoPrismaExportacao = catalogoPrisma as typeof catalogoPrisma & {
 
 export interface ExportarProdutosDTO extends RemoverProdutosEmMassaDTO {}
 
+export interface FabricanteExportacaoDTO {
+  seq: number;
+  codigoPais: string;
+  cpfCnpjRaiz: string | null;
+  codigoOperadorEstrangeiro: string | null;
+  conhecido: boolean;
+  codigoProduto: string | null;
+  vincular: true;
+}
+
 export interface ProdutoExportacaoSelecao {
   todosFiltrados: boolean;
   filtros?: ListarProdutosFiltro;
@@ -101,7 +111,8 @@ export class ProdutoExportacaoService {
   async solicitarExportacao(
     dados: ExportarProdutosDTO,
     superUserId: number,
-    usuario: AuthUser
+    usuario: AuthUser,
+    opcoes?: { tipo?: AsyncJobTipo; arquivoNomePrefixo?: string }
   ) {
     const idsSelecionados = await this.produtoService.resolverSelecaoProdutos(dados, superUserId, {
       mensagemErroVazio: 'Nenhum produto selecionado para exportação',
@@ -112,7 +123,8 @@ export class ProdutoExportacaoService {
       throw new ValidationError({ produtos: 'Nenhum produto selecionado para exportação' });
     }
 
-    const arquivoNomeBase = `produtos-siscomex-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    const arquivoNomeBasePrefixo = opcoes?.arquivoNomePrefixo ?? 'produtos-siscomex';
+    const arquivoNomeBase = `${arquivoNomeBasePrefixo}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
 
     return catalogoPrismaExportacao.$transaction(async tx => {
       const prismaTx = tx as typeof tx & { produtoExportacao: ProdutoExportacaoDelegate };
@@ -131,7 +143,7 @@ export class ProdutoExportacaoService {
         },
       });
 
-      const tipoExportacao = 'EXPORTACAO_PRODUTO' as unknown as AsyncJobTipo;
+      const tipoExportacao = opcoes?.tipo ?? AsyncJobTipo.EXPORTACAO_PRODUTO;
 
       const job = await createAsyncJob(
         {
@@ -290,6 +302,29 @@ export class ProdutoExportacaoService {
     return produtos as unknown as ProdutoComAtributos[];
   }
 
+  async buscarFabricantesVinculados(ids: number[], superUserId: number) {
+    if (!ids.length) {
+      return [];
+    }
+
+    return catalogoPrisma.operadorEstrangeiroProduto.findMany({
+      where: {
+        produtoId: { in: ids },
+        produto: { catalogo: { superUserId } },
+      },
+      include: {
+        operadorEstrangeiro: { select: { codigo: true } },
+        produto: {
+          select: {
+            codigo: true,
+            catalogo: { select: { cpf_cnpj: true } },
+          },
+        },
+      },
+      orderBy: { id: 'asc' },
+    });
+  }
+
   transformarParaSiscomex(produtos: ProdutoComAtributos[]): ProdutoExportacaoProdutoDTO[] {
     return produtos.map(produto => {
       const simples: ProdutoExportacaoProdutoDTO['atributos'] = [];
@@ -349,15 +384,7 @@ export class ProdutoExportacaoService {
         ? produto.catalogo.cpf_cnpj.replace(/\D/g, '')
         : '';
 
-      let cpfCnpjRaiz: string | null = null;
-
-      if (cpfCnpjSemMascara) {
-        if (cpfCnpjSemMascara.length <= 11) {
-          cpfCnpjRaiz = cpfCnpjSemMascara;
-        } else {
-          cpfCnpjRaiz = cpfCnpjSemMascara.slice(0, 8);
-        }
-      }
+      const cpfCnpjRaiz = this.obterCpfCnpjRaiz(cpfCnpjSemMascara);
       const versao = typeof produto.versao === 'number' && Number.isFinite(produto.versao) ? String(produto.versao) : '';
 
       return {
@@ -375,6 +402,31 @@ export class ProdutoExportacaoService {
         atributosCompostos,
         atributosCompostosMultivalorados,
         codigosInterno: produto.codigosInternos.map(item => item.codigo),
+      };
+    });
+  }
+
+  transformarFabricantesParaSiscomex(
+    vinculos: Array<{
+      id: number;
+      paisCodigo: string;
+      conhecido: boolean;
+      operadorEstrangeiro: { codigo: string | null } | null;
+      produto: { codigo: string | null; catalogo: { cpf_cnpj: string | null } | null };
+    }>
+  ): FabricanteExportacaoDTO[] {
+    return vinculos.map(vinculo => {
+      const cpfCnpjLimpo = vinculo.produto.catalogo?.cpf_cnpj?.replace(/\D/g, '') ?? '';
+      const cpfCnpjRaiz = this.obterCpfCnpjRaiz(cpfCnpjLimpo);
+
+      return {
+        seq: vinculo.id,
+        codigoPais: vinculo.paisCodigo,
+        cpfCnpjRaiz,
+        codigoOperadorEstrangeiro: vinculo.operadorEstrangeiro?.codigo ?? null,
+        conhecido: vinculo.conhecido,
+        codigoProduto: vinculo.produto.codigo ?? null,
+        vincular: true as const,
       };
     });
   }
@@ -407,5 +459,17 @@ export class ProdutoExportacaoService {
         .filter(item => Number.isFinite(item)) as number[];
     }
     return undefined;
+  }
+
+  private obterCpfCnpjRaiz(cpfCnpjSemMascara: string | null | undefined) {
+    if (!cpfCnpjSemMascara) {
+      return null;
+    }
+
+    if (cpfCnpjSemMascara.length <= 11) {
+      return cpfCnpjSemMascara;
+    }
+
+    return cpfCnpjSemMascara.slice(0, 8);
   }
 }

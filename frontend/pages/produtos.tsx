@@ -86,6 +86,7 @@ export default function ProdutosPage() {
   const [bulkDeleteRequestError, setBulkDeleteRequestError] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [exportandoProdutos, setExportandoProdutos] = useState(false);
+  const [exportandoFabricantes, setExportandoFabricantes] = useState(false);
   const router = useRouter();
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
@@ -317,6 +318,29 @@ export default function ProdutosPage() {
       setExportandoProdutos(false);
     }
   }, [addToast, exportandoProdutos, montarSelecaoPayload, totalSelectedCount]);
+
+  const handleExportarFabricantes = useCallback(async () => {
+    if (exportandoFabricantes || totalSelectedCount === 0) {
+      return;
+    }
+
+    setExportandoFabricantes(true);
+
+    try {
+      const payload = montarSelecaoPayload();
+      const resposta = await api.post('/produtos/exportacoes/fabricantes', payload);
+      const jobId = resposta?.data?.jobId;
+      const mensagem = jobId
+        ? `Exportação de fabricantes agendada. Processo #${jobId} disponível em Automatização > Processos.`
+        : 'Exportação de fabricantes agendada. Acompanhe em Automatização > Processos.';
+      addToast(mensagem, 'success');
+    } catch (err: any) {
+      const mensagem = err?.response?.data?.error || 'Não foi possível agendar a exportação de fabricantes.';
+      addToast(mensagem, 'error');
+    } finally {
+      setExportandoFabricantes(false);
+    }
+  }, [addToast, exportandoFabricantes, montarSelecaoPayload, totalSelectedCount]);
 
   useEffect(() => {
     if (workingCatalog) {
@@ -738,7 +762,7 @@ export default function ProdutosPage() {
                     size="sm"
                     className="inline-flex items-center gap-2"
                     onClick={handleExportarProdutos}
-                    disabled={exportandoProdutos}
+                    disabled={exportandoProdutos || exportandoFabricantes}
                   >
                     {exportandoProdutos ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -746,6 +770,20 @@ export default function ProdutosPage() {
                       <Download size={16} />
                     )}
                     <span>{exportandoProdutos ? 'Agendando...' : 'Exportar JSON SISCOMEX'}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="inline-flex items-center gap-2"
+                    onClick={handleExportarFabricantes}
+                    disabled={exportandoFabricantes || exportandoProdutos}
+                  >
+                    {exportandoFabricantes ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Download size={16} />
+                    )}
+                    <span>{exportandoFabricantes ? 'Agendando...' : 'Exportar JSON Fabricantes'}</span>
                   </Button>
                   <Button
                     variant="danger"

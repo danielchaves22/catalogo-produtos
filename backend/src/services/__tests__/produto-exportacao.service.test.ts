@@ -1,6 +1,7 @@
 import { ProdutoExportacaoService } from '../produto-exportacao.service'
 import { ProdutoService } from '../produto.service'
 import { createAsyncJob } from '../../jobs/async-job.repository'
+import { AsyncJobTipo } from '@prisma/client'
 
 jest.mock('../../jobs/async-job.repository', () => ({
   createAsyncJob: jest.fn(),
@@ -83,6 +84,26 @@ describe('ProdutoExportacaoService', () => {
       data: { asyncJobId: 99 },
     })
     expect(resultado).toEqual({ exportacaoId: 10, jobId: 99 })
+  })
+
+  it('permite configurar o tipo e o prefixo do arquivo ao agendar exportação', async () => {
+    mockCatalogoPrisma.produtoExportacao.create.mockResolvedValue({ id: 15 })
+
+    await service.solicitarExportacao(
+      { todosFiltrados: true, idsDeselecionados: [], idsSelecionados: [], filtros: undefined },
+      3,
+      { id: 999 } as any,
+      { tipo: AsyncJobTipo.EXPORTACAO_FABRICANTE, arquivoNomePrefixo: 'fabricantes-siscomex' }
+    )
+
+    expect(createAsyncJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tipo: AsyncJobTipo.EXPORTACAO_FABRICANTE,
+        payload: { exportacaoId: 15, superUserId: 3 },
+        arquivo: { nome: expect.stringContaining('fabricantes-siscomex-') },
+      }),
+      mockCatalogoPrisma
+    )
   })
 
   it('transforma atributos em estrutura SISCOMEX', () => {

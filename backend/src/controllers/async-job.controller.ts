@@ -113,7 +113,7 @@ export async function gerarLinkArquivoJob(req: Request, res: Response) {
 
   const job = await obterAsyncJobComArquivo(id);
 
-  if (!job || job.tipo !== AsyncJobTipo.EXPORTACAO_PRODUTO) {
+  if (!job || (job.tipo !== AsyncJobTipo.EXPORTACAO_PRODUTO && job.tipo !== AsyncJobTipo.EXPORTACAO_FABRICANTE)) {
     return res.status(404).json({ error: 'Arquivo não encontrado para o job informado.' });
   }
 

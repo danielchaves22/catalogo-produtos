@@ -4,10 +4,12 @@ import { startAsyncJobWorker, registerAsyncJobHandler, liberarJobsTravados } fro
 import { produtoImportacaoJobHandler } from './handlers/importacao-produto.handler';
 import { atributoPreenchimentoMassaJobHandler } from './handlers/atributo-preenchimento-massa.handler';
 import { exportacaoProdutoJobHandler } from './handlers/exportacao-produto.handler';
+import { exportacaoFabricanteJobHandler } from './handlers/exportacao-fabricante.handler';
 
 registerAsyncJobHandler(AsyncJobTipo.IMPORTACAO_PRODUTO, produtoImportacaoJobHandler);
 registerAsyncJobHandler(AsyncJobTipo.ALTERACAO_ATRIBUTOS, atributoPreenchimentoMassaJobHandler);
 registerAsyncJobHandler(AsyncJobTipo.EXPORTACAO_PRODUTO, exportacaoProdutoJobHandler);
+registerAsyncJobHandler(AsyncJobTipo.EXPORTACAO_FABRICANTE, exportacaoFabricanteJobHandler);
 
 startAsyncJobWorker();
 

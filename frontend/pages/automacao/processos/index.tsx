@@ -36,7 +36,8 @@ interface AsyncJobResumo {
     | 'EXCLUSAO_MASSIVA'
     | 'ALTERACAO_ATRIBUTOS'
     | 'AJUSTE_ESTRUTURA'
-    | 'EXPORTACAO_PRODUTO';
+    | 'EXPORTACAO_PRODUTO'
+    | 'EXPORTACAO_FABRICANTE';
   status: 'PENDENTE' | 'PROCESSANDO' | 'CONCLUIDO' | 'FALHO' | 'CANCELADO';
   tentativas: number;
   maxTentativas: number;
@@ -108,6 +109,8 @@ function traduzirTipo(tipo: AsyncJobResumo['tipo']) {
       return 'Ajuste de Estrutura';
     case 'EXPORTACAO_PRODUTO':
       return 'Exportação de Produto';
+    case 'EXPORTACAO_FABRICANTE':
+      return 'Exportação de Fabricantes';
     default:
       return tipo;
   }
@@ -518,7 +521,10 @@ export default function ProcessosAssincronosPage() {
                         ) : job.produtoExportacao ? (
                           <div className="space-y-1 text-xs">
                             <div className="font-medium text-slate-100">
-                              Exportação #{job.produtoExportacao.id}
+                              {job.tipo === 'EXPORTACAO_FABRICANTE'
+                                ? 'Exportação de Fabricantes'
+                                : 'Exportação de Produto'}{' '}
+                              #{job.produtoExportacao.id}
                             </div>
                             {job.produtoExportacao.totalItens != null && (
                               <div className="text-slate-300">
