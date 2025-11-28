@@ -12,7 +12,7 @@ import { MultiSelect } from '@/components/ui/MultiSelect';
 import { RadioGroup } from '@/components/ui/RadioGroup';
 import { Hint } from '@/components/ui/Hint';
 import { useToast } from '@/components/ui/ToastContext';
-import api from '@/lib/api';
+import api, { NCM_ATTRIBUTES_TIMEOUT_MS } from '@/lib/api';
 import { algumValorIgual, algumValorSatisfazCondicao, isValorPreenchido, normalizarValoresMultivalorados } from '@/lib/atributos';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 import { PageLoader } from '@/components/ui/PageLoader';
@@ -237,7 +237,10 @@ export default function ValoresPadraoNcmPage() {
     if (ncmCodigo.length < 8) return;
     setLoadingEstrutura(true);
     try {
-      const response = await api.get(`/siscomex/atributos/ncm/${ncmCodigo}?modalidade=${modalidadeSelecionada}`);
+      const response = await api.get(
+        `/siscomex/atributos/ncm/${ncmCodigo}?modalidade=${modalidadeSelecionada}`,
+        { timeout: NCM_ATTRIBUTES_TIMEOUT_MS }
+      );
       if (!response.data.descricaoNcm) {
         addToast('NCM não encontrada', 'error');
         setEstruturaCarregada(false);

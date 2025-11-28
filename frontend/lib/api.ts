@@ -29,6 +29,8 @@ const getBaseURL = () => {
   return baseURL
 }
 
+export const NCM_ATTRIBUTES_TIMEOUT_MS = 30000;
+
 const api = axios.create({
   baseURL: getBaseURL(),
   timeout: 10000, // 10 segundos
@@ -152,7 +154,8 @@ api.interceptors.response.use(
       }
       
       if (error.message?.includes('timeout')) {
-        console.error('⏰ TIMEOUT - Resposta demorou mais que 10s')
+        const timeoutMs = error.config?.timeout ?? api.defaults.timeout
+        console.error(`⏰ TIMEOUT - Resposta demorou mais que ${timeoutMs}ms`)
       }
       
       console.groupEnd()

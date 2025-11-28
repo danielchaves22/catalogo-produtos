@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Tabs } from '@/components/ui/Tabs';
 import { useToast } from '@/components/ui/ToastContext';
 import { useRouter } from 'next/router';
-import api from '@/lib/api';
+import api, { NCM_ATTRIBUTES_TIMEOUT_MS } from '@/lib/api';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { formatCPFOrCNPJ, formatCEP } from '@/lib/validation';
 import {
@@ -217,7 +217,8 @@ export default function ProdutoPage() {
     setLoadingEstrutura(true);
     try {
       const response = await api.get(
-        `/siscomex/atributos/ncm/${ncmCodigo}?modalidade=${modalidade}`
+        `/siscomex/atributos/ncm/${ncmCodigo}?modalidade=${modalidade}`,
+        { timeout: NCM_ATTRIBUTES_TIMEOUT_MS }
       );
 
       if (!response.data.descricaoNcm) {
@@ -774,7 +775,8 @@ export default function ProdutoPage() {
       setModalidade(dados.modalidade);
       try {
         const resp = await api.get(
-          `/siscomex/atributos/ncm/${dados.ncmCodigo}?modalidade=${dados.modalidade}`
+          `/siscomex/atributos/ncm/${dados.ncmCodigo}?modalidade=${dados.modalidade}`,
+          { timeout: NCM_ATTRIBUTES_TIMEOUT_MS }
         );
         setNcmDescricao(resp.data.descricaoNcm || '');
         setUnidadeMedida(resp.data.unidadeMedida || '');
