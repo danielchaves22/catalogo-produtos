@@ -184,16 +184,68 @@ export class ProdutoService {
     const page = Math.max(1, paginacao.page ?? 1);
     const size = Math.max(1, Math.min(paginacao.pageSize ?? 20, 100));
 
-    const total = await catalogoPrisma.produto.count({ where });
+    // Primeiro carrega apenas id e codigo para ordenar numericamente em memória
+    const todosProdutos = await catalogoPrisma.produto.findMany({
+      where,
+      select: {
+        id: true,
+        codigo: true
+      }
+    });
+
+    const sortedIds = todosProdutos
+      .slice()
+      .sort((a, b) => {
+        const aCodigoRaw = (a.codigo ?? '').trim();
+        const bCodigoRaw = (b.codigo ?? '').trim();
+
+        const aNum = aCodigoRaw !== '' ? Number(aCodigoRaw) : NaN;
+        const bNum = bCodigoRaw !== '' ? Number(bCodigoRaw) : NaN;
+
+        const aIsNum = Number.isFinite(aNum);
+        const bIsNum = Number.isFinite(bNum);
+
+        if (aIsNum && bIsNum) {
+          if (aNum !== bNum) {
+            return aNum - bNum;
+          }
+        } else if (aIsNum && !bIsNum) {
+          // Valores numéricos vêm antes de valores não numéricos ou vazios
+          return -1;
+        } else if (!aIsNum && bIsNum) {
+          return 1;
+        }
+
+        // Empate: ordena por código como texto para estabilidade
+        if (aCodigoRaw !== bCodigoRaw) {
+          return aCodigoRaw.localeCompare(bCodigoRaw);
+        }
+
+        // Último critério: id
+        return a.id - b.id;
+      })
+      .map(p => p.id);
+
+    const total = sortedIds.length;
     const totalPages = Math.max(1, Math.ceil(total / size));
     const paginaAjustada = Math.min(page, totalPages);
     const skip = (paginaAjustada - 1) * size;
+    const pageIds = sortedIds.slice(skip, skip + size);
 
-    const produtos = await catalogoPrisma.produto.findMany({
-      where,
-      orderBy: [{ codigo: 'asc' }, { atualizadoEm: 'desc' }],
-      skip,
-      take: size,
+    if (pageIds.length === 0) {
+      return {
+        items: [],
+        total,
+        page: paginaAjustada,
+        pageSize: size
+      };
+    }
+
+    // Busca dados completos apenas dos registros da página atual
+    const produtosPagina = await catalogoPrisma.produto.findMany({
+      where: {
+        id: { in: pageIds }
+      },
       select: {
         id: true,
         codigo: true,
@@ -221,7 +273,12 @@ export class ProdutoService {
       }
     });
 
-    const items: ProdutoListItemDTO[] = produtos.map(p => ({
+    const produtosPorId = new Map(produtosPagina.map(p => [p.id, p]));
+    const produtosOrdenados = pageIds
+      .map(id => produtosPorId.get(id))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p));
+
+    const items: ProdutoListItemDTO[] = produtosOrdenados.map(p => ({
       id: p.id,
       codigo: p.codigo ?? null,
       ncmCodigo: p.ncmCodigo,
