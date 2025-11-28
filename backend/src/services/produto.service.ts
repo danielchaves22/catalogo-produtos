@@ -191,7 +191,7 @@ export class ProdutoService {
 
     const produtos = await catalogoPrisma.produto.findMany({
       where,
-      orderBy: { atualizadoEm: 'desc' },
+      orderBy: [{ codigo: 'asc' }, { atualizadoEm: 'desc' }],
       skip,
       take: size,
       select: {
