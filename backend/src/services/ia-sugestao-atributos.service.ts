@@ -94,7 +94,9 @@ export class IaSugestaoAtributosService {
     try {
       payload = JSON.parse(conteudo);
     } catch (error) {
-      logger.warn('Falha ao converter resposta da IA para JSON', { conteudo });
+      logger.warn(
+        `Falha ao converter resposta da IA para JSON. Conteúdo bruto retornado: ${conteudo}`
+      );
       throw new Error('Formato de resposta inválido retornado pela IA');
     }
 
