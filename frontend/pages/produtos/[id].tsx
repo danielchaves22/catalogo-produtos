@@ -352,6 +352,17 @@ export default function ProdutoPage() {
     return `${normalizado.slice(0, limite)}...`;
   }
 
+  function montarDescricaoParaIa() {
+    const nomeProduto = denominacao.trim();
+    const detalhamento = descricao.trim();
+
+    if (nomeProduto && detalhamento) {
+      return compactarDescricaoParaIa(`${nomeProduto} - ${detalhamento}`);
+    }
+
+    return compactarDescricaoParaIa(nomeProduto || detalhamento);
+  }
+
   function coletarAtributosParaIa(lista: AtributoEstrutura[]): AtributoParaIa[] {
     const resultado: AtributoParaIa[] = [];
 
@@ -449,7 +460,7 @@ export default function ProdutoPage() {
 
   function montarPayloadSugestaoIa() {
     return {
-      descricao: compactarDescricaoParaIa(descricao),
+      descricao: montarDescricaoParaIa(),
       atributos: coletarAtributosParaIa(estrutura),
       ncm: ncm.length === 8 ? ncm : undefined,
       modalidade
