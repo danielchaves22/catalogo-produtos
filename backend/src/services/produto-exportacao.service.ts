@@ -332,23 +332,46 @@ export class ProdutoExportacaoService {
       const compostos = new Map<string, Array<{ atributo: string; valor: unknown }>>();
       const compostosMultivalorados = new Map<string, Map<number, Array<{ atributo: string; valor: unknown }>>>();
 
+      const valoresPorCodigo = new Map<string, unknown[]>();
+
+      for (const registro of produto.atributos) {
+        if (!registro.atributo?.codigo) continue;
+        valoresPorCodigo.set(registro.atributo.codigo, this.normalizarValores(registro.valores));
+      }
+
       for (const registro of produto.atributos) {
         if (!registro.atributo) continue;
         const codigo = registro.atributo.codigo;
         const parentCodigo = registro.atributo.parentCodigo;
         const parent = registro.atributo.parent;
 
-        if (!parentCodigo) {
-          const valoresSimples = registro.valores.map(item => item.valorJson as unknown);
+        const valoresNormalizados = this.normalizarValores(registro.valores);
+        const valoresOriginais = registro.valores.map(item => item.valorJson as unknown);
+        const codigoCondicionante = registro.atributo.condicionanteCodigo ?? (!parent ? parentCodigo : null);
+        const isCondicional = !!codigoCondicionante && !parent;
+        const isComposto = !!parentCodigo && !!parent;
+
+        if (!parentCodigo || isCondicional) {
+          if (isCondicional) {
+            const condicaoAtendida = this.condicaoCondicionalAtendida(codigoCondicionante, valoresPorCodigo);
+            if (!condicaoAtendida || valoresNormalizados.length === 0) {
+              continue;
+            }
+          }
+
           if (registro.atributo.multivalorado) {
-            multivalorados.push({ atributo: codigo, valores: valoresSimples });
+            multivalorados.push({ atributo: codigo, valores: isCondicional ? valoresNormalizados : valoresOriginais });
           } else {
-            simples.push({ atributo: codigo, valor: valoresSimples.length > 0 ? valoresSimples[0] : null });
+            const valoresParaExportar = isCondicional ? valoresNormalizados : valoresOriginais;
+            simples.push({
+              atributo: codigo,
+              valor: valoresParaExportar.length > 0 ? valoresParaExportar[0] : null,
+            });
           }
           continue;
         }
 
-        if (parent?.multivalorado) {
+        if (isComposto && parent?.multivalorado) {
           const mapaGrupos = compostosMultivalorados.get(parentCodigo) ?? new Map<number, Array<{ atributo: string; valor: unknown }>>();
           for (const valor of registro.valores) {
             const chave = valor.ordem ?? 0;
@@ -357,7 +380,7 @@ export class ProdutoExportacaoService {
             mapaGrupos.set(chave, grupo);
           }
           compostosMultivalorados.set(parentCodigo, mapaGrupos);
-        } else {
+        } else if (isComposto) {
           const listaValores = compostos.get(parentCodigo) ?? [];
           for (const valor of registro.valores) {
             listaValores.push({ atributo: codigo, valor: valor.valorJson as unknown });
@@ -446,6 +469,28 @@ export class ProdutoExportacaoService {
       logger.warn('Falha ao localizar usuário de catálogo para exportação', error);
       return null;
     }
+  }
+
+  private valorPreenchido(valor: unknown): boolean {
+    if (valor === null || valor === undefined) return false;
+    if (typeof valor === 'string') return valor.trim() !== '';
+    return true;
+  }
+
+  private normalizarValores(valores: Array<{ valorJson: Prisma.JsonValue }>): unknown[] {
+    return valores
+      .map(item => item.valorJson as unknown)
+      .filter(valor => this.valorPreenchido(valor));
+  }
+
+  private condicaoCondicionalAtendida(
+    codigoCondicionante: string | null,
+    valoresPorCodigo: Map<string, unknown[]>
+  ): boolean {
+    if (!codigoCondicionante) return true;
+
+    const valores = valoresPorCodigo.get(codigoCondicionante) ?? [];
+    return valores.some(valor => this.valorPreenchido(valor));
   }
 
   private converterJsonParaArray(valor: Prisma.JsonValue | null): number[] | undefined {

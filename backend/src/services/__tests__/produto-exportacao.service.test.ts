@@ -194,7 +194,7 @@ describe('ProdutoExportacaoService', () => {
         modalidade: 'EXPORTACAO',
         ncm: '01010101',
         cpfCnpjRaiz: '12345678',
-        situacao: 'APROVADO',
+        situacao: 'Ativado',
         versao: '2',
         atributos: [{ atributo: 'ATT_1', valor: 'A' }],
         atributosMultivalorados: [{ atributo: 'ATT_MULTI', valores: ['V1', 'V2'] }],
@@ -218,7 +218,7 @@ describe('ProdutoExportacaoService', () => {
         modalidade: null,
         ncm: '02020202',
         cpfCnpjRaiz: null,
-        situacao: 'RASCUNHO',
+        situacao: 'Ativado',
         versao: '',
         atributos: [],
         atributosMultivalorados: [],
@@ -227,5 +227,98 @@ describe('ProdutoExportacaoService', () => {
         codigosInterno: [],
       },
     ])
+  })
+
+  it('exporta atributo condicional no mesmo nível quando condição e valor são atendidos', () => {
+    const produtos = [
+      {
+        id: 2,
+        codigo: 'PRD-2',
+        versao: 1,
+        status: 'APROVADO',
+        situacao: 'APROVADO',
+        descricao: 'Produto condicional',
+        denominacao: 'Produto condicional',
+        modalidade: 'EXPORTACAO',
+        ncmCodigo: '03030303',
+        catalogo: { cpf_cnpj: '98.765.432/0001-10' },
+        atributos: [
+          {
+            atributo: {
+              codigo: 'ATT_BASE',
+              multivalorado: false,
+              parentCodigo: null,
+              condicionanteCodigo: null,
+            },
+            valores: [{ valorJson: 'SIM', ordem: 0 }],
+          },
+          {
+            atributo: {
+              codigo: 'ATT_COND',
+              multivalorado: false,
+              parentCodigo: 'ATT_BASE',
+              condicionanteCodigo: 'ATT_BASE',
+              parent: null,
+            },
+            valores: [{ valorJson: 'CONDICIONAL', ordem: 0 }],
+          },
+        ],
+        codigosInternos: [{ codigo: 'SKU-2' }],
+      },
+    ] as any
+
+    const resultado = service.transformarParaSiscomex(produtos)
+
+    expect(resultado[0].atributos).toEqual([
+      { atributo: 'ATT_BASE', valor: 'SIM' },
+      { atributo: 'ATT_COND', valor: 'CONDICIONAL' },
+    ])
+    expect(resultado[0].atributosCompostos).toEqual([])
+    expect(resultado[0].atributosCompostosMultivalorados).toEqual([])
+  })
+
+  it('ignora atributo condicional quando condição ou valor não estão preenchidos', () => {
+    const produtos = [
+      {
+        id: 3,
+        codigo: 'PRD-3',
+        versao: 1,
+        status: 'APROVADO',
+        situacao: 'APROVADO',
+        descricao: 'Produto condicional vazio',
+        denominacao: 'Produto condicional vazio',
+        modalidade: 'EXPORTACAO',
+        ncmCodigo: '04040404',
+        catalogo: { cpf_cnpj: '11.222.333/0001-44' },
+        atributos: [
+          {
+            atributo: {
+              codigo: 'ATT_BASE',
+              multivalorado: false,
+              parentCodigo: null,
+              condicionanteCodigo: null,
+            },
+            valores: [],
+          },
+          {
+            atributo: {
+              codigo: 'ATT_COND',
+              multivalorado: false,
+              parentCodigo: 'ATT_BASE',
+              condicionanteCodigo: 'ATT_BASE',
+              parent: null,
+            },
+            valores: [{ valorJson: '', ordem: 0 }],
+          },
+        ],
+        codigosInternos: [{ codigo: 'SKU-3' }],
+      },
+    ] as any
+
+    const resultado = service.transformarParaSiscomex(produtos)
+
+    expect(resultado[0].atributos).toEqual([])
+    expect(resultado[0].atributosCompostos).toEqual([])
+    expect(resultado[0].atributosCompostosMultivalorados).toEqual([])
   })
 })
