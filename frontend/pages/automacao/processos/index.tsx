@@ -428,7 +428,8 @@ export default function ProcessosAssincronosPage() {
                               <Eye size={16} />
                             </button>
                           )}
-                          {job.tipo === 'EXPORTACAO_PRODUTO' && job.status === 'CONCLUIDO' && (
+                          {(job.tipo === 'EXPORTACAO_PRODUTO' || job.tipo === 'EXPORTACAO_FABRICANTE') &&
+                            job.status === 'CONCLUIDO' && (
                             <button
                               type="button"
                               onClick={() => baixarArquivoJob(job)}
