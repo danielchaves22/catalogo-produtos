@@ -814,6 +814,7 @@ export default function ProdutosPage() {
                       </div>
                     </th>
                     <th className="w-24 px-4 py-3 text-center">Ações</th>
+                    <th className="px-4 py-3">Código</th>
                     <th className="px-4 py-3">Catálogo</th>
                     <th className="px-4 py-3">Nome</th>
                     <th className="px-4 py-3">Cód. Int. (SKU/PN)</th>
@@ -886,6 +887,9 @@ export default function ProdutosPage() {
                         >
                           <Trash2 size={16} />
                         </button>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-sm text-gray-100">
+                        {produto.codigo ?? '-'}
                       </td>
                       <td className="px-4 py-3">{produto.catalogoNome ?? '-'}</td>
                       <td className="px-4 py-3">{produto.denominacao ?? produto.codigo ?? '-'}</td>
