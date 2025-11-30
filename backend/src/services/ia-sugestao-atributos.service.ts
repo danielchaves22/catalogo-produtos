@@ -77,13 +77,20 @@ export class IaSugestaoAtributosService {
       modalidade
     });
 
-    const resposta = await this.cliente.post('/chat/completions', {
+    const payloadRequisicao = {
       model: this.modelo,
       temperature: 0.2,
       max_tokens: maxTokensResposta ?? 240,
       response_format: { type: 'json_object' },
       messages: prompt
+    };
+
+    logger.info('Enviando solicitação de sugestão de atributos para IA', {
+      evento: 'ia.sugestao.atributos.requisicao',
+      payload: payloadRequisicao
     });
+
+    const resposta = await this.cliente.post('/chat/completions', payloadRequisicao);
 
     const conteudo = resposta.data?.choices?.[0]?.message?.content;
     if (!conteudo) {
@@ -99,6 +106,15 @@ export class IaSugestaoAtributosService {
       );
       throw new Error('Formato de resposta inválido retornado pela IA');
     }
+
+    logger.info('Resposta de sugestão de atributos recebida da IA', {
+      evento: 'ia.sugestao.atributos.resposta',
+      payload: {
+        modelo: resposta.data?.model ?? this.modelo,
+        tokens: resposta.data?.usage,
+        conteudo
+      }
+    });
 
     return {
       sugestoes: payload,
