@@ -295,7 +295,7 @@ export class AtributoLegacyService {
   ): Promise<EstruturaComVersao> {
     const estruturaLegacy = await this.carregarEstruturaLegacy(ncm, modalidade)
 
-    const estrutura = await catalogoPrisma.$transaction(async tx => {
+    const versaoCriada = await catalogoPrisma.$transaction(async tx => {
       const ultimaVersao = await tx.atributoVersao.findFirst({
         where: { ncmCodigo: ncm, modalidade },
         orderBy: { versao: 'desc' }
@@ -357,12 +357,12 @@ export class AtributoLegacyService {
 
       await criarRecursivo(estruturaLegacy)
 
-      return this.montarEstrutura(versao.id, versaoNumero)
+      return { id: versao.id, versao: versaoNumero }
     })
 
     AtributoLegacyService.notificarInvalidacao(ncm, modalidade)
 
-    return estrutura
+    return this.montarEstrutura(versaoCriada.id, versaoCriada.versao)
   }
 }
 
