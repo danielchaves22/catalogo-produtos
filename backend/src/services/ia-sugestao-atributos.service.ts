@@ -80,7 +80,7 @@ export class IaSugestaoAtributosService {
     const payloadRequisicao = {
       model: this.modelo,
       temperature: 0.2,
-      max_tokens: maxTokensResposta ?? 240,
+      max_tokens: maxTokensResposta ?? 800,
       response_format: { type: 'json_object' },
       messages: prompt
     };
@@ -92,7 +92,8 @@ export class IaSugestaoAtributosService {
 
     const resposta = await this.cliente.post('/chat/completions', payloadRequisicao);
 
-    const conteudo = resposta.data?.choices?.[0]?.message?.content;
+    const primeiraEscolha = resposta.data?.choices?.[0];
+    const conteudo = primeiraEscolha?.message?.content;
     if (!conteudo) {
       throw new Error('Resposta vazia do provedor de IA');
     }
@@ -112,9 +113,21 @@ export class IaSugestaoAtributosService {
       payload: {
         modelo: resposta.data?.model ?? this.modelo,
         tokens: resposta.data?.usage,
-        conteudo
+        conteudo,
+        finishReason: primeiraEscolha?.finish_reason
       }
     });
+
+    if (primeiraEscolha?.finish_reason === 'length') {
+      logger.warn('Resposta da IA foi cortada por limite de tokens; considere aumentar maxTokensResposta', {
+        evento: 'ia.sugestao.atributos.resposta.incompleta',
+        payload: {
+          maxTokensUtilizado: payloadRequisicao.max_tokens,
+          modelo: resposta.data?.model ?? this.modelo
+        }
+      });
+      throw new Error('A resposta da IA foi truncada pelo limite de tokens configurado');
+    }
 
     return {
       sugestoes: payload,
