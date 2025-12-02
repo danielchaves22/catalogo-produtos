@@ -325,11 +325,11 @@ export class AtributoLegacyService {
     versaoId: number
   ): Promise<void> {
     const ordem = { valor: 0 }
-    const fila: Array<{ attr: AtributoEstruturaDTO; parentId: number | null }> =
-      atributos.map(attr => ({ attr, parentId: null }))
+    const pilha: Array<{ attr: AtributoEstruturaDTO; parentId: number | null }> =
+      [...atributos].reverse().map(attr => ({ attr, parentId: null }))
 
-    while (fila.length) {
-      const { attr, parentId } = fila.shift()!
+    while (pilha.length) {
+      const { attr, parentId } = pilha.pop()!
 
       const registro = await catalogoPrisma.$transaction(async tx => {
         const criado = await tx.atributo.create({
@@ -368,8 +368,8 @@ export class AtributoLegacyService {
       })
 
       if (attr.subAtributos?.length) {
-        for (const sub of attr.subAtributos) {
-          fila.push({ attr: sub, parentId: registro.id })
+        for (const sub of [...attr.subAtributos].reverse()) {
+          pilha.push({ attr: sub, parentId: registro.id })
         }
       }
     }
