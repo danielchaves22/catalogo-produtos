@@ -11,7 +11,7 @@ import { PageLoader } from '@/components/ui/PageLoader';
 import api from '@/lib/api';
 import { useToast } from '@/components/ui/ToastContext';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
-import { AlertCircle, ArrowLeft, Check, Download } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Download, Loader2 } from 'lucide-react';
 import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
 import { produtoStatusLegend } from '@/constants/statusLegends';
 
@@ -139,24 +139,32 @@ export default function NovaTransmissaoProdutosPage() {
     setTransmitindo(true);
     try {
       const registros = produtosFiltrados.filter(p => selecionados.has(p.id));
-      const payload = {
-        modalidade: 'PRODUTOS',
-        catalogoId: catalogoId || workingCatalog?.id || null,
-        registros,
-      };
-      const json = JSON.stringify(payload, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `transmissao-produtos-${Date.now()}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-      addToast('Exportação JSON gerada para testes. Processo assíncrono será conectado futuramente.', 'success');
+      const resposta = await api.post('/siscomex/produtos/transmitir', {
+        ids: registros.map(produto => produto.id),
+      });
+
+      const sucessos = resposta.data?.dados?.sucessos?.length ?? 0;
+      const falhas = resposta.data?.dados?.falhas ?? [];
+
+      if (sucessos > 0) {
+        addToast(`${sucessos} produto(s) enviado(s) ao SISCOMEX.`, 'success');
+      }
+
+      if (falhas.length > 0) {
+        setErro('Alguns produtos não foram transmitidos. Verifique o catálogo ou os dados obrigatórios.');
+        addToast('Há produtos que não puderam ser enviados ao SISCOMEX.', 'error');
+      } else {
+        setErro(null);
+      }
+
       setSelecionados(new Set());
+      await carregarProdutos();
     } catch (error) {
-      console.error('Erro ao exportar registros de produtos para transmissão:', error);
-      addToast('Não foi possível iniciar a transmissão.', 'error');
+      console.error('Erro ao transmitir produtos ao SISCOMEX:', error);
+      const mensagemErro =
+        (error as any)?.response?.data?.error || 'Não foi possível transmitir os produtos selecionados.';
+      setErro(typeof mensagemErro === 'string' ? mensagemErro : 'Erro inesperado ao transmitir.');
+      addToast('Falha na transmissão ao SISCOMEX.', 'error');
     } finally {
       setTransmitindo(false);
     }
@@ -196,7 +204,7 @@ export default function NovaTransmissaoProdutosPage() {
           disabled={selecionados.size === 0 || transmitindo}
           onClick={transmitir}
         >
-          {transmitindo ? <Check size={16} className="animate-spin" /> : <Download size={16} />}
+          {transmitindo ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
           Transmitir registros ao SISCOMEX
         </Button>
       </div>

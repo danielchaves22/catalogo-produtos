@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { 
   consultarProdutos,
   incluirProduto,
+  transmitirProdutos,
   atualizarProduto,
   detalharVersaoProduto,
   exportarCatalogo,
@@ -113,6 +114,32 @@ router.get('/produtos', consultarProdutos);
  *         description: Produto criado com sucesso
  */
 router.post('/produtos', incluirProduto);
+
+/**
+ * @swagger
+ * /api/v1/siscomex/produtos/transmitir:
+ *   post:
+ *     summary: Envia produtos aprovados do catálogo ao SISCOMEX
+ *     tags: [SISCOMEX]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: IDs dos produtos aprovados a transmitir
+ *     responses:
+ *       200:
+ *         description: Resultado da transmissão
+ */
+router.post('/produtos/transmitir', transmitirProdutos);
 
 /**
  * @swagger
