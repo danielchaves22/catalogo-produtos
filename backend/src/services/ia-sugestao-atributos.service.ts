@@ -85,11 +85,6 @@ export class IaSugestaoAtributosService {
       messages: prompt
     };
 
-    logger.info('Enviando solicitação de sugestão de atributos para IA', {
-      evento: 'ia.sugestao.atributos.requisicao',
-      payload: payloadRequisicao
-    });
-
     const resposta = await this.cliente.post('/chat/completions', payloadRequisicao);
 
     const primeiraEscolha = resposta.data?.choices?.[0];
@@ -107,16 +102,6 @@ export class IaSugestaoAtributosService {
       );
       throw new Error('Formato de resposta inválido retornado pela IA');
     }
-
-    logger.info('Resposta de sugestão de atributos recebida da IA', {
-      evento: 'ia.sugestao.atributos.resposta',
-      payload: {
-        modelo: resposta.data?.model ?? this.modelo,
-        tokens: resposta.data?.usage,
-        conteudo,
-        finishReason: primeiraEscolha?.finish_reason
-      }
-    });
 
     if (primeiraEscolha?.finish_reason === 'length') {
       logger.warn('Resposta da IA foi cortada por limite de tokens; considere aumentar maxTokensResposta', {
