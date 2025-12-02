@@ -67,7 +67,7 @@ router.get('/status', verificarStatus);
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: cnpjRaiz
+ *         name: cpfCnpjRaiz
  *         required: true
  *         schema:
  *           type: string
@@ -169,7 +169,7 @@ router.get('/produtos/:codigo/versoes/:versao', detalharVersaoProduto);
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: cnpjRaiz
+ *         name: cpfCnpjRaiz
  *         required: true
  *         schema:
  *           type: string
