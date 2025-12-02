@@ -2,9 +2,23 @@ import { createLogger, format, transports } from 'winston';
 
 const { combine, timestamp, printf, errors, colorize } = format;
 
-// Formato de log personalizado
-const logFormat = printf(({ level, message, timestamp, stack }) => {
-  return `${timestamp} [${level}]: ${stack || message}`;
+// Formato de log personalizado com metadados serializados (para exibir payloads)
+const logFormat = printf(info => {
+  const { level, message, timestamp, stack, ...metadata } = info;
+  const splat = info[Symbol.for('splat')] as Record<string, unknown>[] | undefined;
+  const detalhes = { ...metadata } as Record<string, unknown>;
+
+  if (splat?.length) {
+    for (const item of splat) {
+      Object.assign(detalhes, item);
+    }
+  }
+
+  const metadataSerializada = Object.keys(detalhes).length
+    ? ` ${JSON.stringify(detalhes)}`
+    : '';
+
+  return `${timestamp} [${level}]: ${stack || message}${metadataSerializada}`;
 });
 
 export const logger = createLogger({
