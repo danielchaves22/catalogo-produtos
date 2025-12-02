@@ -212,7 +212,8 @@ export class IaSugestaoAtributosService {
     );
     partes.push(
       'Responda apenas com JSON {"CODIGO_ATRIBUTO": valor}. Use códigos do domínio quando fornecidos. ' +
-        'Para atributos multivalorados use array ordenado. Não invente atributos ou textos adicionais.'
+        'Para atributos multivalorados use array ordenado. Não invente atributos ou textos adicionais. ' +
+        'Se não conseguir concluir qual valor é correto para um atributo, retorne esse campo vazio.'
     );
 
     const conteudo = partes.join('\n');

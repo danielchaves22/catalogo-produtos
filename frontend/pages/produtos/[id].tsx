@@ -397,12 +397,13 @@ export default function ProdutoPage() {
 
   function coletarAtributosParaIa(
     lista: AtributoEstrutura[],
-    apenasVisiveisNaoPreenchidos = false
+    apenasVisiveisNaoPreenchidos = false,
+    valoresAtuais: Record<string, string | string[]> = valores
   ): AtributoParaIa[] {
     const resultado: AtributoParaIa[] = [];
 
     for (const attr of lista) {
-      if (apenasVisiveisNaoPreenchidos && !condicaoAtendida(attr)) {
+      if (apenasVisiveisNaoPreenchidos && !condicaoAtendida(attr, valoresAtuais)) {
         continue;
       }
 
@@ -414,7 +415,9 @@ export default function ProdutoPage() {
       }
 
       if (attr.subAtributos?.length) {
-        resultado.push(...coletarAtributosParaIa(attr.subAtributos, apenasVisiveisNaoPreenchidos));
+        resultado.push(
+          ...coletarAtributosParaIa(attr.subAtributos, apenasVisiveisNaoPreenchidos, valoresAtuais)
+        );
       }
     }
 
@@ -442,11 +445,12 @@ export default function ProdutoPage() {
   }
 
   function aplicarSugestoesIa(
-    sugestoes: Record<string, unknown>
-  ): { aplicadas: string[]; ignoradas: string[] } {
-    if (!sugestoes) return { aplicadas: [], ignoradas: [] };
+    sugestoes: Record<string, unknown>,
+    valoresAtuais: Record<string, string | string[]> = valores
+  ): { aplicadas: string[]; ignoradas: string[]; valoresAtualizados: Record<string, string | string[]> } {
+    if (!sugestoes) return { aplicadas: [], ignoradas: [], valoresAtualizados: valoresAtuais };
 
-    const novosValores = { ...valores };
+    const novosValores = { ...valoresAtuais };
     const aplicadas: string[] = [];
     const ignoradas: string[] = [];
 
@@ -479,7 +483,7 @@ export default function ProdutoPage() {
     });
 
     setValores(novosValores);
-    return { aplicadas, ignoradas };
+    return { aplicadas, ignoradas, valoresAtualizados: novosValores };
   }
 
   function montarPayloadSugestaoIa(atributos: AtributoParaIa[]) {
@@ -508,32 +512,52 @@ export default function ProdutoPage() {
       return;
     }
 
-    const atributosVisiveisParaSugestao = coletarAtributosParaIa(estrutura, true);
-
-    if (!atributosVisiveisParaSugestao.length) {
-      const mensagem = 'Todos os atributos visíveis já estão preenchidos.';
-      setResumoSugestoesIa(mensagem);
-      addToast(mensagem, 'success');
-      return;
-    }
-
     setGerandoSugestoesIa(true);
-    setSugestoesIaRestantes(prev => Math.max(prev - 1, 0));
+    let valoresAtuais = valores;
+    let tentativasRestantes = Math.min(2, sugestoesIaRestantes);
     try {
-      const payload = montarPayloadSugestaoIa(atributosVisiveisParaSugestao);
-      const response = await api.post('/ia/atributos/sugerir', payload);
-      const { aplicadas, ignoradas } = aplicarSugestoesIa(response.data?.sugestoes || {});
-      const resumoTokens = response.data?.tokens?.total ? ` • ${response.data.tokens.total} tokens` : '';
-      setResumoSugestoesIa(`Sugestões aplicadas: ${aplicadas.length}${resumoTokens}`);
+      while (tentativasRestantes > 0) {
+        const atributosVisiveisParaSugestao = coletarAtributosParaIa(
+          estrutura,
+          true,
+          valoresAtuais
+        );
 
-      if (aplicadas.length) {
-        addToast(`Preenchemos ${aplicadas.length} atributo(s) com IA`, 'success');
-      } else {
-        addToast('Nenhum atributo pôde ser sugerido com os dados informados', 'error');
-      }
+        if (!atributosVisiveisParaSugestao.length) {
+          const mensagem = 'Todos os atributos visíveis já estão preenchidos.';
+          setResumoSugestoesIa(mensagem);
+          addToast(mensagem, 'success');
+          break;
+        }
 
-      if (ignoradas.length) {
-        addToast(`Ignoramos sugestões para ${ignoradas.length} atributo(s) fora do domínio`, 'success');
+        const payload = montarPayloadSugestaoIa(atributosVisiveisParaSugestao);
+        const response = await api.post('/ia/atributos/sugerir', payload);
+        const { aplicadas, ignoradas, valoresAtualizados } = aplicarSugestoesIa(
+          response.data?.sugestoes || {},
+          valoresAtuais
+        );
+        valoresAtuais = valoresAtualizados;
+        tentativasRestantes -= 1;
+        setSugestoesIaRestantes(prev => Math.max(prev - 1, 0));
+
+        const resumoTokens = response.data?.tokens?.total
+          ? ` • ${response.data.tokens.total} tokens`
+          : '';
+        setResumoSugestoesIa(`Sugestões aplicadas: ${aplicadas.length}${resumoTokens}`);
+
+        if (aplicadas.length) {
+          addToast(`Preenchemos ${aplicadas.length} atributo(s) com IA`, 'success');
+        } else {
+          addToast('Nenhum atributo pôde ser sugerido com os dados informados', 'error');
+        }
+
+        if (ignoradas.length) {
+          addToast(`Ignoramos sugestões para ${ignoradas.length} atributo(s) fora do domínio`, 'success');
+        }
+
+        if (!coletarAtributosParaIa(estrutura, true, valoresAtuais).length) {
+          break;
+        }
       }
     } catch (error: any) {
       const mensagem = error?.response?.data?.error || 'Não foi possível gerar sugestões de atributos';
@@ -595,14 +619,17 @@ export default function ProdutoPage() {
 
   // A visibilidade dos atributos condicionados é verificada a cada alteração
   // pois o componente re-renderiza sempre que 'valores' é atualizado.
-  function condicaoAtendida(attr: AtributoEstrutura): boolean {
+  function condicaoAtendida(
+    attr: AtributoEstrutura,
+    valoresAtuais: Record<string, string | string[]> = valores
+  ): boolean {
     const codigoCondicionante = attr.condicionanteCodigo || attr.parentCodigo;
     if (!codigoCondicionante) return true;
 
     const pai = mapaEstrutura.get(codigoCondicionante);
-    if (pai && !condicaoAtendida(pai)) return false;
+    if (pai && !condicaoAtendida(pai, valoresAtuais)) return false;
 
-    const atual = valores[codigoCondicionante];
+    const atual = valoresAtuais[codigoCondicionante];
     if (!isValorPreenchido(atual)) return false;
 
     if (attr.condicao) {
