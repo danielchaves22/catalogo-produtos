@@ -133,6 +133,11 @@ export default function ProdutoPage() {
   }, [isNew, workingCatalog]);
 
   useEffect(() => {
+    setSugestoesIaRestantes(LIMITE_SUGESTOES_IA);
+    setResumoSugestoesIa(null);
+  }, [id]);
+
+  useEffect(() => {
     if (isNew && workingCatalog) {
       setCatalogoId(String(workingCatalog.id));
       setCatalogoNome(workingCatalog.nome);
