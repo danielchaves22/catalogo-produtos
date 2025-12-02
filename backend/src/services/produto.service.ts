@@ -552,6 +552,29 @@ export class ProdutoService {
     return this.buscarPorId(id, superUserId);
   }
 
+  async marcarComoTransmitido(
+    id: number,
+    superUserId: number,
+    dados: { codigo: string; versao: number; situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO' }
+  ) {
+    const atualizado = await catalogoPrisma.produto.updateMany({
+      where: { id, catalogo: { superUserId } },
+      data: {
+        codigo: dados.codigo,
+        versao: dados.versao,
+        status: 'TRANSMITIDO',
+        situacao: dados.situacao ?? undefined
+      }
+    });
+
+    if (atualizado.count === 0) {
+      throw new Error('Produto não encontrado ou não pertence ao superusuário');
+    }
+
+    await this.produtoResumoService.recalcularResumoProduto(id);
+    return this.buscarPorId(id, superUserId);
+  }
+
   async remover(id: number, superUserId: number) {
     const deletado = await catalogoPrisma.$transaction(async tx => {
       const produto = await tx.produto.findFirst({
