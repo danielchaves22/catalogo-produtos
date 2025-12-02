@@ -106,23 +106,35 @@ export class SiscomexService {
     }
 
     if (!this.certificado && this.carregarCertificado) {
+      logger.info('Carregando certificado PFX vinculado ao catálogo para SISCOMEX...');
       this.certificado = await this.carregarCertificado();
+      logger.info('Certificado PFX carregado do catálogo', {
+        origemCertificado: this.certificado?.origem || 'catalogo',
+        tamanhoBytes: this.certificado?.pfx?.byteLength
+      });
     }
 
     if (!this.certificado) {
       throw new Error('Certificado do catálogo não configurado para autenticação SISCOMEX');
     }
 
-    this.httpsAgent = new https.Agent({
-      pfx: this.certificado.pfx,
-      passphrase: this.certificado.passphrase,
-      rejectUnauthorized: true
-    });
-
-    this.api.defaults.httpsAgent = this.httpsAgent;
-    logger.info('HTTPS Agent configurado com mTLS para SISCOMEX', {
-      origemCertificado: this.certificado.origem || 'catalogo'
-    });
+    try {
+      this.httpsAgent = new https.Agent({
+        pfx: this.certificado.pfx,
+        passphrase: this.certificado.passphrase,
+        rejectUnauthorized: true
+      });
+      this.api.defaults.httpsAgent = this.httpsAgent;
+      logger.info('HTTPS Agent configurado com mTLS para SISCOMEX', {
+        origemCertificado: this.certificado.origem || 'catalogo'
+      });
+    } catch (error) {
+      logger.error('Falha ao montar HTTPS Agent com o certificado PFX', {
+        origemCertificado: this.certificado.origem,
+        erro: error instanceof Error ? error.message : String(error)
+      });
+      throw error;
+    }
 
     return this.httpsAgent;
   }
@@ -151,7 +163,11 @@ export class SiscomexService {
         }
         config.httpsAgent = agent;
 
-        logger.info(`SISCOMEX API Request: ${config.method?.toUpperCase()} ${config.url}`);
+        logger.info(`SISCOMEX API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+          possuiCertificado: Boolean(this.certificado),
+          possuiTokens: Boolean(this.authorizationToken && this.csrfToken),
+          catalogoOrigemCertificado: this.certificado?.origem
+        });
         return config;
       },
       (error) => {
@@ -180,7 +196,9 @@ export class SiscomexService {
         logger.error('SISCOMEX API Response Error:', {
           status,
           data: error.response?.data,
-          url: error.config?.url
+          url: error.config?.url,
+          metodo: error.config?.method,
+          origemCertificado: this.certificado?.origem
         });
         return Promise.reject(this.tratarErroApi(error));
       }
@@ -191,6 +209,7 @@ export class SiscomexService {
     if (this.authorizationToken && this.csrfToken) {
       return;
     }
+    logger.info('Tokens de sessão do SISCOMEX ausentes; iniciando reautenticação...');
     await this.reautenticar();
   }
 
@@ -227,12 +246,20 @@ export class SiscomexService {
       ? this.authUrl
       : `${this.baseUrl.replace(/\/$/, '')}/${this.authUrl.replace(/^\//, '')}`;
 
+    logger.info('Realizando autenticação SISCOMEX (mTLS) ...', {
+      urlLogin,
+      origemCertificado: this.certificado?.origem,
+      passphrasePresente: Boolean(this.certificado?.passphrase)
+    });
+
     const response = await clienteAutenticacao.get(urlLogin);
 
     const tokens = this.extrairHeadersAutenticacao(response.headers as Record<string, any>);
     if (!tokens.authorization || !tokens.csrfToken) {
       throw new Error('Tokens de autenticação não retornados pela API SISCOMEX');
     }
+
+    logger.info('Autenticação SISCOMEX concluída com tokens capturados');
   }
 
   private extrairHeadersAutenticacao(headers: Record<string, any>): SiscomexAutenticacaoHeaders {
@@ -250,6 +277,11 @@ export class SiscomexService {
       this.csrfToken = csrfToken;
       this.api.defaults.headers.common['X-CSRF-Token'] = csrfToken;
     }
+
+    logger.info('Headers de autenticação do SISCOMEX processados', {
+      authorizationPresente: Boolean(authorization),
+      csrfTokenPresente: Boolean(csrfToken)
+    });
 
     return { authorization, csrfToken };
   }
