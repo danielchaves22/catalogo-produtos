@@ -1,8 +1,6 @@
 // backend/src/services/siscomex.service.ts
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import https from 'https';
-import fs from 'fs';
-import path from 'path';
 import { logger } from '../utils/logger';
 
 // Interfaces baseadas na documentação SISCOMEX
@@ -62,23 +60,33 @@ type SiscomexProdutoInclusao = Omit<SiscomexProduto, 'codigo' | 'versao'>;
 
 type SiscomexProdutoAtualizacao = Partial<SiscomexProduto> & { versao?: number };
 
+export type SiscomexCertificado = {
+  pfx: Buffer;
+  passphrase?: string;
+  origem?: string;
+};
+
+type SiscomexServiceOptions = {
+  carregarCertificado?: () => Promise<SiscomexCertificado>;
+  certificado?: SiscomexCertificado;
+};
+
 export class SiscomexService {
   private api: AxiosInstance;
   private readonly baseUrl: string;
   private readonly authUrl?: string;
-  private readonly certificadoPfxPath: string;
-  private readonly certificadoPassphrase?: string;
+  private readonly carregarCertificado?: () => Promise<SiscomexCertificado>;
+  private certificado?: SiscomexCertificado;
   private httpsAgent?: https.Agent;
   private authorizationToken?: string;
   private csrfToken?: string;
   private autenticacaoPromise: Promise<void> | null = null;
-
-  constructor() {
+  constructor(opcoes?: SiscomexServiceOptions) {
     // URLs da API SISCOMEX conforme documentação
     this.baseUrl = process.env.SISCOMEX_API_URL || 'https://api.portalunico.siscomex.gov.br/catp/api';
     this.authUrl = process.env.SISCOMEX_AUTH_URL;
-    this.certificadoPfxPath = process.env.SISCOMEX_CERT_PFX_PATH || '';
-    this.certificadoPassphrase = process.env.SISCOMEX_CERT_PFX_PASSPHRASE || process.env.SISCOMEX_CERT_PASSPHRASE;
+    this.carregarCertificado = opcoes?.carregarCertificado;
+    this.certificado = opcoes?.certificado;
 
     this.api = axios.create({
       baseURL: this.baseUrl,
@@ -89,44 +97,48 @@ export class SiscomexService {
       }
     });
 
-    this.configurarAutenticacao();
     this.setupInterceptors();
   }
 
-  private configurarAutenticacao() {
-    this.httpsAgent = this.criarHttpsAgent();
+  private async obterHttpsAgent(): Promise<https.Agent> {
     if (this.httpsAgent) {
-      this.api.defaults.httpsAgent = this.httpsAgent;
-      logger.info('HTTPS Agent configurado com mTLS para SISCOMEX');
-    } else {
-      logger.warn('Certificado digital não configurado para SISCOMEX API');
+      return this.httpsAgent;
     }
+
+    if (!this.certificado && this.carregarCertificado) {
+      this.certificado = await this.carregarCertificado();
+    }
+
+    if (!this.certificado) {
+      throw new Error('Certificado do catálogo não configurado para autenticação SISCOMEX');
+    }
+
+    this.httpsAgent = new https.Agent({
+      pfx: this.certificado.pfx,
+      passphrase: this.certificado.passphrase,
+      rejectUnauthorized: true
+    });
+
+    this.api.defaults.httpsAgent = this.httpsAgent;
+    logger.info('HTTPS Agent configurado com mTLS para SISCOMEX', {
+      origemCertificado: this.certificado.origem || 'catalogo'
+    });
+
+    return this.httpsAgent;
   }
 
-  private criarHttpsAgent(): https.Agent | undefined {
-    if (!this.certificadoPfxPath) {
-      return undefined;
-    }
-
-    try {
-      const pfxPath = path.resolve(this.certificadoPfxPath);
-      const certificadoPfx = fs.readFileSync(pfxPath);
-
-      return new https.Agent({
-        pfx: certificadoPfx,
-        passphrase: this.certificadoPassphrase,
-        rejectUnauthorized: true
-      });
-    } catch (error) {
-      logger.error('Falha ao carregar certificado digital do SISCOMEX', error);
-      throw error;
-    }
+  atualizarCertificado(certificado: SiscomexCertificado) {
+    this.certificado = certificado;
+    this.httpsAgent = undefined;
+    this.authorizationToken = undefined;
+    this.csrfToken = undefined;
   }
 
   private setupInterceptors() {
     // Request interceptor para logs e autenticação
     this.api.interceptors.request.use(
       async (config) => {
+        const agent = await this.obterHttpsAgent();
         await this.garantirAutenticacao();
 
         if (this.authorizationToken) {
@@ -137,9 +149,7 @@ export class SiscomexService {
           config.headers = config.headers || {};
           config.headers['X-CSRF-Token'] = this.csrfToken;
         }
-        if (this.httpsAgent) {
-          config.httpsAgent = this.httpsAgent;
-        }
+        config.httpsAgent = agent;
 
         logger.info(`SISCOMEX API Request: ${config.method?.toUpperCase()} ${config.url}`);
         return config;
@@ -199,12 +209,14 @@ export class SiscomexService {
       return;
     }
 
+    const agent = await this.obterHttpsAgent();
+
     // Usa um cliente dedicado sem interceptors para evitar deadlock quando o interceptor
     // de requisição chama `garantirAutenticacao` e o próprio login tenta reutilizar
     // a instância principal (que aguardaria a autenticação em andamento).
     const clienteAutenticacao = axios.create({
       baseURL: this.baseUrl,
-      httpsAgent: this.httpsAgent,
+      httpsAgent: agent,
       timeout: this.api.defaults.timeout,
       headers: {
         Accept: 'application/json'

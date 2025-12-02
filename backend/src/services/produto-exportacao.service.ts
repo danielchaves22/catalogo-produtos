@@ -51,6 +51,7 @@ export interface ProdutoExportacaoRegistro {
 
 export interface ProdutoExportacaoProdutoDTO {
   seq: number;
+  catalogoId: number | null;
   codigo: string | null;
   descricao: string;
   denominacao: string;
@@ -102,7 +103,7 @@ interface ProdutoComAtributos {
     valores: Array<{ valorJson: Prisma.JsonValue; ordem: number }>;
   }>;
   codigosInternos: Array<{ codigo: string }>;
-  catalogo: { cpf_cnpj: string | null } | null;
+  catalogo: { id: number; cpf_cnpj: string | null; certificadoId: number | null } | null;
 }
 
 export class ProdutoExportacaoService {
@@ -275,7 +276,7 @@ export class ProdutoExportacaoService {
         denominacao: true,
         modalidade: true,
         ncmCodigo: true,
-        catalogo: { select: { cpf_cnpj: true } },
+        catalogo: { select: { id: true, cpf_cnpj: true, certificadoId: true } },
         atributos: {
           include: {
             atributo: {
@@ -412,6 +413,7 @@ export class ProdutoExportacaoService {
 
       return {
         seq: produto.id,
+        catalogoId: produto.catalogo?.id ?? null,
         codigo: null, // produto.codigo ?? null,
         descricao: produto.descricao,
         denominacao: produto.denominacao,

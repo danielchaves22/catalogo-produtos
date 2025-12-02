@@ -56,6 +56,27 @@ export class CertificadoService {
     return { file, nome: cert.nome };
   }
 
+  async obterParaCatalogo(catalogoId: number, superUserId: number) {
+    const catalogo = await catalogoPrisma.catalogo.findFirst({
+      where: { id: catalogoId, superUserId },
+      select: { certificado: { select: { pfxPath: true, senha: true, nome: true } } },
+    });
+
+    if (!catalogo?.certificado) {
+      throw new Error('Catálogo sem certificado vinculado para transmissão ao SISCOMEX');
+    }
+
+    const provider = storageFactory();
+    const buffer = await provider.get(catalogo.certificado.pfxPath);
+    const senha = decrypt(catalogo.certificado.senha);
+
+    return {
+      pfx: buffer,
+      passphrase: senha,
+      origem: catalogo.certificado.nome,
+    };
+  }
+
   async extrairInformacoes(id: number, superUserId: number) {
     const cert = await catalogoPrisma.certificado.findFirst({
       where: { id, superUserId },
