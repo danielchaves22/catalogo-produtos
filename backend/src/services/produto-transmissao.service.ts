@@ -4,6 +4,7 @@ import { ValidationError } from '../types/validation-error';
 import { ProdutoExportacaoService } from './produto-exportacao.service';
 import { SiscomexService } from './siscomex.service';
 import { ProdutoService } from './produto.service';
+import { CertificadoService } from './certificado.service';
 
 interface ResultadoTransmissao {
   produtoId: number;
@@ -20,8 +21,8 @@ interface FalhaTransmissao {
 export class ProdutoTransmissaoService {
   constructor(
     private readonly exportacaoService = new ProdutoExportacaoService(),
-    private readonly siscomexService = new SiscomexService(),
-    private readonly produtoService = new ProdutoService()
+    private readonly produtoService = new ProdutoService(),
+    private readonly certificadoService = new CertificadoService()
   ) {}
 
   async transmitir(ids: number[], superUserId: number) {
@@ -43,10 +44,12 @@ export class ProdutoTransmissaoService {
     const produtosExportados = this.exportacaoService.transformarParaSiscomex(produtos);
 
     const sucessos: ResultadoTransmissao[] = [];
+    const clientesPorCatalogo = new Map<number, SiscomexService>();
 
     for (const produtoExportado of produtosExportados) {
       const produtoId = Number(produtoExportado.seq);
       const cpfCnpjRaiz = produtoExportado.cpfCnpjRaiz?.replace(/\D/g, '');
+      const catalogoId = produtoExportado.catalogoId;
 
       if (!Number.isFinite(produtoId)) {
         falhas.push({ produtoId, motivo: 'Identificador do produto inválido para transmissão' });
@@ -58,10 +61,16 @@ export class ProdutoTransmissaoService {
         continue;
       }
 
+      if (!catalogoId) {
+        falhas.push({ produtoId, motivo: 'Catálogo do produto não encontrado para recuperar certificado' });
+        continue;
+      }
+
       try {
         const { cpfCnpjRaiz: _, seq, ...payload } = produtoExportado;
 
-        const resposta = await this.siscomexService.incluirProduto(cpfCnpjRaiz, payload as any);
+        const cliente = await this.obterClienteSiscomex(catalogoId, superUserId, clientesPorCatalogo);
+        const resposta = await cliente.incluirProduto(cpfCnpjRaiz, payload as any);
         const situacaoNormalizada =
           typeof resposta.situacao === 'string'
             ? (['RASCUNHO', 'ATIVADO', 'DESATIVADO'].includes(resposta.situacao.toUpperCase())
@@ -95,6 +104,23 @@ export class ProdutoTransmissaoService {
     }
 
     return { sucessos, falhas };
+  }
+
+  private async obterClienteSiscomex(
+    catalogoId: number,
+    superUserId: number,
+    cache: Map<number, SiscomexService>
+  ): Promise<SiscomexService> {
+    const existente = cache.get(catalogoId);
+    if (existente) {
+      return existente;
+    }
+
+    const certificado = await this.certificadoService.obterParaCatalogo(catalogoId, superUserId);
+    const cliente = new SiscomexService({ certificado });
+
+    cache.set(catalogoId, cliente);
+    return cliente;
   }
 }
 
