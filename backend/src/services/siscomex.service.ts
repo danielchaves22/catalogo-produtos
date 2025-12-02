@@ -84,7 +84,7 @@ export class SiscomexService {
   constructor(opcoes?: SiscomexServiceOptions) {
     // URLs da API SISCOMEX conforme documentação
     this.baseUrl = process.env.SISCOMEX_API_URL || 'https://api.portalunico.siscomex.gov.br/catp/api';
-    this.authUrl = process.env.SISCOMEX_AUTH_URL;
+    this.authUrl = this.resolverAuthUrl(process.env.SISCOMEX_AUTH_URL);
     this.carregarCertificado = opcoes?.carregarCertificado;
     this.certificado = opcoes?.certificado;
 
@@ -98,6 +98,35 @@ export class SiscomexService {
     });
 
     this.setupInterceptors();
+  }
+
+  /**
+   * Obtém a URL de autenticação conforme a documentação PLAT (https://docs.portalunico.siscomex.gov.br/api/plat/).
+   * Caso a variável não seja informada, utilizamos o host do SISCOMEX_API_URL e trocamos o serviço para o /platp.
+   */
+  private resolverAuthUrl(authUrl?: string): string | undefined {
+    if (authUrl?.trim()) {
+      return authUrl;
+    }
+
+    try {
+      const base = new URL(this.baseUrl);
+      const hostBase = `${base.protocol}//${base.host}`;
+      const urlPadrao = `${hostBase}/platp/api/autenticar`;
+
+      logger.info('SISCOMEX_AUTH_URL não configurado; aplicando URL padrão do PLAT', {
+        baseUrl: this.baseUrl,
+        urlAutenticacao: urlPadrao
+      });
+
+      return urlPadrao;
+    } catch (error) {
+      logger.warn('Não foi possível deduzir SISCOMEX_AUTH_URL a partir do SISCOMEX_API_URL', {
+        baseUrl: this.baseUrl,
+        erro: error instanceof Error ? error.message : String(error)
+      });
+      return authUrl;
+    }
   }
 
   private async obterHttpsAgent(): Promise<https.Agent> {
