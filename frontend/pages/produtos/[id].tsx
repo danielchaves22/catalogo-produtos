@@ -106,9 +106,10 @@ export default function ProdutoPage() {
   const debouncedNcm = useDebounce(ncm, 1000);
   const [gerandoSugestoesIa, setGerandoSugestoesIa] = useState(false);
   const [resumoSugestoesIa, setResumoSugestoesIa] = useState<string | null>(null);
+  const [maxTokensSugestaoIa, setMaxTokensSugestaoIa] = useState<string>('');
   const { user } = useAuth();
-
-  const podeSugerirComIa = Boolean(user?.catprodAdmFull);
+  const podeConfigurarTokensIa = Boolean(user?.catprodAdmFull);
+  const podeSugerirComIa = podeConfigurarTokensIa;
 
   // Format NCM code for display (9999.99.99)
   function formatarNCMExibicao(codigo?: string) {
@@ -460,11 +461,21 @@ export default function ProdutoPage() {
   }
 
   function montarPayloadSugestaoIa() {
+    const tokensInformados =
+      podeConfigurarTokensIa && maxTokensSugestaoIa !== ''
+        ? Number(maxTokensSugestaoIa)
+        : undefined;
+    const maxTokensResposta =
+      Number.isFinite(tokensInformados) && (tokensInformados ?? 0) > 0
+        ? tokensInformados
+        : undefined;
+
     return {
       descricao: montarDescricaoParaIa(),
       atributos: coletarAtributosParaIa(estrutura),
       ncm: ncm.length === 8 ? ncm : undefined,
-      modalidade
+      modalidade,
+      maxTokensResposta
     };
   }
 
@@ -1263,6 +1274,24 @@ export default function ProdutoPage() {
                                 <p className="text-xs md:text-sm text-gray-400">
                                   Usa o detalhamento complementar para sugerir valores mínimos e respeita domínios e atributos multivalorados.
                                 </p>
+                                {podeConfigurarTokensIa && (
+                                  <div className="mt-2 grid gap-2 md:grid-cols-2 md:items-end">
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      max={800}
+                                      label="Limite de tokens da resposta (admins)"
+                                      placeholder="Padrão 240"
+                                      value={maxTokensSugestaoIa}
+                                      onChange={e => setMaxTokensSugestaoIa(e.target.value)}
+                                      className="mb-0"
+                                      hint="Use apenas se precisar de respostas mais longas. Máximo permitido: 800."
+                                    />
+                                    <p className="text-xs text-gray-400 md:pl-2">
+                                      Ajustes maiores elevam consumo de créditos e podem aumentar o tempo de resposta. Deixe em branco para manter o padrão seguro.
+                                    </p>
+                                  </div>
+                                )}
                                 {resumoSugestoesIa && (
                                   <p className="text-xs text-gray-400 mt-1">{resumoSugestoesIa}</p>
                                 )}

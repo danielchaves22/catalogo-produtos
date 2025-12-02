@@ -9,12 +9,21 @@ export async function sugerirAtributos(req: Request, res: Response) {
   try {
     const { descricao, atributos, ncm, modalidade, maxTokensResposta } = req.body;
 
+    const usuario = req.user;
+    const usuarioAdmin = usuario?.role === 'ADMIN' || usuario?.catprodAdmFull;
+
+    if (maxTokensResposta && !usuarioAdmin) {
+      return res
+        .status(403)
+        .json({ error: 'Somente administradores podem configurar o limite de tokens da IA.' });
+    }
+
     const resultado = await iaSugestaoService.sugerirValores({
       descricao,
       atributos,
       ncm,
       modalidade,
-      maxTokensResposta
+      maxTokensResposta: usuarioAdmin ? maxTokensResposta : undefined
     });
 
     return res.json({
