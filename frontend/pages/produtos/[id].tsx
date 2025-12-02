@@ -31,6 +31,7 @@ import useDebounce from '@/hooks/useDebounce';
 
 const DESCRICAO_MAX_LENGTH = 3700;
 const DENOMINACAO_MAX_LENGTH = 120;
+const LIMITE_SUGESTOES_IA = 2;
 
 interface AtributoEstrutura {
   codigo: string;
@@ -106,6 +107,7 @@ export default function ProdutoPage() {
   const debouncedNcm = useDebounce(ncm, 1000);
   const [gerandoSugestoesIa, setGerandoSugestoesIa] = useState(false);
   const [resumoSugestoesIa, setResumoSugestoesIa] = useState<string | null>(null);
+  const [sugestoesIaRestantes, setSugestoesIaRestantes] = useState(LIMITE_SUGESTOES_IA);
   const { user } = useAuth();
 
   const podeSugerirComIa = Boolean(user?.catprodAdmFull);
@@ -364,34 +366,50 @@ export default function ProdutoPage() {
     return compactarDescricaoParaIa(nomeProduto || detalhamento);
   }
 
-  function coletarAtributosParaIa(lista: AtributoEstrutura[]): AtributoParaIa[] {
+  function mapearAtributoParaIa(attr: AtributoEstrutura): AtributoParaIa {
+    const validacoesCompactas: Record<string, unknown> = {};
+    const chavesValidacoes = ['tamanho_maximo', 'casas_decimais', 'mascara'];
+    chavesValidacoes.forEach(chave => {
+      if (attr.validacoes?.[chave] !== undefined) {
+        validacoesCompactas[chave] = attr.validacoes[chave];
+      }
+    });
+
+    return {
+      codigo: attr.codigo,
+      nome: attr.nome,
+      tipo: attr.tipo,
+      obrigatorio: attr.obrigatorio,
+      multivalorado: attr.multivalorado ?? false,
+      dominio: attr.dominio?.map(d => ({ codigo: d.codigo, descricao: d.descricao })) || [],
+      validacoes: Object.keys(validacoesCompactas).length ? validacoesCompactas : undefined,
+      condicao: attr.condicao,
+      descricaoCondicao: attr.descricaoCondicao,
+      parentCodigo: attr.parentCodigo,
+      condicionanteCodigo: attr.condicionanteCodigo
+    };
+  }
+
+  function coletarAtributosParaIa(
+    lista: AtributoEstrutura[],
+    apenasVisiveisNaoPreenchidos = false
+  ): AtributoParaIa[] {
     const resultado: AtributoParaIa[] = [];
 
     for (const attr of lista) {
-      const validacoesCompactas: Record<string, unknown> = {};
-      const chavesValidacoes = ['tamanho_maximo', 'casas_decimais', 'mascara'];
-      chavesValidacoes.forEach(chave => {
-        if (attr.validacoes?.[chave] !== undefined) {
-          validacoesCompactas[chave] = attr.validacoes[chave];
-        }
-      });
+      if (apenasVisiveisNaoPreenchidos && !condicaoAtendida(attr)) {
+        continue;
+      }
 
-      resultado.push({
-        codigo: attr.codigo,
-        nome: attr.nome,
-        tipo: attr.tipo,
-        obrigatorio: attr.obrigatorio,
-        multivalorado: attr.multivalorado ?? false,
-        dominio: attr.dominio?.map(d => ({ codigo: d.codigo, descricao: d.descricao })) || [],
-        validacoes: Object.keys(validacoesCompactas).length ? validacoesCompactas : undefined,
-        condicao: attr.condicao,
-        descricaoCondicao: attr.descricaoCondicao,
-        parentCodigo: attr.parentCodigo,
-        condicionanteCodigo: attr.condicionanteCodigo
-      });
+      const possuiValor = isValorPreenchido(valores[attr.codigo]);
+      const isComposto = attr.tipo === 'COMPOSTO';
+
+      if (!apenasVisiveisNaoPreenchidos || (!possuiValor && !isComposto)) {
+        resultado.push(mapearAtributoParaIa(attr));
+      }
 
       if (attr.subAtributos?.length) {
-        resultado.push(...coletarAtributosParaIa(attr.subAtributos));
+        resultado.push(...coletarAtributosParaIa(attr.subAtributos, apenasVisiveisNaoPreenchidos));
       }
     }
 
@@ -459,10 +477,10 @@ export default function ProdutoPage() {
     return { aplicadas, ignoradas };
   }
 
-  function montarPayloadSugestaoIa() {
+  function montarPayloadSugestaoIa(atributos: AtributoParaIa[]) {
     return {
       descricao: montarDescricaoParaIa(),
-      atributos: coletarAtributosParaIa(estrutura),
+      atributos,
       ncm: ncm.length === 8 ? ncm : undefined,
       modalidade
     };
@@ -480,9 +498,24 @@ export default function ProdutoPage() {
       return;
     }
 
+    if (sugestoesIaRestantes <= 0) {
+      addToast('Limite de 2 sugestões atingido. Reabra a tela para novas solicitações.', 'error');
+      return;
+    }
+
+    const atributosVisiveisParaSugestao = coletarAtributosParaIa(estrutura, true);
+
+    if (!atributosVisiveisParaSugestao.length) {
+      const mensagem = 'Todos os atributos visíveis já estão preenchidos.';
+      setResumoSugestoesIa(mensagem);
+      addToast(mensagem, 'success');
+      return;
+    }
+
     setGerandoSugestoesIa(true);
+    setSugestoesIaRestantes(prev => Math.max(prev - 1, 0));
     try {
-      const payload = montarPayloadSugestaoIa();
+      const payload = montarPayloadSugestaoIa(atributosVisiveisParaSugestao);
       const response = await api.post('/ia/atributos/sugerir', payload);
       const { aplicadas, ignoradas } = aplicarSugestoesIa(response.data?.sugestoes || {});
       const resumoTokens = response.data?.tokens?.total ? ` • ${response.data.tokens.total} tokens` : '';
@@ -1266,6 +1299,9 @@ export default function ProdutoPage() {
                                 {resumoSugestoesIa && (
                                   <p className="text-xs text-gray-400 mt-1">{resumoSugestoesIa}</p>
                                 )}
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Tentativas restantes nesta sessão: {sugestoesIaRestantes}/{LIMITE_SUGESTOES_IA}
+                                </p>
                               </div>
                               <div className="flex gap-2 self-end md:self-auto">
                                 <Button
@@ -1273,7 +1309,12 @@ export default function ProdutoPage() {
                                   variant="outline"
                                   className="flex items-center gap-2"
                                   onClick={preencherAtributosComIa}
-                                  disabled={gerandoSugestoesIa || !estrutura.length || !descricao.trim()}
+                                  disabled={
+                                    gerandoSugestoesIa ||
+                                    !estrutura.length ||
+                                    !descricao.trim() ||
+                                    sugestoesIaRestantes <= 0
+                                  }
                                 >
                                   <BrainCog size={16} />
                                   {gerandoSugestoesIa ? 'Gerando sugestões...' : 'Sugerir com IA'}
