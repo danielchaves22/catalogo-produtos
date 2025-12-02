@@ -70,6 +70,12 @@ export class ProdutoTransmissaoService {
         const { cpfCnpjRaiz: _, seq, ...payload } = produtoExportado;
 
         const cliente = await this.obterClienteSiscomex(catalogoId, superUserId, clientesPorCatalogo);
+        logger.info('Transmitindo produto ao SISCOMEX', {
+          produtoId,
+          catalogoId,
+          cpfCnpjRaiz,
+          possuiCodigoLocal: Boolean((payload as any).codigo)
+        });
         const resposta = await cliente.incluirProduto(cpfCnpjRaiz, payload as any);
         const situacaoNormalizada =
           typeof resposta.situacao === 'string'
@@ -116,7 +122,14 @@ export class ProdutoTransmissaoService {
       return existente;
     }
 
+    logger.info('Recuperando certificado PFX vinculado ao catálogo para transmissão SISCOMEX', { catalogoId });
     const certificado = await this.certificadoService.obterParaCatalogo(catalogoId, superUserId);
+    logger.info('Certificado obtido do storage para SISCOMEX', {
+      catalogoId,
+      origem: certificado.origem,
+      tamanhoBytes: certificado.pfx.byteLength,
+      possuiPassphrase: Boolean(certificado.passphrase)
+    });
     const cliente = new SiscomexService({ certificado });
 
     cache.set(catalogoId, cliente);
