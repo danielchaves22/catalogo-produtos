@@ -6,11 +6,14 @@ import { NcmLegacyService } from '../services/ncm-legacy.service';
 import { logger } from '../utils/logger';
 import { catalogoPrisma } from '../utils/prisma';
 import { ProdutoService } from '../services/produto.service';
+import { ProdutoTransmissaoService } from '../services/produto-transmissao.service';
+import { ValidationError } from '../types/validation-error';
 
 const siscomexService = new SiscomexService();
 const atributoLegacyService = new AtributoLegacyService();
 const ncmLegacyService = new NcmLegacyService();
 const produtoService = new ProdutoService();
+const produtoTransmissaoService = new ProdutoTransmissaoService();
 
 /**
  * GET /api/siscomex/ncm/sugestoes
@@ -119,7 +122,38 @@ export async function incluirProduto(req: Request, res: Response) {
   } catch (error: unknown) {
     logger.error('Erro ao incluir produto SISCOMEX:', error);
     return res.status(500).json({
-      error: error instanceof Error ? error.message : 'Erro interno ao incluir produto SISCOMEX' 
+      error: error instanceof Error ? error.message : 'Erro interno ao incluir produto SISCOMEX'
+    });
+  }
+}
+
+/**
+ * POST /api/siscomex/produtos/transmitir
+ * Envia produtos aprovados do catálogo para o SISCOMEX
+ */
+export async function transmitirProdutos(req: Request, res: Response) {
+  try {
+    const ids = Array.isArray(req.body?.ids)
+      ? (req.body.ids as Array<string | number>).map(id => Number(id)).filter(Number.isFinite)
+      : [];
+
+    const resultado = await produtoTransmissaoService.transmitir(ids, req.user!.superUserId);
+
+    return res.status(200).json({
+      sucesso: true,
+      mensagem: `${resultado.sucessos.length} produto(s) transmitido(s) com sucesso${
+        resultado.falhas.length ? `; ${resultado.falhas.length} falha(s) registrada(s)` : ''
+      }`,
+      dados: resultado
+    });
+  } catch (error: unknown) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.details || error.message });
+    }
+
+    logger.error('Erro ao transmitir produtos SISCOMEX:', error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro interno ao transmitir produtos SISCOMEX'
     });
   }
 }
