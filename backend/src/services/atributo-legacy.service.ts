@@ -310,59 +310,69 @@ export class AtributoLegacyService {
         }
       })
 
-      const ordem = { valor: 0 }
-
-      const criarRecursivo = async (
-        attrs: AtributoEstruturaDTO[],
-        parentId?: number
-      ) => {
-        for (const attr of attrs) {
-          const registro = await tx.atributo.create({
-            data: {
-              versaoId: versao.id,
-              codigo: attr.codigo,
-              nome: attr.nome,
-              tipo: attr.tipo,
-              obrigatorio: attr.obrigatorio,
-              multivalorado: attr.multivalorado,
-              orientacaoPreenchimento: attr.orientacaoPreenchimento ?? null,
-              validacoesJson: attr.validacoes as Prisma.InputJsonValue,
-              descricaoCondicao: attr.descricaoCondicao ?? null,
-              condicaoJson: attr.condicao
-                ? (attr.condicao as Prisma.InputJsonValue)
-                : Prisma.JsonNull,
-              parentCodigo: attr.parentCodigo ?? null,
-              condicionanteCodigo: attr.condicionanteCodigo ?? null,
-              ordem: ordem.valor++,
-              parentId: parentId ?? null
-            }
-          })
-
-          if (attr.dominio?.length) {
-            await tx.atributoDominio.createMany({
-              data: attr.dominio.map((dominio, index) => ({
-                atributoId: registro.id,
-                codigo: dominio.codigo,
-                descricao: dominio.descricao,
-                ordem: index
-              }))
-            })
-          }
-
-          if (attr.subAtributos?.length) {
-            await criarRecursivo(attr.subAtributos, registro.id)
-          }
-        }
-      }
-
-      await criarRecursivo(estruturaLegacy)
-
       return { id: versao.id, versao: versaoNumero }
     })
+
+    await this.salvarEstruturaComBatches(estruturaLegacy, versaoCriada.id)
 
     AtributoLegacyService.notificarInvalidacao(ncm, modalidade)
 
     return this.montarEstrutura(versaoCriada.id, versaoCriada.versao)
+  }
+
+  private async salvarEstruturaComBatches(
+    atributos: AtributoEstruturaDTO[],
+    versaoId: number
+  ): Promise<void> {
+    const ordem = { valor: 0 }
+    const fila: Array<{ attr: AtributoEstruturaDTO; parentId: number | null }> =
+      atributos.map(attr => ({ attr, parentId: null }))
+
+    while (fila.length) {
+      const { attr, parentId } = fila.shift()!
+
+      const registro = await catalogoPrisma.$transaction(async tx => {
+        const criado = await tx.atributo.create({
+          data: {
+            versaoId,
+            codigo: attr.codigo,
+            nome: attr.nome,
+            tipo: attr.tipo,
+            obrigatorio: attr.obrigatorio,
+            multivalorado: attr.multivalorado,
+            orientacaoPreenchimento: attr.orientacaoPreenchimento ?? null,
+            validacoesJson: attr.validacoes as Prisma.InputJsonValue,
+            descricaoCondicao: attr.descricaoCondicao ?? null,
+            condicaoJson: attr.condicao
+              ? (attr.condicao as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
+            parentCodigo: attr.parentCodigo ?? null,
+            condicionanteCodigo: attr.condicionanteCodigo ?? null,
+            ordem: ordem.valor++,
+            parentId
+          }
+        })
+
+        if (attr.dominio?.length) {
+          await tx.atributoDominio.createMany({
+            data: attr.dominio.map((dominio, index) => ({
+              atributoId: criado.id,
+              codigo: dominio.codigo,
+              descricao: dominio.descricao,
+              ordem: index
+            }))
+          })
+        }
+
+        return criado
+      })
+
+      if (attr.subAtributos?.length) {
+        for (const sub of attr.subAtributos) {
+          fila.push({ attr: sub, parentId: registro.id })
+        }
+      }
+    }
   }
 }
 
