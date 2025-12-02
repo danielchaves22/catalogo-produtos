@@ -75,6 +75,7 @@ export class SiscomexService {
   private api: AxiosInstance;
   private readonly baseUrl: string;
   private readonly authUrl?: string;
+  private readonly roleType: string;
   private readonly carregarCertificado?: () => Promise<SiscomexCertificado>;
   private certificado?: SiscomexCertificado;
   private httpsAgent?: https.Agent;
@@ -85,6 +86,7 @@ export class SiscomexService {
     // URLs da API SISCOMEX conforme documentação
     this.baseUrl = process.env.SISCOMEX_API_URL || 'https://api.portalunico.siscomex.gov.br/catp/api';
     this.authUrl = this.resolverAuthUrl(process.env.SISCOMEX_AUTH_URL);
+    this.roleType = process.env.SISCOMEX_ROLE_TYPE || 'PJ';
     this.carregarCertificado = opcoes?.carregarCertificado;
     this.certificado = opcoes?.certificado;
 
@@ -93,7 +95,8 @@ export class SiscomexService {
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'application/json'
+        Accept: 'application/json',
+        'Role-Type': this.roleType
       }
     });
 
@@ -267,7 +270,8 @@ export class SiscomexService {
       httpsAgent: agent,
       timeout: this.api.defaults.timeout,
       headers: {
-        Accept: 'application/json'
+        Accept: 'application/json',
+        'Role-Type': this.roleType
       }
     });
 
@@ -278,6 +282,7 @@ export class SiscomexService {
     logger.info('Realizando autenticação SISCOMEX (mTLS) ...', {
       urlLogin,
       origemCertificado: this.certificado?.origem,
+      roleType: this.roleType,
       passphrasePresente: Boolean(this.certificado?.passphrase)
     });
 
