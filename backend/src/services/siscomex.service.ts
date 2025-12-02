@@ -199,12 +199,23 @@ export class SiscomexService {
       return;
     }
 
-    const response = await this.api.get(this.authUrl, {
+    // Usa um cliente dedicado sem interceptors para evitar deadlock quando o interceptor
+    // de requisição chama `garantirAutenticacao` e o próprio login tenta reutilizar
+    // a instância principal (que aguardaria a autenticação em andamento).
+    const clienteAutenticacao = axios.create({
+      baseURL: this.baseUrl,
       httpsAgent: this.httpsAgent,
+      timeout: this.api.defaults.timeout,
       headers: {
         Accept: 'application/json'
       }
     });
+
+    const urlLogin = this.authUrl.startsWith('http')
+      ? this.authUrl
+      : `${this.baseUrl.replace(/\/$/, '')}/${this.authUrl.replace(/^\//, '')}`;
+
+    const response = await clienteAutenticacao.get(urlLogin);
 
     const tokens = this.extrairHeadersAutenticacao(response.headers as Record<string, any>);
     if (!tokens.authorization || !tokens.csrfToken) {
