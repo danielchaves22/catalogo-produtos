@@ -31,7 +31,7 @@ import useDebounce from '@/hooks/useDebounce';
 
 const DESCRICAO_MAX_LENGTH = 3700;
 const DENOMINACAO_MAX_LENGTH = 120;
-const LIMITE_SUGESTOES_IA = 2;
+const MAX_TENTATIVAS_IA = 2;
 
 interface AtributoEstrutura {
   codigo: string;
@@ -107,10 +107,10 @@ export default function ProdutoPage() {
   const debouncedNcm = useDebounce(ncm, 1000);
   const [gerandoSugestoesIa, setGerandoSugestoesIa] = useState(false);
   const [resumoSugestoesIa, setResumoSugestoesIa] = useState<string | null>(null);
-  const [sugestoesIaRestantes, setSugestoesIaRestantes] = useState(LIMITE_SUGESTOES_IA);
+  const [iaJaSolicitada, setIaJaSolicitada] = useState(false);
   const { user } = useAuth();
 
-  const podeSugerirComIa = Boolean(user?.catprodAdmFull);
+  const podeSugerirComIa = Boolean(user);
 
   // Format NCM code for display (9999.99.99)
   function formatarNCMExibicao(codigo?: string) {
@@ -133,8 +133,8 @@ export default function ProdutoPage() {
   }, [isNew, workingCatalog]);
 
   useEffect(() => {
-    setSugestoesIaRestantes(LIMITE_SUGESTOES_IA);
     setResumoSugestoesIa(null);
+    setIaJaSolicitada(false);
   }, [id]);
 
   useEffect(() => {
@@ -507,14 +507,15 @@ export default function ProdutoPage() {
       return;
     }
 
-    if (sugestoesIaRestantes <= 0) {
-      addToast('Limite de 2 sugestões atingido. Reabra a tela para novas solicitações.', 'error');
+    if (iaJaSolicitada) {
+      addToast('A sugestão automática já foi solicitada nesta sessão.', 'error');
       return;
     }
 
     setGerandoSugestoesIa(true);
+    setIaJaSolicitada(true);
     let valoresAtuais = valores;
-    let tentativasRestantes = Math.min(2, sugestoesIaRestantes);
+    let tentativasRestantes = MAX_TENTATIVAS_IA;
     try {
       while (tentativasRestantes > 0) {
         const atributosVisiveisParaSugestao = coletarAtributosParaIa(
@@ -538,7 +539,6 @@ export default function ProdutoPage() {
         );
         valoresAtuais = valoresAtualizados;
         tentativasRestantes -= 1;
-        setSugestoesIaRestantes(prev => Math.max(prev - 1, 0));
 
         const resumoTokens = response.data?.tokens?.total
           ? ` • ${response.data.tokens.total} tokens`
@@ -1166,9 +1166,6 @@ export default function ProdutoPage() {
                               <span>
                                 {`${descricao.length.toLocaleString('pt-BR')} de ${DESCRICAO_MAX_LENGTH.toLocaleString('pt-BR')}`}
                               </span>
-                              <Button type="button" size="sm" onClick={() => setActiveTab('dinamicos')}>
-                                <BrainCog size={16} className="inline mr-2" /> Preencher Atributos
-                              </Button>
                             </div>
                           </div>
 
@@ -1331,9 +1328,6 @@ export default function ProdutoPage() {
                                 {resumoSugestoesIa && (
                                   <p className="text-xs text-gray-400 mt-1">{resumoSugestoesIa}</p>
                                 )}
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Tentativas restantes nesta sessão: {sugestoesIaRestantes}/{LIMITE_SUGESTOES_IA}
-                                </p>
                               </div>
                               <div className="flex gap-2 self-end md:self-auto">
                                 <Button
@@ -1345,7 +1339,7 @@ export default function ProdutoPage() {
                                     gerandoSugestoesIa ||
                                     !estrutura.length ||
                                     !descricao.trim() ||
-                                    sugestoesIaRestantes <= 0
+                                    iaJaSolicitada
                                   }
                                 >
                                   <BrainCog size={16} />
