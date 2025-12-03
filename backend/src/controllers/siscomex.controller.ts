@@ -5,10 +5,15 @@ import { AtributoLegacyService } from '../services/atributo-legacy.service';
 import { NcmLegacyService } from '../services/ncm-legacy.service';
 import { logger } from '../utils/logger';
 import { catalogoPrisma } from '../utils/prisma';
+import { ProdutoService } from '../services/produto.service';
+import { ProdutoTransmissaoService } from '../services/produto-transmissao.service';
+import { ValidationError } from '../types/validation-error';
 
 const siscomexService = new SiscomexService();
 const atributoLegacyService = new AtributoLegacyService();
 const ncmLegacyService = new NcmLegacyService();
+const produtoService = new ProdutoService();
+const produtoTransmissaoService = new ProdutoTransmissaoService();
 
 /**
  * GET /api/siscomex/ncm/sugestoes
@@ -52,16 +57,16 @@ export async function listarSugestoesNcm(req: Request, res: Response) {
 export async function consultarProdutos(req: Request, res: Response) {
   try {
     const filtros: SiscomexConsultaFiltros = {
-      cnpjRaiz: req.query.cnpjRaiz as string,
+      cpfCnpjRaiz: (req.query.cpfCnpjRaiz as string) || (req.query.cnpjRaiz as string),
       codigoProduto: req.query.codigoProduto as string,
       ncm: req.query.ncm as string,
       situacao: req.query.situacao as 'ATIVADO' | 'DESATIVADO' | 'RASCUNHO',
       incluirDesativados: req.query.incluirDesativados === 'true'
     };
 
-    if (!filtros.cnpjRaiz) {
-      return res.status(400).json({ 
-        error: 'CNPJ Raiz é obrigatório para consulta no SISCOMEX' 
+    if (!filtros.cpfCnpjRaiz) {
+      return res.status(400).json({
+        error: 'CNPJ Raiz é obrigatório para consulta no SISCOMEX'
       });
     }
 
@@ -86,8 +91,29 @@ export async function consultarProdutos(req: Request, res: Response) {
  */
 export async function incluirProduto(req: Request, res: Response) {
   try {
-    const produto = await siscomexService.incluirProduto(req.body);
-    
+    const cpfCnpjRaiz = (req.body?.cpfCnpjRaiz as string) || (req.query.cpfCnpjRaiz as string);
+    const produtoId = Number(req.body?.produtoId);
+
+    if (!cpfCnpjRaiz) {
+      return res.status(400).json({
+        error: 'cpfCnpjRaiz é obrigatório para inclusão no SISCOMEX'
+      });
+    }
+
+    const produto = await siscomexService.incluirProduto(cpfCnpjRaiz, req.body);
+
+    if (Number.isInteger(produtoId)) {
+      try {
+        await produtoService.marcarComoTransmitido(produtoId, req.user!.superUserId, {
+          codigo: produto.codigo,
+          versao: produto.versao,
+          situacao: produto.situacao
+        });
+      } catch (updateError) {
+        logger.error('Falha ao atualizar status local após transmissão SISCOMEX', updateError);
+      }
+    }
+
     return res.status(201).json({
       sucesso: true,
       mensagem: 'Produto incluído com sucesso no SISCOMEX',
@@ -95,8 +121,39 @@ export async function incluirProduto(req: Request, res: Response) {
     });
   } catch (error: unknown) {
     logger.error('Erro ao incluir produto SISCOMEX:', error);
-    return res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'Erro interno ao incluir produto SISCOMEX' 
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro interno ao incluir produto SISCOMEX'
+    });
+  }
+}
+
+/**
+ * POST /api/siscomex/produtos/transmitir
+ * Envia produtos aprovados do catálogo para o SISCOMEX
+ */
+export async function transmitirProdutos(req: Request, res: Response) {
+  try {
+    const ids = Array.isArray(req.body?.ids)
+      ? (req.body.ids as Array<string | number>).map(id => Number(id)).filter(Number.isFinite)
+      : [];
+
+    const resultado = await produtoTransmissaoService.transmitir(ids, req.user!.superUserId);
+
+    return res.status(200).json({
+      sucesso: true,
+      mensagem: `${resultado.sucessos.length} produto(s) transmitido(s) com sucesso${
+        resultado.falhas.length ? `; ${resultado.falhas.length} falha(s) registrada(s)` : ''
+      }`,
+      dados: resultado
+    });
+  } catch (error: unknown) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.details || error.message });
+    }
+
+    logger.error('Erro ao transmitir produtos SISCOMEX:', error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro interno ao transmitir produtos SISCOMEX'
     });
   }
 }
@@ -108,8 +165,16 @@ export async function incluirProduto(req: Request, res: Response) {
 export async function atualizarProduto(req: Request, res: Response) {
   try {
     const { codigo } = req.params;
-    const produto = await siscomexService.atualizarProduto(codigo, req.body);
-    
+    const cpfCnpjRaiz = (req.body?.cpfCnpjRaiz as string) || (req.query.cpfCnpjRaiz as string);
+
+    if (!cpfCnpjRaiz) {
+      return res.status(400).json({
+        error: 'cpfCnpjRaiz é obrigatório para atualizar no SISCOMEX'
+      });
+    }
+
+    const produto = await siscomexService.atualizarProduto(cpfCnpjRaiz, codigo, req.body);
+
     return res.status(200).json({
       sucesso: true,
       mensagem: 'Produto atualizado com sucesso no SISCOMEX',
@@ -150,7 +215,7 @@ export async function detalharVersaoProduto(req: Request, res: Response) {
  */
 export async function exportarCatalogo(req: Request, res: Response) {
   try {
-    const cnpjRaiz = req.query.cnpjRaiz as string;
+    const cnpjRaiz = (req.query.cpfCnpjRaiz as string) || (req.query.cnpjRaiz as string);
     const incluirDesativados = req.query.incluirDesativados === 'true';
 
     if (!cnpjRaiz) {
@@ -231,15 +296,15 @@ export async function verificarStatus(req: Request, res: Response) {
   try {
     const conectado = await siscomexService.testarConexao();
     
-    return res.status(200).json({
-      siscomex: {
-        conectado,
-        ambiente: process.env.SISCOMEX_AMBIENTE || 'não configurado',
-        url: process.env.SISCOMEX_API_URL || 'não configurada',
-        certificado: process.env.SISCOMEX_CERT_PATH ? 'configurado' : 'não configurado'
-      },
-      timestamp: new Date().toISOString()
-    });
+      return res.status(200).json({
+        siscomex: {
+          conectado,
+          ambiente: process.env.SISCOMEX_AMBIENTE || 'não configurado',
+          url: process.env.SISCOMEX_API_URL || 'não configurada',
+          certificado: process.env.SISCOMEX_CERT_PFX_PATH ? 'configurado' : 'não configurado'
+        },
+        timestamp: new Date().toISOString()
+      });
   } catch (error: unknown) {
     logger.error('Erro ao verificar status SISCOMEX:', error);
     return res.status(500).json({ 
