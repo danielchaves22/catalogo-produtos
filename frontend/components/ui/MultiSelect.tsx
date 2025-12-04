@@ -120,7 +120,7 @@ export function MultiSelect({
           disabled={disabled}
           onClick={toggle}
           ref={buttonRef}
-          className={`flex w-full items-center justify-between gap-2 rounded-md border bg-[#1e2126] px-3 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus-visible:border-blue-500 h-11 ${
+          className={`flex w-full items-center justify-between gap-2 rounded-md border bg-[#1e2126] px-3 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus-visible:border-blue-500 ${
             error ? 'border-red-500 focus-visible:border-red-500 focus:ring-red-500/20' : 'border-gray-700 hover:border-gray-600'
           } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
         >

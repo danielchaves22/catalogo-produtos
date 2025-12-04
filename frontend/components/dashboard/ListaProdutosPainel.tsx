@@ -271,7 +271,7 @@ export function ListaProdutosPainel() {
             </div>
             <input
               type="text"
-              className="pl-10 pr-4 py-2 w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500 h-11 text-sm"
+              className="pl-10 pr-4 py-2 w-full bg-[#1e2126] border border-gray-700 text-white rounded-lg focus:outline-none focus:ring focus:border-blue-500 text-sm"
               value={busca}
               onChange={e => {
                 setBusca(e.target.value);
@@ -290,7 +290,6 @@ export function ListaProdutosPainel() {
                 setPage(1);
               }}
               className="mb-0"
-              inputClassName="h-11"
               placeholder="9999.99.99"
               onFocus={() => {
                 if (filtros.ncm.length >= 4 && filtros.ncm.length < 8 && ncmSugestoes.length > 0) {
