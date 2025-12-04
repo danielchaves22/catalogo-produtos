@@ -1,4 +1,4 @@
-import { AsyncJobStatus, AsyncJobTipo } from '@prisma/client';
+import { AsyncJobStatus, AsyncJobTipo, ProdutoTransmissaoStatus } from '@prisma/client';
 import { logger } from '../utils/logger';
 import {
   AsyncJobWithRelations,
@@ -119,6 +119,7 @@ async function processarFila() {
         await markJobAsFailed(job.id, mensagemErro);
         await atualizarImportacaoComoFalha(job, mensagemErro);
         await atualizarExportacaoComoFalha(job);
+        await atualizarTransmissaoComoFalha(job, mensagemErro);
       } else {
         await returnJobToQueue(job.id, mensagemErro);
       }
@@ -166,10 +167,29 @@ async function atualizarExportacaoComoFalha(job: AsyncJobWithRelations) {
   });
 }
 
+async function atualizarTransmissaoComoFalha(job: AsyncJobWithRelations, mensagem?: string) {
+  if (!job.produtoTransmissao) {
+    return;
+  }
+
+  await catalogoPrisma.produtoTransmissao.update({
+    where: { id: job.produtoTransmissao.id },
+    data: {
+      status: ProdutoTransmissaoStatus.FALHO,
+      concluidoEm: new Date(),
+    },
+  });
+
+  if (mensagem) {
+    await registerJobLog(job.id, AsyncJobStatus.FALHO, mensagem);
+  }
+}
+
 export async function liberarJobsTravados() {
   const resultado: ReleaseStalledJobsResult = await releaseStalledJobs();
   for (const job of resultado.marcadosComoFalhos) {
     await atualizarImportacaoComoFalha(job);
     await atualizarExportacaoComoFalha(job);
+    await atualizarTransmissaoComoFalha(job);
   }
 }

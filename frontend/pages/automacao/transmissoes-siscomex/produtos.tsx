@@ -179,22 +179,16 @@ export default function NovaTransmissaoProdutosPage() {
         catalogoId: idsCatalogo,
       });
 
-      const sucessos = resposta.data?.dados?.sucessos?.length ?? 0;
-      const falhas = resposta.data?.dados?.falhas ?? [];
-
-      if (sucessos > 0) {
-        addToast(`${sucessos} produto(s) enviado(s) ao SISCOMEX.`, 'success');
-      }
-
-      if (falhas.length > 0) {
-        setErro('Alguns produtos não foram transmitidos. Verifique o catálogo ou os dados obrigatórios.');
-        addToast('Há produtos que não puderam ser enviados ao SISCOMEX.', 'error');
-      } else {
-        setErro(null);
-      }
-
+      const transmissaoId = resposta.data?.dados?.transmissaoId;
+      addToast('Transmissão enfileirada. Acompanhe o progresso na listagem.', 'success');
+      setErro(null);
       setSelecionados(new Set());
-      await carregarProdutos();
+
+      if (transmissaoId) {
+        router.push(`/automacao/transmissoes-siscomex/${transmissaoId}`);
+      } else {
+        await carregarProdutos();
+      }
     } catch (error) {
       console.error('Erro ao transmitir produtos ao SISCOMEX:', error);
       const mensagemErro =
