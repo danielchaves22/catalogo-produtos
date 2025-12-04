@@ -1,4 +1,9 @@
-import { AsyncJobStatus, AsyncJobTipo, ProdutoTransmissaoStatus } from '@prisma/client';
+import {
+  AsyncJobStatus,
+  AsyncJobTipo,
+  ProdutoTransmissaoItemStatus,
+  ProdutoTransmissaoStatus,
+} from '@prisma/client';
 import { logger } from '../utils/logger';
 import {
   AsyncJobWithRelations,
@@ -172,12 +177,30 @@ async function atualizarTransmissaoComoFalha(job: AsyncJobWithRelations, mensage
     return;
   }
 
-  await catalogoPrisma.produtoTransmissao.update({
-    where: { id: job.produtoTransmissao.id },
-    data: {
-      status: ProdutoTransmissaoStatus.FALHO,
-      concluidoEm: new Date(),
-    },
+  const transmissaoId = job.produtoTransmissao.id;
+  const motivo =
+    mensagem ?? 'Transmissão marcada como falha após atingir o limite de tentativas do job.';
+
+  await catalogoPrisma.$transaction(async tx => {
+    const transmissao = await tx.produtoTransmissao.findUnique({
+      where: { id: transmissaoId },
+      select: { totalItens: true },
+    });
+
+    await tx.produtoTransmissaoItem.updateMany({
+      where: { transmissaoId },
+      data: { status: ProdutoTransmissaoItemStatus.ERRO, mensagem: motivo },
+    });
+
+    await tx.produtoTransmissao.update({
+      where: { id: transmissaoId },
+      data: {
+        status: ProdutoTransmissaoStatus.FALHO,
+        totalErro: transmissao?.totalItens ?? 0,
+        totalSucesso: 0,
+        concluidoEm: new Date(),
+      },
+    });
   });
 
   if (mensagem) {
