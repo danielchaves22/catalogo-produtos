@@ -13,7 +13,7 @@ import { useToast } from '@/components/ui/ToastContext';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { AlertCircle, ArrowLeft, Download, Loader2 } from 'lucide-react';
 import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
-import { produtoStatusLegend } from '@/constants/statusLegends';
+import { produtoSituacaoLegend, produtoStatusLegend } from '@/constants/statusLegends';
 
 interface ProdutoTransmissao {
   id: number;
@@ -42,7 +42,7 @@ export default function NovaTransmissaoProdutosPage() {
   const [catalogos, setCatalogos] = useState<CatalogoResumo[]>([]);
   const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
   const [busca, setBusca] = useState('');
-  const [situacao, setSituacao] = useState<'ATIVADO' | 'RASCUNHO' | ''>('ATIVADO');
+  const [situacao, setSituacao] = useState<'ATIVADO' | 'RASCUNHO' | ''>('RASCUNHO');
   const [catalogoId, setCatalogoId] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [transmitindo, setTransmitindo] = useState(false);
@@ -247,24 +247,6 @@ export default function NovaTransmissaoProdutosPage() {
 
       <Card className="mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Input
-            label="Busca por código ou denominação"
-            placeholder="Digite para filtrar"
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-          />
-
-          <Select
-            label="Situação"
-            value={situacao}
-            onChange={e => setSituacao(e.target.value as typeof situacao)}
-            options={[
-              { value: 'ATIVADO', label: 'Ativado' },
-              { value: 'RASCUNHO', label: 'Rascunho' },
-            ]}
-            placeholder="Selecione a situação"
-          />
-
           <Select
             label="Catálogo"
             value={catalogoId}
@@ -275,6 +257,35 @@ export default function NovaTransmissaoProdutosPage() {
               label: `${c.numero} · ${c.nome}`,
             }))}
             placeholder="Selecione o catálogo"
+          />
+
+          <div>
+            <div className="flex items-center gap-1 text-sm font-medium mb-1 text-gray-300">
+              <span>Situação</span>
+              <LegendInfoModal
+                title="Situação dos produtos"
+                legend={produtoSituacaoLegend}
+                triggerAriaLabel="Ver legenda de situação"
+              />
+            </div>
+            <Select
+              aria-label="Situação"
+              className="mb-0"
+              value={situacao}
+              onChange={e => setSituacao(e.target.value as typeof situacao)}
+              options={[
+                { value: 'ATIVADO', label: 'Ativado' },
+                { value: 'RASCUNHO', label: 'Rascunho' },
+              ]}
+              placeholder="Selecione a situação"
+            />
+          </div>
+
+          <Input
+            label="Busca por código ou denominação"
+            placeholder="Digite para filtrar"
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
           />
 
           <div className="flex items-end text-sm text-gray-300">
@@ -298,8 +309,8 @@ export default function NovaTransmissaoProdutosPage() {
       </Card>
 
       {erro && (
-        <div className="bg-red-500/10 border border-red-700 text-red-200 p-4 rounded flex items-center gap-3 mb-4">
-          <AlertCircle size={18} />
+        <div className="bg-[#1f2937] border border-gray-700 text-gray-100 p-4 rounded flex items-center gap-3 mb-4">
+          <AlertCircle size={18} className="text-[#f59e0b]" />
           <span>{erro}</span>
         </div>
       )}
