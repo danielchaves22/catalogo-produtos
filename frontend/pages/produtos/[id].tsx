@@ -407,7 +407,7 @@ export default function ProdutoPage() {
         continue;
       }
 
-      const possuiValor = isValorPreenchido(valores[attr.codigo]);
+      const possuiValor = isValorPreenchido(valoresAtuais[attr.codigo]);
       const isComposto = attr.tipo === 'COMPOSTO';
 
       if (!apenasVisiveisNaoPreenchidos || (!possuiValor && !isComposto)) {
