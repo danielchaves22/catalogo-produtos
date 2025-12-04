@@ -137,7 +137,9 @@ export async function transmitirProdutos(req: Request, res: Response) {
       ? (req.body.ids as Array<string | number>).map(id => Number(id)).filter(Number.isFinite)
       : [];
 
-    const resultado = await produtoTransmissaoService.transmitir(ids, req.user!.superUserId);
+    const catalogoId = Number(req.body?.catalogoId);
+
+    const resultado = await produtoTransmissaoService.transmitir(ids, catalogoId, req.user!.superUserId);
 
     return res.status(200).json({
       sucesso: true,

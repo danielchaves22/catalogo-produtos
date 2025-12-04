@@ -52,6 +52,10 @@ export default function NovaTransmissaoProdutosPage() {
   const router = useRouter();
 
   const catalogoBloqueado = Boolean(workingCatalog?.id);
+  const catalogoSelecionado = useMemo(
+    () => catalogos.find(catalogo => String(catalogo.id) === catalogoId) || null,
+    [catalogoId, catalogos]
+  );
 
   useEffect(() => {
     if (workingCatalog?.id) {
@@ -72,9 +76,20 @@ export default function NovaTransmissaoProdutosPage() {
     carregarCatalogos();
   }, []);
 
+  useEffect(() => {
+    if (catalogoId) {
+      setErro(null);
+    }
+  }, [catalogoId]);
+
   const carregarProdutos = useCallback(async () => {
     try {
       setCarregando(true);
+      if (!catalogoId) {
+        setProdutos([]);
+        setErro('Selecione um catálogo para listar produtos aprovados e transmitir.');
+        return;
+      }
       const params: Record<string, string> = {
         status: 'APROVADO',
       };
@@ -135,12 +150,33 @@ export default function NovaTransmissaoProdutosPage() {
   };
 
   const transmitir = async () => {
+    if (!catalogoId) {
+      setErro('Selecione um catálogo para transmitir ao SISCOMEX.');
+      addToast('Selecione um catálogo para transmitir ao SISCOMEX.', 'error');
+      return;
+    }
+
     if (selecionados.size === 0) return;
+    if (selecionados.size > 100) {
+      setErro('Selecione no máximo 100 produtos por transmissão.');
+      addToast('É possível transmitir apenas 100 produtos por vez.', 'error');
+      return;
+    }
     setTransmitindo(true);
     try {
       const registros = produtosFiltrados.filter(p => selecionados.has(p.id));
+      const idsCatalogo = Number(catalogoId);
+
+      const produtosForaDoCatalogo = registros.filter(produto => produto.catalogoId !== idsCatalogo);
+
+      if (produtosForaDoCatalogo.length > 0) {
+        setErro('Todos os produtos devem pertencer ao catálogo selecionado para transmissão.');
+        addToast('Há produtos de outro catálogo na seleção. Ajuste e tente novamente.', 'error');
+        return;
+      }
       const resposta = await api.post('/siscomex/produtos/transmitir', {
         ids: registros.map(produto => produto.id),
+        catalogoId: idsCatalogo,
       });
 
       const sucessos = resposta.data?.dados?.sucessos?.length ?? 0;
@@ -201,7 +237,7 @@ export default function NovaTransmissaoProdutosPage() {
         <Button
           variant="accent"
           className="flex items-center gap-2"
-          disabled={selecionados.size === 0 || transmitindo}
+          disabled={selecionados.size === 0 || transmitindo || !catalogoId}
           onClick={transmitir}
         >
           {transmitindo ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
@@ -250,6 +286,15 @@ export default function NovaTransmissaoProdutosPage() {
             <span className="ml-2">Somente produtos aprovados são listados.</span>
           </div>
         </div>
+        <p className="text-sm text-gray-400 mt-3">
+          Escolha o catálogo que fornecerá o certificado PFX e os dados fiscais do envio. Todos os produtos são
+          enviados juntos em um único JSON, com limite de 100 itens por transmissão.
+        </p>
+        {catalogoSelecionado && (
+          <p className="text-sm text-gray-300 mt-1">
+            Transmissão vinculada ao catálogo Nº {catalogoSelecionado.numero} · {catalogoSelecionado.nome}.
+          </p>
+        )}
       </Card>
 
       {erro && (
@@ -264,7 +309,9 @@ export default function NovaTransmissaoProdutosPage() {
       ) : produtosFiltrados.length === 0 ? (
         <Card>
           <div className="text-center py-10 text-gray-400">
-            Nenhum produto aprovado encontrado com os filtros selecionados.
+            {catalogoId
+              ? 'Nenhum produto aprovado encontrado com os filtros selecionados.'
+              : 'Selecione um catálogo para visualizar os produtos aprovados para transmissão.'}
           </div>
         </Card>
       ) : (
