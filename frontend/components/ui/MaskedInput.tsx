@@ -214,7 +214,7 @@ export function MaskedInput({
         onChange={handleChange}
         placeholder={resolvedPlaceholder}
         maxLength={resolvedMaxLength}
-        className={`w-full px-3 py-2 text-sm bg-[#1e2126] border rounded-md focus:outline-none focus:ring focus:border-blue-500 text-white ${
+        className={`w-full px-2 py-1 text-sm bg-[#1e2126] border rounded-md focus:outline-none focus:ring focus:border-blue-500 text-white ${
           error ? 'border-red-500' : 'border-gray-700'
         } ${inputClassName}`}
       />
