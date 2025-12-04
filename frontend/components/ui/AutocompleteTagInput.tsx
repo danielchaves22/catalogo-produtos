@@ -35,6 +35,7 @@ interface AutocompleteTagInputProps<S, T = S> {
   actionButton?: AutocompleteTagInputAction;
   actionButtons?: AutocompleteTagInputAction[];
   onPaste?: (event: React.ClipboardEvent<HTMLInputElement>) => void;
+  suggestionsInfo?: React.ReactNode;
 }
 
 export function AutocompleteTagInput<S, T = S>({
@@ -61,6 +62,7 @@ export function AutocompleteTagInput<S, T = S>({
   actionButton,
   actionButtons = [],
   onPaste,
+  suggestionsInfo,
 }: AutocompleteTagInputProps<S, T>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -316,37 +318,44 @@ export function AutocompleteTagInput<S, T = S>({
               </div>
             )}
             {!isLoading && hasSuggestions && (
-              <div role="listbox" className="max-h-60 overflow-y-auto">
-                {suggestions.map((item, index) => {
-                  const key = getSuggestionKey
-                    ? getSuggestionKey(item)
-                    : (getItemKey(item as unknown as T) as string | number);
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onMouseDown={event => event.preventDefault()}
-                      onClick={() => {
-                        onSelect(item);
-                        requestAnimationFrame(() => {
-                          inputRef.current?.focus();
-                          inputRef.current?.select();
-                        });
-                      }}
-                      onMouseEnter={() => setHighlightedIndex(index)}
-                      className={`flex w-full items-start gap-2 px-3 py-2 text-left text-sm transition-colors ${
-                        index === highlightedIndex ? 'bg-[#262b36] text-white' : 'text-gray-200 hover:bg-[#242936]'
-                      }`}
-                      role="option"
-                      aria-selected={index === highlightedIndex}
-                    >
-                      {renderSuggestion
-                        ? renderSuggestion(item, index === highlightedIndex)
-                        : renderTagLabel(item as unknown as T)}
-                    </button>
-                  );
-                })}
-              </div>
+              <>
+                <div role="listbox" className="max-h-60 overflow-y-auto">
+                  {suggestions.map((item, index) => {
+                    const key = getSuggestionKey
+                      ? getSuggestionKey(item)
+                      : (getItemKey(item as unknown as T) as string | number);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onMouseDown={event => event.preventDefault()}
+                        onClick={() => {
+                          onSelect(item);
+                          requestAnimationFrame(() => {
+                            inputRef.current?.focus();
+                            inputRef.current?.select();
+                          });
+                        }}
+                        onMouseEnter={() => setHighlightedIndex(index)}
+                        className={`flex w-full items-start gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                          index === highlightedIndex ? 'bg-[#262b36] text-white' : 'text-gray-200 hover:bg-[#242936]'
+                        }`}
+                        role="option"
+                        aria-selected={index === highlightedIndex}
+                      >
+                        {renderSuggestion
+                          ? renderSuggestion(item, index === highlightedIndex)
+                          : renderTagLabel(item as unknown as T)}
+                      </button>
+                    );
+                  })}
+                </div>
+                {suggestionsInfo && (
+                  <div className="border-t border-gray-700 px-3 py-2 text-xs text-gray-400">
+                    {suggestionsInfo}
+                  </div>
+                )}
+              </>
             )}
             {showEmptyState && (
               <p className="px-3 py-2 text-sm text-gray-400">{emptyMessage}</p>

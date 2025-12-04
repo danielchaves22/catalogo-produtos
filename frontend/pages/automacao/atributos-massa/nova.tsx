@@ -69,6 +69,8 @@ interface ProdutosResponse {
   pageSize: number;
 }
 
+const PRODUTO_SUGESTOES_POR_PAGINA = 10;
+
 interface PreenchimentoMassaAgendamentoResponse {
   jobId: number;
   mensagem?: string;
@@ -289,6 +291,10 @@ export default function PreenchimentoMassaNovoPage() {
   const [produtoBusca, setProdutoBusca] = useState('');
   const [produtoSugestoes, setProdutoSugestoes] = useState<ProdutoBuscaItem[]>([]);
   const [carregandoProdutos, setCarregandoProdutos] = useState(false);
+  const [produtoTotalResultados, setProdutoTotalResultados] = useState<number | null>(null);
+  const [produtoPaginaAtual, setProdutoPaginaAtual] = useState(1);
+  const [produtoPageSize, setProdutoPageSize] = useState(PRODUTO_SUGESTOES_POR_PAGINA);
+  const [produtoBuscaAtiva, setProdutoBuscaAtiva] = useState('');
   const debouncedProdutoBusca = useDebounce(produtoBusca, 600);
   const [produtosMarcados, setProdutosMarcados] = useState<ProdutoBuscaItem[]>([]);
   const [produtosPendentes, setProdutosPendentes] = useState<ProdutoEntrada[]>([]);
@@ -330,6 +336,13 @@ export default function PreenchimentoMassaNovoPage() {
     [produtosPendentes]
   );
 
+  const temMaisProdutosParaListar = useMemo(
+    () =>
+      produtoTotalResultados !== null &&
+      produtoPaginaAtual * produtoPageSize < produtoTotalResultados,
+    [produtoPaginaAtual, produtoPageSize, produtoTotalResultados]
+  );
+
   const produtoSugestoesDisponiveis = useMemo(
     () =>
       produtoSugestoes.filter(
@@ -338,6 +351,81 @@ export default function PreenchimentoMassaNovoPage() {
           !pendentesValidos.some(pendente => pendente.produto.id === item.id)
       ),
     [produtoSugestoes, produtosMarcados, pendentesValidos]
+  );
+
+  const normalizarSugestoesProduto = useCallback(
+    (lista: ProdutoBuscaItem[]) => {
+      const idsParaIgnorar = new Set<number>();
+
+      for (const item of produtosMarcados) {
+        idsParaIgnorar.add(item.id);
+      }
+
+      for (const pendente of pendentesValidos) {
+        idsParaIgnorar.add(pendente.produto.id);
+      }
+
+      const idsAdicionados = new Set<number>();
+      const normalizados: ProdutoBuscaItem[] = [];
+
+      for (const item of lista) {
+        if (idsParaIgnorar.has(item.id)) continue;
+        if (idsAdicionados.has(item.id)) continue;
+        idsAdicionados.add(item.id);
+        normalizados.push(item);
+      }
+
+      return normalizados;
+    },
+    [pendentesValidos, produtosMarcados]
+  );
+
+  const carregarProdutos = useCallback(
+    async (pagina: number, append: boolean, termoBusca?: string) => {
+      const termoAtual = (termoBusca ?? debouncedProdutoBusca).trim();
+
+      if (!termoAtual || !ncmValida) {
+        return;
+      }
+
+      try {
+        setCarregandoProdutos(true);
+        const params: Record<string, string | number> = {
+          busca: termoAtual,
+          page: pagina,
+          pageSize: PRODUTO_SUGESTOES_POR_PAGINA,
+          ncm: ncmNormalizada
+        };
+
+        const resposta = await api.get<ProdutosResponse>('/produtos', { params });
+        const itens = resposta.data.items || [];
+        const termoNormalizado = termoAtual.toLowerCase();
+        const codigoBusca = termoNormalizado.replace(/\s+/g, '');
+        const filtrados =
+          modoBuscaProduto === 'nome'
+            ? itens.filter(item => item.denominacao.toLowerCase().includes(termoNormalizado))
+            : itens.filter(item => produtoPossuiTrechoCodigo(item, codigoBusca));
+
+        setProdutoPageSize(resposta.data.pageSize || PRODUTO_SUGESTOES_POR_PAGINA);
+        setProdutoTotalResultados(resposta.data.total ?? itens.length);
+        setProdutoPaginaAtual(pagina);
+        setProdutoBuscaAtiva(termoAtual);
+
+        setProdutoSugestoes(prev => {
+          const base = append ? [...prev, ...filtrados] : filtrados;
+          return normalizarSugestoesProduto(base);
+        });
+      } catch (error) {
+        console.error('Erro ao buscar produtos para exceção:', error);
+        if (!append) {
+          setProdutoSugestoes([]);
+          setProdutoTotalResultados(null);
+        }
+      } finally {
+        setCarregandoProdutos(false);
+      }
+    },
+    [debouncedProdutoBusca, modoBuscaProduto, ncmNormalizada, ncmValida, normalizarSugestoesProduto]
   );
 
   const catalogoOptions = useMemo(
@@ -359,6 +447,30 @@ export default function PreenchimentoMassaNovoPage() {
     modoAtribuicao === 'SELECIONADOS'
       ? 'Nenhum produto selecionado até o momento.'
       : 'Nenhum produto foi marcado como exceção.';
+
+  const produtosJaIncluidosOuPendentes = produtosMarcados.length + pendentesValidos.length;
+  const totalResultadosProduto = produtoTotalResultados ?? 0;
+  const resumoSugestoesProdutos =
+    produtoBuscaAtiva && totalResultadosProduto > 0
+      ? (
+          <div className="flex flex-col gap-1 text-xs text-gray-400">
+            <span>
+              Exibindo {produtoSugestoesDisponiveis.length} de {totalResultadosProduto} resultados encontrados.
+            </span>
+            {produtosJaIncluidosOuPendentes > 0 && (
+              <span>
+                {produtosJaIncluidosOuPendentes} produto
+                {produtosJaIncluidosOuPendentes > 1 ? 's já estão' : ' já está'} incluído
+                {produtosJaIncluidosOuPendentes > 1 ? 's' : ''} ou pendente
+                {produtosJaIncluidosOuPendentes > 1 ? 's' : ''} e não aparecem nas sugestões.
+              </span>
+            )}
+            {temMaisProdutosParaListar && (
+              <span>Inclua itens da lista para liberar as próximas sugestões ou refine a busca.</span>
+            )}
+          </div>
+        )
+      : null;
   const tituloResumoProdutos =
     modoAtribuicao === 'SELECIONADOS'
       ? 'Produtos que receberão a atribuição'
@@ -478,65 +590,53 @@ export default function PreenchimentoMassaNovoPage() {
     setProdutosMarcados([]);
     setProdutosPendentes([]);
     setProdutoSugestoes([]);
+    setProdutoTotalResultados(null);
+    setProdutoPaginaAtual(1);
+    setProdutoPageSize(PRODUTO_SUGESTOES_POR_PAGINA);
+    setProdutoBuscaAtiva('');
+    setCarregandoProdutos(false);
     setProdutoBusca('');
     setModoAtribuicao('TODOS_COM_EXCECOES');
     setConfirmacaoAberta(false);
   }, [ncmNormalizada]);
 
   useEffect(() => {
-    let ativo = true;
     const termoBusca = debouncedProdutoBusca.trim();
-    if (!termoBusca) {
+
+    if (!termoBusca || !ncmValida) {
       setProdutoSugestoes([]);
+      setProdutoTotalResultados(null);
+      setProdutoPaginaAtual(1);
+      setProdutoPageSize(PRODUTO_SUGESTOES_POR_PAGINA);
+      setProdutoBuscaAtiva('');
       setCarregandoProdutos(false);
-      return () => {
-        ativo = false;
-      };
+      return;
     }
 
-    if (!ncmValida) {
-      setProdutoSugestoes([]);
-      setCarregandoProdutos(false);
-      return () => {
-        ativo = false;
-      };
+    carregarProdutos(1, false, termoBusca);
+  }, [carregarProdutos, debouncedProdutoBusca, ncmValida]);
+
+  useEffect(() => {
+    if (
+      !produtoBuscaAtiva ||
+      !temMaisProdutosParaListar ||
+      carregandoProdutos ||
+      produtoSugestoesDisponiveis.length >= produtoPageSize
+    ) {
+      return;
     }
 
-    async function carregarProdutos() {
-      try {
-        setCarregandoProdutos(true);
-        const params: Record<string, string | number> = {
-          busca: termoBusca,
-          page: 1,
-          pageSize: 10
-        };
-        params.ncm = ncmNormalizada;
-        const resposta = await api.get<ProdutosResponse>('/produtos', { params });
-        if (!ativo) return;
-        const itens = resposta.data.items || [];
-        const termoNormalizado = termoBusca.toLowerCase();
-        const codigoBusca = termoNormalizado.replace(/\s+/g, '');
-        const filtrados =
-          modoBuscaProduto === 'nome'
-            ? itens.filter(item => item.denominacao.toLowerCase().includes(termoNormalizado))
-            : itens.filter(item => produtoPossuiTrechoCodigo(item, codigoBusca));
-        setProdutoSugestoes(filtrados);
-      } catch (error) {
-        if (!ativo) return;
-        console.error('Erro ao buscar produtos para exceção:', error);
-        setProdutoSugestoes([]);
-      } finally {
-        if (ativo) {
-          setCarregandoProdutos(false);
-        }
-      }
-    }
-
-    carregarProdutos();
-    return () => {
-      ativo = false;
-    };
-  }, [debouncedProdutoBusca, modoBuscaProduto, ncmNormalizada, ncmValida]);
+    const proximaPagina = produtoPaginaAtual + 1;
+    carregarProdutos(proximaPagina, true, produtoBuscaAtiva);
+  }, [
+    carregarProdutos,
+    carregandoProdutos,
+    produtoBuscaAtiva,
+    produtoPaginaAtual,
+    produtoPageSize,
+    produtoSugestoesDisponiveis.length,
+    temMaisProdutosParaListar
+  ]);
 
   async function carregarEstrutura(ncmCodigo: string, modalidadeSelecionada: string) {
     if (ncmCodigo.length < 8) return;
@@ -587,6 +687,10 @@ export default function PreenchimentoMassaNovoPage() {
   useEffect(() => {
     setProdutoBusca('');
     setProdutoSugestoes([]);
+    setProdutoTotalResultados(null);
+    setProdutoPaginaAtual(1);
+    setProdutoPageSize(PRODUTO_SUGESTOES_POR_PAGINA);
+    setProdutoBuscaAtiva('');
   }, [modoBuscaProduto]);
 
   function handleValor(codigo: string, valor: string | string[]) {
@@ -1501,6 +1605,7 @@ export default function PreenchimentoMassaNovoPage() {
                   </div>
                 );
               }}
+              suggestionsInfo={resumoSugestoesProdutos}
               isLoading={carregandoProdutos || verificandoCodigo}
               emptyMessage={
                 produtoBusca.trim().length > 0
