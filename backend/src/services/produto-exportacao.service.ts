@@ -255,7 +255,11 @@ export class ProdutoExportacaoService {
     });
   }
 
-  async buscarProdutosComAtributos(ids: number[], superUserId: number): Promise<ProdutoComAtributos[]> {
+  async buscarProdutosComAtributos(
+    ids: number[],
+    superUserId: number,
+    catalogoId?: number
+  ): Promise<ProdutoComAtributos[]> {
     if (!ids.length) {
       return [];
     }
@@ -263,7 +267,7 @@ export class ProdutoExportacaoService {
     const produtos = await catalogoPrisma.produto.findMany({
       where: {
         id: { in: ids },
-        catalogo: { superUserId },
+        catalogo: { superUserId, ...(catalogoId ? { id: catalogoId } : {}) },
       },
       orderBy: { id: 'asc' },
       select: {
@@ -326,7 +330,10 @@ export class ProdutoExportacaoService {
     });
   }
 
-  transformarParaSiscomex(produtos: ProdutoComAtributos[]): ProdutoExportacaoProdutoDTO[] {
+  transformarParaSiscomex(
+    produtos: ProdutoComAtributos[],
+    catalogoSelecionado?: { id: number; cpf_cnpj: string | null }
+  ): ProdutoExportacaoProdutoDTO[] {
     return produtos.map(produto => {
       const simples: ProdutoExportacaoProdutoDTO['atributos'] = [];
       const multivalorados: ProdutoExportacaoProdutoDTO['atributosMultivalorados'] = [];
@@ -404,16 +411,15 @@ export class ProdutoExportacaoService {
         })
       );
 
-      const cpfCnpjSemMascara = produto.catalogo?.cpf_cnpj
-        ? produto.catalogo.cpf_cnpj.replace(/\D/g, '')
-        : '';
+      const cpfCnpjBase = catalogoSelecionado?.cpf_cnpj ?? produto.catalogo?.cpf_cnpj ?? '';
+      const cpfCnpjSemMascara = cpfCnpjBase ? cpfCnpjBase.replace(/\D/g, '') : '';
 
       const cpfCnpjRaiz = this.obterCpfCnpjRaiz(cpfCnpjSemMascara);
       const versao = typeof produto.versao === 'number' && Number.isFinite(produto.versao) ? String(produto.versao) : '';
 
       return {
         seq: produto.id,
-        catalogoId: produto.catalogo?.id ?? null,
+        catalogoId: catalogoSelecionado?.id ?? produto.catalogo?.id ?? null,
         codigo: null, // produto.codigo ?? null,
         descricao: produto.descricao,
         denominacao: produto.denominacao,

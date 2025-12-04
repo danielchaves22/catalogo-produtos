@@ -134,7 +134,13 @@ router.post('/produtos', incluirProduto);
  *                 type: array
  *                 items:
  *                   type: integer
- *                 description: IDs dos produtos aprovados a transmitir
+ *                 description: IDs dos produtos aprovados a transmitir (máximo de 100 por envio)
+ *               catalogoId:
+ *                 type: integer
+ *                 description: Catálogo selecionado para utilizar certificado e dados fiscais
+ *             required:
+ *               - ids
+ *               - catalogoId
  *     responses:
  *       200:
  *         description: Resultado da transmissão
