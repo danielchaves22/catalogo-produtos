@@ -9,7 +9,10 @@ import {
   exportarCatalogo,
   consultarAtributosPorNcm,
   listarSugestoesNcm,
-  verificarStatus
+  verificarStatus,
+  listarTransmissoes,
+  detalharTransmissao,
+  baixarArquivoTransmissao
 } from '../controllers/siscomex.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 
@@ -17,6 +20,10 @@ const router = Router();
 
 // Todas as rotas SISCOMEX são protegidas por autenticação
 router.use(authMiddleware);
+
+router.get('/transmissoes', listarTransmissoes);
+router.get('/transmissoes/:id', detalharTransmissao);
+router.get('/transmissoes/:id/arquivos/:tipo', baixarArquivoTransmissao);
 
 /**
  * @swagger

@@ -6,6 +6,7 @@ import {
   AsyncJobTipo,
   Prisma,
   PrismaClient,
+  ProdutoTransmissao,
 } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
@@ -25,6 +26,7 @@ export type AsyncJobWithRelations = AsyncJob & {
   importacaoProduto?: { id: number } | null;
   atributoPreenchimentoMassa?: { id: number } | null;
   produtoExportacao?: AsyncJobProdutoExportacaoResumo | null;
+  produtoTransmissao?: Pick<ProdutoTransmissao, 'id' | 'catalogoId' | 'status'> | null;
 };
 
 export interface AsyncJobLogResumo {
@@ -61,6 +63,7 @@ export interface AsyncJobResumo {
   } | null;
   atributoPreenchimentoMassa?: { id: number } | null;
   produtoExportacao?: AsyncJobProdutoExportacaoResumo | null;
+  produtoTransmissao?: { id: number } | null;
 }
 
 export interface ListAsyncJobsParams {
@@ -137,6 +140,7 @@ export async function createAsyncJob(
           totalItens: true,
         },
       },
+      produtoTransmissao: { select: { id: true, catalogoId: true, status: true } },
     },
   });
 
@@ -238,6 +242,7 @@ export async function claimNextPendingJob(): Promise<AsyncJobWithRelations | nul
             totalItens: true,
           },
         },
+        produtoTransmissao: { select: { id: true, catalogoId: true, status: true } },
       },
     });
 

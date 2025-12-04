@@ -138,15 +138,12 @@ export async function transmitirProdutos(req: Request, res: Response) {
       : [];
 
     const catalogoId = Number(req.body?.catalogoId);
+    const resultado = await produtoTransmissaoService.solicitarTransmissao(ids, catalogoId, req.user!.superUserId, null);
 
-    const resultado = await produtoTransmissaoService.transmitir(ids, catalogoId, req.user!.superUserId);
-
-    return res.status(200).json({
+    return res.status(202).json({
       sucesso: true,
-      mensagem: `${resultado.sucessos.length} produto(s) transmitido(s) com sucesso${
-        resultado.falhas.length ? `; ${resultado.falhas.length} falha(s) registrada(s)` : ''
-      }`,
-      dados: resultado
+      mensagem: 'Transmissão enfileirada com sucesso. Acompanhe o progresso na listagem.',
+      dados: resultado,
     });
   } catch (error: unknown) {
     if (error instanceof ValidationError) {
@@ -297,7 +294,7 @@ export async function consultarAtributosPorNcm(req: Request, res: Response) {
 export async function verificarStatus(req: Request, res: Response) {
   try {
     const conectado = await siscomexService.testarConexao();
-    
+
       return res.status(200).json({
         siscomex: {
           conectado,
@@ -309,8 +306,68 @@ export async function verificarStatus(req: Request, res: Response) {
       });
   } catch (error: unknown) {
     logger.error('Erro ao verificar status SISCOMEX:', error);
-    return res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'Erro interno ao verificar status SISCOMEX' 
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro interno ao verificar status SISCOMEX'
     });
+  }
+}
+
+export async function listarTransmissoes(req: Request, res: Response) {
+  try {
+    const transmissoes = await produtoTransmissaoService.listar(req.user!.superUserId);
+    return res.json({ itens: transmissoes });
+  } catch (error) {
+    logger.error('Erro ao listar transmissões SISCOMEX:', error);
+    return res.status(500).json({ error: 'Não foi possível listar as transmissões.' });
+  }
+}
+
+export async function detalharTransmissao(req: Request, res: Response) {
+  const id = Number(req.params.id);
+
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: 'Identificador de transmissão inválido.' });
+  }
+
+  try {
+    const transmissao = await produtoTransmissaoService.detalhar(id, req.user!.superUserId);
+
+    if (!transmissao) {
+      return res.status(404).json({ error: 'Transmissão não encontrada.' });
+    }
+
+    return res.json(transmissao);
+  } catch (error) {
+    logger.error('Erro ao detalhar transmissão SISCOMEX:', error);
+    return res.status(500).json({ error: 'Não foi possível detalhar a transmissão.' });
+  }
+}
+
+export async function baixarArquivoTransmissao(req: Request, res: Response) {
+  const id = Number(req.params.id);
+  const tipo = req.params.tipo === 'retorno' ? 'retorno' : 'envio';
+
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: 'Identificador de transmissão inválido.' });
+  }
+
+  try {
+    const arquivo = await produtoTransmissaoService.gerarLinkArquivo(id, tipo, req.user!.superUserId);
+
+    if ('buffer' in arquivo && arquivo.buffer) {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${arquivo.nome}"`);
+      res.setHeader('Content-Length', arquivo.buffer.byteLength);
+      return res.send(arquivo.buffer);
+    }
+
+    return res.json(arquivo);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.details || error.message });
+    }
+
+    logger.error('Erro ao disponibilizar arquivo da transmissão SISCOMEX:', error);
+    return res.status(500).json({ error: 'Não foi possível disponibilizar o arquivo solicitado.' });
   }
 }
