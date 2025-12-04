@@ -632,11 +632,11 @@ export default function ProdutoPage() {
     attr: AtributoEstrutura,
     valoresAtuais: Record<string, string | string[]> = valores
   ): boolean {
-    const codigoCondicionante = attr.condicionanteCodigo || attr.parentCodigo;
+    const codigoCondicionante = attr.condicionanteCodigo;
     if (!codigoCondicionante) return true;
 
-    const pai = mapaEstrutura.get(codigoCondicionante);
-    if (pai && !condicaoAtendida(pai, valoresAtuais)) return false;
+    const condicionante = mapaEstrutura.get(codigoCondicionante);
+    if (condicionante && !condicaoAtendida(condicionante, valoresAtuais)) return false;
 
     const atual = valoresAtuais[codigoCondicionante];
     if (!isValorPreenchido(atual)) return false;
