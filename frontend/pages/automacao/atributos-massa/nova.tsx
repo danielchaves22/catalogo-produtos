@@ -69,7 +69,7 @@ interface ProdutosResponse {
   pageSize: number;
 }
 
-const PRODUTO_SUGESTOES_POR_PAGINA = 10;
+const PRODUTO_SUGESTOES_POR_PAGINA = 20;
 
 interface PreenchimentoMassaAgendamentoResponse {
   jobId: number;
@@ -406,7 +406,7 @@ export default function PreenchimentoMassaNovoPage() {
             ? itens.filter(item => item.denominacao.toLowerCase().includes(termoNormalizado))
             : itens.filter(item => produtoPossuiTrechoCodigo(item, codigoBusca));
 
-        setProdutoPageSize(resposta.data.pageSize || PRODUTO_SUGESTOES_POR_PAGINA);
+        setProdutoPageSize(PRODUTO_SUGESTOES_POR_PAGINA);
         setProdutoTotalResultados(resposta.data.total ?? itens.length);
         setProdutoPaginaAtual(pagina);
         setProdutoBuscaAtiva(termoAtual);
@@ -450,24 +450,14 @@ export default function PreenchimentoMassaNovoPage() {
 
   const produtosJaIncluidosOuPendentes = produtosMarcados.length + pendentesValidos.length;
   const totalResultadosProduto = produtoTotalResultados ?? 0;
+  const totalRestantes = Math.max(totalResultadosProduto - produtosJaIncluidosOuPendentes, 0);
   const resumoSugestoesProdutos =
     produtoBuscaAtiva && totalResultadosProduto > 0
       ? (
           <div className="flex flex-col gap-1 text-xs text-gray-400">
             <span>
-              Exibindo {produtoSugestoesDisponiveis.length} de {totalResultadosProduto} resultados encontrados.
+              Exibindo {produtoSugestoesDisponiveis.length} de {totalRestantes} restantes.
             </span>
-            {produtosJaIncluidosOuPendentes > 0 && (
-              <span>
-                {produtosJaIncluidosOuPendentes} produto
-                {produtosJaIncluidosOuPendentes > 1 ? 's já estão' : ' já está'} incluído
-                {produtosJaIncluidosOuPendentes > 1 ? 's' : ''} ou pendente
-                {produtosJaIncluidosOuPendentes > 1 ? 's' : ''} e não aparecem nas sugestões.
-              </span>
-            )}
-            {temMaisProdutosParaListar && (
-              <span>Inclua itens da lista para liberar as próximas sugestões ou refine a busca.</span>
-            )}
           </div>
         )
       : null;
