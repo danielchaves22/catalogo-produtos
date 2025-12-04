@@ -123,6 +123,7 @@ model Catalogo {
   operadoresEstrangeiros OperadorEstrangeiro[]
   importacoes      ImportacaoProduto[]
   valoresPadraoNcm NcmAtributoValorCatalogo[]
+  transmissoes     ProdutoTransmissao[]
 
   @@unique([superUserId, cpf_cnpj], name: "uk_superuser_cpf_cnpj")
   @@map("catalogo")
@@ -165,6 +166,7 @@ model AsyncJob {
   logs              AsyncJobLog[]
   atributoPreenchimentoMassa AtributoPreenchimentoMassa?
   produtoExportacao          ProdutoExportacao?
+  produtoTransmissao         ProdutoTransmissao?
 
   @@index([status], map: "idx_async_job_status")
   @@index([tipo], map: "idx_async_job_tipo")
@@ -197,6 +199,60 @@ model AsyncJobLog {
 
   @@index([jobId], map: "idx_async_job_log_job")
   @@map("async_job_log")
+}
+
+model ProdutoTransmissao {
+  id                   Int                         @id @default(autoincrement()) @map("id")
+  superUserId          Int                         @map("super_user_id")
+  catalogoId           Int                         @map("catalogo_id")
+  usuarioCatalogoId    Int?                        @map("usuario_catalogo_id")
+  asyncJobId           Int?                        @unique @map("async_job_id")
+  modalidade           ProdutoTransmissaoModalidade @default(PRODUTOS) @map("modalidade")
+  status               ProdutoTransmissaoStatus    @default(EM_FILA) @map("status")
+  totalItens           Int                         @default(0) @map("total_itens")
+  totalSucesso         Int                         @default(0) @map("total_sucesso")
+  totalErro            Int                         @default(0) @map("total_erro")
+  selecaoJson          Json?                       @map("selecao_json")
+  payloadEnvioPath     String?                     @map("payload_envio_path")
+  payloadEnvioExpiraEm DateTime?                   @map("payload_envio_expira_em")
+  payloadEnvioTamanho  Int?                        @map("payload_envio_tamanho")
+  payloadEnvioProvider String?                     @map("payload_envio_provider")
+  payloadRetornoPath   String?                     @map("payload_retorno_path")
+  payloadRetornoExpiraEm DateTime?                 @map("payload_retorno_expira_em")
+  payloadRetornoTamanho Int?                       @map("payload_retorno_tamanho")
+  payloadRetornoProvider String?                   @map("payload_retorno_provider")
+  iniciadoEm           DateTime?                   @map("iniciado_em")
+  concluidoEm          DateTime?                   @map("concluido_em")
+  criadoEm             DateTime                    @default(now()) @map("criado_em")
+  atualizadoEm         DateTime                    @updatedAt @map("atualizado_em")
+
+  catalogo  Catalogo  @relation(fields: [catalogoId], references: [id], onDelete: Cascade)
+  asyncJob  AsyncJob? @relation(fields: [asyncJobId], references: [id])
+  itens     ProdutoTransmissaoItem[]
+
+  @@index([catalogoId], map: "idx_transmissao_catalogo")
+  @@index([superUserId], map: "idx_transmissao_superuser")
+  @@map("produto_transmissao")
+}
+
+model ProdutoTransmissaoItem {
+  id             Int                          @id @default(autoincrement()) @map("id")
+  transmissaoId  Int                          @map("transmissao_id")
+  produtoId      Int                          @map("produto_id")
+  status         ProdutoTransmissaoItemStatus @default(PENDENTE) @map("status")
+  mensagem       String?                      @map("mensagem") @db.Text
+  retornoCodigo  String?                      @map("retorno_codigo")
+  retornoVersao  Int?                         @map("retorno_versao")
+  retornoSituacao String?                     @map("retorno_situacao")
+  criadoEm       DateTime                     @default(now()) @map("criado_em")
+  atualizadoEm   DateTime                     @updatedAt @map("atualizado_em")
+
+  transmissao ProdutoTransmissao @relation(fields: [transmissaoId], references: [id], onDelete: Cascade)
+  produto      Produto            @relation(fields: [produtoId], references: [id])
+
+  @@index([transmissaoId], map: "idx_transmissao_item_transmissao")
+  @@index([produtoId], map: "idx_transmissao_item_produto")
+  @@map("produto_transmissao_item")
 }
 
 model Pais {
@@ -348,6 +404,26 @@ enum AsyncJobTipo {
   AJUSTE_ESTRUTURA
   EXPORTACAO_PRODUTO
   EXPORTACAO_FABRICANTE
+  TRANSMISSAO_PRODUTO
+}
+
+enum ProdutoTransmissaoStatus {
+  EM_FILA
+  PROCESSANDO
+  CONCLUIDO
+  FALHO
+  PARCIAL
+}
+
+enum ProdutoTransmissaoItemStatus {
+  PENDENTE
+  PROCESSANDO
+  SUCESSO
+  ERRO
+}
+
+enum ProdutoTransmissaoModalidade {
+  PRODUTOS
 }
 
 // Tabela de cache de NCM
@@ -407,6 +483,7 @@ model Produto {
   resumoDashboard          ProdutoResumoDashboard?
   operadoresEstrangeiros   OperadorEstrangeiroProduto[]
   importacaoItens          ImportacaoProdutoItem[] @relation("ProdutoImportacaoItens")
+  transmissoes             ProdutoTransmissaoItem[]
 
   @@index([ncmCodigo], name: "idx_ncm")
   @@index([catalogoId], name: "idx_catalogo")
