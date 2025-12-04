@@ -86,7 +86,7 @@ export class SiscomexService {
     // URLs da API SISCOMEX conforme documentação
     this.baseUrl = process.env.SISCOMEX_API_URL || 'https://api.portalunico.siscomex.gov.br/catp/api';
     this.authUrl = this.resolverAuthUrl(process.env.SISCOMEX_AUTH_URL);
-    this.roleType = process.env.SISCOMEX_ROLE_TYPE || 'PJ';
+    this.roleType = process.env.SISCOMEX_ROLE_TYPE || 'IMPEXP';
     this.carregarCertificado = opcoes?.carregarCertificado;
     this.certificado = opcoes?.certificado;
 
