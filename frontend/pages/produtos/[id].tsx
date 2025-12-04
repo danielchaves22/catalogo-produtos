@@ -108,6 +108,7 @@ export default function ProdutoPage() {
   const [gerandoSugestoesIa, setGerandoSugestoesIa] = useState(false);
   const [resumoSugestoesIa, setResumoSugestoesIa] = useState<string | null>(null);
   const [iaJaSolicitada, setIaJaSolicitada] = useState(false);
+  const [limpezaInicialIaRealizada, setLimpezaInicialIaRealizada] = useState(false);
   const { user } = useAuth();
 
   const podeSugerirComIa = Boolean(user);
@@ -135,6 +136,7 @@ export default function ProdutoPage() {
   useEffect(() => {
     setResumoSugestoesIa(null);
     setIaJaSolicitada(false);
+    setLimpezaInicialIaRealizada(false);
   }, [id]);
 
   useEffect(() => {
@@ -512,9 +514,16 @@ export default function ProdutoPage() {
       return;
     }
 
+    let valoresAtuais = valores;
+
+    if (!limpezaInicialIaRealizada) {
+      setValores({});
+      valoresAtuais = {};
+      setLimpezaInicialIaRealizada(true);
+    }
+
     setGerandoSugestoesIa(true);
     setIaJaSolicitada(true);
-    let valoresAtuais = valores;
     let tentativasRestantes = MAX_TENTATIVAS_IA;
     try {
       while (tentativasRestantes > 0) {

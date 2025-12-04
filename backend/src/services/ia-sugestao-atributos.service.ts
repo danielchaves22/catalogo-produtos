@@ -32,6 +32,7 @@ interface AtributoCompacto {
   descricaoCondicao?: string;
   parentCodigo?: string;
   condicionanteCodigo?: string;
+  contexto?: string;
 }
 
 export class IaSugestaoAtributosService {
@@ -135,8 +136,9 @@ export class IaSugestaoAtributosService {
   private compactarAtributos(atributos: AtributoEstruturaDTO[]): AtributoCompacto[] {
     const resultado: AtributoCompacto[] = [];
 
-    const visitar = (lista: AtributoEstruturaDTO[]) => {
+    const visitar = (lista: AtributoEstruturaDTO[], trilhaNomes: string[]) => {
       for (const attr of lista) {
+        const contexto = [...trilhaNomes, attr.nome].join(' > ');
         resultado.push({
           codigo: attr.codigo,
           nome: attr.nome,
@@ -148,16 +150,17 @@ export class IaSugestaoAtributosService {
           condicao: attr.condicao,
           descricaoCondicao: attr.descricaoCondicao,
           parentCodigo: attr.parentCodigo,
-          condicionanteCodigo: attr.condicionanteCodigo
+          condicionanteCodigo: attr.condicionanteCodigo,
+          contexto
         });
 
         if (attr.subAtributos?.length) {
-          visitar(attr.subAtributos);
+          visitar(attr.subAtributos, [...trilhaNomes, attr.nome]);
         }
       }
     };
 
-    visitar(atributos);
+    visitar(atributos, []);
     return resultado;
   }
 
@@ -191,13 +194,12 @@ export class IaSugestaoAtributosService {
     if (ncm) partes.push(`NCM: ${ncm}`);
     if (modalidade) partes.push(`Modalidade: ${modalidade}`);
     partes.push(`Detalhamento do produto: ${descricao}`);
+    partes.push('Atributos esperados (JSON compacto e com contexto): ' + JSON.stringify(atributos));
     partes.push(
-      'Atributos esperados (JSON compacto): ' +
-        JSON.stringify(atributos)
-    );
-    partes.push(
-      'Responda apenas com JSON {"CODIGO_ATRIBUTO": valor}. Use códigos do domínio quando fornecidos. ' +
-        'Para atributos multivalorados use array ordenado. Não invente atributos ou textos adicionais. '
+      'Responda apenas com JSON {"CODIGO_ATRIBUTO": valor}. Trate cada atributo isoladamente, ' +
+        'respeitando seu contexto/caminho. Quando houver domínio de valores, escolha somente códigos contidos na lista ' +
+        'enviada; se nenhum código fizer sentido, omita o atributo. Em atributos multivalorados, retorne um array ' +
+        'apenas com valores do domínio e mantenha a ordem de relevância. Não invente atributos, textos extras ou valores fora do domínio.'
     );
 
     const conteudo = partes.join('\n');
