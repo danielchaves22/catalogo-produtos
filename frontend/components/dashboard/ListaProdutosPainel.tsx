@@ -11,6 +11,8 @@ import { useRouter } from 'next/router';
 import { useToast } from '@/components/ui/ToastContext';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { PaginationControls } from '@/components/ui/PaginationControls';
+import { MaskedInput } from '@/components/ui/MaskedInput';
+import useDebounce from '@/hooks/useDebounce';
 
 interface Produto {
   id: number;
@@ -52,10 +54,15 @@ export function ListaProdutosPainel() {
   const [filtros, setFiltros] = useState<{
     status: Produto['status'][];
     situacoes: Array<'ATIVADO' | 'DESATIVADO' | 'RASCUNHO'>;
+    ncm: string;
   }>(() => ({
     status: [],
-    situacoes: ['RASCUNHO', 'ATIVADO']
+    situacoes: ['RASCUNHO', 'ATIVADO'],
+    ncm: ''
   }));
+  const [ncmSugestoes, setNcmSugestoes] = useState<Array<{ codigo: string; descricao: string | null }>>([]);
+  const [mostrarSugestoesNcm, setMostrarSugestoesNcm] = useState(false);
+  const [carregandoSugestoesNcm, setCarregandoSugestoesNcm] = useState(false);
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<number | null>(null);
   const router = useRouter();
   const { addToast } = useToast();
@@ -65,16 +72,56 @@ export function ListaProdutosPainel() {
   const pageSizeOptions = [10, 20, 50];
   const totalPages = Math.max(1, Math.ceil(totalProdutos / Math.max(pageSize, 1)));
   const paginaAtual = Math.min(page, totalPages);
+  const debouncedNcmFiltro = useDebounce(filtros.ncm, 800);
 
   useEffect(() => {
     setPage(1);
   }, [workingCatalog?.id]);
+
+  useEffect(() => {
+    const prefixo = debouncedNcmFiltro.replace(/\D/g, '');
+    if (prefixo.length >= 4 && prefixo.length < 8) {
+      let ativo = true;
+      setCarregandoSugestoesNcm(true);
+      setMostrarSugestoesNcm(true);
+
+      api
+        .get('/siscomex/ncm/sugestoes', { params: { prefixo } })
+        .then(response => {
+          if (!ativo) return;
+          const lista = (response.data?.dados as Array<{ codigo: string; descricao: string | null }> | undefined) || [];
+          setNcmSugestoes(lista);
+          setMostrarSugestoesNcm(true);
+        })
+        .catch(error => {
+          if (!ativo) return;
+          console.error('Erro ao buscar sugestões de NCM:', error);
+          addToast('Erro ao buscar sugestões de NCM', 'error');
+          setMostrarSugestoesNcm(false);
+          setNcmSugestoes([]);
+        })
+        .finally(() => {
+          if (!ativo) return;
+          setCarregandoSugestoesNcm(false);
+        });
+
+      return () => {
+        ativo = false;
+      };
+    }
+
+    setNcmSugestoes([]);
+    setMostrarSugestoesNcm(false);
+    setCarregandoSugestoesNcm(false);
+  }, [debouncedNcmFiltro, addToast]);
 
   const carregarProdutos = useCallback(async () => {
     try {
       setLoading(true);
       const params: Record<string, string | number> = { page, pageSize };
       if (busca.trim()) params.busca = busca.trim();
+      const ncmLimpo = filtros.ncm.replace(/\D/g, '');
+      if (ncmLimpo.length === 8) params.ncm = ncmLimpo;
       if (filtros.status.length > 0) params.status = filtros.status.join(',');
       if (filtros.situacoes.length > 0)
         params.situacao = filtros.situacoes.join(',');
@@ -102,6 +149,7 @@ export function ListaProdutosPainel() {
     busca,
     filtros.status,
     filtros.situacoes,
+    filtros.ncm,
     workingCatalog?.id
   ]);
 
@@ -168,6 +216,13 @@ export function ListaProdutosPainel() {
     return `${formatted}`;
   }
 
+  function selecionarSugestaoNcm(sugestao: { codigo: string; descricao: string | null }) {
+    setFiltros(prev => ({ ...prev, ncm: sugestao.codigo.replace(/\D/g, '') }));
+    setMostrarSugestoesNcm(false);
+    setNcmSugestoes([]);
+    setPage(1);
+  }
+
   function getModalidadeLabel(modalidade: string) {
     switch (modalidade) {
       case 'IMPORTACAO':
@@ -207,10 +262,10 @@ export function ListaProdutosPainel() {
 
   return (
     <>
-      <Card >
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <Card>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="relative md:col-span-2">
-            <label className="block text-sm font-medium mb-2 text-gray-300">Buscar por nome, catálogo ou NCM</label>
+            <label className="block text-sm font-medium mb-2 text-gray-300">Buscar por nome, catálogo ou código</label>
             <div className="absolute left-0 top-1/2 -translate-y-1/2 pl-3 pointer-events-none">
               <Search size={18} className="text-gray-400" />
             </div>
@@ -222,8 +277,54 @@ export function ListaProdutosPainel() {
                 setBusca(e.target.value);
                 setPage(1);
               }}
-              aria-label="Buscar por nome, catálogo ou NCM"
+              aria-label="Buscar por nome, catálogo ou código"
             />
+          </div>
+          <div className="relative">
+            <MaskedInput
+              label="NCM"
+              mask="ncm"
+              value={filtros.ncm}
+              onChange={valor => {
+                setFiltros(prev => ({ ...prev, ncm: valor }));
+                setPage(1);
+              }}
+              className="mb-0"
+              placeholder="9999.99.99"
+              onFocus={() => {
+                if (filtros.ncm.length >= 4 && filtros.ncm.length < 8 && ncmSugestoes.length > 0) {
+                  setMostrarSugestoesNcm(true);
+                }
+              }}
+              onBlur={() => {
+                setTimeout(() => setMostrarSugestoesNcm(false), 100);
+              }}
+              aria-label="Filtrar por NCM"
+            />
+            {(carregandoSugestoesNcm || mostrarSugestoesNcm) && (
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-md border border-gray-700 bg-[#1e2126] shadow-lg">
+                {carregandoSugestoesNcm ? (
+                  <div className="px-3 py-2 text-sm text-gray-400">Buscando sugestões...</div>
+                ) : ncmSugestoes.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-gray-400">Nenhuma sugestão encontrada</div>
+                ) : (
+                  ncmSugestoes.map(sugestao => (
+                    <button
+                      key={sugestao.codigo}
+                      type="button"
+                      className="flex w-full flex-col items-start px-3 py-2 text-left text-sm text-gray-100 hover:bg-gray-700"
+                      onMouseDown={event => event.preventDefault()}
+                      onClick={() => selecionarSugestaoNcm(sugestao)}
+                    >
+                      <span className="font-medium">{formatarNCM(sugestao.codigo)}</span>
+                      {sugestao.descricao && (
+                        <span className="text-xs text-gray-400">{sugestao.descricao}</span>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
           <MultiSelect
             label="Status"
@@ -262,7 +363,7 @@ export function ListaProdutosPainel() {
             <option value="DESATIVADO">Desativado</option>
             <option value="RASCUNHO">Rascunho</option>
           </select> ) }
-          
+
         </div>
       </Card>
 
