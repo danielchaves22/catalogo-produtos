@@ -483,7 +483,7 @@ export class ProdutoTransmissaoService {
             transmissao.payloadEnvioPath,
             `payload-envio-${transmissao.id}.json`,
             transmissao.payloadEnvioExpiraEm
-          )) ?? `/siscomex/transmissoes/${transmissao.id}/arquivos/envio`
+          )) ?? `/api/siscomex/transmissoes/${transmissao.id}/arquivos/envio`
       : null;
 
     const payloadRetornoUrl = transmissao.payloadRetornoPath
@@ -492,7 +492,7 @@ export class ProdutoTransmissaoService {
             transmissao.payloadRetornoPath,
             `payload-retorno-${transmissao.id}.json`,
             transmissao.payloadRetornoExpiraEm
-          )) ?? `/siscomex/transmissoes/${transmissao.id}/arquivos/retorno`
+          )) ?? `/api/siscomex/transmissoes/${transmissao.id}/arquivos/retorno`
       : null;
 
     return {
