@@ -455,12 +455,17 @@ export default function PreenchimentoMassaNovoPage() {
     () => Math.min(PRODUTO_SUGESTOES_POR_PAGINA, totalRestantes),
     [totalRestantes]
   );
+  const produtoSugestoesLimitadas = useMemo(
+    () => produtoSugestoesDisponiveis.slice(0, quantidadeSugestoesDesejada),
+    [produtoSugestoesDisponiveis, quantidadeSugestoesDesejada]
+  );
   const resumoSugestoesProdutos =
     produtoBuscaAtiva && totalResultadosProduto > 0
       ? (
           <div className="flex flex-col gap-1 text-xs text-gray-400">
             <span>
-              Exibindo {produtoSugestoesDisponiveis.length} de {totalRestantes} restantes.
+              Exibindo {Math.min(quantidadeSugestoesDesejada, produtoSugestoesLimitadas.length)} de{' '}
+              {totalRestantes} restantes.
             </span>
           </div>
         )
@@ -610,13 +615,13 @@ export default function PreenchimentoMassaNovoPage() {
     carregarProdutos(1, false, termoBusca);
   }, [carregarProdutos, debouncedProdutoBusca, ncmValida]);
 
-  useEffect(() => {
+  const reabastecerSugestoes = useCallback(() => {
     if (
       !produtoBuscaAtiva ||
       !temMaisProdutosParaListar ||
       carregandoProdutos ||
       quantidadeSugestoesDesejada === 0 ||
-      produtoSugestoesDisponiveis.length >= quantidadeSugestoesDesejada
+      produtoSugestoesDisponiveis.length >= quantidadeSugestoesDesejada + 1
     ) {
       return;
     }
@@ -632,6 +637,10 @@ export default function PreenchimentoMassaNovoPage() {
     produtoSugestoesDisponiveis.length,
     temMaisProdutosParaListar
   ]);
+
+  useEffect(() => {
+    reabastecerSugestoes();
+  }, [reabastecerSugestoes]);
 
   async function carregarEstrutura(ncmCodigo: string, modalidadeSelecionada: string) {
     if (ncmCodigo.length < 8) return;
@@ -1566,7 +1575,7 @@ export default function PreenchimentoMassaNovoPage() {
               }
               searchValue={produtoBusca}
               onSearchChange={valor => setProdutoBusca(valor)}
-              suggestions={produtoSugestoesDisponiveis}
+              suggestions={produtoSugestoesLimitadas}
               onSelect={produto =>
                 adicionarProdutoPendente(produto, 'busca', {
                   incluirAutomaticamente: true,
