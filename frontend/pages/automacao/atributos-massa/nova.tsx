@@ -451,6 +451,10 @@ export default function PreenchimentoMassaNovoPage() {
   const produtosJaIncluidosOuPendentes = produtosMarcados.length + pendentesValidos.length;
   const totalResultadosProduto = produtoTotalResultados ?? 0;
   const totalRestantes = Math.max(totalResultadosProduto - produtosJaIncluidosOuPendentes, 0);
+  const quantidadeSugestoesDesejada = useMemo(
+    () => Math.min(PRODUTO_SUGESTOES_POR_PAGINA, totalRestantes),
+    [totalRestantes]
+  );
   const resumoSugestoesProdutos =
     produtoBuscaAtiva && totalResultadosProduto > 0
       ? (
@@ -611,7 +615,8 @@ export default function PreenchimentoMassaNovoPage() {
       !produtoBuscaAtiva ||
       !temMaisProdutosParaListar ||
       carregandoProdutos ||
-      produtoSugestoesDisponiveis.length >= produtoPageSize
+      quantidadeSugestoesDesejada === 0 ||
+      produtoSugestoesDisponiveis.length >= quantidadeSugestoesDesejada
     ) {
       return;
     }
@@ -623,7 +628,7 @@ export default function PreenchimentoMassaNovoPage() {
     carregandoProdutos,
     produtoBuscaAtiva,
     produtoPaginaAtual,
-    produtoPageSize,
+    quantidadeSugestoesDesejada,
     produtoSugestoesDisponiveis.length,
     temMaisProdutosParaListar
   ]);
