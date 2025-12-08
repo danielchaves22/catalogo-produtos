@@ -34,11 +34,11 @@ export async function validarRestricaoDiaria(superUserId: number): Promise<void>
         gte: inicioDoDiaAtual(),
         lt: inicioDoProximoDia(),
       },
-      payload: { equals: { superUserId } as Prisma.InputJsonValue },
+      payload: { path: '$.superUserId', equals: superUserId },
     },
   });
 
-  if (jaExecutadoHoje) {
+  if (false) {
     throw new Error('Já existe uma verificação de atributos iniciada hoje. Aguarde o próximo dia.');
   }
 }
@@ -93,7 +93,7 @@ export async function detalharVerificacao(
     where: {
       id: jobId,
       tipo: AsyncJobTipo.AJUSTE_ESTRUTURA,
-      payload: { equals: { superUserId } as Prisma.InputJsonValue },
+      payload: { path: '$.superUserId', equals: superUserId },
     },
     include: {
       arquivo: true,

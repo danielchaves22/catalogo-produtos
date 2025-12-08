@@ -6,8 +6,16 @@ import { Card } from '@/components/ui/Card';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
-import { AlertTriangle, ArrowLeft, CheckCircle2, CircleDashed, Clock3 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, CircleDashed, Clock3 } from 'lucide-react';
+
+interface DiferencaAtributo {
+  codigo: string;
+  tipo: 'ADICIONADO' | 'REMOVIDO' | 'MODIFICADO';
+  campo?: string;
+  valorAtual?: unknown;
+  valorLegado?: unknown;
+  caminho?: string[];
+}
 
 interface ResultadoVerificacao {
   ncmCodigo: string;
@@ -21,6 +29,7 @@ interface ResultadoVerificacao {
     atributos: number;
     dominios: number;
   };
+  diferencas?: DiferencaAtributo[];
 }
 
 interface LogVerificacao {
@@ -68,6 +77,9 @@ export default function DetalheAjusteAtributosPage() {
   const { addToast } = useToast();
   const [dados, setDados] = useState<DetalheVerificacao | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [divergentesExpandido, setDivergentesExpandido] = useState(true);
+  const [alinhadosExpandido, setAlinhadosExpandido] = useState(false);
+  const [ncmDetalhesExpandido, setNcmDetalhesExpandido] = useState<string | null>(null);
 
   useEffect(() => {
     if (!router.query.id) return;
@@ -89,11 +101,40 @@ export default function DetalheAjusteAtributosPage() {
     carregar();
   }, [addToast, router.query.id]);
 
-  const resultadosOrdenados = useMemo(
+  const resultadosDivergentes = useMemo(
     () =>
-      [...(dados?.resultados ?? [])].sort((a, b) => a.ncmCodigo.localeCompare(b.ncmCodigo)),
+      [...(dados?.resultados ?? [])]
+        .filter(r => r.divergente)
+        .sort((a, b) => a.ncmCodigo.localeCompare(b.ncmCodigo)),
     [dados?.resultados]
   );
+
+  const resultadosAlinhados = useMemo(
+    () =>
+      [...(dados?.resultados ?? [])]
+        .filter(r => !r.divergente)
+        .sort((a, b) => a.ncmCodigo.localeCompare(b.ncmCodigo)),
+    [dados?.resultados]
+  );
+
+  const formatarValor = (valor: unknown): string => {
+    if (valor === null || valor === undefined) return '-';
+    if (typeof valor === 'boolean') return valor ? 'Sim' : 'Não';
+    if (typeof valor === 'object') return JSON.stringify(valor, null, 2);
+    return String(valor);
+  };
+
+  const obterCorTipo = (tipo: DiferencaAtributo['tipo']) => {
+    switch (tipo) {
+      case 'ADICIONADO': return 'text-emerald-400 bg-emerald-500/10';
+      case 'REMOVIDO': return 'text-rose-400 bg-rose-500/10';
+      case 'MODIFICADO': return 'text-amber-400 bg-amber-500/10';
+    }
+  };
+
+  const toggleDetalhes = (key: string) => {
+    setNcmDetalhesExpandido(prev => prev === key ? null : key);
+  };
 
   if (carregando) {
     return (
@@ -126,17 +167,12 @@ export default function DetalheAjusteAtributosPage() {
         ]}
       />
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-slate-400 text-sm mb-1">Verificação #{dados.id}</p>
-          <h1 className="text-2xl font-semibold text-slate-100">Detalhes da verificação</h1>
-          <p className="text-slate-400 text-sm mt-1">
-            Resultado do batimento entre estruturas gravadas e estrutura legada do SISCOMEX.
-          </p>
-        </div>
-        <Button variant="outline" onClick={() => router.push('/automacao/ajustes-atributos')} className="gap-2">
-          <ArrowLeft className="h-4 w-4" /> Voltar para lista
-        </Button>
+      <div className="mb-6">
+        <p className="text-slate-400 text-sm mb-1">Verificação #{dados.id}</p>
+        <h1 className="text-2xl font-semibold text-slate-100">Detalhes da verificação</h1>
+        <p className="text-slate-400 text-sm mt-1">
+          Resultado do batimento entre estruturas gravadas e estrutura legada do SISCOMEX.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
@@ -161,49 +197,200 @@ export default function DetalheAjusteAtributosPage() {
         </Card>
       </div>
 
-      <Card className="mb-6">
-        <h2 className="text-lg font-semibold text-slate-100 mb-3">Resultados por NCM</h2>
-        {resultadosOrdenados.length === 0 ? (
-          <div className="text-slate-400 text-sm py-6">Nenhum resultado disponível.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-800">
-              <thead className="bg-slate-900/50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">NCM</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Modalidade</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Versão</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Hash atual</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Hash legado</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Totais</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Situação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {resultadosOrdenados.map(item => (
-                  <tr key={`${item.ncmCodigo}-${item.modalidade}`} className="hover:bg-slate-900/40">
-                    <td className="px-4 py-3 text-sm text-slate-200">{item.ncmCodigo}</td>
-                    <td className="px-4 py-3 text-sm text-slate-200">{item.modalidade}</td>
-                    <td className="px-4 py-3 text-sm text-slate-200">{item.versaoNumero}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300 font-mono truncate max-w-xs">{item.hashAtual}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300 font-mono truncate max-w-xs">{item.hashLegado}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300">
-                      {item.totais.atributos} atributos · {item.totais.dominios} domínios
-                    </td>
-                    <td className="px-4 py-3 text-sm font-semibold">
-                      {item.divergente ? (
-                        <span className="text-rose-300">Divergente</span>
-                      ) : (
-                        <span className="text-emerald-400">Alinhado</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      <div className="space-y-4 mb-6">
+        {/* Painel de Divergentes */}
+        <Card>
+          <button
+            onClick={() => setDivergentesExpandido(!divergentesExpandido)}
+            className="w-full flex items-center justify-between p-4 hover:bg-slate-900/20 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-rose-400" />
+              <h2 className="text-lg font-semibold text-slate-100">
+                Estruturas Divergentes ({resultadosDivergentes.length})
+              </h2>
+            </div>
+            {divergentesExpandido ? (
+              <ChevronUp className="h-5 w-5 text-slate-400" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-slate-400" />
+            )}
+          </button>
+
+          {divergentesExpandido && (
+            <div className="border-t border-slate-800">
+              {resultadosDivergentes.length === 0 ? (
+                <div className="text-slate-400 text-sm py-6 px-4">Nenhuma divergência encontrada.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-800">
+                    <thead className="bg-slate-900/50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">NCM</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Modalidade</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Versão</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Hash atual</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Hash legado</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Totais</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Diferenças</th>
+                        <th className="px-4 py-3 w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                      {resultadosDivergentes.map(item => {
+                        const key = `${item.ncmCodigo}-${item.modalidade}`;
+                        const expandido = ncmDetalhesExpandido === key;
+                        return (
+                          <React.Fragment key={key}>
+                            <tr className="hover:bg-slate-900/40">
+                              <td className="px-4 py-3 text-sm text-slate-200">{item.ncmCodigo}</td>
+                              <td className="px-4 py-3 text-sm text-slate-200">{item.modalidade}</td>
+                              <td className="px-4 py-3 text-sm text-slate-200">{item.versaoNumero}</td>
+                              <td className="px-4 py-3 text-sm text-slate-300 font-mono truncate max-w-xs">{item.hashAtual}</td>
+                              <td className="px-4 py-3 text-sm text-slate-300 font-mono truncate max-w-xs">{item.hashLegado}</td>
+                              <td className="px-4 py-3 text-sm text-slate-300">
+                                {item.totais.atributos} atributos · {item.totais.dominios} domínios
+                              </td>
+                              <td className="px-4 py-3 text-sm text-slate-300">
+                                {item.diferencas?.length ?? 0} diferença(s)
+                              </td>
+                              <td className="px-4 py-3">
+                                {item.diferencas && item.diferencas.length > 0 && (
+                                  <button
+                                    onClick={() => toggleDetalhes(key)}
+                                    className="text-slate-400 hover:text-slate-200 transition-colors"
+                                    title={expandido ? 'Ocultar detalhes' : 'Ver detalhes'}
+                                  >
+                                    {expandido ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                            {expandido && item.diferencas && (
+                              <tr>
+                                <td colSpan={8} className="px-4 py-4 bg-slate-900/30">
+                                  <div className="space-y-2">
+                                    <h3 className="text-sm font-semibold text-slate-200 mb-3">Detalhes das Diferenças:</h3>
+                                    <div className="space-y-2">
+                                      {item.diferencas.map((dif, idx) => (
+                                        <div key={idx} className="border border-slate-700 rounded-lg p-3 bg-slate-800/50">
+                                          <div className="flex items-start gap-3">
+                                            <span className={`px-2 py-1 rounded text-xs font-medium ${obterCorTipo(dif.tipo)}`}>
+                                              {dif.tipo}
+                                            </span>
+                                            <div className="flex-1">
+                                              <div className="text-sm text-slate-200 font-medium">
+                                                Atributo: <span className="font-mono">{dif.codigo}</span>
+                                                {dif.campo && <span className="text-slate-400"> · Campo: {dif.campo}</span>}
+                                              </div>
+                                              {dif.caminho && dif.caminho.length > 1 && (
+                                                <div className="text-xs text-slate-400 mt-1">
+                                                  Caminho: {dif.caminho.join(' > ')}
+                                                </div>
+                                              )}
+                                              {dif.tipo === 'MODIFICADO' && (
+                                                <div className="mt-2 grid grid-cols-2 gap-4 text-xs">
+                                                  <div>
+                                                    <span className="text-slate-400">Valor Atual (Cache):</span>
+                                                    <pre className="mt-1 p-2 bg-slate-900 rounded text-slate-300 overflow-x-auto">
+                                                      {formatarValor(dif.valorAtual)}
+                                                    </pre>
+                                                  </div>
+                                                  <div>
+                                                    <span className="text-slate-400">Valor Legado (SISCOMEX):</span>
+                                                    <pre className="mt-1 p-2 bg-slate-900 rounded text-slate-300 overflow-x-auto">
+                                                      {formatarValor(dif.valorLegado)}
+                                                    </pre>
+                                                  </div>
+                                                </div>
+                                              )}
+                                              {dif.tipo === 'ADICIONADO' && dif.valorLegado && (
+                                                <div className="mt-2 text-xs">
+                                                  <span className="text-slate-400">Nome no SISCOMEX:</span>
+                                                  <span className="ml-2 text-emerald-400">{formatarValor(dif.valorLegado)}</span>
+                                                </div>
+                                              )}
+                                              {dif.tipo === 'REMOVIDO' && dif.valorAtual && (
+                                                <div className="mt-2 text-xs">
+                                                  <span className="text-slate-400">Nome no Cache:</span>
+                                                  <span className="ml-2 text-rose-400">{formatarValor(dif.valorAtual)}</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+
+        {/* Painel de Alinhados */}
+        <Card>
+          <button
+            onClick={() => setAlinhadosExpandido(!alinhadosExpandido)}
+            className="w-full flex items-center justify-between p-4 hover:bg-slate-900/20 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+              <h2 className="text-lg font-semibold text-slate-100">
+                Estruturas Alinhadas ({resultadosAlinhados.length})
+              </h2>
+            </div>
+            {alinhadosExpandido ? (
+              <ChevronUp className="h-5 w-5 text-slate-400" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-slate-400" />
+            )}
+          </button>
+
+          {alinhadosExpandido && (
+            <div className="border-t border-slate-800">
+              {resultadosAlinhados.length === 0 ? (
+                <div className="text-slate-400 text-sm py-6 px-4">Nenhuma estrutura alinhada.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-800">
+                    <thead className="bg-slate-900/50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">NCM</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Modalidade</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Versão</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Hash</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Totais</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                      {resultadosAlinhados.map(item => (
+                        <tr key={`${item.ncmCodigo}-${item.modalidade}`} className="hover:bg-slate-900/40">
+                          <td className="px-4 py-3 text-sm text-slate-200">{item.ncmCodigo}</td>
+                          <td className="px-4 py-3 text-sm text-slate-200">{item.modalidade}</td>
+                          <td className="px-4 py-3 text-sm text-slate-200">{item.versaoNumero}</td>
+                          <td className="px-4 py-3 text-sm text-slate-300 font-mono truncate max-w-xs">{item.hashAtual}</td>
+                          <td className="px-4 py-3 text-sm text-slate-300">
+                            {item.totais.atributos} atributos · {item.totais.dominios} domínios
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
 
       <Card>
         <h2 className="text-lg font-semibold text-slate-100 mb-3">Histórico de logs</h2>

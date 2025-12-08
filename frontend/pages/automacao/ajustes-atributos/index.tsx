@@ -146,17 +146,28 @@ export default function AjustesAtributosPage() {
             <table className="min-w-full divide-y divide-slate-800">
               <thead className="bg-slate-900/50">
                 <tr>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Ações</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">ID</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Status</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Criado em</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Finalizado em</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Último log</th>
-                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-300">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {itensOrdenados.map(job => (
                   <tr key={job.id} className="hover:bg-slate-900/40">
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/automacao/ajustes-atributos/${job.id}`)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 bg-slate-800/60 text-slate-200 transition hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        title="Ver detalhes da verificação"
+                        aria-label="Ver detalhes da verificação"
+                      >
+                        <Eye size={16} />
+                      </button>
+                    </td>
                     <td className="px-4 py-3 text-sm text-slate-200">#{job.id}</td>
                     <td className="px-4 py-3">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${obterClasseStatus(job.status)}`}>
@@ -167,15 +178,6 @@ export default function AjustesAtributosPage() {
                     <td className="px-4 py-3 text-sm text-slate-300">{formatarData(job.finalizadoEm)}</td>
                     <td className="px-4 py-3 text-sm text-slate-300 truncate max-w-xs">
                       {job.ultimoLog?.mensagem || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="outline"
-                        className="text-sm gap-2"
-                        onClick={() => router.push(`/automacao/ajustes-atributos/${job.id}`)}
-                      >
-                        <Eye className="h-4 w-4" /> Ver detalhes
-                      </Button>
                     </td>
                   </tr>
                 ))}
