@@ -106,28 +106,15 @@ function detectarDiferencas(
 ): DiferencaAtributo[] {
   const diferencas: DiferencaAtributo[] = [];
 
-  // Cria mapas indexados por código para facilitar comparação
-  const mapaAtual = new Map<string, AtributoEstruturaDTO>();
-  const mapaLegado = new Map<string, AtributoEstruturaDTO>();
+  // Compara no nível atual (sem achatar hierarquia)
+  const mapaAtual = new Map(estruturaAtual.map(a => [a.codigo, a]));
+  const mapaLegado = new Map(estruturaLegada.map(a => [a.codigo, a]));
 
-  const indexar = (lista: AtributoEstruturaDTO[], mapa: Map<string, AtributoEstruturaDTO>) => {
-    for (const attr of lista) {
-      mapa.set(attr.codigo, attr);
-      if (attr.subAtributos?.length) {
-        indexar(attr.subAtributos, mapa);
-      }
-    }
-  };
-
-  indexar(estruturaAtual, mapaAtual);
-  indexar(estruturaLegada, mapaLegado);
-
-  // Verifica atributos removidos ou modificados
+  // Verifica atributos presentes no cache mas não no legado (REMOVIDOS)
   for (const [codigo, attrAtual] of mapaAtual) {
-    const attrLegado = mapaLegado.get(codigo);
     const caminhoAtual = [...caminho, codigo];
 
-    if (!attrLegado) {
+    if (!mapaLegado.has(codigo)) {
       diferencas.push({
         codigo,
         tipo: 'REMOVIDO',
@@ -137,7 +124,9 @@ function detectarDiferencas(
       continue;
     }
 
-    // Compara propriedades
+    const attrLegado = mapaLegado.get(codigo)!;
+
+    // Compara TODOS os campos do atributo
     if (attrAtual.nome !== attrLegado.nome) {
       diferencas.push({
         codigo,
@@ -182,23 +171,75 @@ function detectarDiferencas(
       });
     }
 
-    // Compara domínios
-    const dominioAtualStr = JSON.stringify(attrAtual.dominio?.map(d => d.codigo).sort() ?? []);
-    const dominioLegadoStr = JSON.stringify(attrLegado.dominio?.map(d => d.codigo).sort() ?? []);
+    // Compara orientacaoPreenchimento
+    if (attrAtual.orientacaoPreenchimento !== attrLegado.orientacaoPreenchimento) {
+      diferencas.push({
+        codigo,
+        tipo: 'MODIFICADO',
+        campo: 'orientacaoPreenchimento',
+        valorAtual: attrAtual.orientacaoPreenchimento,
+        valorLegado: attrLegado.orientacaoPreenchimento,
+        caminho: caminhoAtual,
+      });
+    }
+
+    // Compara descricaoCondicao
+    if (attrAtual.descricaoCondicao !== attrLegado.descricaoCondicao) {
+      diferencas.push({
+        codigo,
+        tipo: 'MODIFICADO',
+        campo: 'descricaoCondicao',
+        valorAtual: attrAtual.descricaoCondicao,
+        valorLegado: attrLegado.descricaoCondicao,
+        caminho: caminhoAtual,
+      });
+    }
+
+    // Compara parentCodigo
+    if (attrAtual.parentCodigo !== attrLegado.parentCodigo) {
+      diferencas.push({
+        codigo,
+        tipo: 'MODIFICADO',
+        campo: 'parentCodigo',
+        valorAtual: attrAtual.parentCodigo,
+        valorLegado: attrLegado.parentCodigo,
+        caminho: caminhoAtual,
+      });
+    }
+
+    // Compara condicionanteCodigo
+    if (attrAtual.condicionanteCodigo !== attrLegado.condicionanteCodigo) {
+      diferencas.push({
+        codigo,
+        tipo: 'MODIFICADO',
+        campo: 'condicionanteCodigo',
+        valorAtual: attrAtual.condicionanteCodigo,
+        valorLegado: attrLegado.condicionanteCodigo,
+        caminho: caminhoAtual,
+      });
+    }
+
+    // Compara domínio (comparação profunda)
+    const dominioAtualStr = JSON.stringify(
+      (attrAtual.dominio ?? []).map(d => ({ codigo: d.codigo, descricao: d.descricao })).sort((a, b) => a.codigo.localeCompare(b.codigo))
+    );
+    const dominioLegadoStr = JSON.stringify(
+      (attrLegado.dominio ?? []).map(d => ({ codigo: d.codigo, descricao: d.descricao })).sort((a, b) => a.codigo.localeCompare(b.codigo))
+    );
     if (dominioAtualStr !== dominioLegadoStr) {
       diferencas.push({
         codigo,
         tipo: 'MODIFICADO',
         campo: 'dominio',
-        valorAtual: attrAtual.dominio?.length ?? 0,
-        valorLegado: attrLegado.dominio?.length ?? 0,
+        valorAtual: `${attrAtual.dominio?.length ?? 0} itens`,
+        valorLegado: `${attrLegado.dominio?.length ?? 0} itens`,
         caminho: caminhoAtual,
       });
     }
 
     // Compara validações
-    const validacoesAtualStr = JSON.stringify(normalizarValor(attrAtual.validacoes));
-    const validacoesLegadoStr = JSON.stringify(normalizarValor(attrLegado.validacoes));
+    const validacoesAtualStr = JSON.stringify(normalizarValor(attrAtual.validacoes ?? {}));
+    const validacoesLegadoStr = JSON.stringify(normalizarValor(attrLegado.validacoes ?? {}));
     if (validacoesAtualStr !== validacoesLegadoStr) {
       diferencas.push({
         codigo,
@@ -209,9 +250,44 @@ function detectarDiferencas(
         caminho: caminhoAtual,
       });
     }
+
+    // Compara condicao
+    const condicaoAtualStr = JSON.stringify(normalizarValor(attrAtual.condicao ?? null));
+    const condicaoLegadoStr = JSON.stringify(normalizarValor(attrLegado.condicao ?? null));
+    if (condicaoAtualStr !== condicaoLegadoStr) {
+      diferencas.push({
+        codigo,
+        tipo: 'MODIFICADO',
+        campo: 'condicao',
+        valorAtual: attrAtual.condicao,
+        valorLegado: attrLegado.condicao,
+        caminho: caminhoAtual,
+      });
+    }
+
+    // Compara subAtributos recursivamente
+    const subAtributosAtual = attrAtual.subAtributos ?? [];
+    const subAtributosLegado = attrLegado.subAtributos ?? [];
+
+    if (subAtributosAtual.length !== subAtributosLegado.length) {
+      diferencas.push({
+        codigo,
+        tipo: 'MODIFICADO',
+        campo: 'quantidade_subatributos',
+        valorAtual: subAtributosAtual.length,
+        valorLegado: subAtributosLegado.length,
+        caminho: caminhoAtual,
+      });
+    }
+
+    // Detecta diferenças nos subatributos
+    if (subAtributosAtual.length > 0 || subAtributosLegado.length > 0) {
+      const diferencasSub = detectarDiferencas(subAtributosAtual, subAtributosLegado, caminhoAtual);
+      diferencas.push(...diferencasSub);
+    }
   }
 
-  // Verifica atributos adicionados
+  // Verifica atributos presentes no legado mas não no cache (ADICIONADOS)
   for (const [codigo, attrLegado] of mapaLegado) {
     if (!mapaAtual.has(codigo)) {
       diferencas.push({
@@ -283,15 +359,15 @@ export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributo
       modalidade
     );
 
-    const hashAtual = gerarHashEstrutura(estruturaAtual.estrutura);
-    const hashLegado = gerarHashEstrutura(estruturaLegada);
     const totais = contarEstrutura(estruturaAtual.estrutura);
-    const divergente = hashAtual !== hashLegado;
 
-    // Se houver divergência, detecta as diferenças específicas
-    const diferencas = divergente
-      ? detectarDiferencas(estruturaAtual.estrutura, estruturaLegada)
-      : undefined;
+    // Compara diretamente as estruturas e detecta diferenças
+    const diferencas = detectarDiferencas(estruturaAtual.estrutura, estruturaLegada);
+    const divergente = diferencas.length > 0;
+
+    // Gera hashes apenas para referência (não para comparação)
+    const hashAtual = divergente ? gerarHashEstrutura(estruturaAtual.estrutura) : '';
+    const hashLegado = divergente ? gerarHashEstrutura(estruturaLegada) : '';
 
     resultados.push({
       ncmCodigo: versao.ncmCodigo,
@@ -302,7 +378,7 @@ export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributo
       hashLegado,
       divergente,
       totais,
-      diferencas,
+      diferencas: divergente ? diferencas : undefined,
     });
   }
 
