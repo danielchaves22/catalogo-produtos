@@ -6,8 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
-import { AlertTriangle, ArrowLeft, CheckCircle2, CircleDashed, Clock3 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { AlertTriangle, CheckCircle2, CircleDashed, Clock3 } from 'lucide-react';
 
 interface ResultadoVerificacao {
   ncmCodigo: string;
@@ -126,17 +125,12 @@ export default function DetalheAjusteAtributosPage() {
         ]}
       />
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-slate-400 text-sm mb-1">Verificação #{dados.id}</p>
-          <h1 className="text-2xl font-semibold text-slate-100">Detalhes da verificação</h1>
-          <p className="text-slate-400 text-sm mt-1">
-            Resultado do batimento entre estruturas gravadas e estrutura legada do SISCOMEX.
-          </p>
-        </div>
-        <Button variant="outline" onClick={() => router.push('/automacao/ajustes-atributos')} className="gap-2">
-          <ArrowLeft className="h-4 w-4" /> Voltar para lista
-        </Button>
+      <div className="mb-6">
+        <p className="text-slate-400 text-sm mb-1">Verificação #{dados.id}</p>
+        <h1 className="text-2xl font-semibold text-slate-100">Detalhes da verificação</h1>
+        <p className="text-slate-400 text-sm mt-1">
+          Resultado do batimento entre estruturas gravadas e estrutura legada do SISCOMEX.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
