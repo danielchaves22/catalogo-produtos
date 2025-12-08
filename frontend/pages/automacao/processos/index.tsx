@@ -106,7 +106,7 @@ function traduzirTipo(tipo: AsyncJobResumo['tipo']) {
     case 'ALTERACAO_ATRIBUTOS':
       return 'Alteração de Atributos em Massa';
     case 'AJUSTE_ESTRUTURA':
-      return 'Ajuste de Estrutura';
+      return 'Verificação de Atributos de NCM';
     case 'EXPORTACAO_PRODUTO':
       return 'Exportação de Produto';
     case 'EXPORTACAO_FABRICANTE':
