@@ -107,6 +107,7 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
       subItems: [
         { label: 'Automação', hideWhenExpanded: true },
         { label: 'Processos Assíncronos', href: '/automacao/processos' },
+        { label: 'Ajustes de Atributos', href: '/automacao/ajustes-atributos' },
         { label: 'Importar Produto', href: '/automacao/importar-produto' },
         { label: 'Definir Valor de Atributo Padrão', href: '/automacao/valores-padrao' },
         { label: 'Preencher Atributos em Massa', href: '/automacao/atributos-massa' },
