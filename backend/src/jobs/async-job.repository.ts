@@ -334,7 +334,7 @@ export async function listAsyncJobs(
       {
         AND: [
           { tipo: AsyncJobTipo.AJUSTE_ESTRUTURA },
-          { payload: { equals: { superUserId: parametros.superUserId } as Prisma.InputJsonValue } },
+          { payload: { path: ['superUserId'], equals: parametros.superUserId } },
         ],
       },
     ],
