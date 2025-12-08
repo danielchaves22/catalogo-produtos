@@ -304,13 +304,13 @@ export default function DetalheAjusteAtributosPage() {
                                                   </div>
                                                 </div>
                                               )}
-                                              {dif.tipo === 'ADICIONADO' && dif.valorLegado && (
+                                              {dif.tipo === 'ADICIONADO' && !!dif.valorLegado && (
                                                 <div className="mt-2 text-xs">
                                                   <span className="text-slate-400">Nome no SISCOMEX:</span>
                                                   <span className="ml-2 text-emerald-400">{formatarValor(dif.valorLegado)}</span>
                                                 </div>
                                               )}
-                                              {dif.tipo === 'REMOVIDO' && dif.valorAtual && (
+                                              {dif.tipo === 'REMOVIDO' && !!dif.valorAtual && (
                                                 <div className="mt-2 text-xs">
                                                   <span className="text-slate-400">Nome no Cache:</span>
                                                   <span className="ml-2 text-rose-400">{formatarValor(dif.valorAtual)}</span>
