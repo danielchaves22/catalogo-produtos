@@ -10,6 +10,15 @@ export interface VerificacaoAtributosPayload {
   usuarioId: number;
 }
 
+interface DiferencaAtributo {
+  codigo: string;
+  tipo: 'ADICIONADO' | 'REMOVIDO' | 'MODIFICADO';
+  campo?: string;
+  valorAtual?: unknown;
+  valorLegado?: unknown;
+  caminho?: string[];
+}
+
 export interface ResultadoVerificacao {
   ncmCodigo: string;
   modalidade: string;
@@ -22,6 +31,7 @@ export interface ResultadoVerificacao {
     atributos: number;
     dominios: number;
   };
+  diferencas?: DiferencaAtributo[];
 }
 
 const atributoLegacyService = new AtributoLegacyService();
@@ -89,6 +99,133 @@ function contarEstrutura(estrutura: AtributoEstruturaDTO[]): { atributos: number
   return { atributos, dominios };
 }
 
+function detectarDiferencas(
+  estruturaAtual: AtributoEstruturaDTO[],
+  estruturaLegada: AtributoEstruturaDTO[],
+  caminho: string[] = []
+): DiferencaAtributo[] {
+  const diferencas: DiferencaAtributo[] = [];
+
+  // Cria mapas indexados por código para facilitar comparação
+  const mapaAtual = new Map<string, AtributoEstruturaDTO>();
+  const mapaLegado = new Map<string, AtributoEstruturaDTO>();
+
+  const indexar = (lista: AtributoEstruturaDTO[], mapa: Map<string, AtributoEstruturaDTO>) => {
+    for (const attr of lista) {
+      mapa.set(attr.codigo, attr);
+      if (attr.subAtributos?.length) {
+        indexar(attr.subAtributos, mapa);
+      }
+    }
+  };
+
+  indexar(estruturaAtual, mapaAtual);
+  indexar(estruturaLegada, mapaLegado);
+
+  // Verifica atributos removidos ou modificados
+  for (const [codigo, attrAtual] of mapaAtual) {
+    const attrLegado = mapaLegado.get(codigo);
+    const caminhoAtual = [...caminho, codigo];
+
+    if (!attrLegado) {
+      diferencas.push({
+        codigo,
+        tipo: 'REMOVIDO',
+        caminho: caminhoAtual,
+        valorAtual: attrAtual.nome,
+      });
+      continue;
+    }
+
+    // Compara propriedades
+    if (attrAtual.nome !== attrLegado.nome) {
+      diferencas.push({
+        codigo,
+        tipo: 'MODIFICADO',
+        campo: 'nome',
+        valorAtual: attrAtual.nome,
+        valorLegado: attrLegado.nome,
+        caminho: caminhoAtual,
+      });
+    }
+
+    if (attrAtual.tipo !== attrLegado.tipo) {
+      diferencas.push({
+        codigo,
+        tipo: 'MODIFICADO',
+        campo: 'tipo',
+        valorAtual: attrAtual.tipo,
+        valorLegado: attrLegado.tipo,
+        caminho: caminhoAtual,
+      });
+    }
+
+    if (attrAtual.obrigatorio !== attrLegado.obrigatorio) {
+      diferencas.push({
+        codigo,
+        tipo: 'MODIFICADO',
+        campo: 'obrigatorio',
+        valorAtual: attrAtual.obrigatorio,
+        valorLegado: attrLegado.obrigatorio,
+        caminho: caminhoAtual,
+      });
+    }
+
+    if (attrAtual.multivalorado !== attrLegado.multivalorado) {
+      diferencas.push({
+        codigo,
+        tipo: 'MODIFICADO',
+        campo: 'multivalorado',
+        valorAtual: attrAtual.multivalorado,
+        valorLegado: attrLegado.multivalorado,
+        caminho: caminhoAtual,
+      });
+    }
+
+    // Compara domínios
+    const dominioAtualStr = JSON.stringify(attrAtual.dominio?.map(d => d.codigo).sort() ?? []);
+    const dominioLegadoStr = JSON.stringify(attrLegado.dominio?.map(d => d.codigo).sort() ?? []);
+    if (dominioAtualStr !== dominioLegadoStr) {
+      diferencas.push({
+        codigo,
+        tipo: 'MODIFICADO',
+        campo: 'dominio',
+        valorAtual: attrAtual.dominio?.length ?? 0,
+        valorLegado: attrLegado.dominio?.length ?? 0,
+        caminho: caminhoAtual,
+      });
+    }
+
+    // Compara validações
+    const validacoesAtualStr = JSON.stringify(normalizarValor(attrAtual.validacoes));
+    const validacoesLegadoStr = JSON.stringify(normalizarValor(attrLegado.validacoes));
+    if (validacoesAtualStr !== validacoesLegadoStr) {
+      diferencas.push({
+        codigo,
+        tipo: 'MODIFICADO',
+        campo: 'validacoes',
+        valorAtual: attrAtual.validacoes,
+        valorLegado: attrLegado.validacoes,
+        caminho: caminhoAtual,
+      });
+    }
+  }
+
+  // Verifica atributos adicionados
+  for (const [codigo, attrLegado] of mapaLegado) {
+    if (!mapaAtual.has(codigo)) {
+      diferencas.push({
+        codigo,
+        tipo: 'ADICIONADO',
+        caminho: [...caminho, codigo],
+        valorLegado: attrLegado.nome,
+      });
+    }
+  }
+
+  return diferencas;
+}
+
 export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributosPayload> = async ({
   job,
   payload,
@@ -98,24 +235,35 @@ export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributo
     throw new Error('Payload da verificação de atributos inválido.');
   }
 
-  const versoes = await catalogoPrisma.atributoVersao.findMany({
-    orderBy: [
-      { ncmCodigo: 'asc' },
-      { modalidade: 'asc' },
-      { versao: 'desc' },
-    ],
-    distinct: ['ncmCodigo', 'modalidade'],
-  });
+  // Busca apenas NCMs que estão sendo utilizadas em produtos
+  const ncmsUtilizadas = await catalogoPrisma.$queryRaw<Array<{ ncmCodigo: string; modalidade: string }>>`
+    SELECT DISTINCT p.ncm_codigo AS ncmCodigo, p.modalidade
+    FROM produto p
+    WHERE p.ncm_codigo IS NOT NULL
+    ORDER BY p.ncm_codigo, p.modalidade
+  `;
+
+  // Busca as versões mais recentes dessas NCMs
+  const versoes = await catalogoPrisma.$transaction(
+    ncmsUtilizadas.map(({ ncmCodigo, modalidade }) =>
+      catalogoPrisma.atributoVersao.findFirst({
+        where: { ncmCodigo, modalidade },
+        orderBy: { versao: 'desc' },
+      })
+    )
+  );
+
+  const versoesValidas = versoes.filter((v): v is NonNullable<typeof v> => v !== null);
 
   await registerJobLog(
     job.id,
     AsyncJobStatus.PROCESSANDO,
-    `Iniciando verificação de ${versoes.length} combinação(ões) de NCM/modalidade.`
+    `Iniciando verificação de ${versoesValidas.length} combinação(ões) de NCM/modalidade utilizadas em produtos.`
   );
 
   const resultados: ResultadoVerificacao[] = [];
 
-  for (const versao of versoes) {
+  for (const versao of versoesValidas) {
     await heartbeat();
 
     const modalidade = versao.modalidade ?? 'IMPORTACAO';
@@ -138,6 +286,12 @@ export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributo
     const hashAtual = gerarHashEstrutura(estruturaAtual.estrutura);
     const hashLegado = gerarHashEstrutura(estruturaLegada);
     const totais = contarEstrutura(estruturaAtual.estrutura);
+    const divergente = hashAtual !== hashLegado;
+
+    // Se houver divergência, detecta as diferenças específicas
+    const diferencas = divergente
+      ? detectarDiferencas(estruturaAtual.estrutura, estruturaLegada)
+      : undefined;
 
     resultados.push({
       ncmCodigo: versao.ncmCodigo,
@@ -146,8 +300,9 @@ export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributo
       versaoNumero: versao.versao,
       hashAtual,
       hashLegado,
-      divergente: hashAtual !== hashLegado,
+      divergente,
       totais,
+      diferencas,
     });
   }
 
