@@ -428,6 +428,17 @@ export default function ProcessosAssincronosPage() {
                               <Eye size={16} />
                             </button>
                           )}
+                          {job.tipo === 'AJUSTE_ESTRUTURA' && (
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/automacao/ajustes-atributos/${job.id}`)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 bg-slate-800/60 text-slate-200 transition hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                              title="Ver detalhes da verificação de atributos"
+                              aria-label="Ver detalhes da verificação de atributos"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          )}
                           {(job.tipo === 'EXPORTACAO_PRODUTO' || job.tipo === 'EXPORTACAO_FABRICANTE') &&
                             job.status === 'CONCLUIDO' && (
                             <button
