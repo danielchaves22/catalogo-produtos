@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
-import { AlertTriangle, CheckCircle2, CircleDashed, Clock3 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, CircleDashed, Clock3 } from 'lucide-react';
 
 interface ResultadoVerificacao {
   ncmCodigo: string;
@@ -67,6 +67,8 @@ export default function DetalheAjusteAtributosPage() {
   const { addToast } = useToast();
   const [dados, setDados] = useState<DetalheVerificacao | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [divergentesExpandido, setDivergentesExpandido] = useState(true);
+  const [alinhadosExpandido, setAlinhadosExpandido] = useState(false);
 
   useEffect(() => {
     if (!router.query.id) return;
@@ -88,9 +90,19 @@ export default function DetalheAjusteAtributosPage() {
     carregar();
   }, [addToast, router.query.id]);
 
-  const resultadosOrdenados = useMemo(
+  const resultadosDivergentes = useMemo(
     () =>
-      [...(dados?.resultados ?? [])].sort((a, b) => a.ncmCodigo.localeCompare(b.ncmCodigo)),
+      [...(dados?.resultados ?? [])]
+        .filter(r => r.divergente)
+        .sort((a, b) => a.ncmCodigo.localeCompare(b.ncmCodigo)),
+    [dados?.resultados]
+  );
+
+  const resultadosAlinhados = useMemo(
+    () =>
+      [...(dados?.resultados ?? [])]
+        .filter(r => !r.divergente)
+        .sort((a, b) => a.ncmCodigo.localeCompare(b.ncmCodigo)),
     [dados?.resultados]
   );
 
@@ -155,49 +167,119 @@ export default function DetalheAjusteAtributosPage() {
         </Card>
       </div>
 
-      <Card className="mb-6">
-        <h2 className="text-lg font-semibold text-slate-100 mb-3">Resultados por NCM</h2>
-        {resultadosOrdenados.length === 0 ? (
-          <div className="text-slate-400 text-sm py-6">Nenhum resultado disponível.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-800">
-              <thead className="bg-slate-900/50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">NCM</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Modalidade</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Versão</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Hash atual</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Hash legado</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Totais</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Situação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {resultadosOrdenados.map(item => (
-                  <tr key={`${item.ncmCodigo}-${item.modalidade}`} className="hover:bg-slate-900/40">
-                    <td className="px-4 py-3 text-sm text-slate-200">{item.ncmCodigo}</td>
-                    <td className="px-4 py-3 text-sm text-slate-200">{item.modalidade}</td>
-                    <td className="px-4 py-3 text-sm text-slate-200">{item.versaoNumero}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300 font-mono truncate max-w-xs">{item.hashAtual}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300 font-mono truncate max-w-xs">{item.hashLegado}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300">
-                      {item.totais.atributos} atributos · {item.totais.dominios} domínios
-                    </td>
-                    <td className="px-4 py-3 text-sm font-semibold">
-                      {item.divergente ? (
-                        <span className="text-rose-300">Divergente</span>
-                      ) : (
-                        <span className="text-emerald-400">Alinhado</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      <div className="space-y-4 mb-6">
+        {/* Painel de Divergentes */}
+        <Card>
+          <button
+            onClick={() => setDivergentesExpandido(!divergentesExpandido)}
+            className="w-full flex items-center justify-between p-4 hover:bg-slate-900/20 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-rose-400" />
+              <h2 className="text-lg font-semibold text-slate-100">
+                Estruturas Divergentes ({resultadosDivergentes.length})
+              </h2>
+            </div>
+            {divergentesExpandido ? (
+              <ChevronUp className="h-5 w-5 text-slate-400" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-slate-400" />
+            )}
+          </button>
+
+          {divergentesExpandido && (
+            <div className="border-t border-slate-800">
+              {resultadosDivergentes.length === 0 ? (
+                <div className="text-slate-400 text-sm py-6 px-4">Nenhuma divergência encontrada.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-800">
+                    <thead className="bg-slate-900/50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">NCM</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Modalidade</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Versão</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Hash atual</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Hash legado</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Totais</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                      {resultadosDivergentes.map(item => (
+                        <tr key={`${item.ncmCodigo}-${item.modalidade}`} className="hover:bg-slate-900/40">
+                          <td className="px-4 py-3 text-sm text-slate-200">{item.ncmCodigo}</td>
+                          <td className="px-4 py-3 text-sm text-slate-200">{item.modalidade}</td>
+                          <td className="px-4 py-3 text-sm text-slate-200">{item.versaoNumero}</td>
+                          <td className="px-4 py-3 text-sm text-slate-300 font-mono truncate max-w-xs">{item.hashAtual}</td>
+                          <td className="px-4 py-3 text-sm text-slate-300 font-mono truncate max-w-xs">{item.hashLegado}</td>
+                          <td className="px-4 py-3 text-sm text-slate-300">
+                            {item.totais.atributos} atributos · {item.totais.dominios} domínios
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+
+        {/* Painel de Alinhados */}
+        <Card>
+          <button
+            onClick={() => setAlinhadosExpandido(!alinhadosExpandido)}
+            className="w-full flex items-center justify-between p-4 hover:bg-slate-900/20 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+              <h2 className="text-lg font-semibold text-slate-100">
+                Estruturas Alinhadas ({resultadosAlinhados.length})
+              </h2>
+            </div>
+            {alinhadosExpandido ? (
+              <ChevronUp className="h-5 w-5 text-slate-400" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-slate-400" />
+            )}
+          </button>
+
+          {alinhadosExpandido && (
+            <div className="border-t border-slate-800">
+              {resultadosAlinhados.length === 0 ? (
+                <div className="text-slate-400 text-sm py-6 px-4">Nenhuma estrutura alinhada.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-800">
+                    <thead className="bg-slate-900/50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">NCM</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Modalidade</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Versão</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Hash</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300">Totais</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                      {resultadosAlinhados.map(item => (
+                        <tr key={`${item.ncmCodigo}-${item.modalidade}`} className="hover:bg-slate-900/40">
+                          <td className="px-4 py-3 text-sm text-slate-200">{item.ncmCodigo}</td>
+                          <td className="px-4 py-3 text-sm text-slate-200">{item.modalidade}</td>
+                          <td className="px-4 py-3 text-sm text-slate-200">{item.versaoNumero}</td>
+                          <td className="px-4 py-3 text-sm text-slate-300 font-mono truncate max-w-xs">{item.hashAtual}</td>
+                          <td className="px-4 py-3 text-sm text-slate-300">
+                            {item.totais.atributos} atributos · {item.totais.dominios} domínios
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
 
       <Card>
         <h2 className="text-lg font-semibold text-slate-100 mb-3">Histórico de logs</h2>
