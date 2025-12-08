@@ -34,7 +34,7 @@ export async function validarRestricaoDiaria(superUserId: number): Promise<void>
         gte: inicioDoDiaAtual(),
         lt: inicioDoProximoDia(),
       },
-      payload: { path: ['superUserId'], equals: superUserId },
+      payload: { path: '$.superUserId', equals: superUserId },
     },
   });
 
@@ -93,7 +93,7 @@ export async function detalharVerificacao(
     where: {
       id: jobId,
       tipo: AsyncJobTipo.AJUSTE_ESTRUTURA,
-      payload: { path: ['superUserId'], equals: superUserId },
+      payload: { path: '$.superUserId', equals: superUserId },
     },
     include: {
       arquivo: true,

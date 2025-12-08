@@ -334,7 +334,7 @@ export async function listAsyncJobs(
       {
         AND: [
           { tipo: AsyncJobTipo.AJUSTE_ESTRUTURA },
-          { payload: { path: ['superUserId'], equals: parametros.superUserId } },
+          { payload: { path: '$.superUserId', equals: parametros.superUserId } },
         ],
       },
     ],
