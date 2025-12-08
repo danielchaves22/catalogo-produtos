@@ -53,6 +53,13 @@ export class AtributoLegacyService {
     }
   }
 
+  async buscarEstruturaLegadaAtual(
+    ncm: string,
+    modalidade: string = 'IMPORTACAO'
+  ): Promise<AtributoEstruturaDTO[]> {
+    return this.carregarEstruturaLegacy(ncm, modalidade)
+  }
+
   async buscarEstrutura(ncm: string, modalidade: string = 'IMPORTACAO'): Promise<EstruturaComVersao> {
     const versaoExistente = await catalogoPrisma.atributoVersao.findFirst({
       where: { ncmCodigo: ncm, modalidade },

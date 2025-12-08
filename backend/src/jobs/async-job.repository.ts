@@ -331,6 +331,12 @@ export async function listAsyncJobs(
       { importacaoProduto: { superUserId: parametros.superUserId } },
       { atributoPreenchimentoMassa: { superUserId: parametros.superUserId } },
       { produtoExportacao: { superUserId: parametros.superUserId } },
+      {
+        AND: [
+          { tipo: AsyncJobTipo.AJUSTE_ESTRUTURA },
+          { payload: { equals: { superUserId: parametros.superUserId } as Prisma.InputJsonValue } },
+        ],
+      },
     ],
   };
 
