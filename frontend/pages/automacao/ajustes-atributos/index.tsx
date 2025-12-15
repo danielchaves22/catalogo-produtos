@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 import { Eye, Loader2, Play } from 'lucide-react';
 
@@ -70,10 +71,21 @@ function traduzirStatus(status: AsyncJobResumo['status']) {
 
 export default function AjustesAtributosPage() {
   const { addToast } = useToast();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
   const [jobs, setJobs] = useState<AsyncJobResumo[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [iniciando, setIniciando] = useState(false);
+
+  // Verificar permissão de acesso - apenas admins
+  useEffect(() => {
+    if (isAuthLoading) return;
+
+    if (!user?.catprodAdmFull) {
+      addToast('Acesso negado. Esta página é restrita a administradores.', 'error');
+      router.replace('/');
+    }
+  }, [user, isAuthLoading, router, addToast]);
 
   const carregar = useCallback(async () => {
     try {
