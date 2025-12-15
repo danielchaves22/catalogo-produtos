@@ -92,7 +92,7 @@ export class AjusteEstruturaService {
     }
 
     // Buscar nova estrutura do SISCOMEX
-    const novaEstrutura = await this.atributoLegacyService.getAtributos(
+    const novaEstrutura = await this.atributoLegacyService.buscarEstrutura(
       produto.ncmCodigo,
       produto.modalidade || 'IMPORTACAO'
     );
@@ -281,12 +281,12 @@ export class AjusteEstruturaService {
     let valoresPreservados = 0;
 
     // Mapear atributos atuais por código
-    const atributosAtuais = new Map(
+    const atributosAtuais = new Map<string, any>(
       produto.atributos.map((pa: any) => [pa.atributo.codigo, pa])
     );
 
     // Mapear nova estrutura por código
-    const novaEstruturaMap = new Map(
+    const novaEstruturaMap = new Map<string, AtributoEstruturaDTO>(
       novaEstrutura.map((attr) => [attr.codigo, attr])
     );
 
@@ -418,7 +418,7 @@ export class AjusteEstruturaService {
 
     for (const atributo of estrutura) {
       // Pular atributos condicionais (por simplicidade, assumimos que não são obrigatórios se condicionais)
-      if (atributo.condicoes && atributo.condicoes.length > 0) {
+      if (atributo.condicao) {
         continue;
       }
 
