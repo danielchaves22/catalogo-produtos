@@ -28,6 +28,11 @@ export const produtoSituacaoLegend: LegendItem[] = [
 
 export const produtoStatusLegend: LegendItem[] = [
   {
+    label: 'Ajustar Estrutura',
+    description: 'ESTRUTURA DE ATRIBUTOS DIVERGENTE DO SISCOMEX. NECESSITA AJUSTE.',
+    badgeClass: chip('bg-[#dc26261a] text-[#dc2626] border-[#dc2626]'),
+  },
+  {
     label: 'Pendente',
     description: 'Pendente de algum campo obrigatório.',
     badgeClass: chip('bg-[#e4a8351a] text-[#e4a835] border-[#e4a835]'),

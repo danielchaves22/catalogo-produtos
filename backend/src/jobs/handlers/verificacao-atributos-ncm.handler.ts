@@ -392,6 +392,33 @@ export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributo
     expiraEm,
   });
 
+  // Marcar produtos com estrutura divergente
+  if (divergentes > 0) {
+    const ncmsDivergentes = resultados.filter(r => r.divergente);
+    let totalProdutosMarcados = 0;
+
+    for (const { ncmCodigo, modalidade } of ncmsDivergentes) {
+      const result = await catalogoPrisma.produto.updateMany({
+        where: {
+          ncmCodigo,
+          modalidade,
+          status: { not: 'AJUSTAR_ESTRUTURA' }, // Evitar remarcar
+        },
+        data: {
+          status: 'AJUSTAR_ESTRUTURA',
+        },
+      });
+
+      totalProdutosMarcados += result.count;
+    }
+
+    await registerJobLog(
+      job.id,
+      AsyncJobStatus.PROCESSANDO,
+      `Marcados ${totalProdutosMarcados} produto(s) para ajuste de estrutura.`
+    );
+  }
+
   await registerJobLog(
     job.id,
     AsyncJobStatus.PROCESSANDO,

@@ -319,6 +319,7 @@ enum ImportacaoProdutoItemResultado {
 }
 // Enum de status de Produto
 enum ProdutoStatus {
+  AJUSTAR_ESTRUTURA
   PENDENTE
   APROVADO
   PROCESSANDO
