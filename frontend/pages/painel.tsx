@@ -8,7 +8,7 @@ import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 interface StatusResumo {
-  status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  status: 'AJUSTAR_ESTRUTURA' | 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
   total: number;
 }
 
@@ -30,16 +30,18 @@ interface ResumoDashboard {
 
 // Mapeamento de cores para cada status (mesmo padrão da listagem)
 const STATUS_COLORS = {
+  AJUSTAR_ESTRUTURA: '#dc2626',
   PENDENTE: '#ff9900',
-  APROVADO: '#01aa4d', 
+  APROVADO: '#01aa4d',
   PROCESSANDO: '#4c82d3',
   TRANSMITIDO: '#5e17eb',
   ERRO: '#ff5757'
 };
 
 const STATUS_LABELS = {
+  AJUSTAR_ESTRUTURA: 'Ajustar Estrutura',
   PENDENTE: 'Pendente',
-  APROVADO: 'Aprovado', 
+  APROVADO: 'Aprovado',
   PROCESSANDO: 'Processando',
   TRANSMITIDO: 'Transmitido',
   ERRO: 'Erro'
@@ -58,7 +60,7 @@ const ATRIBUTOS_LABELS = {
   TOTAL: 'Total de Atributos'
 };
 
-const TODOS_STATUS = ['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO'] as const;
+const TODOS_STATUS = ['AJUSTAR_ESTRUTURA', 'PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO'] as const;
 
 function statusListaParaMapa(lista: StatusResumo[] | undefined): Record<(typeof TODOS_STATUS)[number], number> {
   const mapa = TODOS_STATUS.reduce((acc, status) => {

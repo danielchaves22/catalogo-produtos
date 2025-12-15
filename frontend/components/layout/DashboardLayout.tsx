@@ -11,6 +11,7 @@ import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { WorkingCatalogModal } from '@/components/catalogos/WorkingCatalogModal';
 import { useMessages } from '@/contexts/MessagesContext';
 import { formatCPFOrCNPJ } from '@/lib/validation';
+import { AjusteEstruturaIndicator } from '@/components/ui/AjusteEstruturaIndicator';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -162,6 +163,8 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
           >
             <RefreshCcw size={16} />
           </button>
+
+          <AjusteEstruturaIndicator />
 
           <div className="relative" ref={messagesMenuRef}>
             <button
