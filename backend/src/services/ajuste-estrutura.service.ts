@@ -392,8 +392,11 @@ export class AjusteEstruturaService {
     }
 
     // Verificar atributos obrigatórios
+    // Considerar apenas atributos que têm valores preenchidos
     const atributosPreenchidos = new Set(
-      produto.atributos.map((pa) => pa.atributo.codigo)
+      produto.atributos
+        .filter((pa) => pa.valores && pa.valores.length > 0)
+        .map((pa) => pa.atributo.codigo)
     );
 
     const obrigatoriosNaoPreenchidos = this.encontrarObrigatoriosNaoPreenchidos(

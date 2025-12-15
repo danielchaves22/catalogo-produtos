@@ -311,11 +311,13 @@ export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributo
     throw new Error('Payload da verificação de atributos inválido.');
   }
 
-  // Busca apenas NCMs que estão sendo utilizadas em produtos
+  // Busca apenas NCMs que estão sendo utilizadas em produtos do superUserId
   const ncmsUtilizadas = await catalogoPrisma.$queryRaw<Array<{ ncmCodigo: string; modalidade: string }>>`
     SELECT DISTINCT p.ncm_codigo AS ncmCodigo, p.modalidade
     FROM produto p
+    INNER JOIN catalogo c ON p.catalogo_id = c.id
     WHERE p.ncm_codigo IS NOT NULL
+      AND c.super_user_id = ${payload.superUserId}
     ORDER BY p.ncm_codigo, p.modalidade
   `;
 
@@ -403,6 +405,9 @@ export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributo
           ncmCodigo,
           modalidade,
           status: { not: 'AJUSTAR_ESTRUTURA' }, // Evitar remarcar
+          catalogo: {
+            superUserId: payload.superUserId, // Filtrar por tenant
+          },
         },
         data: {
           status: 'AJUSTAR_ESTRUTURA',
