@@ -382,7 +382,7 @@ export class SiscomexService {
   ): Promise<SiscomexProduto[]> {
     try {
       const response = await this.api.post<SiscomexProduto | SiscomexProduto[]>(
-        `/ext/produto/${cpfCnpjRaiz}`,
+        `/ext/produto`,
         produtos
       );
 

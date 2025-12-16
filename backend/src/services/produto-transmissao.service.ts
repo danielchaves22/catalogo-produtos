@@ -251,7 +251,9 @@ export class ProdutoTransmissaoService {
     });
 
     const payloadProdutos = produtosExportados.map(produtoExportado => {
-      const { cpfCnpjRaiz: _cpfCnpj, seq: _seq, catalogoId: _catalogoId, ...payload } = produtoExportado;
+      const { catalogoId: catalogoId, ...payload } = produtoExportado;
+      console.log('produtoExportado', produtoExportado);
+      console.log(payload)
       return payload as any;
     });
 
