@@ -331,12 +331,14 @@ export async function listAsyncJobs(
       { importacaoProduto: { superUserId: parametros.superUserId } },
       { atributoPreenchimentoMassa: { superUserId: parametros.superUserId } },
       { produtoExportacao: { superUserId: parametros.superUserId } },
-      {
-        AND: [
-          { tipo: AsyncJobTipo.AJUSTE_ESTRUTURA },
-          { payload: { path: '$.superUserId', equals: parametros.superUserId } },
-        ],
-      },
+      parametros.tipos?.includes(AsyncJobTipo.AJUSTE_ESTRUTURA)
+        ? { tipo: AsyncJobTipo.AJUSTE_ESTRUTURA }
+        : {
+            AND: [
+              { tipo: AsyncJobTipo.AJUSTE_ESTRUTURA },
+              { payload: { path: '$.superUserId', equals: parametros.superUserId } },
+            ],
+          },
     ],
   };
 

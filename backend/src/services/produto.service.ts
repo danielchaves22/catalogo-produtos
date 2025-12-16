@@ -26,7 +26,13 @@ export interface CreateProdutoDTO {
 
 export interface UpdateProdutoDTO {
   modalidade?: string;
-  status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  status?:
+    | 'PENDENTE'
+    | 'APROVADO'
+    | 'PROCESSANDO'
+    | 'TRANSMITIDO'
+    | 'ERRO'
+    | 'AJUSTAR_ESTRUTURA';
   situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
   denominacao?: string;
   descricao?: string;
@@ -49,7 +55,9 @@ export interface CloneProdutoDTO {
 }
 
 export interface ListarProdutosFiltro {
-  status?: Array<'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO'>;
+  status?: Array<
+    'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO' | 'AJUSTAR_ESTRUTURA'
+  >;
   situacoes?: Array<'RASCUNHO' | 'ATIVADO' | 'DESATIVADO'>;
   ncm?: string;
   catalogoId?: number;
@@ -60,7 +68,13 @@ export interface ProdutoListItemDTO {
   id: number;
   codigo: string | null;
   ncmCodigo: string;
-  status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  status:
+    | 'PENDENTE'
+    | 'APROVADO'
+    | 'PROCESSANDO'
+    | 'TRANSMITIDO'
+    | 'ERRO'
+    | 'AJUSTAR_ESTRUTURA';
   situacao: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
   modalidade: string | null;
   denominacao: string;
@@ -629,6 +643,12 @@ export class ProdutoService {
     }
 
     return removidos;
+  }
+
+  async contarPendenciasAjusteEstrutura(superUserId: number): Promise<number> {
+    return catalogoPrisma.produto.count({
+      where: { status: 'AJUSTAR_ESTRUTURA', catalogo: { superUserId } },
+    });
   }
 
   async resolverSelecaoProdutos(

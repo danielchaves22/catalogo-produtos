@@ -18,7 +18,7 @@ interface Produto {
   id: number;
   codigo?: string | null;
   ncmCodigo: string;
-  status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO' | 'AJUSTAR_ESTRUTURA';
   atualizadoEm: string;
   catalogoNumero?: number | null;
   catalogoNome?: string | null;
@@ -48,7 +48,8 @@ export function ListaProdutosPainel() {
     { value: 'APROVADO', label: 'Aprovado' },
     { value: 'PROCESSANDO', label: 'Processando' },
     { value: 'TRANSMITIDO', label: 'Transmitido' },
-    { value: 'ERRO', label: 'Erro' }
+    { value: 'ERRO', label: 'Erro' },
+    { value: 'AJUSTAR_ESTRUTURA', label: 'Ajustar Estrutura' }
   ] satisfies Array<{ value: Produto['status']; label: string }>;
 
   const [filtros, setFiltros] = useState<{

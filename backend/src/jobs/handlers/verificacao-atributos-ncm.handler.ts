@@ -6,7 +6,6 @@ import { catalogoPrisma } from '../../utils/prisma';
 import { atualizarArquivoJob, registerJobLog } from '../async-job.repository';
 
 export interface VerificacaoAtributosPayload {
-  superUserId: number;
   usuarioId: number;
 }
 
@@ -307,7 +306,7 @@ export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributo
   payload,
   heartbeat,
 }) => {
-  if (!payload?.superUserId || !payload?.usuarioId) {
+  if (!payload?.usuarioId) {
     throw new Error('Payload da verificação de atributos inválido.');
   }
 

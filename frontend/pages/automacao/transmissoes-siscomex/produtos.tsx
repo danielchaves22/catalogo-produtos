@@ -19,7 +19,7 @@ interface ProdutoTransmissao {
   id: number;
   codigo?: string | null;
   denominacao?: string;
-  status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO' | 'AJUSTAR_ESTRUTURA';
   situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
   catalogoId?: number;
   catalogoNome?: string | null;

@@ -5,8 +5,10 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/ToastContext';
+import { Button } from '@/components/ui/Button';
 import api from '@/lib/api';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, CircleDashed, Clock3 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface DiferencaAtributo {
   codigo: string;
@@ -74,32 +76,57 @@ function obterBadge(status: DetalheVerificacao['status']) {
 
 export default function DetalheAjusteAtributosPage() {
   const router = useRouter();
+  const { user, isLoading } = useAuth();
   const { addToast } = useToast();
   const [dados, setDados] = useState<DetalheVerificacao | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [aplicando, setAplicando] = useState(false);
   const [divergentesExpandido, setDivergentesExpandido] = useState(true);
   const [alinhadosExpandido, setAlinhadosExpandido] = useState(false);
   const [ncmDetalhesExpandido, setNcmDetalhesExpandido] = useState<string | null>(null);
 
+  const carregarDetalhes = React.useCallback(async () => {
+    if (!router.query.id || user?.role !== 'ADMIN') return;
+
+    try {
+      const resposta = await api.get<DetalheVerificacao>(
+        `/automacao/ajustes-atributos/verificacoes/${router.query.id}`
+      );
+      setDados(resposta.data);
+    } catch (error) {
+      console.error('Erro ao buscar detalhes da verificação', error);
+      addToast('Não foi possível carregar os detalhes da verificação.', 'error');
+    } finally {
+      setCarregando(false);
+    }
+  }, [addToast, router.query.id, user?.role]);
+
+  const aplicarAtualizacao = async () => {
+    if (!router.query.id) return;
+    setAplicando(true);
+    try {
+      await api.post(`/automacao/ajustes-atributos/verificacoes/${router.query.id}/aplicar`);
+      addToast('Estruturas sincronizadas e produtos marcados para ajuste.', 'success');
+      setCarregando(true);
+      await carregarDetalhes();
+    } catch (error: any) {
+      const mensagem = error?.response?.data?.error || 'Não foi possível aplicar os ajustes.';
+      addToast(mensagem, 'error');
+    } finally {
+      setAplicando(false);
+    }
+  };
+
   useEffect(() => {
     if (!router.query.id) return;
 
-    const carregar = async () => {
-      try {
-        const resposta = await api.get<DetalheVerificacao>(
-          `/automacao/ajustes-atributos/verificacoes/${router.query.id}`
-        );
-        setDados(resposta.data);
-      } catch (error) {
-        console.error('Erro ao buscar detalhes da verificação', error);
-        addToast('Não foi possível carregar os detalhes da verificação.', 'error');
-      } finally {
-        setCarregando(false);
-      }
-    };
+    if (user?.role !== 'ADMIN') {
+      setCarregando(false);
+      return;
+    }
 
-    carregar();
-  }, [addToast, router.query.id]);
+    carregarDetalhes();
+  }, [carregarDetalhes, router.query.id, user?.role]);
 
   const resultadosDivergentes = useMemo(
     () =>
@@ -136,10 +163,20 @@ export default function DetalheAjusteAtributosPage() {
     setNcmDetalhesExpandido(prev => prev === key ? null : key);
   };
 
-  if (carregando) {
+  if (isLoading || carregando) {
     return (
       <DashboardLayout title="Detalhes da Verificação">
         <PageLoader message="Carregando detalhes" />
+      </DashboardLayout>
+    );
+  }
+
+  if (user?.role !== 'ADMIN') {
+    return (
+      <DashboardLayout title="Detalhes da Verificação">
+        <div className="text-center text-slate-300 py-10">
+          Apenas administradores podem acessar esta funcionalidade.
+        </div>
       </DashboardLayout>
     );
   }
@@ -173,6 +210,16 @@ export default function DetalheAjusteAtributosPage() {
         <p className="text-slate-400 text-sm mt-1">
           Resultado do batimento entre estruturas gravadas e estrutura legada do SISCOMEX.
         </p>
+      </div>
+
+      <div className="flex justify-end mb-4">
+        <Button
+          onClick={aplicarAtualizacao}
+          disabled={aplicando || (dados.divergentes ?? 0) === 0}
+          className="gap-2"
+        >
+          {aplicando ? 'Aplicando ajustes...' : 'Atualizar estruturas e marcar produtos'}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">

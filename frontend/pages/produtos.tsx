@@ -24,7 +24,7 @@ interface Produto {
   id: number;
   codigo?: string | null;
   ncmCodigo: string;
-  status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO' | 'AJUSTAR_ESTRUTURA';
   atualizadoEm: string;
   catalogoNumero?: number | null;
   catalogoNome?: string | null;
@@ -50,7 +50,8 @@ const statusOptions = [
   { value: 'APROVADO', label: 'Aprovado' },
   { value: 'PROCESSANDO', label: 'Processando' },
   { value: 'TRANSMITIDO', label: 'Transmitido' },
-  { value: 'ERRO', label: 'Erro' }
+  { value: 'ERRO', label: 'Erro' },
+  { value: 'AJUSTAR_ESTRUTURA', label: 'Ajustar Estrutura' }
 ] satisfies Array<{ value: Produto['status']; label: string }>;
 
 export default function ProdutosPage() {
@@ -443,6 +444,8 @@ export default function ProdutosPage() {
       case 'TRANSMITIDO':
         return 'bg-[#5e17eb1a] text-[#5e17eb] border border-[#5e17eb]';
       case 'ERRO':
+        return 'bg-[#ff57571a] text-[#ff5757] border border-[#ff5757]';
+      case 'AJUSTAR_ESTRUTURA':
         return 'bg-[#ff57571a] text-[#ff5757] border border-[#ff5757]';
       default:
         return 'bg-gray-900/50 text-gray-400 border border-gray-700';

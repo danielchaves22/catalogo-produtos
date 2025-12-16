@@ -324,6 +324,7 @@ enum ProdutoStatus {
   PROCESSANDO
   TRANSMITIDO
   ERRO
+  AJUSTAR_ESTRUTURA
 }
 
 enum ProdutoSituacao {

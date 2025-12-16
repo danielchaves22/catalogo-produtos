@@ -21,7 +21,7 @@ interface CatalogoResumo {
 }
 
 interface OperadorParaTransmissao extends OperadorEstrangeiro {
-  status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO' | 'AJUSTAR_ESTRUTURA';
 }
 
 export default function NovaTransmissaoOperadoresPage() {
