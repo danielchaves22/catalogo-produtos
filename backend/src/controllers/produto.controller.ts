@@ -177,6 +177,46 @@ export async function contarPendenciasAjusteEstrutura(req: Request, res: Respons
   }
 }
 
+export async function listarPendenciasAjusteEstruturaDetalhadas(req: Request, res: Response) {
+  try {
+    const detalhes = await produtoService.listarPendenciasAjusteEstruturaDetalhadas(
+      req.user!.superUserId
+    );
+    return res.json(detalhes);
+  } catch (error: any) {
+    logger.error('Erro ao listar pendências detalhadas de ajuste de estrutura:', error);
+    return res.status(500).json({ error: 'Não foi possível carregar as pendências detalhadas.' });
+  }
+}
+
+export async function ajustarEstruturaCatalogo(req: Request, res: Response) {
+  try {
+    const { ncmCodigo, modalidade, catalogoId } = req.body ?? {};
+
+    if (!ncmCodigo || !catalogoId) {
+      return res.status(400).json({ error: 'NCM e catálogo são obrigatórios para o ajuste.' });
+    }
+
+    const resultado = await produtoService.ajustarEstruturaCatalogo(
+      {
+        ncmCodigo,
+        modalidade: modalidade ?? '',
+        catalogoId: Number(catalogoId),
+      },
+      req.user!.superUserId
+    );
+
+    return res.json(resultado);
+  } catch (error: any) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, details: error.details });
+    }
+
+    logger.error('Erro ao ajustar estrutura por catálogo:', error);
+    return res.status(500).json({ error: error.message ?? 'Falha ao ajustar estrutura.' });
+  }
+}
+
 export async function removerProdutosEmMassa(req: Request, res: Response) {
   try {
     const dados = req.body as RemoverProdutosEmMassaDTO;
