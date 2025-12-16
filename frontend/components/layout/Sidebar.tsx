@@ -75,7 +75,7 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
     // { label: 'Ajuste de Produtos em Massa', href: '/automacao/ajuste-de-produtos-em-massa' },
   ];
 
-  if (!user?.catprodAdmFull) {
+  if (user?.role !== 'ADMIN') {
     const indiceAjustes = automacaoSubItems.findIndex(
       (item) => item.href === '/automacao/ajustes-atributos'
     );

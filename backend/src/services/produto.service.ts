@@ -1,7 +1,7 @@
 // backend/src/services/produto.service.ts
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
-import { Prisma } from '@prisma/client';
+import { AsyncJobTipo, Prisma } from '@prisma/client';
 import {
   AtributoLegacyService,
   AtributoEstruturaDTO,
@@ -9,6 +9,7 @@ import {
 } from './atributo-legacy.service';
 import { ValidationError } from '../types/validation-error';
 import { ProdutoResumoService } from './produto-resumo.service';
+import { ResultadoVerificacao } from '../jobs/handlers/verificacao-atributos-ncm.handler';
 
 export interface CreateProdutoDTO {
   codigo?: string;
@@ -106,6 +107,19 @@ export interface RemoverProdutosEmMassaDTO {
   idsDeselecionados?: number[];
   filtros?: ListarProdutosFiltro;
   busca?: string;
+}
+
+export interface PendenciaAjusteEstruturaCatalogoDTO {
+  catalogoId: number;
+  catalogoNome: string | null;
+  produtos: Array<{ id: number; denominacao: string }>;
+}
+
+export interface PendenciaAjusteEstruturaDTO {
+  ncmCodigo: string;
+  modalidade: string;
+  diferencas?: ResultadoVerificacao['diferencas'];
+  catalogos: PendenciaAjusteEstruturaCatalogoDTO[];
 }
 
 export class ProdutoService {
@@ -649,6 +663,157 @@ export class ProdutoService {
     return catalogoPrisma.produto.count({
       where: { status: 'AJUSTAR_ESTRUTURA', catalogo: { superUserId } },
     });
+  }
+
+  private lerResultadosVerificacao(conteudoBase64?: string | null): ResultadoVerificacao[] {
+    if (!conteudoBase64) return [];
+
+    try {
+      const texto = Buffer.from(conteudoBase64, 'base64').toString('utf8');
+      const parsed = JSON.parse(texto);
+      return Array.isArray(parsed) ? (parsed as ResultadoVerificacao[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private async carregarMapaDivergencias(): Promise<Map<string, ResultadoVerificacao>> {
+    const job = await catalogoPrisma.asyncJob.findFirst({
+      where: { tipo: AsyncJobTipo.AJUSTE_ESTRUTURA },
+      orderBy: { criadoEm: 'desc' },
+      include: { arquivo: true },
+    });
+
+    const resultados = this.lerResultadosVerificacao(job?.arquivo?.conteudoBase64);
+    const mapa = new Map<string, ResultadoVerificacao>();
+
+    resultados
+      .filter(item => item.divergente)
+      .forEach(item => {
+        const chave = `${item.ncmCodigo}|${item.modalidade || ''}`;
+        if (!mapa.has(chave)) {
+          mapa.set(chave, item);
+        }
+      });
+
+    return mapa;
+  }
+
+  async listarPendenciasAjusteEstruturaDetalhadas(superUserId: number): Promise<{
+    itens: PendenciaAjusteEstruturaDTO[];
+    totalProdutos: number;
+  }> {
+    const produtos = await catalogoPrisma.produto.findMany({
+      where: { status: 'AJUSTAR_ESTRUTURA', catalogo: { superUserId } },
+      select: {
+        id: true,
+        denominacao: true,
+        ncmCodigo: true,
+        modalidade: true,
+        catalogoId: true,
+        catalogo: { select: { nome: true } },
+      },
+      orderBy: [
+        { ncmCodigo: 'asc' },
+        { catalogoId: 'asc' },
+        { denominacao: 'asc' },
+      ],
+    });
+
+    const mapaDivergencias = await this.carregarMapaDivergencias();
+    const agrupados = new Map<string, PendenciaAjusteEstruturaDTO>();
+
+    for (const produto of produtos) {
+      const modalidade = produto.modalidade || '';
+      const chave = `${produto.ncmCodigo}|${modalidade}`;
+      if (!agrupados.has(chave)) {
+        agrupados.set(chave, {
+          ncmCodigo: produto.ncmCodigo,
+          modalidade,
+          diferencas: mapaDivergencias.get(chave)?.diferencas,
+          catalogos: [],
+        });
+      }
+
+      const grupo = agrupados.get(chave)!;
+      const catalogoExistente = grupo.catalogos.find(
+        item => item.catalogoId === produto.catalogoId
+      );
+
+      if (catalogoExistente) {
+        catalogoExistente.produtos.push({ id: produto.id, denominacao: produto.denominacao });
+      } else {
+        grupo.catalogos.push({
+          catalogoId: produto.catalogoId,
+          catalogoNome: produto.catalogo?.nome ?? null,
+          produtos: [{ id: produto.id, denominacao: produto.denominacao }],
+        });
+      }
+    }
+
+    const itens = Array.from(agrupados.values());
+    return { itens, totalProdutos: produtos.length };
+  }
+
+  async ajustarEstruturaCatalogo(
+    parametros: { ncmCodigo: string; modalidade: string; catalogoId: number },
+    superUserId: number
+  ): Promise<{ ajustados: number }> {
+    const ncmCodigo = parametros.ncmCodigo;
+    const modalidade = parametros.modalidade || '';
+
+    const produtos = await catalogoPrisma.produto.findMany({
+      where: {
+        ncmCodigo,
+        modalidade,
+        catalogoId: parametros.catalogoId,
+        catalogo: { superUserId },
+        status: 'AJUSTAR_ESTRUTURA',
+      },
+      include: {
+        atributos: {
+          include: {
+            atributo: { select: { codigo: true, multivalorado: true } },
+            valores: { select: { valorJson: true, ordem: true }, orderBy: { ordem: 'asc' } },
+          },
+        },
+      },
+    });
+
+    if (!produtos.length) {
+      throw new Error('Nenhum produto pendente encontrado para o catálogo informado.');
+    }
+
+    const estruturaInfo = await this.obterEstruturaAtributos(ncmCodigo, modalidade);
+    const mapaEstrutura = this.mapearEstruturaPorCodigo(estruturaInfo.estrutura);
+
+    await catalogoPrisma.$transaction(async tx => {
+      for (const produto of produtos) {
+        const valoresOriginais = this.montarValoresDosAtributos(produto.atributos);
+        const valoresFiltrados = Object.fromEntries(
+          Object.entries(valoresOriginais).filter(([codigo]) => mapaEstrutura.has(codigo))
+        );
+
+        await tx.produtoAtributo.deleteMany({ where: { produtoId: produto.id } });
+
+        await tx.produto.update({
+          where: { id: produto.id },
+          data: {
+            versaoAtributoId: estruturaInfo.versaoId,
+            versaoEstruturaAtributos: estruturaInfo.versaoNumero,
+            status: 'PENDENTE',
+          },
+        });
+
+        if (Object.keys(valoresFiltrados).length > 0) {
+          await this.salvarValoresProduto(tx, produto.id, estruturaInfo, valoresFiltrados);
+        }
+
+        await this.produtoResumoService.recalcularResumoProduto(produto.id, tx);
+      }
+    });
+
+    return { ajustados: produtos.length };
   }
 
   async resolverSelecaoProdutos(

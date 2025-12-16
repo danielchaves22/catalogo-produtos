@@ -8,6 +8,8 @@ import {
   removerProduto,
   clonarProduto,
   contarPendenciasAjusteEstrutura,
+  listarPendenciasAjusteEstruturaDetalhadas,
+  ajustarEstruturaCatalogo,
   removerProdutosEmMassa
 } from '../controllers/produto.controller';
 import { solicitarExportacaoFabricantes, solicitarExportacaoProdutos } from '../controllers/produto-exportacao.controller';
@@ -42,6 +44,8 @@ router.delete('/importacoes', limparImportacoes);
 
 router.get('/', listarProdutos);
 router.get('/pendencias/ajuste-estrutura', contarPendenciasAjusteEstrutura);
+router.get('/pendencias/ajuste-estrutura/detalhes', listarPendenciasAjusteEstruturaDetalhadas);
+router.post('/ajuste-estrutura/ajustar-catalogo', ajustarEstruturaCatalogo);
 router.get('/:id', obterProduto);
 router.post('/', validate(createProdutoSchema), criarProduto);
 router.put('/:id', validate(updateProdutoSchema), atualizarProduto);
