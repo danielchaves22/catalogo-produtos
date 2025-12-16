@@ -65,6 +65,26 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
   const { user } = useAuth();
 
   // Menu com páginas existentes - Dashboard aponta para /
+  const automacaoSubItems: SubMenuItem[] = [
+    { label: 'Automação', hideWhenExpanded: true },
+    { label: 'Processos Assíncronos', href: '/automacao/processos' },
+    { label: 'Ajustes de Atributos', href: '/automacao/ajustes-atributos' },
+    { label: 'Importar Produto', href: '/automacao/importar-produto' },
+    { label: 'Definir Valor de Atributo Padrão', href: '/automacao/valores-padrao' },
+    { label: 'Preencher Atributos em Massa', href: '/automacao/atributos-massa' },
+    // { label: 'Ajuste de Produtos em Massa', href: '/automacao/ajuste-de-produtos-em-massa' },
+  ];
+
+  if (!user?.catprodAdmFull) {
+    const indiceAjustes = automacaoSubItems.findIndex(
+      (item) => item.href === '/automacao/ajustes-atributos'
+    );
+
+    if (indiceAjustes >= 0) {
+      automacaoSubItems.splice(indiceAjustes, 1);
+    }
+  }
+
   const menuItems: SidebarItem[] = [
     {
       icon: <PieChart size={20} />,
@@ -104,15 +124,7 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
     {
       icon: <MoreHorizontal size={20} />,
       label: 'Automação',
-      subItems: [
-        { label: 'Automação', hideWhenExpanded: true },
-        { label: 'Processos Assíncronos', href: '/automacao/processos' },
-        { label: 'Ajustes de Atributos', href: '/automacao/ajustes-atributos' },
-        { label: 'Importar Produto', href: '/automacao/importar-produto' },
-        { label: 'Definir Valor de Atributo Padrão', href: '/automacao/valores-padrao' },
-        { label: 'Preencher Atributos em Massa', href: '/automacao/atributos-massa' },
-        // { label: 'Ajuste de Produtos em Massa', href: '/automacao/ajuste-de-produtos-em-massa' },
-      ],
+      subItems: automacaoSubItems,
     },
   ];
 
