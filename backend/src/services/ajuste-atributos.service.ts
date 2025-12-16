@@ -45,11 +45,12 @@ export async function validarRestricaoDiaria(): Promise<void> {
   }
 }
 
-export async function iniciarVerificacaoAtributos(usuarioId: number) {
+export async function iniciarVerificacaoAtributos(usuarioId: number, superUserId: number) {
   await validarRestricaoDiaria();
 
   const payload: VerificacaoAtributosPayload = {
     usuarioId,
+    superUserId,
   };
 
   return createAsyncJob({
@@ -83,11 +84,15 @@ function lerResultadosBase64(conteudoBase64: string | null): ResultadoVerificaca
   return [];
 }
 
-export async function detalharVerificacao(jobId: number): Promise<DetalheVerificacaoJob | null> {
+export async function detalharVerificacao(
+  jobId: number,
+  superUserId: number
+): Promise<DetalheVerificacaoJob | null> {
   const job = await catalogoPrisma.asyncJob.findFirst({
     where: {
       id: jobId,
       tipo: AsyncJobTipo.AJUSTE_ESTRUTURA,
+      payload: { path: '$.superUserId', equals: superUserId },
     },
     include: {
       arquivo: true,
@@ -122,9 +127,10 @@ export async function detalharVerificacao(jobId: number): Promise<DetalheVerific
 
 export async function aplicarAjustesVerificacao(
   jobId: number,
+  superUserId: number,
   combinacoes?: Array<{ ncm: string; modalidade: string }>
 ): Promise<{ ncmsAtualizadas: number; produtosMarcados: number }> {
-  const detalhe = await detalharVerificacao(jobId);
+  const detalhe = await detalharVerificacao(jobId, superUserId);
 
   if (!detalhe) {
     throw new Error('Verificação não encontrada.');
@@ -152,7 +158,11 @@ export async function aplicarAjustesVerificacao(
     ncmsAtualizadas += 1;
 
     const atualizacao = await catalogoPrisma.produto.updateMany({
-      where: { ncmCodigo: alvo.ncmCodigo, modalidade: alvo.modalidade },
+      where: {
+        ncmCodigo: alvo.ncmCodigo,
+        modalidade: alvo.modalidade,
+        catalogo: { superUserId },
+      },
       data: { status: 'AJUSTAR_ESTRUTURA' },
     });
 
