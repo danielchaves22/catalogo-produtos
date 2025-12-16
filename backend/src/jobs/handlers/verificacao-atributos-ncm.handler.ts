@@ -7,6 +7,7 @@ import { atualizarArquivoJob, registerJobLog } from '../async-job.repository';
 
 export interface VerificacaoAtributosPayload {
   usuarioId: number;
+  superUserId: number;
 }
 
 interface DiferencaAtributo {
@@ -306,7 +307,7 @@ export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributo
   payload,
   heartbeat,
 }) => {
-  if (!payload?.usuarioId) {
+  if (!payload?.usuarioId || !payload.superUserId) {
     throw new Error('Payload da verificação de atributos inválido.');
   }
 

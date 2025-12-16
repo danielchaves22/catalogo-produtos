@@ -22,7 +22,7 @@ export async function iniciarVerificacaoAtributos(req: Request, res: Response) {
   }
 
   try {
-    const job = await iniciarVerificacaoAtributosService(req.user!.id);
+    const job = await iniciarVerificacaoAtributosService(req.user!.id, req.user!.superUserId);
     return res.status(201).json(job);
   } catch (error) {
     if (error instanceof Error) {
@@ -46,7 +46,7 @@ export async function detalharVerificacaoAtributos(req: Request, res: Response) 
     return res.status(400).json({ error: 'Identificador inválido.' });
   }
 
-  const detalhe = await detalharVerificacao(id);
+  const detalhe = await detalharVerificacao(id, req.user!.superUserId);
 
   if (!detalhe) {
     return res.status(404).json({ error: 'Verificação não encontrada.' });
@@ -73,7 +73,7 @@ export async function aplicarAtualizacoesVerificacao(req: Request, res: Response
     : undefined;
 
   try {
-    const resultado = await aplicarAjustesVerificacao(id, combinacoes);
+    const resultado = await aplicarAjustesVerificacao(id, req.user!.superUserId, combinacoes);
     return res.json(resultado);
   } catch (error) {
     logger.error('Falha ao aplicar ajustes de estrutura', error);
