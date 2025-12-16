@@ -2,7 +2,14 @@ import { Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { ProdutoResumoService } from './produto-resumo.service';
 
-const PRODUTO_STATUS = ['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO'] as const;
+const PRODUTO_STATUS = [
+  'PENDENTE',
+  'APROVADO',
+  'PROCESSANDO',
+  'TRANSMITIDO',
+  'ERRO',
+  'AJUSTAR_ESTRUTURA'
+] as const;
 
 type ProdutoStatus = (typeof PRODUTO_STATUS)[number];
 
@@ -106,6 +113,7 @@ export async function obterResumoDashboardService(
       SELECT
         CASE
           WHEN resumo.nao_transmitidos = 0 AND resumo.transmitidos > 0 AND resumo.total_produtos > 0 THEN 'TRANSMITIDO'
+          WHEN resumo.ajustar_estrutura > 0 THEN 'AJUSTAR_ESTRUTURA'
           WHEN resumo.erros > 0 THEN 'ERRO'
           WHEN resumo.pendentes > 0 THEN 'PENDENTE'
           WHEN resumo.aprovados > 0 THEN 'APROVADO'
@@ -117,6 +125,7 @@ export async function obterResumoDashboardService(
         SELECT
           c.id,
           COALESCE(SUM(CASE WHEN p.status IS NOT NULL THEN 1 ELSE 0 END), 0) AS total_produtos,
+          COALESCE(SUM(CASE WHEN p.status = 'AJUSTAR_ESTRUTURA' THEN 1 ELSE 0 END), 0) AS ajustar_estrutura,
           COALESCE(SUM(CASE WHEN p.status = 'ERRO' THEN 1 ELSE 0 END), 0) AS erros,
           COALESCE(SUM(CASE WHEN p.status = 'PENDENTE' THEN 1 ELSE 0 END), 0) AS pendentes,
           COALESCE(SUM(CASE WHEN p.status = 'APROVADO' THEN 1 ELSE 0 END), 0) AS aprovados,

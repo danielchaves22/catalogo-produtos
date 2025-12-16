@@ -1,16 +1,17 @@
 // frontend/components/layout/DashboardLayout.tsx - CORREÇÃO
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from './Sidebar';
-import { User, RefreshCcw, Bell } from 'lucide-react';
+import { User, RefreshCcw, Bell, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { WorkingCatalogModal } from '@/components/catalogos/WorkingCatalogModal';
 import { useMessages } from '@/contexts/MessagesContext';
 import { formatCPFOrCNPJ } from '@/lib/validation';
+import api from '@/lib/api';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -22,6 +23,7 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
   const router = useRouter();
   const { workingCatalog } = useWorkingCatalog();
   const [catalogModalOpen, setCatalogModalOpen] = useState(false);
+  const [pendenciasAjuste, setPendenciasAjuste] = useState<number | null>(null);
 
   const catalogLabel = useMemo(() => {
     if (!workingCatalog) {
@@ -107,6 +109,22 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
     }
   };
 
+  const carregarPendenciasAjuste = useCallback(async () => {
+    try {
+      const resposta = await api.get<{ total: number }>('/produtos/pendencias/ajuste-estrutura');
+      setPendenciasAjuste(resposta.data.total ?? 0);
+    } catch (error) {
+      console.error('Erro ao carregar pendências de ajuste de estrutura', error);
+      setPendenciasAjuste(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarPendenciasAjuste();
+    const interval = setInterval(carregarPendenciasAjuste, 60000);
+    return () => clearInterval(interval);
+  }, [carregarPendenciasAjuste]);
+
   const handleMessageClick = async (mensagemId: number) => {
     try {
       await markAsRead(mensagemId);
@@ -180,11 +198,11 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
               )}
             </button>
 
-            {messagesMenuOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-[#1e2126] shadow-lg rounded-md z-20 border border-gray-700">
-                <div className="px-4 py-2 border-b border-gray-700 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-200">Mensagens não lidas</span>
-                  <span className="text-xs text-gray-400">{unreadCount} no total</span>
+          {messagesMenuOpen && (
+            <div className="absolute right-0 mt-2 w-80 bg-[#1e2126] shadow-lg rounded-md z-20 border border-gray-700">
+              <div className="px-4 py-2 border-b border-gray-700 flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-200">Mensagens não lidas</span>
+                <span className="text-xs text-gray-400">{unreadCount} no total</span>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {unreadMessages.length === 0 ? (
@@ -224,10 +242,31 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
                   >
                     Ver todas as mensagens
                   </button>
-                </div>
               </div>
+            </div>
+          )}
+        </div>
+
+          <button
+            onClick={() => router.push('/ajustes-estrutura')}
+            className={`p-1 rounded transition ${
+              (pendenciasAjuste ?? 0) > 0
+                ? 'text-[#ef4444] hover:bg-[#2b1f1f]'
+                : 'text-[#22c55e] hover:bg-[#1f2b20]'
+            }`}
+            title={
+              (pendenciasAjuste ?? 0) > 0
+                ? `${pendenciasAjuste} produto(s) aguardando ajuste de estrutura`
+                : 'Nenhuma pendência de ajuste de estrutura'
+            }
+            aria-label="Ajustes de estrutura"
+          >
+            {(pendenciasAjuste ?? 0) > 0 ? (
+              <AlertCircle size={18} />
+            ) : (
+              <CheckCircle2 size={18} />
             )}
-          </div>
+          </button>
 
           {user?.catprodAdmFull && (
             <span className="uppercase text-[11px] font-semibold bg-red-600 text-white px-2 py-1 rounded-md shadow-sm">

@@ -52,6 +52,11 @@ export const produtoStatusLegend: LegendItem[] = [
     description: 'Erro ao transmitir; ver detalhes em "Logs".',
     badgeClass: chip('bg-[#ff57571a] text-[#ff5757] border-[#ff5757]'),
   },
+  {
+    label: 'Ajustar Estrutura',
+    description: 'ESTRUTURA DE ATRIBUTOS DIVERGENTE DO SISCOMEX. NECESSITA AJUSTE',
+    badgeClass: chip('bg-[#ff57571a] text-[#ff5757] border-[#ff5757]'),
+  },
 ];
 
 export const operadorStatusLegend: LegendItem[] = [

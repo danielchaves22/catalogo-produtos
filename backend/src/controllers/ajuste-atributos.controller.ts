@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import {
+  aplicarAjustesVerificacao,
   detalharVerificacao,
   iniciarVerificacaoAtributos as iniciarVerificacaoAtributosService,
   listarVerificacoes,
@@ -7,14 +8,21 @@ import {
 import { logger } from '../utils/logger';
 
 export async function listarVerificacoesAtributos(req: Request, res: Response) {
-  const superUserId = req.user!.superUserId;
-  const verificacoes = await listarVerificacoes(superUserId);
+  if (req.user?.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Apenas administradores podem acessar esta rota.' });
+  }
+
+  const verificacoes = await listarVerificacoes(req.user.superUserId);
   return res.json(verificacoes);
 }
 
 export async function iniciarVerificacaoAtributos(req: Request, res: Response) {
+  if (req.user?.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Apenas administradores podem iniciar verificações.' });
+  }
+
   try {
-    const job = await iniciarVerificacaoAtributosService(req.user!.superUserId, req.user!.id);
+    const job = await iniciarVerificacaoAtributosService(req.user!.id);
     return res.status(201).json(job);
   } catch (error) {
     if (error instanceof Error) {
@@ -28,17 +36,47 @@ export async function iniciarVerificacaoAtributos(req: Request, res: Response) {
 }
 
 export async function detalharVerificacaoAtributos(req: Request, res: Response) {
+  if (req.user?.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Apenas administradores podem acessar esta rota.' });
+  }
+
   const id = Number(req.params.id);
 
   if (Number.isNaN(id)) {
     return res.status(400).json({ error: 'Identificador inválido.' });
   }
 
-  const detalhe = await detalharVerificacao(req.user!.superUserId, id);
+  const detalhe = await detalharVerificacao(id);
 
   if (!detalhe) {
     return res.status(404).json({ error: 'Verificação não encontrada.' });
   }
 
   return res.json(detalhe);
+}
+
+export async function aplicarAtualizacoesVerificacao(req: Request, res: Response) {
+  if (req.user?.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Apenas administradores podem aplicar ajustes.' });
+  }
+
+  const id = Number(req.params.id);
+
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: 'Identificador inválido.' });
+  }
+
+  const combinacoes = Array.isArray(req.body?.combos)
+    ? (req.body.combos as Array<{ ncm: string; modalidade: string }>)
+        .filter(item => item?.ncm && item?.modalidade)
+        .map(item => ({ ncm: String(item.ncm), modalidade: String(item.modalidade) }))
+    : undefined;
+
+  try {
+    const resultado = await aplicarAjustesVerificacao(id, combinacoes);
+    return res.json(resultado);
+  } catch (error) {
+    logger.error('Falha ao aplicar ajustes de estrutura', error);
+    return res.status(500).json({ error: 'Não foi possível aplicar as atualizações solicitadas.' });
+  }
 }

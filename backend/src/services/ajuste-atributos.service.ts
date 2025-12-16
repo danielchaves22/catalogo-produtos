@@ -1,7 +1,8 @@
 import { AsyncJobStatus, AsyncJobTipo, Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
-import { createAsyncJob, listAsyncJobs } from '../jobs/async-job.repository';
+import { createAsyncJob, listAsyncJobs, registerJobLog } from '../jobs/async-job.repository';
 import { ResultadoVerificacao, VerificacaoAtributosPayload } from '../jobs/handlers/verificacao-atributos-ncm.handler';
+import { AtributoLegacyService } from './atributo-legacy.service';
 
 interface DetalheVerificacaoJob {
   id: number;
@@ -15,6 +16,8 @@ interface DetalheVerificacaoJob {
   logs: Array<{ id: number; status: AsyncJobStatus; mensagem: string | null; criadoEm: Date }>;
 }
 
+const atributoLegacyService = new AtributoLegacyService();
+
 function inicioDoDiaAtual(): Date {
   const agora = new Date();
   return new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
@@ -26,7 +29,7 @@ function inicioDoProximoDia(): Date {
   return inicio;
 }
 
-export async function validarRestricaoDiaria(superUserId: number): Promise<void> {
+export async function validarRestricaoDiaria(): Promise<void> {
   const jaExecutadoHoje = await catalogoPrisma.asyncJob.findFirst({
     where: {
       tipo: AsyncJobTipo.AJUSTE_ESTRUTURA,
@@ -34,7 +37,6 @@ export async function validarRestricaoDiaria(superUserId: number): Promise<void>
         gte: inicioDoDiaAtual(),
         lt: inicioDoProximoDia(),
       },
-      payload: { path: '$.superUserId', equals: superUserId },
     },
   });
 
@@ -43,14 +45,10 @@ export async function validarRestricaoDiaria(superUserId: number): Promise<void>
   }
 }
 
-export async function iniciarVerificacaoAtributos(
-  superUserId: number,
-  usuarioId: number
-) {
-  await validarRestricaoDiaria(superUserId);
+export async function iniciarVerificacaoAtributos(usuarioId: number) {
+  await validarRestricaoDiaria();
 
   const payload: VerificacaoAtributosPayload = {
-    superUserId,
     usuarioId,
   };
 
@@ -85,15 +83,11 @@ function lerResultadosBase64(conteudoBase64: string | null): ResultadoVerificaca
   return [];
 }
 
-export async function detalharVerificacao(
-  superUserId: number,
-  jobId: number
-): Promise<DetalheVerificacaoJob | null> {
+export async function detalharVerificacao(jobId: number): Promise<DetalheVerificacaoJob | null> {
   const job = await catalogoPrisma.asyncJob.findFirst({
     where: {
       id: jobId,
       tipo: AsyncJobTipo.AJUSTE_ESTRUTURA,
-      payload: { path: '$.superUserId', equals: superUserId },
     },
     include: {
       arquivo: true,
@@ -124,4 +118,58 @@ export async function detalharVerificacao(
       criadoEm: log.criadoEm,
     })),
   };
+}
+
+export async function aplicarAjustesVerificacao(
+  jobId: number,
+  combinacoes?: Array<{ ncm: string; modalidade: string }>
+): Promise<{ ncmsAtualizadas: number; produtosMarcados: number }> {
+  const detalhe = await detalharVerificacao(jobId);
+
+  if (!detalhe) {
+    throw new Error('Verificação não encontrada.');
+  }
+
+  const divergentes = detalhe.resultados.filter(item => item.divergente);
+
+  const alvos = combinacoes?.length
+    ? divergentes.filter(item =>
+        combinacoes.some(
+          combo => combo.ncm === item.ncmCodigo && combo.modalidade === item.modalidade
+        )
+      )
+    : divergentes;
+
+  let ncmsAtualizadas = 0;
+  let produtosMarcados = 0;
+
+  for (const alvo of alvos) {
+    const estruturaAtualizada = await atributoLegacyService.sincronizarEstrutura(
+      alvo.ncmCodigo,
+      alvo.modalidade
+    );
+
+    ncmsAtualizadas += 1;
+
+    const atualizacao = await catalogoPrisma.produto.updateMany({
+      where: { ncmCodigo: alvo.ncmCodigo, modalidade: alvo.modalidade },
+      data: { status: 'AJUSTAR_ESTRUTURA' },
+    });
+
+    produtosMarcados += atualizacao.count;
+
+    await registerJobLog(
+      jobId,
+      AsyncJobStatus.PROCESSANDO,
+      `NCM ${alvo.ncmCodigo} (${alvo.modalidade}) sincronizada para a versão ${estruturaAtualizada.versaoNumero}. Produtos impactados: ${atualizacao.count}.`
+    );
+  }
+
+  await registerJobLog(
+    jobId,
+    AsyncJobStatus.PROCESSANDO,
+    `Finalizada atualização de ${ncmsAtualizadas} NCM(s). ${produtosMarcados} produto(s) marcados para ajuste.`
+  );
+
+  return { ncmsAtualizadas, produtosMarcados };
 }

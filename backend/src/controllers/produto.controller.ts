@@ -13,7 +13,8 @@ export async function listarProdutos(req: Request, res: Response) {
       'APROVADO',
       'PROCESSANDO',
       'TRANSMITIDO',
-      'ERRO'
+      'ERRO',
+      'AJUSTAR_ESTRUTURA'
     ] as const;
     const situacoesPermitidas = ['RASCUNHO', 'ATIVADO', 'DESATIVADO'] as const;
 
@@ -163,6 +164,16 @@ export async function clonarProduto(req: Request, res: Response) {
     }
     logger.error('Erro ao clonar produto:', error);
     res.status(500).json({ error: error.message });
+  }
+}
+
+export async function contarPendenciasAjusteEstrutura(req: Request, res: Response) {
+  try {
+    const total = await produtoService.contarPendenciasAjusteEstrutura(req.user!.superUserId);
+    return res.json({ total });
+  } catch (error: any) {
+    logger.error('Erro ao contar pendências de ajuste de estrutura:', error);
+    return res.status(500).json({ error: 'Não foi possível carregar as pendências.' });
   }
 }
 

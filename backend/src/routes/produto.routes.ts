@@ -7,6 +7,7 @@ import {
   atualizarProduto,
   removerProduto,
   clonarProduto,
+  contarPendenciasAjusteEstrutura,
   removerProdutosEmMassa
 } from '../controllers/produto.controller';
 import { solicitarExportacaoFabricantes, solicitarExportacaoProdutos } from '../controllers/produto-exportacao.controller';
@@ -40,6 +41,7 @@ router.delete('/importacoes/:id', removerImportacao);
 router.delete('/importacoes', limparImportacoes);
 
 router.get('/', listarProdutos);
+router.get('/pendencias/ajuste-estrutura', contarPendenciasAjusteEstrutura);
 router.get('/:id', obterProduto);
 router.post('/', validate(createProdutoSchema), criarProduto);
 router.put('/:id', validate(updateProdutoSchema), atualizarProduto);

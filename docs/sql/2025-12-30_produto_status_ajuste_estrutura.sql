@@ -1,0 +1,10 @@
+-- Adiciona status AJUSTAR_ESTRUTURA para produtos
+ALTER TABLE produto
+  MODIFY COLUMN status ENUM(
+    'PENDENTE',
+    'APROVADO',
+    'PROCESSANDO',
+    'TRANSMITIDO',
+    'ERRO',
+    'AJUSTAR_ESTRUTURA'
+  ) DEFAULT 'PENDENTE';

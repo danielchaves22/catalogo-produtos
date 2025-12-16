@@ -296,7 +296,7 @@ export class AtributoLegacyService {
     }
   }
 
-  private async sincronizarEstrutura(
+  async sincronizarEstrutura(
     ncm: string,
     modalidade: string
   ): Promise<EstruturaComVersao> {

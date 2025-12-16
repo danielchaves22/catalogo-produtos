@@ -8,6 +8,7 @@ import { PageLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
 import { Eye, Loader2, Play } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AsyncJobLogResumo {
   id: number;
@@ -69,6 +70,7 @@ function traduzirStatus(status: AsyncJobResumo['status']) {
 }
 
 export default function AjustesAtributosPage() {
+  const { user, isLoading } = useAuth();
   const { addToast } = useToast();
   const router = useRouter();
   const [jobs, setJobs] = useState<AsyncJobResumo[]>([]);
@@ -112,6 +114,24 @@ export default function AjustesAtributosPage() {
       ),
     [jobs]
   );
+
+  if (isLoading) {
+    return (
+      <DashboardLayout title="Ajustes de Atributos">
+        <PageLoader message="Validando permissão" />
+      </DashboardLayout>
+    );
+  }
+
+  if (user?.role !== 'ADMIN') {
+    return (
+      <DashboardLayout title="Ajustes de Atributos">
+        <div className="text-center text-slate-300 py-10">
+          Apenas administradores podem acessar esta funcionalidade.
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Ajustes de Atributos">
