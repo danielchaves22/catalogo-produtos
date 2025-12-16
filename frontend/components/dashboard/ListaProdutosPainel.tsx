@@ -49,7 +49,7 @@ export function ListaProdutosPainel() {
     { value: 'PROCESSANDO', label: 'Processando' },
     { value: 'TRANSMITIDO', label: 'Transmitido' },
     { value: 'ERRO', label: 'Erro' },
-    { value: 'AJUSTAR_ESTRUTURA', label: 'Ajustar Estrutura' }
+    { value: 'AJUSTAR_ESTRUTURA', label: 'Atributo Divergente' }
   ] satisfies Array<{ value: Produto['status']; label: string }>;
 
   const [filtros, setFiltros] = useState<{

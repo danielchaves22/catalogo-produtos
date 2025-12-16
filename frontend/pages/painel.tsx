@@ -34,7 +34,7 @@ const STATUS_COLORS = {
   APROVADO: '#01aa4d',
   PROCESSANDO: '#4c82d3',
   TRANSMITIDO: '#5e17eb',
-  ERRO: '#ff5757',
+  ERRO: '#ff3131',
   AJUSTAR_ESTRUTURA: '#ff5757'
 };
 
@@ -44,7 +44,7 @@ const STATUS_LABELS = {
   PROCESSANDO: 'Processando',
   TRANSMITIDO: 'Transmitido',
   ERRO: 'Erro',
-  AJUSTAR_ESTRUTURA: 'Ajustar Estrutura'
+  AJUSTAR_ESTRUTURA: 'Atributo divergente'
 };
 
 // Cores para atributos
