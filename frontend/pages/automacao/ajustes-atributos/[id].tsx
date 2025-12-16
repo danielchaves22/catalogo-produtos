@@ -3,8 +3,10 @@ import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, CircleDashed, Clock3 } from 'lucide-react';
 
@@ -75,11 +77,23 @@ function obterBadge(status: DetalheVerificacao['status']) {
 export default function DetalheAjusteAtributosPage() {
   const router = useRouter();
   const { addToast } = useToast();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [dados, setDados] = useState<DetalheVerificacao | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [marcandoProdutos, setMarcandoProdutos] = useState(false);
   const [divergentesExpandido, setDivergentesExpandido] = useState(true);
   const [alinhadosExpandido, setAlinhadosExpandido] = useState(false);
   const [ncmDetalhesExpandido, setNcmDetalhesExpandido] = useState<string | null>(null);
+
+  // Verificar permissão de acesso - apenas admins
+  useEffect(() => {
+    if (isAuthLoading) return;
+
+    if (!user?.catprodAdmFull) {
+      addToast('Acesso negado. Esta página é restrita a administradores.', 'error');
+      router.replace('/');
+    }
+  }, [user, isAuthLoading, router, addToast]);
 
   useEffect(() => {
     if (!router.query.id) return;
@@ -134,6 +148,47 @@ export default function DetalheAjusteAtributosPage() {
 
   const toggleDetalhes = (key: string) => {
     setNcmDetalhesExpandido(prev => prev === key ? null : key);
+  };
+
+  const marcarProdutosParaAjuste = async () => {
+    if (!dados || resultadosDivergentes.length === 0) {
+      addToast('Não há estruturas divergentes para marcar.', 'warning');
+      return;
+    }
+
+    const confirmacao = window.confirm(
+      `Tem certeza que deseja marcar os produtos das ${resultadosDivergentes.length} estruturas divergentes como "AJUSTAR_ESTRUTURA"?\n\n` +
+      'Esta ação irá alterar o status dos produtos afetados.'
+    );
+
+    if (!confirmacao) return;
+
+    try {
+      setMarcandoProdutos(true);
+
+      const ncms = resultadosDivergentes.map(r => ({
+        ncmCodigo: r.ncmCodigo,
+        modalidade: r.modalidade,
+      }));
+
+      const response = await api.post('/ajuste-estrutura/admin/marcar-multiplas', { ncms });
+
+      const totalMarcados = response.data.resultados.reduce(
+        (sum: number, r: any) => sum + r.produtosMarcados,
+        0
+      );
+
+      addToast(
+        `${totalMarcados} produto(s) marcado(s) para ajuste de estrutura com sucesso.`,
+        'success'
+      );
+    } catch (error: any) {
+      console.error('Erro ao marcar produtos:', error);
+      const mensagem = error?.response?.data?.error || 'Não foi possível marcar os produtos.';
+      addToast(mensagem, 'error');
+    } finally {
+      setMarcandoProdutos(false);
+    }
   };
 
   if (carregando) {
@@ -222,7 +277,30 @@ export default function DetalheAjusteAtributosPage() {
               {resultadosDivergentes.length === 0 ? (
                 <div className="text-slate-400 text-sm py-6 px-4">Nenhuma divergência encontrada.</div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                  {/* Botão de ação para marcar produtos */}
+                  <div className="p-4 border-b border-slate-800 bg-slate-900/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-slate-200 text-sm font-medium">
+                          Ação Administrativa
+                        </p>
+                        <p className="text-slate-400 text-xs mt-1">
+                          Marcar produtos das estruturas divergentes para ajuste manual
+                        </p>
+                      </div>
+                      <Button
+                        onClick={marcarProdutosParaAjuste}
+                        disabled={marcandoProdutos}
+                        variant="primary"
+                        className="ml-4"
+                      >
+                        {marcandoProdutos ? 'Marcando...' : 'Marcar Produtos para Ajuste'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-slate-800">
                     <thead className="bg-slate-900/50">
                       <tr>
@@ -331,6 +409,7 @@ export default function DetalheAjusteAtributosPage() {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </div>
           )}

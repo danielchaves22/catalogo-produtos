@@ -26,7 +26,7 @@ export interface CreateProdutoDTO {
 
 export interface UpdateProdutoDTO {
   modalidade?: string;
-  status?: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  status?: 'AJUSTAR_ESTRUTURA' | 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
   situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
   denominacao?: string;
   descricao?: string;
@@ -49,7 +49,7 @@ export interface CloneProdutoDTO {
 }
 
 export interface ListarProdutosFiltro {
-  status?: Array<'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO'>;
+  status?: Array<'AJUSTAR_ESTRUTURA' | 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO'>;
   situacoes?: Array<'RASCUNHO' | 'ATIVADO' | 'DESATIVADO'>;
   ncm?: string;
   catalogoId?: number;
@@ -60,7 +60,7 @@ export interface ProdutoListItemDTO {
   id: number;
   codigo: string | null;
   ncmCodigo: string;
-  status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  status: 'AJUSTAR_ESTRUTURA' | 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
   situacao: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
   modalidade: string | null;
   denominacao: string;

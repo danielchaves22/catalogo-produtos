@@ -311,11 +311,13 @@ export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributo
     throw new Error('Payload da verificação de atributos inválido.');
   }
 
-  // Busca apenas NCMs que estão sendo utilizadas em produtos
+  // Busca apenas NCMs que estão sendo utilizadas em produtos do superUserId
   const ncmsUtilizadas = await catalogoPrisma.$queryRaw<Array<{ ncmCodigo: string; modalidade: string }>>`
     SELECT DISTINCT p.ncm_codigo AS ncmCodigo, p.modalidade
     FROM produto p
+    INNER JOIN catalogo c ON p.catalogo_id = c.id
     WHERE p.ncm_codigo IS NOT NULL
+      AND c.super_user_id = ${payload.superUserId}
     ORDER BY p.ncm_codigo, p.modalidade
   `;
 
@@ -391,6 +393,36 @@ export const verificacaoAtributosNcmHandler: AsyncJobHandler<VerificacaoAtributo
     conteudoBase64: Buffer.from(conteudo, 'utf8').toString('base64'),
     expiraEm,
   });
+
+  // Marcar produtos com estrutura divergente
+  if (divergentes > 0) {
+    const ncmsDivergentes = resultados.filter(r => r.divergente);
+    let totalProdutosMarcados = 0;
+
+    for (const { ncmCodigo, modalidade } of ncmsDivergentes) {
+      const result = await catalogoPrisma.produto.updateMany({
+        where: {
+          ncmCodigo,
+          modalidade,
+          status: { not: 'AJUSTAR_ESTRUTURA' }, // Evitar remarcar
+          catalogo: {
+            superUserId: payload.superUserId, // Filtrar por tenant
+          },
+        },
+        data: {
+          status: 'AJUSTAR_ESTRUTURA',
+        },
+      });
+
+      totalProdutosMarcados += result.count;
+    }
+
+    await registerJobLog(
+      job.id,
+      AsyncJobStatus.PROCESSANDO,
+      `Marcados ${totalProdutosMarcados} produto(s) para ajuste de estrutura.`
+    );
+  }
 
   await registerJobLog(
     job.id,

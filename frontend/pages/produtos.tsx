@@ -24,7 +24,7 @@ interface Produto {
   id: number;
   codigo?: string | null;
   ncmCodigo: string;
-  status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
+  status: 'AJUSTAR_ESTRUTURA' | 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO';
   atualizadoEm: string;
   catalogoNumero?: number | null;
   catalogoNome?: string | null;
@@ -46,6 +46,7 @@ interface ProdutosResponse {
 }
 
 const statusOptions = [
+  { value: 'AJUSTAR_ESTRUTURA', label: 'Ajustar Estrutura' },
   { value: 'PENDENTE', label: 'Pendente' },
   { value: 'APROVADO', label: 'Aprovado' },
   { value: 'PROCESSANDO', label: 'Processando' },

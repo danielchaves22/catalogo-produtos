@@ -58,6 +58,15 @@ export class ProdutoTransmissaoService {
       throw new ValidationError({ produtos: 'Nenhum produto encontrado para transmissão' });
     }
 
+    // Verificar se algum produto precisa ajustar estrutura
+    const produtosComAjuste = produtos.filter(p => p.status === 'AJUSTAR_ESTRUTURA');
+    if (produtosComAjuste.length > 0) {
+      const codigosProdutos = produtosComAjuste.map(p => p.codigo).join(', ');
+      throw new ValidationError({
+        produtos: `Os seguintes produtos precisam ajustar a estrutura de atributos antes de transmitir: ${codigosProdutos}`
+      });
+    }
+
     const idsEncontrados = new Set(produtos.map(produto => produto.id));
     const idsForaCatalogo = ids.filter(id => !idsEncontrados.has(id));
 
