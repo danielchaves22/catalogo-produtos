@@ -107,7 +107,7 @@ export async function incluirProduto(req: Request, res: Response) {
         await produtoService.marcarComoTransmitido(produtoId, req.user!.superUserId, {
           codigo: produto.codigo,
           versao: produto.versao,
-          situacao: produto.situacao
+          situacao: 'ATIVADO'
         });
       } catch (updateError) {
         logger.error('Falha ao atualizar status local após transmissão SISCOMEX', updateError);
