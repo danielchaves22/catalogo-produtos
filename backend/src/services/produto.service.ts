@@ -583,15 +583,21 @@ export class ProdutoService {
   async marcarComoTransmitido(
     id: number,
     superUserId: number,
-    dados: { codigo: string; versao: number; situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO' }
+    dados: { codigo: string; versao: number | string; situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO' }
   ) {
+    const versaoNumero = typeof dados.versao === 'string' ? Number(dados.versao) : dados.versao;
+
+    if (!Number.isFinite(versaoNumero)) {
+      throw new Error('Versão inválida retornada pelo SISCOMEX');
+    }
+
     const atualizado = await catalogoPrisma.produto.updateMany({
       where: { id, catalogo: { superUserId } },
       data: {
         codigo: dados.codigo,
-        versao: dados.versao,
+        versao: versaoNumero,
         status: 'TRANSMITIDO',
-        situacao: dados.situacao ?? undefined
+        situacao: 'ATIVADO'
       }
     });
 

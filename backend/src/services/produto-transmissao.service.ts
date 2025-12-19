@@ -335,25 +335,21 @@ export class ProdutoTransmissaoService {
           cpfCnpjRaiz,
           possuiCodigoLocal,
         });
-        const situacaoNormalizada =
-          typeof resposta.situacao === 'string'
-            ? (['RASCUNHO', 'ATIVADO', 'DESATIVADO'].includes(resposta.situacao.toUpperCase())
-                ? (resposta.situacao.toUpperCase() as 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO')
-                : undefined)
-            : undefined;
+      const versaoNumero =
+        typeof resposta.versao === 'string' ? Number(resposta.versao) : (resposta.versao as number);
 
-        await this.produtoService.marcarComoTransmitido(produtoId, transmissao.superUserId, {
-          codigo: resposta.codigo,
-          versao: resposta.versao,
-          situacao: situacaoNormalizada,
-        });
+      await this.produtoService.marcarComoTransmitido(produtoId, transmissao.superUserId, {
+        codigo: resposta.codigo,
+        versao: versaoNumero,
+        situacao: 'ATIVADO',
+      });
 
-        sucessos.push({
-          produtoId,
-          codigo: resposta.codigo,
-          versao: resposta.versao,
-          situacao: situacaoNormalizada ?? resposta.situacao,
-        });
+      sucessos.push({
+        produtoId,
+        codigo: resposta.codigo,
+        versao: versaoNumero,
+        situacao: 'ATIVADO',
+      });
       } catch (error: unknown) {
         logger.error('Falha ao transmitir produto ao SISCOMEX', {
           produtoId,
