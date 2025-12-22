@@ -66,6 +66,10 @@ export interface AsyncJobResumo {
   produtoTransmissao?: { id: number } | null;
 }
 
+export interface AsyncJobDetalhe extends AsyncJobResumo {
+  logs: AsyncJobLogResumo[];
+}
+
 export interface ListAsyncJobsParams {
   superUserId: number;
   status?: AsyncJobStatus[];
@@ -342,6 +346,12 @@ export async function listAsyncJobs(
           { payload: { path: '$.superUserId', equals: parametros.superUserId } },
         ],
       },
+      {
+        AND: [
+          { tipo: AsyncJobTipo.APLICACAO_AJUSTE_ESTRUTURA },
+          { payload: { path: '$.superUserId', equals: parametros.superUserId } },
+        ],
+      },
     ],
   };
 
@@ -453,9 +463,147 @@ export async function listAsyncJobs(
           arquivoPath: job.produtoExportacao.arquivoPath,
           arquivoTamanho: job.produtoExportacao.arquivoTamanho,
           totalItens: job.produtoExportacao.totalItens,
-        }
+      }
       : null,
   }));
+}
+
+export async function obterAsyncJobDetalhado(
+  jobId: number,
+  superUserId: number
+): Promise<AsyncJobDetalhe | null> {
+  const where: Prisma.AsyncJobWhereInput = {
+    id: jobId,
+    OR: [
+      { importacaoProduto: { superUserId } },
+      { atributoPreenchimentoMassa: { superUserId } },
+      { produtoExportacao: { superUserId } },
+      {
+        AND: [
+          { tipo: AsyncJobTipo.AJUSTE_ESTRUTURA },
+          { payload: { path: '$.superUserId', equals: superUserId } },
+        ],
+      },
+      {
+        AND: [
+          { tipo: AsyncJobTipo.APLICACAO_AJUSTE_ESTRUTURA },
+          { payload: { path: '$.superUserId', equals: superUserId } },
+        ],
+      },
+    ],
+  };
+
+  const job = await catalogoPrisma.asyncJob.findFirst({
+    where,
+    include: {
+      arquivo: { select: { nome: true, expiraEm: true, storagePath: true, storageProvider: true } },
+      importacaoProduto: {
+        select: {
+          id: true,
+          situacao: true,
+          resultado: true,
+          catalogo: {
+            select: {
+              id: true,
+              nome: true,
+              numero: true,
+            },
+          },
+        },
+      },
+      atributoPreenchimentoMassa: { select: { id: true } },
+      produtoExportacao: {
+        select: {
+          id: true,
+          superUserId: true,
+          arquivoNome: true,
+          arquivoExpiraEm: true,
+          arquivoPath: true,
+          arquivoTamanho: true,
+          totalItens: true,
+        },
+      },
+      logs: {
+        orderBy: { criadoEm: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          mensagem: true,
+          criadoEm: true,
+        },
+      },
+    },
+  });
+
+  if (!job) {
+    return null;
+  }
+
+  return {
+    id: job.id,
+    tipo: job.tipo,
+    status: job.status,
+    tentativas: job.tentativas,
+    maxTentativas: job.maxTentativas,
+    prioridade: job.prioridade,
+    payload: job.payload ?? null,
+    lockedAt: job.lockedAt ?? null,
+    heartbeatAt: job.heartbeatAt ?? null,
+    finalizadoEm: job.finalizadoEm ?? null,
+    criadoEm: job.criadoEm,
+    atualizadoEm: job.atualizadoEm,
+    arquivo: job.arquivo
+      ? {
+          nome: job.arquivo.nome,
+          expiraEm: job.arquivo.expiraEm ?? null,
+          storagePath: job.arquivo.storagePath ?? null,
+          storageProvider: job.arquivo.storageProvider ?? null,
+        }
+      : null,
+    ultimoLog: job.logs[0]
+      ? {
+          id: job.logs[0].id,
+          status: job.logs[0].status,
+          mensagem: job.logs[0].mensagem,
+          criadoEm: job.logs[0].criadoEm,
+        }
+      : null,
+    importacaoProduto: job.importacaoProduto
+      ? {
+          id: job.importacaoProduto.id,
+          situacao: job.importacaoProduto.situacao,
+          resultado: job.importacaoProduto.resultado,
+          catalogo: job.importacaoProduto.catalogo
+            ? {
+                id: job.importacaoProduto.catalogo.id,
+                nome: job.importacaoProduto.catalogo.nome,
+                numero: job.importacaoProduto.catalogo.numero,
+              }
+            : null,
+        }
+      : null,
+    atributoPreenchimentoMassa: job.atributoPreenchimentoMassa
+      ? { id: job.atributoPreenchimentoMassa.id }
+      : null,
+    produtoExportacao: job.produtoExportacao
+      ? {
+          id: job.produtoExportacao.id,
+          superUserId: job.produtoExportacao.superUserId,
+          arquivoNome: job.produtoExportacao.arquivoNome,
+          arquivoExpiraEm: job.produtoExportacao.arquivoExpiraEm,
+          arquivoPath: job.produtoExportacao.arquivoPath,
+          arquivoTamanho: job.produtoExportacao.arquivoTamanho,
+          totalItens: job.produtoExportacao.totalItens,
+        }
+      : null,
+    produtoTransmissao: null,
+    logs: job.logs.map(log => ({
+      id: log.id,
+      status: log.status,
+      mensagem: log.mensagem,
+      criadoEm: log.criadoEm,
+    })),
+  };
 }
 
 export async function obterAsyncJobComArquivo(id: number): Promise<AsyncJobWithRelations | null> {

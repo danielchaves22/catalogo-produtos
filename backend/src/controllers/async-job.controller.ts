@@ -6,6 +6,7 @@ import {
   clearAsyncJobHistory,
   deleteAsyncJob,
   listAsyncJobs,
+  obterAsyncJobDetalhado,
   obterAsyncJobComArquivo,
 } from '../jobs/async-job.repository';
 import { logger } from '../utils/logger';
@@ -102,6 +103,22 @@ export async function limparAsyncJobs(_req: Request, res: Response) {
     logger.error('Erro ao limpar histórico de jobs assíncronos:', error);
     return res.status(500).json({ error: 'Erro ao limpar histórico de jobs assíncronos.' });
   }
+}
+
+export async function obterDetalheAsyncJob(req: Request, res: Response) {
+  const id = Number(req.params.id);
+
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: 'Identificador inválido.' });
+  }
+
+  const job = await obterAsyncJobDetalhado(id, req.user!.superUserId);
+
+  if (!job) {
+    return res.status(404).json({ error: 'Job não encontrado.' });
+  }
+
+  return res.json(job);
 }
 
 export async function gerarLinkArquivoJob(req: Request, res: Response) {
