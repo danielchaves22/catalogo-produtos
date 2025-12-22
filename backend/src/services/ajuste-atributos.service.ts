@@ -16,6 +16,13 @@ interface DetalheVerificacaoJob {
   logs: Array<{ id: number; status: AsyncJobStatus; mensagem: string | null; criadoEm: Date }>;
 }
 
+export interface AplicacaoAjustesPayload {
+  usuarioId: number;
+  superUserId: number;
+  verificacaoJobId: number;
+  combinacoes?: Array<{ ncm: string; modalidade: string }>;
+}
+
 const atributoLegacyService = new AtributoLegacyService();
 
 function inicioDoDiaAtual(): Date {
@@ -55,6 +62,26 @@ export async function iniciarVerificacaoAtributos(usuarioId: number, superUserId
 
   return createAsyncJob({
     tipo: AsyncJobTipo.AJUSTE_ESTRUTURA,
+    payload: payload as unknown as Prisma.InputJsonValue,
+    prioridade: 1,
+  });
+}
+
+export async function iniciarAplicacaoAjustesVerificacao(
+  usuarioId: number,
+  superUserId: number,
+  verificacaoJobId: number,
+  combinacoes?: Array<{ ncm: string; modalidade: string }>
+) {
+  const payload: AplicacaoAjustesPayload = {
+    usuarioId,
+    superUserId,
+    verificacaoJobId,
+    combinacoes,
+  };
+
+  return createAsyncJob({
+    tipo: AsyncJobTipo.APLICACAO_AJUSTE_ESTRUTURA,
     payload: payload as unknown as Prisma.InputJsonValue,
     prioridade: 1,
   });
@@ -126,11 +153,15 @@ export async function detalharVerificacao(
 }
 
 export async function aplicarAjustesVerificacao(
-  jobId: number,
-  superUserId: number,
-  combinacoes?: Array<{ ncm: string; modalidade: string }>
+  dados: {
+    verificacaoJobId: number;
+    superUserId: number;
+    combinacoes?: Array<{ ncm: string; modalidade: string }>;
+    jobId: number;
+    onProgresso?: () => Promise<void>;
+  }
 ): Promise<{ ncmsAtualizadas: number; produtosMarcados: number }> {
-  const detalhe = await detalharVerificacao(jobId, superUserId);
+  const detalhe = await detalharVerificacao(dados.verificacaoJobId, dados.superUserId);
 
   if (!detalhe) {
     throw new Error('Verificação não encontrada.');
@@ -138,9 +169,9 @@ export async function aplicarAjustesVerificacao(
 
   const divergentes = detalhe.resultados.filter(item => item.divergente);
 
-  const alvos = combinacoes?.length
+  const alvos = dados.combinacoes?.length
     ? divergentes.filter(item =>
-        combinacoes.some(
+        dados.combinacoes!.some(
           combo => combo.ncm === item.ncmCodigo && combo.modalidade === item.modalidade
         )
       )
@@ -161,7 +192,7 @@ export async function aplicarAjustesVerificacao(
       where: {
         ncmCodigo: alvo.ncmCodigo,
         modalidade: alvo.modalidade,
-        catalogo: { superUserId },
+        catalogo: { superUserId: dados.superUserId },
       },
       data: { status: 'AJUSTAR_ESTRUTURA' },
     });
@@ -169,14 +200,18 @@ export async function aplicarAjustesVerificacao(
     produtosMarcados += atualizacao.count;
 
     await registerJobLog(
-      jobId,
+      dados.jobId,
       AsyncJobStatus.PROCESSANDO,
       `NCM ${alvo.ncmCodigo} (${alvo.modalidade}) sincronizada para a versão ${estruturaAtualizada.versaoNumero}. Produtos impactados: ${atualizacao.count}.`
     );
+
+    if (dados.onProgresso) {
+      await dados.onProgresso();
+    }
   }
 
   await registerJobLog(
-    jobId,
+    dados.jobId,
     AsyncJobStatus.PROCESSANDO,
     `Finalizada atualização de ${ncmsAtualizadas} NCM(s). ${produtosMarcados} produto(s) marcados para ajuste.`
   );

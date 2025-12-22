@@ -105,10 +105,18 @@ export default function DetalheAjusteAtributosPage() {
     if (!router.query.id) return;
     setAplicando(true);
     try {
-      await api.post(`/automacao/ajustes-atributos/verificacoes/${router.query.id}/aplicar`);
-      addToast('Estruturas sincronizadas e produtos marcados para ajuste.', 'success');
-      setCarregando(true);
-      await carregarDetalhes();
+      const resposta = await api.post(`/automacao/ajustes-atributos/verificacoes/${router.query.id}/aplicar`);
+      const jobId = resposta.data?.jobId as number | undefined;
+      addToast(
+        'Aplicação de ajustes enfileirada. Você será direcionado para o acompanhamento do processo.',
+        'success'
+      );
+      if (jobId) {
+        await router.push(`/automacao/ajustes-atributos/aplicacoes/${jobId}`);
+      } else {
+        setCarregando(true);
+        await carregarDetalhes();
+      }
     } catch (error: any) {
       const mensagem = error?.response?.data?.error || 'Não foi possível aplicar os ajustes.';
       addToast(mensagem, 'error');

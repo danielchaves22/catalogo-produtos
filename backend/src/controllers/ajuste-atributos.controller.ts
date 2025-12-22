@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import {
-  aplicarAjustesVerificacao,
   detalharVerificacao,
+  iniciarAplicacaoAjustesVerificacao,
   iniciarVerificacaoAtributos as iniciarVerificacaoAtributosService,
   listarVerificacoes,
 } from '../services/ajuste-atributos.service';
@@ -73,8 +73,16 @@ export async function aplicarAtualizacoesVerificacao(req: Request, res: Response
     : undefined;
 
   try {
-    const resultado = await aplicarAjustesVerificacao(id, req.user!.superUserId, combinacoes);
-    return res.json(resultado);
+    const job = await iniciarAplicacaoAjustesVerificacao(
+      req.user!.id,
+      req.user!.superUserId,
+      id,
+      combinacoes
+    );
+    return res.status(202).json({
+      jobId: job.id,
+      mensagem: 'Aplicação de ajustes enfileirada. Acompanhe em Processos Assíncronos.',
+    });
   } catch (error) {
     logger.error('Falha ao aplicar ajustes de estrutura', error);
     return res.status(500).json({ error: 'Não foi possível aplicar as atualizações solicitadas.' });

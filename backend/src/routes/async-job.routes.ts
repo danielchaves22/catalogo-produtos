@@ -4,6 +4,7 @@ import {
   gerarLinkArquivoJob,
   limparAsyncJobs,
   listarAsyncJobs,
+  obterDetalheAsyncJob,
   removerAsyncJob,
 } from '../controllers/async-job.controller';
 
@@ -13,6 +14,7 @@ router.use(authMiddleware);
 router.get('/', listarAsyncJobs);
 router.delete('/', limparAsyncJobs);
 router.get('/:id/arquivo', gerarLinkArquivoJob);
+router.get('/:id', obterDetalheAsyncJob);
 router.delete('/:id', removerAsyncJob);
 
 export default router;
