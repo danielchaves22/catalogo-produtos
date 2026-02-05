@@ -329,27 +329,43 @@ export class ProdutoTransmissaoService {
       }
 
       try {
+        if (resposta.sucesso === false || resposta.erros) {
+          falhas.push({
+            produtoId,
+            motivo: this.extrairMotivoSiscomex(resposta),
+          });
+          continue;
+        }
+
         logger.info('Transmitindo produto ao SISCOMEX', {
           produtoId,
           catalogoId: transmissao.catalogoId,
           cpfCnpjRaiz,
           possuiCodigoLocal,
         });
-      const versaoNumero =
-        typeof resposta.versao === 'string' ? Number(resposta.versao) : (resposta.versao as number);
+        const versaoNumero =
+          typeof resposta.versao === 'string' ? Number(resposta.versao) : (resposta.versao as number);
 
-      await this.produtoService.marcarComoTransmitido(produtoId, transmissao.superUserId, {
-        codigo: resposta.codigo,
-        versao: versaoNumero,
-        situacao: 'ATIVADO',
-      });
+        if (!Number.isFinite(versaoNumero)) {
+          falhas.push({
+            produtoId,
+            motivo: this.extrairMotivoSiscomex(resposta),
+          });
+          continue;
+        }
 
-      sucessos.push({
-        produtoId,
-        codigo: resposta.codigo,
-        versao: versaoNumero,
-        situacao: 'ATIVADO',
-      });
+        await this.produtoService.marcarComoTransmitido(produtoId, transmissao.superUserId, {
+          codigo: resposta.codigo,
+          versao: versaoNumero,
+          situacao: 'ATIVADO',
+        });
+
+        sucessos.push({
+          produtoId,
+          codigo: resposta.codigo,
+          versao: versaoNumero,
+          situacao: 'ATIVADO',
+        });
       } catch (error: unknown) {
         logger.error('Falha ao transmitir produto ao SISCOMEX', {
           produtoId,
@@ -365,6 +381,22 @@ export class ProdutoTransmissaoService {
 
     await this.finalizarTransmissao(transmissao.id, { falhas, sucessos, respostas });
     await heartbeat();
+  }
+
+  private extrairMotivoSiscomex(resposta: any) {
+    if (Array.isArray(resposta?.erros) && resposta.erros.length > 0) {
+      return resposta.erros.map((erro: unknown) => String(erro)).join('; ');
+    }
+
+    if (resposta?.erros) {
+      return String(resposta.erros);
+    }
+
+    if (resposta?.mensagem) {
+      return String(resposta.mensagem);
+    }
+
+    return 'Versão inválida retornada pelo SISCOMEX';
   }
 
   private async finalizarTransmissao(
