@@ -526,10 +526,11 @@ export class ProdutoService {
         : atual.versaoEstruturaAtributos ?? estruturaInfo.versaoNumero;
 
     await catalogoPrisma.$transaction(async tx => {
-      let status = data.status ?? atual.status;
+      const statusAtual = atual.status ?? 'PENDENTE';
+      let status = data.status ?? statusAtual;
       if (!preencheuObrigatorios) {
         status = 'PENDENTE';
-      } else if (atual.status === 'PENDENTE') {
+      } else if (statusAtual === 'PENDENTE') {
         status = 'APROVADO';
       }
       const updated = await tx.produto.updateMany({
@@ -928,7 +929,7 @@ export class ProdutoService {
         data: {
           codigo: null,
           versao: original.versao,
-          status: original.status,
+          status: original.status ?? 'PENDENTE',
           situacao: original.situacao,
           ncmCodigo: original.ncmCodigo,
           modalidade: original.modalidade,
