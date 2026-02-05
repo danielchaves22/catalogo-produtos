@@ -329,7 +329,11 @@ export class ProdutoTransmissaoService {
       }
 
       try {
-        if (resposta.sucesso === false || resposta.erros) {
+        const temErrosResposta = Array.isArray(resposta.erros)
+          ? resposta.erros.length > 0
+          : Boolean(resposta.erros);
+
+        if (resposta.sucesso === false || temErrosResposta) {
           falhas.push({
             produtoId,
             motivo: this.extrairMotivoSiscomex(resposta),
