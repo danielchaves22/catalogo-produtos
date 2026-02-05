@@ -373,7 +373,7 @@ async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
         data: {
           codigo: null,
           versao: prod.versao,
-          status: prod.status,
+          status: prod.status ?? 'PENDENTE',
           situacao: prod.situacao,
           ncmCodigo: prod.ncmCodigo,
           modalidade: prod.modalidade,
