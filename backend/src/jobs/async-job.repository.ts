@@ -63,7 +63,7 @@ export interface AsyncJobResumo {
   } | null;
   atributoPreenchimentoMassa?: { id: number } | null;
   produtoExportacao?: AsyncJobProdutoExportacaoResumo | null;
-  produtoTransmissao?: { id: number } | null;
+  produtoTransmissao?: { id: number; catalogoId: number; status: ProdutoTransmissao['status'] } | null;
 }
 
 export interface AsyncJobDetalhe extends AsyncJobResumo {
@@ -340,6 +340,7 @@ export async function listAsyncJobs(
       { importacaoProduto: { superUserId: parametros.superUserId } },
       { atributoPreenchimentoMassa: { superUserId: parametros.superUserId } },
       { produtoExportacao: { superUserId: parametros.superUserId } },
+      { produtoTransmissao: { superUserId: parametros.superUserId } },
       {
         AND: [
           { tipo: AsyncJobTipo.AJUSTE_ESTRUTURA },
@@ -393,6 +394,13 @@ export async function listAsyncJobs(
           arquivoPath: true,
           arquivoTamanho: true,
           totalItens: true,
+        },
+      },
+      produtoTransmissao: {
+        select: {
+          id: true,
+          catalogoId: true,
+          status: true,
         },
       },
       logs: {
@@ -463,7 +471,14 @@ export async function listAsyncJobs(
           arquivoPath: job.produtoExportacao.arquivoPath,
           arquivoTamanho: job.produtoExportacao.arquivoTamanho,
           totalItens: job.produtoExportacao.totalItens,
-      }
+        }
+      : null,
+    produtoTransmissao: job.produtoTransmissao
+      ? {
+          id: job.produtoTransmissao.id,
+          catalogoId: job.produtoTransmissao.catalogoId,
+          status: job.produtoTransmissao.status,
+        }
       : null,
   }));
 }
@@ -478,6 +493,7 @@ export async function obterAsyncJobDetalhado(
       { importacaoProduto: { superUserId } },
       { atributoPreenchimentoMassa: { superUserId } },
       { produtoExportacao: { superUserId } },
+      { produtoTransmissao: { superUserId } },
       {
         AND: [
           { tipo: AsyncJobTipo.AJUSTE_ESTRUTURA },
@@ -521,6 +537,13 @@ export async function obterAsyncJobDetalhado(
           arquivoPath: true,
           arquivoTamanho: true,
           totalItens: true,
+        },
+      },
+      produtoTransmissao: {
+        select: {
+          id: true,
+          catalogoId: true,
+          status: true,
         },
       },
       logs: {
@@ -596,7 +619,13 @@ export async function obterAsyncJobDetalhado(
           totalItens: job.produtoExportacao.totalItens,
         }
       : null,
-    produtoTransmissao: null,
+    produtoTransmissao: job.produtoTransmissao
+      ? {
+          id: job.produtoTransmissao.id,
+          catalogoId: job.produtoTransmissao.catalogoId,
+          status: job.produtoTransmissao.status,
+        }
+      : null,
     logs: job.logs.map(log => ({
       id: log.id,
       status: log.status,
