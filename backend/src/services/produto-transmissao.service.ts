@@ -27,6 +27,8 @@ interface FalhaTransmissao {
 const UM_DIA_EM_MS = 24 * 60 * 60 * 1000;
 
 export class ProdutoTransmissaoService {
+  private readonly siscomexClients = new Map<number, SiscomexService>();
+
   constructor(
     private readonly exportacaoService = new ProdutoExportacaoService(),
     private readonly produtoService = new ProdutoService(),
@@ -284,7 +286,11 @@ export class ProdutoTransmissaoService {
     }
     await heartbeat();
 
-    const cliente = await this.obterClienteSiscomex(transmissao.catalogoId, transmissao.superUserId, new Map());
+    const cliente = await this.obterClienteSiscomex(
+      transmissao.catalogoId,
+      transmissao.superUserId,
+      this.siscomexClients
+    );
 
     let respostas: any[] = [];
     const sucessos: Array<{ produtoId: number; codigo?: string; versao?: number; situacao?: string | null }> = [];

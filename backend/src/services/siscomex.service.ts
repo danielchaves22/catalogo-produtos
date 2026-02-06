@@ -81,6 +81,8 @@ export class SiscomexService {
   private httpsAgent?: https.Agent;
   private authorizationToken?: string;
   private csrfToken?: string;
+  private tokenGeradoEm?: number;
+  private readonly tokenMinReuseMs: number;
   private autenticacaoPromise: Promise<void> | null = null;
   constructor(opcoes?: SiscomexServiceOptions) {
     // URLs da API SISCOMEX conforme documentação
@@ -89,6 +91,7 @@ export class SiscomexService {
     this.roleType = process.env.SISCOMEX_ROLE_TYPE || 'IMPEXP';
     this.carregarCertificado = opcoes?.carregarCertificado;
     this.certificado = opcoes?.certificado;
+    this.tokenMinReuseMs = this.resolverTokenMinReuseMs(process.env.SISCOMEX_TOKEN_MIN_REUSE_MS);
 
     this.api = axios.create({
       baseURL: this.baseUrl,
@@ -101,6 +104,25 @@ export class SiscomexService {
     });
 
     this.setupInterceptors();
+  }
+
+  private resolverTokenMinReuseMs(valor?: string) {
+    const minimoPadrao = 60000;
+    if (!valor) {
+      return minimoPadrao;
+    }
+    const numero = Number(valor);
+    if (!Number.isFinite(numero) || numero <= 0) {
+      return minimoPadrao;
+    }
+    return numero;
+  }
+
+  private tokensDentroJanelaMinima() {
+    if (!this.authorizationToken || !this.csrfToken || !this.tokenGeradoEm) {
+      return false;
+    }
+    return Date.now() - this.tokenGeradoEm < this.tokenMinReuseMs;
   }
 
   /**
@@ -176,6 +198,7 @@ export class SiscomexService {
     this.httpsAgent = undefined;
     this.authorizationToken = undefined;
     this.csrfToken = undefined;
+    this.tokenGeradoEm = undefined;
   }
 
   private setupInterceptors() {
@@ -221,7 +244,7 @@ export class SiscomexService {
 
         if ((status === 401 || status === 403) && !originalConfig?._retry) {
           originalConfig._retry = true;
-          await this.reautenticar();
+          await this.reautenticar(true);
           return this.api.request(originalConfig);
         }
 
@@ -245,16 +268,22 @@ export class SiscomexService {
     await this.reautenticar();
   }
 
-  private async reautenticar() {
+  private async reautenticar(forcar = false) {
     if (!this.autenticacaoPromise) {
-      this.autenticacaoPromise = this.autenticar().finally(() => {
+      this.autenticacaoPromise = this.autenticar(forcar).finally(() => {
         this.autenticacaoPromise = null;
       });
     }
     return this.autenticacaoPromise;
   }
 
-  private async autenticar() {
+  private async autenticar(forcar = false) {
+    if (!forcar && this.tokensDentroJanelaMinima()) {
+      logger.info('Reutilizando tokens SISCOMEX dentro da janela mínima de reuso', {
+        janelaMs: this.tokenMinReuseMs
+      });
+      return;
+    }
     if (!this.authUrl) {
       logger.warn('Endpoint de autenticação SISCOMEX não configurado (SISCOMEX_AUTH_URL). Assumindo sessão pré-autenticada.');
       return;
@@ -310,6 +339,9 @@ export class SiscomexService {
     if (csrfToken) {
       this.csrfToken = csrfToken;
       this.api.defaults.headers.common['X-CSRF-Token'] = csrfToken;
+    }
+    if (authorization || csrfToken) {
+      this.tokenGeradoEm = Date.now();
     }
 
     logger.info('Headers de autenticação do SISCOMEX processados', {
