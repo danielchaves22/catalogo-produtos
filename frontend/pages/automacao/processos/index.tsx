@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { MultiSelect } from '@/components/ui/MultiSelect';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/ToastContext';
 import api from '@/lib/api';
@@ -115,6 +116,8 @@ function traduzirTipo(tipo: AsyncJobResumo['tipo']) {
       return 'Exportação de Produto';
     case 'EXPORTACAO_FABRICANTE':
       return 'Exportação de Fabricantes';
+    case 'TRANSMISSAO_PRODUTO':
+      return 'Transmissão de Produto';
     default:
       return tipo;
   }
@@ -152,6 +155,21 @@ export default function ProcessosAssincronosPage() {
   const [mostrarConfirmacaoLimpeza, setMostrarConfirmacaoLimpeza] = useState(false);
   const [limpandoHistorico, setLimpandoHistorico] = useState(false);
   const [baixandoArquivoId, setBaixandoArquivoId] = useState<number | null>(null);
+  const [tiposSelecionados, setTiposSelecionados] = useState<AsyncJobResumo['tipo'][]>([]);
+
+  const tipoOptions = useMemo(() => {
+    const tipos: AsyncJobResumo['tipo'][] = [
+      'IMPORTACAO_PRODUTO',
+      'EXCLUSAO_MASSIVA',
+      'ALTERACAO_ATRIBUTOS',
+      'AJUSTE_ESTRUTURA',
+      'APLICACAO_AJUSTE_ESTRUTURA',
+      'EXPORTACAO_PRODUTO',
+      'EXPORTACAO_FABRICANTE',
+      'TRANSMISSAO_PRODUTO',
+    ];
+    return tipos.map(tipo => ({ value: tipo, label: traduzirTipo(tipo) }));
+  }, []);
 
   const carregar = useCallback(async () => {
     try {
@@ -309,6 +327,11 @@ export default function ProcessosAssincronosPage() {
     [jobs]
   );
 
+  const jobsFiltrados = useMemo(() => {
+    if (tiposSelecionados.length === 0) return jobs;
+    return jobs.filter(job => tiposSelecionados.includes(job.tipo));
+  }, [jobs, tiposSelecionados]);
+
   useEffect(() => {
     if (!possuiEmExecucao) return undefined;
 
@@ -374,10 +397,26 @@ export default function ProcessosAssincronosPage() {
         </p>
       )}
 
+      <Card className="mb-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <MultiSelect
+            label="Tipo de processo"
+            options={tipoOptions}
+            values={tiposSelecionados}
+            onChange={valores => setTiposSelecionados(valores as AsyncJobResumo['tipo'][])}
+            placeholder="Todos os tipos"
+          />
+        </div>
+      </Card>
+
       <Card>
         {jobs.length === 0 ? (
           <p className="p-6 text-center text-slate-300">
             Nenhum processo assíncrono foi encontrado ainda.
+          </p>
+        ) : jobsFiltrados.length === 0 ? (
+          <p className="p-6 text-center text-slate-300">
+            Nenhum processo encontrado para os filtros selecionados.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -395,7 +434,7 @@ export default function ProcessosAssincronosPage() {
                 </tr>
               </thead>
               <tbody>
-                {jobs.map(job => {
+                {jobsFiltrados.map(job => {
                   const catalogoDescricao = obterDescricaoCatalogo(job.importacaoProduto?.catalogo ?? null);
                   const importacaoId = job.importacaoProduto?.id ?? null;
                   const atributoId = job.atributoPreenchimentoMassa?.id ?? null;
