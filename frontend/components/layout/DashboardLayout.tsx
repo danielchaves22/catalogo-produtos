@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from './Sidebar';
 import { User, RefreshCcw, Bell, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { WorkingCatalogModal } from '@/components/catalogos/WorkingCatalogModal';
 import { useMessages } from '@/contexts/MessagesContext';
@@ -164,13 +163,6 @@ export function DashboardLayout({ children, title = 'Dashboard' }: DashboardLayo
           <div className="flex items-center text-sm text-gray-300 space-x-2 mr-1">
             <span className="text-gray-400">Catálogo de trabalho:</span>
             <span className="text-gray-100">{catalogLabel}</span>
-            {workingCatalog?.ambiente && (
-              <EnvironmentBadge
-                ambiente={workingCatalog.ambiente}
-                size="sm"
-                className="font-bold"
-              />
-            )}
           </div>
           <button
             className="p-1 rounded hover:bg-[#262b36] text-gray-300 hover:text-white"
