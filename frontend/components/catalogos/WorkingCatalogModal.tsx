@@ -2,17 +2,13 @@
 import api from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { useWorkingCatalog, WorkingCatalog } from '@/contexts/WorkingCatalogContext';
-import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
 import { formatCPFOrCNPJ } from '@/lib/validation';
-
-type CatalogoAmbiente = 'HOMOLOGACAO' | 'PRODUCAO';
 
 interface CatalogoResumo {
   id: number;
   numero: number;
   nome: string;
   cpf_cnpj?: string | null;
-  ambiente: CatalogoAmbiente;
 }
 
 interface WorkingCatalogModalProps {
@@ -31,12 +27,6 @@ export function WorkingCatalogModal({ isOpen, onClose }: WorkingCatalogModalProp
       try {
         const res = await api.get<CatalogoResumo[]>('/catalogos');
         setCatalogos(res.data);
-        if (workingCatalog && !workingCatalog.ambiente) {
-          const atual = res.data.find(c => c.id === workingCatalog.id);
-          if (atual) {
-            setWorkingCatalog({ ...workingCatalog, ambiente: atual.ambiente });
-          }
-        }
       } catch (err) {
         console.error('Erro ao carregar catálogos:', err);
       }
@@ -52,7 +42,6 @@ export function WorkingCatalogModal({ isOpen, onClose }: WorkingCatalogModalProp
           numero: cat.numero,
           nome: cat.nome,
           cpf_cnpj: cat.cpf_cnpj,
-          ambiente: cat.ambiente
         }
       : null;
     setWorkingCatalog(selected);
@@ -80,31 +69,9 @@ export function WorkingCatalogModal({ isOpen, onClose }: WorkingCatalogModalProp
             <option key={cat.id} value={cat.id}>
               {cat.nome}
               {cat.cpf_cnpj ? ` • ${formatCPFOrCNPJ(cat.cpf_cnpj)}` : ''}
-              {` (${cat.ambiente === 'PRODUCAO' ? 'Produção' : 'Homologação'})`}
             </option>
           ))}
         </select>
-
-        {selectedId && (
-          <div className="mb-4 rounded border border-gray-700 bg-[#151921] px-3 py-2 text-sm">
-            {(() => {
-              const cat = catalogos.find(c => c.id === Number(selectedId));
-              if (!cat) return null;
-              return (
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex flex-col">
-                    <span className="text-gray-300">Ambiente selecionado</span>
-                    <span className="text-gray-200 font-medium">
-                      {cat.nome}
-                      {cat.cpf_cnpj ? ` • ${formatCPFOrCNPJ(cat.cpf_cnpj)}` : ''}
-                    </span>
-                  </div>
-                  <EnvironmentBadge ambiente={cat.ambiente} size="sm" />
-                </div>
-              );
-            })()}
-          </div>
-        )}
 
         <div className="flex justify-end space-x-2">
           <Button variant="outline" onClick={onClose}>

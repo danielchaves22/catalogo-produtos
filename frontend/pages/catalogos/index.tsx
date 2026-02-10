@@ -8,7 +8,6 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useToast } from '@/components/ui/ToastContext';
 import { Input } from '@/components/ui/Input';
 import { MaskedInput } from '@/components/ui/MaskedInput';
-import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
 import { Plus, Trash2, AlertCircle, Pencil, FileText, Copy } from 'lucide-react';
 import { useRouter } from 'next/router';
 import api from '@/lib/api';
@@ -20,7 +19,6 @@ interface Catalogo {
   nome: string;
   cpf_cnpj: string | null;
   status: 'ATIVO' | 'INATIVO';
-  ambiente: 'HOMOLOGACAO' | 'PRODUCAO';
   ultima_alteracao: string;
 }
 
@@ -183,7 +181,6 @@ export default function CatalogosPage() {
                   <th className="px-4 py-3">CPF/CNPJ</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Última Alteração</th>
-                  <th className="px-4 py-3">Ambiente</th>
                 </tr>
               </thead>
               <tbody>
@@ -238,9 +235,6 @@ export default function CatalogosPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">{formatarData(catalogo.ultima_alteracao)}</td>
-                    <td className="px-4 py-3">
-                      <EnvironmentBadge ambiente={catalogo.ambiente} size="sm" />
-                    </td>
                   </tr>
                 ))}
               </tbody>

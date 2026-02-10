@@ -92,7 +92,7 @@ export class CatalogoService {
           nome: data.nome,
           cpf_cnpj: data.cpf_cnpj,
           status: data.status,
-          ambiente: CatalogoAmbiente.HOMOLOGACAO,
+          ambiente: CatalogoAmbiente.PRODUCAO,
           ultima_alteracao: new Date(),
           numero: 0,
           superUserId
@@ -184,7 +184,7 @@ export class CatalogoService {
 
 
 
-  async alterarAmbiente(id: number, ambiente: CatalogoAmbiente, superUserId: number) {
+  async alterarAmbiente(id: number, _ambiente: CatalogoAmbiente, superUserId: number) {
     try {
       const atual = await catalogoPrisma.catalogo.findFirst({
         where: { id, superUserId },
@@ -196,21 +196,13 @@ export class CatalogoService {
       }
 
       if (atual.ambiente === CatalogoAmbiente.PRODUCAO) {
-        throw new Error('Catalogo em PRODUCAO nao pode retornar para HOMOLOGACAO');
-      }
-
-      if (atual.ambiente === ambiente) {
         return (await this.buscarPorId(id, superUserId))!;
-      }
-
-      if (ambiente !== CatalogoAmbiente.PRODUCAO) {
-        throw new Error('Somente a promocao para PRODUCAO e permitida');
       }
 
       const atualizado = await catalogoPrisma.catalogo.updateMany({
         where: { id, superUserId },
         data: {
-          ambiente,
+          ambiente: CatalogoAmbiente.PRODUCAO,
           ultima_alteracao: new Date()
         }
       });
@@ -221,13 +213,7 @@ export class CatalogoService {
 
       return (await this.buscarPorId(id, superUserId))!;
     } catch (error: unknown) {
-      if (
-        error instanceof Error && (
-          error.message.includes('nao encontrado') ||
-          error.message.includes('nao pode retornar') ||
-          error.message.includes('promocao')
-        )
-      ) {
+      if (error instanceof Error && error.message.includes('nao encontrado')) {
         throw error;
       }
 
@@ -331,7 +317,7 @@ async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
         nome,
         cpf_cnpj,
         status: original.status,
-        ambiente: CatalogoAmbiente.HOMOLOGACAO,
+        ambiente: CatalogoAmbiente.PRODUCAO,
         ultima_alteracao: new Date(),
         numero: 0,
         superUserId

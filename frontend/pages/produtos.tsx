@@ -9,7 +9,6 @@ import { AlertCircle, Plus, Search, Trash2, Pencil, Copy, X, Download, Loader2 }
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Hint } from '@/components/ui/Hint';
 import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
-import { EnvironmentBadge } from '@/components/ui/EnvironmentBadge';
 import api from '@/lib/api';
 import { produtoStatusLegend, produtoSituacaoLegend } from '@/constants/statusLegends';
 import { useRouter } from 'next/router';
@@ -29,7 +28,6 @@ interface Produto {
   catalogoNumero?: number | null;
   catalogoNome?: string | null;
   catalogoCpfCnpj?: string | null;
-  catalogoAmbiente?: 'HOMOLOGACAO' | 'PRODUCAO' | null;
   catalogoId?: number;
   denominacao?: string;
   descricao?: string;
@@ -949,7 +947,6 @@ export default function ProdutosPage() {
                       </span>
                     </th>
                     <th className="px-4 py-3">Última Alteração</th>
-                    <th className="px-4 py-3">Ambiente</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800 text-gray-300">
@@ -1044,13 +1041,6 @@ export default function ProdutosPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">{formatarData(produto.atualizadoEm)}</td>
-                      <td className="px-4 py-3">
-                        {produto.catalogoAmbiente ? (
-                          <EnvironmentBadge ambiente={produto.catalogoAmbiente} size="sm" />
-                        ) : (
-                          '-'
-                        )}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
