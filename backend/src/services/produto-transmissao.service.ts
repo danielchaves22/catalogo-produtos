@@ -25,6 +25,10 @@ interface FalhaTransmissao {
   motivo: string;
 }
 
+interface OpcaoSolicitarTransmissao {
+  forcarAtualizacaoVersao?: boolean;
+}
+
 interface SiscomexClientCacheItem {
   cliente: SiscomexService;
   certificadoHash: string;
@@ -49,7 +53,8 @@ export class ProdutoTransmissaoService {
     ids: number[],
     catalogoId: number,
     superUserId: number,
-    usuarioCatalogoId?: number | null
+    usuarioCatalogoId?: number | null,
+    opcoes: OpcaoSolicitarTransmissao = {}
   ) {
     if (!Number.isFinite(catalogoId)) {
       throw new ValidationError({ catalogoId: 'Catálogo selecionado é obrigatório para transmitir ao SISCOMEX' });
@@ -101,6 +106,19 @@ export class ProdutoTransmissaoService {
       throw new ValidationError({
         produtos: 'Todos os produtos selecionados precisam pertencer ao catálogo informado para transmissão.',
       });
+    }
+
+    if (!opcoes.forcarAtualizacaoVersao) {
+      const idsAtivados = produtos
+        .filter(produto => String(produto.situacao || '').toUpperCase() === 'ATIVADO')
+        .map(produto => produto.id);
+
+      if (idsAtivados.length > 0) {
+        throw new ValidationError({
+          produtos:
+            'Produtos com situação ATIVADO exigem transmissão individual para gerar nova versão.',
+        });
+      }
     }
 
     const resultado = await catalogoPrisma.$transaction(async tx => {
@@ -263,8 +281,6 @@ export class ProdutoTransmissaoService {
 
     const payloadProdutos = produtosExportados.map(produtoExportado => {
       const { catalogoId: catalogoId, ...payload } = produtoExportado;
-      console.log('produtoExportado', produtoExportado);
-      console.log(payload)
       return payload as any;
     });
 
@@ -362,6 +378,14 @@ export class ProdutoTransmissaoService {
           cpfCnpjRaiz,
           possuiCodigoLocal,
         });
+
+        const situacaoNormalizada = String((resposta?.situacao ?? '')).toUpperCase();
+        const situacaoProduto: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO' =
+          situacaoNormalizada === 'DESATIVADO'
+            ? 'DESATIVADO'
+            : situacaoNormalizada === 'RASCUNHO'
+              ? 'RASCUNHO'
+              : 'ATIVADO';
         const versaoNumero =
           typeof resposta.versao === 'string' ? Number(resposta.versao) : (resposta.versao as number);
 
@@ -376,14 +400,14 @@ export class ProdutoTransmissaoService {
         await this.produtoService.marcarComoTransmitido(produtoId, transmissao.superUserId, {
           codigo: resposta.codigo,
           versao: versaoNumero,
-          situacao: 'ATIVADO',
+          situacao: situacaoProduto,
         });
 
         sucessos.push({
           produtoId,
           codigo: resposta.codigo,
           versao: versaoNumero,
-          situacao: 'ATIVADO',
+          situacao: situacaoProduto,
         });
       } catch (error: unknown) {
         logger.error('Falha ao transmitir produto ao SISCOMEX', {
