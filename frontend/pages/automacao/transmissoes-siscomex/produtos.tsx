@@ -93,22 +93,16 @@ export default function NovaTransmissaoProdutosPage() {
         setErro('Selecione um catálogo para listar produtos aprovados e transmitir.');
         return;
       }
-      const params: Record<string, string> = {};
-      if (situacao === 'RASCUNHO') {
-        params.status = 'APROVADO';
-      }
+      const params: Record<string, string> = {
+        status: 'APROVADO',
+      };
       if (busca.trim()) params.busca = busca.trim();
       if (catalogoId) params.catalogoId = catalogoId;
       if (situacao) params.situacao = situacao;
 
       const resposta = await api.get<ProdutosResponse>('/produtos', { params });
       const itens = resposta.data.items || [];
-      const itensValidos = itens.filter(item => {
-        if (situacao === 'ATIVADO') {
-          return (item.status || 'TRANSMITIDO') === 'TRANSMITIDO';
-        }
-        return (item.status || 'APROVADO') === 'APROVADO';
-      });
+      const itensValidos = itens.filter(item => (item.status || 'APROVADO') === 'APROVADO');
       setProdutos(itensValidos);
       setErro(null);
     } catch (error) {
@@ -355,8 +349,8 @@ export default function NovaTransmissaoProdutosPage() {
             />
             <span className="ml-2">
               {transmissaoIndividual
-                ? 'Somente produtos transmitidos e ativados são listados para nova versão.'
-                : 'Somente produtos aprovados são listados para envio inicial.'}
+                ? 'Somente produtos aprovados são listados para nova versão.'
+                : 'Somente produtos aprovados são listados para transmissão.'}
             </span>
           </div>
         </div>
