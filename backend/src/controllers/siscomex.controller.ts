@@ -137,8 +137,16 @@ export async function transmitirProdutos(req: Request, res: Response) {
       ? (req.body.ids as Array<string | number>).map(id => Number(id)).filter(Number.isFinite)
       : [];
 
+    const forcarAtualizacaoVersao = req.body?.forcarAtualizacaoVersao === true;
+
     const catalogoId = Number(req.body?.catalogoId);
-    const resultado = await produtoTransmissaoService.solicitarTransmissao(ids, catalogoId, req.user!.superUserId, null);
+    const resultado = await produtoTransmissaoService.solicitarTransmissao(
+      ids,
+      catalogoId,
+      req.user!.superUserId,
+      null,
+      { forcarAtualizacaoVersao }
+    );
 
     return res.status(202).json({
       sucesso: true,

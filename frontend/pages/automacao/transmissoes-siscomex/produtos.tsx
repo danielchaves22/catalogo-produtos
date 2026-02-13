@@ -24,6 +24,7 @@ interface ProdutoTransmissao {
   catalogoId?: number;
   catalogoNome?: string | null;
   catalogoNumero?: number | null;
+  versao?: number | null;
 }
 
 interface CatalogoResumo {
@@ -46,6 +47,8 @@ export default function NovaTransmissaoProdutosPage() {
   const [catalogoId, setCatalogoId] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [transmitindo, setTransmitindo] = useState(false);
+  const [transmitindoProdutoId, setTransmitindoProdutoId] = useState<number | null>(null);
+  const [produtoParaConfirmar, setProdutoParaConfirmar] = useState<ProdutoTransmissao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
@@ -90,18 +93,23 @@ export default function NovaTransmissaoProdutosPage() {
         setErro('Selecione um catálogo para listar produtos aprovados e transmitir.');
         return;
       }
-      const params: Record<string, string> = {
-        status: 'APROVADO',
-      };
+      const params: Record<string, string> = {};
+      if (situacao === 'RASCUNHO') {
+        params.status = 'APROVADO';
+      }
       if (busca.trim()) params.busca = busca.trim();
       if (catalogoId) params.catalogoId = catalogoId;
       if (situacao) params.situacao = situacao;
 
       const resposta = await api.get<ProdutosResponse>('/produtos', { params });
-      const itensAprovados = (resposta.data.items || []).filter(
-        item => (item.status || 'APROVADO') === 'APROVADO'
-      );
-      setProdutos(itensAprovados);
+      const itens = resposta.data.items || [];
+      const itensValidos = itens.filter(item => {
+        if (situacao === 'ATIVADO') {
+          return (item.status || 'TRANSMITIDO') === 'TRANSMITIDO';
+        }
+        return (item.status || 'APROVADO') === 'APROVADO';
+      });
+      setProdutos(itensValidos);
       setErro(null);
     } catch (error) {
       console.error('Erro ao carregar produtos aprovados:', error);
@@ -128,9 +136,12 @@ export default function NovaTransmissaoProdutosPage() {
     });
   }, [busca, produtos, situacao]);
 
-  const todosSelecionados = produtosFiltrados.length > 0 && selecionados.size === produtosFiltrados.length;
+  const transmissaoIndividual = situacao === 'ATIVADO';
+  const todosSelecionados =
+    !transmissaoIndividual && produtosFiltrados.length > 0 && selecionados.size === produtosFiltrados.length;
 
   const alternarSelecao = (id: number) => {
+    if (transmissaoIndividual) return;
     setSelecionados(prev => {
       const novo = new Set(prev);
       if (novo.has(id)) {
@@ -143,6 +154,7 @@ export default function NovaTransmissaoProdutosPage() {
   };
 
   const selecionarTodos = () => {
+    if (transmissaoIndividual) return;
     setSelecionados(prev => {
       if (todosSelecionados) return new Set();
       return new Set(produtosFiltrados.map(p => p.id));
@@ -150,6 +162,11 @@ export default function NovaTransmissaoProdutosPage() {
   };
 
   const transmitir = async () => {
+    if (transmissaoIndividual) {
+      setErro('Para situação ATIVADO, a transmissão deve ser feita produto a produto.');
+      addToast('Use o botão de envio por item para gerar nova versão.', 'error');
+      return;
+    }
     if (!catalogoId) {
       setErro('Selecione um catálogo para transmitir ao SISCOMEX.');
       addToast('Selecione um catálogo para transmitir ao SISCOMEX.', 'error');
@@ -200,6 +217,54 @@ export default function NovaTransmissaoProdutosPage() {
     }
   };
 
+  const solicitarNovaVersao = (produto: ProdutoTransmissao) => {
+    setProdutoParaConfirmar(produto);
+  };
+
+  const confirmarNovaVersao = async () => {
+    if (!produtoParaConfirmar) return;
+    if (!catalogoId) {
+      setErro('Selecione um catálogo para transmitir ao SISCOMEX.');
+      addToast('Selecione um catálogo para transmitir ao SISCOMEX.', 'error');
+      return;
+    }
+
+    setTransmitindoProdutoId(produtoParaConfirmar.id);
+    try {
+      const idsCatalogo = Number(catalogoId);
+      if (produtoParaConfirmar.catalogoId !== idsCatalogo) {
+        setErro('O produto selecionado não pertence ao catálogo atual para transmissão.');
+        addToast('Produto fora do catálogo selecionado.', 'error');
+        return;
+      }
+
+      const resposta = await api.post('/siscomex/produtos/transmitir', {
+        ids: [produtoParaConfirmar.id],
+        catalogoId: idsCatalogo,
+        forcarAtualizacaoVersao: true,
+      });
+
+      const transmissaoId = resposta.data?.dados?.transmissaoId;
+      addToast('Solicitação de nova versão enfileirada com sucesso.', 'success');
+      setErro(null);
+      setProdutoParaConfirmar(null);
+
+      if (transmissaoId) {
+        router.push(`/automacao/transmissoes-siscomex/${transmissaoId}`);
+      } else {
+        await carregarProdutos();
+      }
+    } catch (error) {
+      console.error('Erro ao solicitar nova versão do produto:', error);
+      const mensagemErro =
+        (error as any)?.response?.data?.error || 'Não foi possível transmitir a nova versão do produto.';
+      setErro(typeof mensagemErro === 'string' ? mensagemErro : 'Erro inesperado ao transmitir nova versão.');
+      addToast('Falha ao solicitar nova versão no SISCOMEX.', 'error');
+    } finally {
+      setTransmitindoProdutoId(null);
+    }
+  };
+
   return (
     <DashboardLayout title="Nova transmissão de produtos">
       <Breadcrumb
@@ -222,16 +287,16 @@ export default function NovaTransmissaoProdutosPage() {
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h1 className="text-2xl font-semibold text-white">Selecionar produtos aprovados</h1>
+            <h1 className="text-2xl font-semibold text-white">Selecionar produtos para transmissão</h1>
             <p className="text-gray-400 text-sm">
-              Apenas itens aprovados e ainda não enviados são exibidos. Ajuste filtros e confirme o envio.
+              Produtos em rascunho são enviados em lote. Produtos ativados geram nova versão com envio individual.
             </p>
           </div>
         </div>
         <Button
           variant="accent"
           className="flex items-center gap-2"
-          disabled={selecionados.size === 0 || transmitindo || !catalogoId}
+          disabled={transmissaoIndividual || selecionados.size === 0 || transmitindo || !catalogoId}
           onClick={transmitir}
         >
           {transmitindo ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
@@ -288,12 +353,18 @@ export default function NovaTransmissaoProdutosPage() {
               legend={produtoStatusLegend}
               triggerAriaLabel="Ver legenda de status"
             />
-            <span className="ml-2">Somente produtos aprovados são listados.</span>
+            <span className="ml-2">
+              {transmissaoIndividual
+                ? 'Somente produtos transmitidos e ativados são listados para nova versão.'
+                : 'Somente produtos aprovados são listados para envio inicial.'}
+            </span>
           </div>
         </div>
         <p className="text-sm text-gray-400 mt-3">
-          Escolha o catálogo que fornecerá o certificado PFX e os dados fiscais do envio. Todos os produtos são
-          enviados juntos em um único JSON, com limite de 100 itens por transmissão.
+          Escolha o catálogo que fornecerá o certificado PFX e os dados fiscais do envio.
+          {transmissaoIndividual
+            ? ' Para situação ATIVADO, o envio é individual para criação de nova versão.'
+            : ' Para situação RASCUNHO, os produtos são enviados em lote, com limite de 100 itens por transmissão.'}
         </p>
         {catalogoSelecionado && (
           <p className="text-sm text-gray-300 mt-1">
@@ -310,12 +381,12 @@ export default function NovaTransmissaoProdutosPage() {
       )}
 
       {carregando ? (
-        <PageLoader message="Carregando produtos aprovados..." />
+        <PageLoader message="Carregando produtos para transmissão..." />
       ) : produtosFiltrados.length === 0 ? (
         <Card>
           <div className="text-center py-10 text-gray-400">
             {catalogoId
-              ? 'Nenhum produto aprovado encontrado com os filtros selecionados.'
+              ? 'Nenhum produto encontrado com os filtros selecionados.'
               : 'Selecione um catálogo para visualizar os produtos aprovados para transmissão.'}
           </div>
         </Card>
@@ -325,11 +396,16 @@ export default function NovaTransmissaoProdutosPage() {
             <table className="w-full text-left text-sm">
               <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
                 <tr>
-                  <th className="w-12 px-4 py-3">
-                    <input type="checkbox" checked={todosSelecionados} onChange={selecionarTodos} />
+                  <th className="w-20 px-4 py-3">
+                    {transmissaoIndividual ? (
+                      'Ação'
+                    ) : (
+                      <input type="checkbox" checked={todosSelecionados} onChange={selecionarTodos} />
+                    )}
                   </th>
                   <th className="px-4 py-3">Código</th>
                   <th className="px-4 py-3">Denominação</th>
+                  <th className="px-4 py-3">Versão</th>
                   <th className="px-4 py-3">Catálogo</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Situação</th>
@@ -339,15 +415,28 @@ export default function NovaTransmissaoProdutosPage() {
                 {produtosFiltrados.map(produto => (
                   <tr key={produto.id} className="border-b border-slate-800/60 hover:bg-slate-800/40">
                     <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selecionados.has(produto.id)}
-                        onChange={() => alternarSelecao(produto.id)}
-                        aria-label={`Selecionar produto ${produto.codigo || produto.denominacao || produto.id}`}
-                      />
+                      {transmissaoIndividual ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="px-2 py-1 text-xs"
+                          onClick={() => solicitarNovaVersao(produto)}
+                          disabled={transmitindoProdutoId === produto.id}
+                        >
+                          {transmitindoProdutoId === produto.id ? 'Enviando...' : 'Enviar'}
+                        </Button>
+                      ) : (
+                        <input
+                          type="checkbox"
+                          checked={selecionados.has(produto.id)}
+                          onChange={() => alternarSelecao(produto.id)}
+                          aria-label={`Selecionar produto ${produto.codigo || produto.denominacao || produto.id}`}
+                        />
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-200">{produto.codigo || `#${produto.id}`}</td>
                     <td className="px-4 py-3 text-gray-200">{produto.denominacao || '-'}</td>
+                    <td className="px-4 py-3 text-gray-200">{produto.versao ?? '-'}</td>
                     <td className="px-4 py-3 text-gray-200">
                       {produto.catalogoNome || '—'}
                       {produto.catalogoNumero && (
@@ -362,9 +451,44 @@ export default function NovaTransmissaoProdutosPage() {
             </table>
           </div>
           <div className="mt-3 text-sm text-gray-400">
-            {selecionados.size} produto(s) selecionado(s) de {produtosFiltrados.length} exibidos.
+            {transmissaoIndividual
+              ? `${produtosFiltrados.length} produto(s) disponível(is) para nova versão.`
+              : `${selecionados.size} produto(s) selecionado(s) de ${produtosFiltrados.length} exibidos.`}
           </div>
         </Card>
+      )}
+
+      {produtoParaConfirmar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md p-6">
+            <h3 className="mb-3 text-xl font-semibold text-white">Confirmar envio de nova versão</h3>
+            <p className="mb-5 text-sm text-gray-300">
+              Confirma o envio de nova versão do produto{' '}
+              <span className="font-semibold text-white">
+                {produtoParaConfirmar.codigo || produtoParaConfirmar.denominacao || `#${produtoParaConfirmar.id}`}
+              </span>
+              ?
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setProdutoParaConfirmar(null)}
+                disabled={transmitindoProdutoId === produtoParaConfirmar.id}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="accent"
+                onClick={confirmarNovaVersao}
+                disabled={transmitindoProdutoId === produtoParaConfirmar.id}
+              >
+                {transmitindoProdutoId === produtoParaConfirmar.id ? 'Enviando...' : 'Confirmar envio'}
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
     </DashboardLayout>
   );
