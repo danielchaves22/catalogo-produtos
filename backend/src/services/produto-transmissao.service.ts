@@ -1,4 +1,5 @@
 // backend/src/services/produto-transmissao.service.ts
+import { createHash } from 'crypto';
 import {
   AsyncJobStatus,
   AsyncJobTipo,
@@ -24,10 +25,18 @@ interface FalhaTransmissao {
   motivo: string;
 }
 
+interface SiscomexClientCacheItem {
+  cliente: SiscomexService;
+  certificadoHash: string;
+  verificarCertificadoEm: number;
+}
+
 const UM_DIA_EM_MS = 24 * 60 * 60 * 1000;
+const SISCOMEX_CLIENTE_CACHE_TTL_PADRAO_MS = 60000;
 
 export class ProdutoTransmissaoService {
-  private readonly siscomexClients = new Map<number, SiscomexService>();
+  private readonly siscomexClients = new Map<number, SiscomexClientCacheItem>();
+  private readonly siscomexClientCacheTtlMs = this.resolverCacheTtlMs(process.env.SISCOMEX_CLIENT_CACHE_TTL_MS);
 
   constructor(
     private readonly exportacaoService = new ProdutoExportacaoService(),
@@ -554,15 +563,32 @@ export class ProdutoTransmissaoService {
   private async obterClienteSiscomex(
     catalogoId: number,
     superUserId: number,
-    cache: Map<number, SiscomexService>
+    cache: Map<number, SiscomexClientCacheItem>
   ): Promise<SiscomexService> {
+    const agora = Date.now();
     const existente = cache.get(catalogoId);
-    if (existente) {
-      return existente;
+
+    if (existente && existente.verificarCertificadoEm > agora) {
+      return existente.cliente;
     }
 
     logger.info('Recuperando certificado PFX vinculado ao catálogo para transmissão SISCOMEX', { catalogoId });
     const certificado = await this.certificadoService.obterParaCatalogo(catalogoId, superUserId);
+    const certificadoHash = this.calcularHashCertificado(certificado.pfx);
+
+    if (existente && existente.certificadoHash === certificadoHash) {
+      cache.set(catalogoId, {
+        ...existente,
+        verificarCertificadoEm: agora + this.siscomexClientCacheTtlMs,
+      });
+
+      logger.info('Cliente SISCOMEX mantido em cache após validação de certificado', {
+        catalogoId,
+        ttlMs: this.siscomexClientCacheTtlMs,
+      });
+      return existente.cliente;
+    }
+
     logger.info('Certificado obtido do storage para SISCOMEX', {
       catalogoId,
       origem: certificado.origem,
@@ -571,8 +597,36 @@ export class ProdutoTransmissaoService {
     });
     const cliente = new SiscomexService({ certificado });
 
-    cache.set(catalogoId, cliente);
+    cache.set(catalogoId, {
+      cliente,
+      certificadoHash,
+      verificarCertificadoEm: agora + this.siscomexClientCacheTtlMs,
+    });
+
+    logger.info('Cliente SISCOMEX armazenado/atualizado no cache', {
+      catalogoId,
+      ttlMs: this.siscomexClientCacheTtlMs,
+      cacheAtualizado: Boolean(existente),
+    });
+
     return cliente;
+  }
+
+  private resolverCacheTtlMs(valor?: string) {
+    if (!valor) {
+      return SISCOMEX_CLIENTE_CACHE_TTL_PADRAO_MS;
+    }
+
+    const ttl = Number(valor);
+    if (!Number.isFinite(ttl) || ttl <= 0) {
+      return SISCOMEX_CLIENTE_CACHE_TTL_PADRAO_MS;
+    }
+
+    return ttl;
+  }
+
+  private calcularHashCertificado(pfx: Buffer) {
+    return createHash('sha256').update(pfx).digest('hex');
   }
 
   private extrairCpfCnpjRaiz(cpfCnpj?: string | null) {
