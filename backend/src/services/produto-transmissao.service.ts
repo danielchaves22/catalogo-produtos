@@ -9,7 +9,7 @@ import {
   ProdutoTransmissaoStatus,
 } from '@prisma/client';
 import { ProdutoExportacaoService } from './produto-exportacao.service';
-import { SiscomexService } from './siscomex.service';
+import { SiscomexService, SiscomexErroDetalhado } from './siscomex.service';
 import { ProdutoService } from './produto.service';
 import { CertificadoService } from './certificado.service';
 import { CatalogoService } from './catalogo.service';
@@ -295,6 +295,7 @@ export class ProdutoTransmissaoService {
       delete payloadSiscomex.seq;
       delete payloadSiscomex.codigo;
       delete payloadSiscomex.versao;
+      delete payloadSiscomex.cpfCnpjRaiz;
 
       return {
         produtoId: Number(produtoExportado.seq),
@@ -370,7 +371,12 @@ export class ProdutoTransmissaoService {
         });
 
         const motivo = error instanceof Error ? error.message : 'Erro desconhecido ao transmitir produto ao SISCOMEX';
-        respostas.push({ sucesso: false, mensagem: motivo });
+        const detalhesSiscomex = (error as Error & { siscomexDetalhes?: SiscomexErroDetalhado })?.siscomexDetalhes;
+        respostas.push({
+          sucesso: false,
+          mensagem: motivo,
+          detalhes: detalhesSiscomex ?? null,
+        });
         falhas.push({ produtoId, motivo });
         continue;
       }
