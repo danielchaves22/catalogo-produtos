@@ -317,37 +317,46 @@ export class ProdutoTransmissaoService {
       this.siscomexClients
     );
 
-    let respostas: any[] = [];
+    const respostas: any[] = [];
     const sucessos: Array<{ produtoId: number; codigo?: string; versao?: number; situacao?: string | null }> = [];
     const falhas: FalhaTransmissao[] = [];
-
-    try {
-      respostas = await cliente.incluirProdutos(cpfCnpjRaiz, payloadProdutos as any[]);
-    } catch (error: unknown) {
-      logger.error('Falha ao transmitir lote de produtos ao SISCOMEX', { erro: error });
-      const motivo = error instanceof Error ? error.message : 'Erro desconhecido ao transmitir produtos ao SISCOMEX';
-      for (const produtoExportado of produtosExportados) {
-        falhas.push({ produtoId: Number(produtoExportado.seq), motivo });
-      }
-      await this.finalizarTransmissao(transmissao.id, {
-        falhas,
-        sucessos,
-        respostas,
-        statusFinal: ProdutoTransmissaoStatus.FALHO,
-      });
-      if (jobId) {
-        await registerJobLog(jobId, AsyncJobStatus.FALHO, motivo);
-      }
-      return;
-    }
-
-    const respostasNormalizadas = Array.isArray(respostas) ? respostas : [respostas];
 
     for (let index = 0; index < produtosExportados.length; index++) {
       const produtoExportado = produtosExportados[index];
       const produtoId = Number(produtoExportado.seq);
-      const resposta = respostasNormalizadas[index];
       const possuiCodigoLocal = Boolean((produtoExportado as any).codigo);
+      const situacaoLocal = String((produtoExportado as any).situacao || '').toUpperCase();
+      const deveAtualizarVersao = possuiCodigoLocal && situacaoLocal === 'ATIVADO';
+
+      const payloadOriginal = payloadProdutos[index] as Record<string, any>;
+      const payloadSiscomex = { ...payloadOriginal } as Record<string, any>;
+      delete payloadSiscomex.codigo;
+      delete payloadSiscomex.versao;
+
+      let resposta: any;
+      try {
+        if (deveAtualizarVersao) {
+          resposta = await cliente.atualizarProduto(
+            cpfCnpjRaiz,
+            String((produtoExportado as any).codigo),
+            payloadSiscomex as any
+          );
+        } else {
+          resposta = await cliente.incluirProduto(cpfCnpjRaiz, payloadSiscomex as any);
+        }
+        respostas.push(resposta);
+      } catch (error: unknown) {
+        logger.error('Falha ao transmitir produto ao SISCOMEX', {
+          produtoId,
+          operacao: deveAtualizarVersao ? 'atualizar-versao' : 'incluir',
+          erro: error,
+        });
+
+        const motivo = error instanceof Error ? error.message : 'Erro desconhecido ao transmitir produto ao SISCOMEX';
+        respostas.push({ sucesso: false, mensagem: motivo });
+        falhas.push({ produtoId, motivo });
+        continue;
+      }
 
       if (!Number.isFinite(produtoId)) {
         falhas.push({ produtoId, motivo: 'Identificador do produto inválido para transmissão' });
