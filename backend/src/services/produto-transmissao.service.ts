@@ -437,15 +437,27 @@ export class ProdutoTransmissaoService {
           continue;
         }
 
+        const codigoRetornado =
+          resposta.codigo === null || resposta.codigo === undefined || resposta.codigo === ''
+            ? null
+            : String(resposta.codigo);
+
+        const codigoPersistencia = deveAtualizarVersao
+          ? (itemTransmissao.codigo === null || itemTransmissao.codigo === undefined || itemTransmissao.codigo === ''
+            ? null
+            : String(itemTransmissao.codigo))
+          : codigoRetornado;
+
         await this.produtoService.marcarComoTransmitido(produtoId, transmissao.superUserId, {
-          codigo: resposta.codigo,
+          codigo: codigoPersistencia,
           versao: versaoNumero,
           situacao: situacaoProduto,
+          atualizarCodigo: !deveAtualizarVersao,
         });
 
         sucessos.push({
           produtoId,
-          codigo: resposta.codigo,
+          codigo: codigoPersistencia ?? undefined,
           versao: versaoNumero,
           situacao: situacaoProduto,
         });
