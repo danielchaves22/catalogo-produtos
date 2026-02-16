@@ -56,6 +56,13 @@ type SiscomexAutenticacaoHeaders = {
   csrfToken?: string;
 };
 
+export interface SiscomexErroDetalhado {
+  status?: number;
+  data?: unknown;
+  url?: string;
+  metodo?: string;
+}
+
 type SiscomexProdutoInclusao = Omit<SiscomexProduto, 'codigo' | 'versao'>;
 
 type SiscomexProdutoAtualizacao = Partial<SiscomexProduto> & { versao?: number };
@@ -353,27 +360,44 @@ export class SiscomexService {
   }
 
   private tratarErroApi(error: any): Error {
+    const erroDetalhado: SiscomexErroDetalhado = {
+      status: error?.response?.status,
+      data: error?.response?.data,
+      url: error?.config?.url,
+      metodo: error?.config?.method,
+    };
+
     if (error.response) {
       const status = error.response.status;
       const message = error.response.data?.mensagem || error.response.data?.message || error.response.statusText;
 
+      let erroNormalizado: Error;
       switch (status) {
         case 401:
-          return new Error('Não autorizado - verifique o certificado digital e o token');
+          erroNormalizado = new Error('Não autorizado - verifique o certificado digital e o token');
+          break;
         case 403:
-          return new Error('Acesso negado - verificar permissões ou token CSRF');
+          erroNormalizado = new Error('Acesso negado - verificar permissões ou token CSRF');
+          break;
         case 404:
-          return new Error('Recurso não encontrado');
+          erroNormalizado = new Error('Recurso não encontrado');
+          break;
         case 422:
-          return new Error(`Dados inválidos: ${message}`);
+          erroNormalizado = new Error(`Dados inválidos: ${message}`);
+          break;
         case 500:
-          return new Error('Erro interno do servidor SISCOMEX');
+          erroNormalizado = new Error('Erro interno do servidor SISCOMEX');
+          break;
         default:
-          return new Error(`Erro da API SISCOMEX: ${message}`);
+          erroNormalizado = new Error(`Erro da API SISCOMEX: ${message}`);
+          break;
       }
+
+      return Object.assign(erroNormalizado, { siscomexDetalhes: erroDetalhado });
     }
 
-    return new Error(`Erro de conexão com SISCOMEX: ${error.message}`);
+    const erroConexao = new Error(`Erro de conexão com SISCOMEX: ${error.message}`);
+    return Object.assign(erroConexao, { siscomexDetalhes: erroDetalhado });
   }
 
   /**

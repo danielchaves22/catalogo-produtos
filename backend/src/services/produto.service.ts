@@ -527,10 +527,18 @@ export class ProdutoService {
 
     await catalogoPrisma.$transaction(async tx => {
       const statusAtual = atual.status ?? 'PENDENTE';
+      const houveAlteracaoDadosProduto =
+        (data.modalidade !== undefined && data.modalidade !== atual.modalidade) ||
+        (data.denominacao !== undefined && data.denominacao !== atual.denominacao) ||
+        (data.descricao !== undefined && data.descricao !== atual.descricao) ||
+        data.valoresAtributos !== undefined ||
+        data.codigosInternos !== undefined ||
+        data.operadoresEstrangeiros !== undefined;
+
       let status = data.status ?? statusAtual;
       if (!preencheuObrigatorios) {
         status = 'PENDENTE';
-      } else if (statusAtual === 'PENDENTE') {
+      } else if (statusAtual === 'PENDENTE' || (statusAtual === 'TRANSMITIDO' && houveAlteracaoDadosProduto)) {
         status = 'APROVADO';
       }
       const updated = await tx.produto.updateMany({
