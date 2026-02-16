@@ -292,6 +292,7 @@ export class ProdutoTransmissaoService {
       const deveAtualizarVersao = possuiCodigoLocal && situacaoLocal === 'ATIVADO';
 
       const payloadSiscomex = { ...(payloadBase as Record<string, any>) };
+      delete payloadSiscomex.seq;
       delete payloadSiscomex.codigo;
       delete payloadSiscomex.versao;
 
