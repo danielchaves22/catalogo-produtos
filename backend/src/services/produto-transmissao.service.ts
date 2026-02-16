@@ -68,6 +68,12 @@ export class ProdutoTransmissaoService {
       throw new ValidationError({ produtos: 'A transmissão permite até 100 produtos por vez' });
     }
 
+    if (opcoes.forcarAtualizacaoVersao && ids.length !== 1) {
+      throw new ValidationError({
+        produtos: 'A atualização de versão deve ser enviada individualmente, um produto por vez.',
+      });
+    }
+
     const catalogo = await this.catalogoService.buscarPorId(catalogoId, superUserId);
 
     if (!catalogo) {
@@ -279,14 +285,31 @@ export class ProdutoTransmissaoService {
       cpf_cnpj: transmissao.catalogo.cpf_cnpj ?? null,
     });
 
-    const payloadProdutos = produtosExportados.map(produtoExportado => {
-      const { catalogoId: catalogoId, ...payload } = produtoExportado;
-      return payload as any;
+    const itensTransmissao = produtosExportados.map(produtoExportado => {
+      const { catalogoId: catalogoId, ...payloadBase } = produtoExportado;
+      const possuiCodigoLocal = Boolean((produtoExportado as any).codigo);
+      const situacaoLocal = String((produtoExportado as any).situacao || '').toUpperCase();
+      const deveAtualizarVersao = possuiCodigoLocal && situacaoLocal === 'ATIVADO';
+
+      const payloadSiscomex = { ...(payloadBase as Record<string, any>) };
+      delete payloadSiscomex.codigo;
+      delete payloadSiscomex.versao;
+
+      return {
+        produtoId: Number(produtoExportado.seq),
+        codigo: (produtoExportado as any).codigo as string | null | undefined,
+        deveAtualizarVersao,
+        payloadSiscomex,
+      };
     });
+
+    const payloadEnvioRegistrado = itensTransmissao.length === 1
+      ? itensTransmissao[0].payloadSiscomex
+      : itensTransmissao.map(item => item.payloadSiscomex);
 
     const provider = storageFactory();
     const caminhoEnvio = `${transmissao.superUserId}/transmissoes/${transmissao.id}/payload-envio.json`;
-    const payloadEnvioBuffer = Buffer.from(JSON.stringify(payloadProdutos, null, 2), 'utf8');
+    const payloadEnvioBuffer = Buffer.from(JSON.stringify(payloadEnvioRegistrado, null, 2), 'utf8');
     await provider.upload(payloadEnvioBuffer, caminhoEnvio);
 
     const expiraEm = new Date(Date.now() + UM_DIA_EM_MS);
@@ -321,28 +344,21 @@ export class ProdutoTransmissaoService {
     const sucessos: Array<{ produtoId: number; codigo?: string; versao?: number; situacao?: string | null }> = [];
     const falhas: FalhaTransmissao[] = [];
 
-    for (let index = 0; index < produtosExportados.length; index++) {
-      const produtoExportado = produtosExportados[index];
-      const produtoId = Number(produtoExportado.seq);
-      const possuiCodigoLocal = Boolean((produtoExportado as any).codigo);
-      const situacaoLocal = String((produtoExportado as any).situacao || '').toUpperCase();
-      const deveAtualizarVersao = possuiCodigoLocal && situacaoLocal === 'ATIVADO';
-
-      const payloadOriginal = payloadProdutos[index] as Record<string, any>;
-      const payloadSiscomex = { ...payloadOriginal } as Record<string, any>;
-      delete payloadSiscomex.codigo;
-      delete payloadSiscomex.versao;
+    for (const itemTransmissao of itensTransmissao) {
+      const produtoId = itemTransmissao.produtoId;
+      const possuiCodigoLocal = Boolean(itemTransmissao.codigo);
+      const deveAtualizarVersao = itemTransmissao.deveAtualizarVersao;
 
       let resposta: any;
       try {
         if (deveAtualizarVersao) {
           resposta = await cliente.atualizarProduto(
             cpfCnpjRaiz,
-            String((produtoExportado as any).codigo),
-            payloadSiscomex as any
+            String(itemTransmissao.codigo),
+            itemTransmissao.payloadSiscomex as any
           );
         } else {
-          resposta = await cliente.incluirProduto(cpfCnpjRaiz, payloadSiscomex as any);
+          resposta = await cliente.incluirProduto(cpfCnpjRaiz, itemTransmissao.payloadSiscomex as any);
         }
         respostas.push(resposta);
       } catch (error: unknown) {
