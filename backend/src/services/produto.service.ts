@@ -477,6 +477,14 @@ export class ProdutoService {
             atributo: { select: { codigo: true, multivalorado: true } },
             valores: { orderBy: { ordem: 'asc' } }
           }
+        },
+        codigosInternos: true,
+        operadoresEstrangeiros: {
+          select: {
+            paisCodigo: true,
+            conhecido: true,
+            operadorEstrangeiroId: true,
+          }
         }
       }
     });
@@ -525,15 +533,71 @@ export class ProdutoService {
         ? estruturaInfo.versaoNumero
         : atual.versaoEstruturaAtributos ?? estruturaInfo.versaoNumero;
 
+    const serializarJsonEstavel = (valor: unknown): string => {
+      const normalizar = (entrada: unknown): unknown => {
+        if (Array.isArray(entrada)) {
+          return entrada.map(item => normalizar(item));
+        }
+
+        if (entrada && typeof entrada === 'object') {
+          const objeto = entrada as Record<string, unknown>;
+          const chaves = Object.keys(objeto).sort();
+          return chaves.reduce<Record<string, unknown>>((acc, chave) => {
+            acc[chave] = normalizar(objeto[chave]);
+            return acc;
+          }, {});
+        }
+
+        return entrada;
+      };
+
+      return JSON.stringify(normalizar(valor));
+    };
+
+    const normalizarCodigosInternos = (codigos: string[] | undefined): string[] => {
+      return (codigos ?? [])
+        .map(codigo => codigo.trim())
+        .filter(codigo => codigo.length > 0)
+        .sort();
+    };
+
+    const normalizarOperadores = (
+      operadores:
+        | OperadorEstrangeiroProdutoInput[]
+        | Array<{ paisCodigo: string; conhecido: boolean; operadorEstrangeiroId: number | null }>
+        | undefined
+    ): Array<{ paisCodigo: string; conhecido: boolean; operadorEstrangeiroId: number | null }> => {
+      return (operadores ?? [])
+        .map(operador => ({
+          paisCodigo: operador.paisCodigo,
+          conhecido: operador.conhecido,
+          operadorEstrangeiroId: operador.operadorEstrangeiroId ?? null,
+        }))
+        .sort((a, b) => {
+          const comparacaoPais = a.paisCodigo.localeCompare(b.paisCodigo);
+          if (comparacaoPais !== 0) return comparacaoPais;
+
+          const comparacaoOperador = (a.operadorEstrangeiroId ?? 0) - (b.operadorEstrangeiroId ?? 0);
+          if (comparacaoOperador !== 0) return comparacaoOperador;
+
+          return Number(a.conhecido) - Number(b.conhecido);
+        });
+    };
+
     await catalogoPrisma.$transaction(async tx => {
       const statusAtual = atual.status ?? 'PENDENTE';
       const houveAlteracaoDadosProduto =
         (data.modalidade !== undefined && data.modalidade !== atual.modalidade) ||
         (data.denominacao !== undefined && data.denominacao !== atual.denominacao) ||
         (data.descricao !== undefined && data.descricao !== atual.descricao) ||
-        data.valoresAtributos !== undefined ||
-        data.codigosInternos !== undefined ||
-        data.operadoresEstrangeiros !== undefined;
+        (data.valoresAtributos !== undefined &&
+          serializarJsonEstavel(data.valoresAtributos) !== serializarJsonEstavel(valoresExistentes)) ||
+        (data.codigosInternos !== undefined &&
+          serializarJsonEstavel(normalizarCodigosInternos(data.codigosInternos)) !==
+            serializarJsonEstavel(normalizarCodigosInternos(atual.codigosInternos.map(codigo => codigo.codigo)))) ||
+        (data.operadoresEstrangeiros !== undefined &&
+          serializarJsonEstavel(normalizarOperadores(data.operadoresEstrangeiros)) !==
+            serializarJsonEstavel(normalizarOperadores(atual.operadoresEstrangeiros)));
 
       let status = data.status ?? statusAtual;
       if (!preencheuObrigatorios) {
