@@ -291,23 +291,31 @@ export class ProdutoTransmissaoService {
       const situacaoLocal = String((produtoExportado as any).situacao || '').toUpperCase();
       const deveAtualizarVersao = possuiCodigoLocal && situacaoLocal === 'ATIVADO';
 
-      const payloadSiscomex = { ...(payloadBase as Record<string, any>) };
-      delete payloadSiscomex.seq;
-      delete payloadSiscomex.codigo;
-      delete payloadSiscomex.versao;
-      delete payloadSiscomex.cpfCnpjRaiz;
+      const payloadInclusao = { ...(payloadBase as Record<string, any>) };
+
+      const payloadAtualizacaoVersao = { ...(payloadBase as Record<string, any>) };
+      delete payloadAtualizacaoVersao.seq;
+      delete payloadAtualizacaoVersao.codigo;
+      delete payloadAtualizacaoVersao.versao;
+      delete payloadAtualizacaoVersao.cpfCnpjRaiz;
+      delete payloadAtualizacaoVersao.situacao;
 
       return {
         produtoId: Number(produtoExportado.seq),
         codigo: (produtoExportado as any).codigo as string | null | undefined,
         deveAtualizarVersao,
-        payloadSiscomex,
+        payloadInclusao,
+        payloadAtualizacaoVersao,
       };
     });
 
     const payloadEnvioRegistrado = itensTransmissao.length === 1
-      ? itensTransmissao[0].payloadSiscomex
-      : itensTransmissao.map(item => item.payloadSiscomex);
+      ? itensTransmissao[0].deveAtualizarVersao
+        ? itensTransmissao[0].payloadAtualizacaoVersao
+        : [itensTransmissao[0].payloadInclusao]
+      : itensTransmissao.map(item =>
+          item.deveAtualizarVersao ? item.payloadAtualizacaoVersao : item.payloadInclusao
+        );
 
     const provider = storageFactory();
     const caminhoEnvio = `${transmissao.superUserId}/transmissoes/${transmissao.id}/payload-envio.json`;
@@ -357,10 +365,10 @@ export class ProdutoTransmissaoService {
           resposta = await cliente.atualizarProduto(
             cpfCnpjRaiz,
             String(itemTransmissao.codigo),
-            itemTransmissao.payloadSiscomex as any
+            itemTransmissao.payloadAtualizacaoVersao as any
           );
         } else {
-          resposta = await cliente.incluirProduto(cpfCnpjRaiz, itemTransmissao.payloadSiscomex as any);
+          resposta = await cliente.incluirProduto(cpfCnpjRaiz, itemTransmissao.payloadInclusao as any);
         }
         respostas.push(resposta);
       } catch (error: unknown) {
