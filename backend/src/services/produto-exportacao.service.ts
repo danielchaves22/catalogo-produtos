@@ -426,7 +426,7 @@ export class ProdutoExportacaoService {
         modalidade: produto.modalidade,
         ncm: produto.ncmCodigo,
         cpfCnpjRaiz,
-        situacao: produto.situacao,
+        situacao: "Ativado",
         versao,
         atributos: simples,
         atributosMultivalorados: multivalorados,
