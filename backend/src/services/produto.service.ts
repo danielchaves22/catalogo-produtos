@@ -609,7 +609,7 @@ export class ProdutoService {
     const dadosAtualizacao: Prisma.ProdutoUpdateManyMutationInput = {
       versao: versaoNumero,
       status: 'TRANSMITIDO',
-      situacao: 'ATIVADO'
+      situacao: dados.situacao ?? 'ATIVADO'
     };
 
     if (atualizarCodigo) {
