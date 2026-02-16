@@ -592,7 +592,7 @@ export class ProdutoService {
   async marcarComoTransmitido(
     id: number,
     superUserId: number,
-    dados: { codigo: string; versao: number | string; situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO' }
+    dados: { codigo?: string | number | null; versao: number | string; situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO'; atualizarCodigo?: boolean }
   ) {
     const versaoNumero = typeof dados.versao === 'string' ? Number(dados.versao) : dados.versao;
 
@@ -600,14 +600,25 @@ export class ProdutoService {
       throw new Error('Versão inválida retornada pelo SISCOMEX');
     }
 
+    const atualizarCodigo = dados.atualizarCodigo !== false;
+    const codigoNormalizado =
+      dados.codigo === null || dados.codigo === undefined || dados.codigo === ''
+        ? null
+        : String(dados.codigo);
+
+    const dadosAtualizacao: Prisma.ProdutoUpdateManyMutationInput = {
+      versao: versaoNumero,
+      status: 'TRANSMITIDO',
+      situacao: 'ATIVADO'
+    };
+
+    if (atualizarCodigo) {
+      dadosAtualizacao.codigo = codigoNormalizado;
+    }
+
     const atualizado = await catalogoPrisma.produto.updateMany({
       where: { id, catalogo: { superUserId } },
-      data: {
-        codigo: dados.codigo,
-        versao: versaoNumero,
-        status: 'TRANSMITIDO',
-        situacao: 'ATIVADO'
-      }
+      data: dadosAtualizacao
     });
 
     if (atualizado.count === 0) {
