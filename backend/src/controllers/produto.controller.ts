@@ -89,6 +89,20 @@ export async function obterProduto(req: Request, res: Response) {
   }
 }
 
+export async function obterHistoricoProduto(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const historico = await produtoService.listarHistorico(id, req.user!.superUserId);
+    res.json(historico);
+  } catch (error: any) {
+    if (error.message?.includes('não encontrado')) {
+      return res.status(404).json({ error: error.message });
+    }
+    logger.error('Erro ao carregar histórico do produto:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
 export async function criarProduto(req: Request, res: Response) {
   try {
     const produto = await produtoService.criar(

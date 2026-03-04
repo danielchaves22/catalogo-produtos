@@ -3,6 +3,7 @@ import { Router } from 'express';
 import {
   listarProdutos,
   obterProduto,
+  obterHistoricoProduto,
   criarProduto,
   atualizarProduto,
   removerProduto,
@@ -47,6 +48,7 @@ router.get('/pendencias/ajuste-estrutura', contarPendenciasAjusteEstrutura);
 router.get('/pendencias/ajuste-estrutura/detalhes', listarPendenciasAjusteEstruturaDetalhadas);
 router.post('/ajuste-estrutura/ajustar-catalogo', ajustarEstruturaCatalogo);
 router.get('/:id', obterProduto);
+router.get('/:id/historico', obterHistoricoProduto);
 router.post('/', validate(createProdutoSchema), criarProduto);
 router.put('/:id', validate(updateProdutoSchema), atualizarProduto);
 router.post('/exportacoes', validate(exportarProdutosSchema), solicitarExportacaoProdutos);
