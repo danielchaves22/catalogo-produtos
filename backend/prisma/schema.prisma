@@ -229,6 +229,7 @@ model ProdutoTransmissao {
   catalogo  Catalogo  @relation(fields: [catalogoId], references: [id], onDelete: Cascade)
   asyncJob  AsyncJob? @relation(fields: [asyncJobId], references: [id])
   itens     ProdutoTransmissaoItem[]
+  historicoVersoes ProdutoHistoricoVersao[]
 
   @@index([catalogoId], map: "idx_transmissao_catalogo")
   @@index([superUserId], map: "idx_transmissao_superuser")
@@ -485,11 +486,34 @@ model Produto {
   operadoresEstrangeiros   OperadorEstrangeiroProduto[]
   importacaoItens          ImportacaoProdutoItem[] @relation("ProdutoImportacaoItens")
   transmissoes             ProdutoTransmissaoItem[]
+  historicoVersoes         ProdutoHistoricoVersao[]
 
   @@index([ncmCodigo], name: "idx_ncm")
   @@index([catalogoId], name: "idx_catalogo")
   @@unique([codigo, versao], name: "uk_codigo_versao")
   @@map("produto")
+}
+
+model ProdutoHistoricoVersao {
+  id             Int      @id @default(autoincrement()) @map("id")
+  produtoId      Int      @map("produto_id")
+  versaoSiscomex Int      @map("versao_siscomex")
+  tipoEvento     String   @map("tipo_evento")
+  resumo         String?  @map("resumo") @db.Text
+  deltaJson      Json?    @map("delta_json")
+  snapshotJson   Json?    @map("snapshot_json")
+  isCheckpoint   Boolean  @default(false) @map("is_checkpoint")
+  transmissaoId  Int?     @map("transmissao_id")
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  produto      Produto             @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  transmissao  ProdutoTransmissao? @relation(fields: [transmissaoId], references: [id], onDelete: SetNull)
+
+  @@index([produtoId, versaoSiscomex], map: "idx_hist_produto_versao")
+  @@index([produtoId, criadoEm], map: "idx_hist_produto_data")
+  @@index([transmissaoId], map: "idx_hist_transmissao")
+  @@unique([produtoId, versaoSiscomex], name: "uk_hist_produto_versao")
+  @@map("produto_historico_versao")
 }
 
 model AtributoVersao {

@@ -453,6 +453,7 @@ export class ProdutoTransmissaoService {
           versao: versaoNumero,
           situacao: situacaoProduto,
           atualizarCodigo: !deveAtualizarVersao,
+          transmissaoId: transmissao.id,
         });
 
         sucessos.push({

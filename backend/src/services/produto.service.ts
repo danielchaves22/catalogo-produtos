@@ -10,6 +10,12 @@ import {
 import { ValidationError } from '../types/validation-error';
 import { ProdutoResumoService } from './produto-resumo.service';
 import { ResultadoVerificacao } from '../jobs/handlers/verificacao-atributos-ncm.handler';
+import {
+  DeltaHistoricoProduto,
+  gerarDeltaHistoricoProduto,
+  gerarResumoDelta,
+  normalizarProdutoParaHistorico
+} from '../utils/produto-historico-diff';
 
 export interface CreateProdutoDTO {
   codigo?: string;
@@ -120,6 +126,15 @@ export interface PendenciaAjusteEstruturaDTO {
   modalidade: string;
   diferencas?: ResultadoVerificacao['diferencas'];
   catalogos: PendenciaAjusteEstruturaCatalogoDTO[];
+}
+
+export interface ProdutoHistoricoVersaoDTO {
+  id: number;
+  versaoSiscomex: number;
+  tipoEvento: string;
+  resumo: string | null;
+  delta: DeltaHistoricoProduto | null;
+  criadoEm: Date;
 }
 
 export class ProdutoService {
@@ -380,6 +395,129 @@ export class ProdutoService {
       catalogoCpfCnpj: p.catalogo?.cpf_cnpj,
       catalogoAmbiente: p.catalogo?.ambiente
     };
+  }
+
+  async listarHistorico(id: number, superUserId: number): Promise<ProdutoHistoricoVersaoDTO[]> {
+    const produto = await catalogoPrisma.produto.findFirst({
+      where: { id, catalogo: { superUserId } },
+      select: { id: true }
+    });
+
+    if (!produto) {
+      throw new Error(`Produto ID ${id} não encontrado`);
+    }
+
+    const historico = await catalogoPrisma.produtoHistoricoVersao.findMany({
+      where: { produtoId: id },
+      orderBy: [{ versaoSiscomex: 'desc' }, { criadoEm: 'desc' }]
+    });
+
+    return historico.map(item => ({
+      id: item.id,
+      versaoSiscomex: item.versaoSiscomex,
+      tipoEvento: item.tipoEvento,
+      resumo: item.resumo,
+      delta: (item.deltaJson as DeltaHistoricoProduto | null) ?? null,
+      criadoEm: item.criadoEm
+    }));
+  }
+
+  async obterSnapshotParaHistorico(
+    produtoId: number,
+    superUserId: number,
+    tx?: Prisma.TransactionClient
+  ): Promise<Record<string, unknown>> {
+    const prisma = tx ?? catalogoPrisma;
+    const produto = await prisma.produto.findFirst({
+      where: { id: produtoId, catalogo: { superUserId } },
+      include: {
+        atributos: {
+          include: {
+            atributo: { select: { codigo: true, multivalorado: true } },
+            valores: { orderBy: { ordem: 'asc' } }
+          }
+        },
+        codigosInternos: { select: { codigo: true } },
+        operadoresEstrangeiros: {
+          select: {
+            paisCodigo: true,
+            conhecido: true,
+            operadorEstrangeiroId: true
+          }
+        }
+      }
+    });
+
+    if (!produto) {
+      throw new Error(`Produto ID ${produtoId} não encontrado`);
+    }
+
+    const valoresAtributos = this.montarValoresDosAtributos(produto.atributos);
+
+    return normalizarProdutoParaHistorico({
+      codigo: produto.codigo,
+      versao: produto.versao,
+      ncmCodigo: produto.ncmCodigo,
+      modalidade: produto.modalidade,
+      denominacao: produto.denominacao,
+      descricao: produto.descricao,
+      situacao: produto.situacao,
+      codigosInternos: produto.codigosInternos.map(item => item.codigo),
+      operadoresEstrangeiros: produto.operadoresEstrangeiros,
+      valoresAtributos
+    });
+  }
+
+  async registrarHistoricoVersao(params: {
+    produtoId: number;
+    superUserId: number;
+    versaoSiscomex: number;
+    transmissaoId?: number;
+    snapshotAnterior?: Record<string, unknown>;
+    tx?: Prisma.TransactionClient;
+  }) {
+    const prisma = params.tx ?? catalogoPrisma;
+    const snapshotAtual = await this.obterSnapshotParaHistorico(
+      params.produtoId,
+      params.superUserId,
+      params.tx
+    );
+    const snapshotAnterior = params.snapshotAnterior ?? null;
+
+    const delta = gerarDeltaHistoricoProduto(snapshotAnterior, snapshotAtual);
+    const resumo = gerarResumoDelta(delta, params.versaoSiscomex);
+    const isCheckpoint = params.versaoSiscomex === 1 || params.versaoSiscomex % 10 === 0;
+    const deltaJson = delta as unknown as Prisma.InputJsonValue;
+    const snapshotJson = isCheckpoint
+      ? (snapshotAtual as unknown as Prisma.InputJsonValue)
+      : Prisma.JsonNull;
+
+    await prisma.produtoHistoricoVersao.upsert({
+      where: {
+        uk_hist_produto_versao: {
+          produtoId: params.produtoId,
+          versaoSiscomex: params.versaoSiscomex
+        }
+      },
+      update: {
+        tipoEvento: params.versaoSiscomex === 1 ? 'CRIACAO' : 'ATUALIZACAO',
+        resumo,
+        deltaJson,
+        snapshotJson,
+        isCheckpoint,
+        transmissaoId: params.transmissaoId ?? null
+      },
+      create: {
+        produtoId: params.produtoId,
+        versaoSiscomex: params.versaoSiscomex,
+        tipoEvento: params.versaoSiscomex === 1 ? 'CRIACAO' : 'ATUALIZACAO',
+        resumo,
+        deltaJson,
+        snapshotJson,
+        isCheckpoint,
+        transmissaoId: params.transmissaoId ?? null
+      }
+    });
   }
 
   async criar(
@@ -656,7 +794,13 @@ export class ProdutoService {
   async marcarComoTransmitido(
     id: number,
     superUserId: number,
-    dados: { codigo?: string | number | null; versao: number | string; situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO'; atualizarCodigo?: boolean }
+    dados: {
+      codigo?: string | number | null;
+      versao: number | string;
+      situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
+      atualizarCodigo?: boolean;
+      transmissaoId?: number;
+    }
   ) {
     const versaoNumero = typeof dados.versao === 'string' ? Number(dados.versao) : dados.versao;
 
@@ -680,16 +824,30 @@ export class ProdutoService {
       dadosAtualizacao.codigo = codigoNormalizado;
     }
 
-    const atualizado = await catalogoPrisma.produto.updateMany({
-      where: { id, catalogo: { superUserId } },
-      data: dadosAtualizacao
+    await catalogoPrisma.$transaction(async tx => {
+      const snapshotAnterior = await this.obterSnapshotParaHistorico(id, superUserId, tx);
+
+      const atualizado = await tx.produto.updateMany({
+        where: { id, catalogo: { superUserId } },
+        data: dadosAtualizacao
+      });
+
+      if (atualizado.count === 0) {
+        throw new Error('Produto não encontrado ou não pertence ao superusuário');
+      }
+
+      await this.registrarHistoricoVersao({
+        produtoId: id,
+        superUserId,
+        versaoSiscomex: versaoNumero,
+        transmissaoId: dados.transmissaoId,
+        snapshotAnterior,
+        tx
+      });
+
+      await this.produtoResumoService.recalcularResumoProduto(id, tx);
     });
 
-    if (atualizado.count === 0) {
-      throw new Error('Produto não encontrado ou não pertence ao superusuário');
-    }
-
-    await this.produtoResumoService.recalcularResumoProduto(id);
     return this.buscarPorId(id, superUserId);
   }
 

@@ -67,6 +67,26 @@ interface AtributoParaIa {
   condicionanteCodigo?: string;
 }
 
+interface HistoricoMudanca {
+  path: string;
+  op: 'add' | 'remove' | 'replace';
+  before?: unknown;
+  after?: unknown;
+  label?: string;
+}
+
+interface HistoricoProdutoItem {
+  id: number;
+  versaoSiscomex: number;
+  tipoEvento: string;
+  resumo: string | null;
+  criadoEm: string;
+  delta: {
+    schemaVersion: number;
+    changes: HistoricoMudanca[];
+  } | null;
+}
+
 export default function ProdutoPage() {
   const [catalogoId, setCatalogoId] = useState('');
   const [catalogoNome, setCatalogoNome] = useState('');
@@ -93,6 +113,10 @@ export default function ProdutoPage() {
   const [estruturaCarregada, setEstruturaCarregada] = useState(false);
   const [activeTab, setActiveTab] = useState('informacoes');
   const [loading, setLoading] = useState(false);
+  const [historico, setHistorico] = useState<HistoricoProdutoItem[]>([]);
+  const [loadingHistorico, setLoadingHistorico] = useState(false);
+  const [historicoCarregado, setHistoricoCarregado] = useState(false);
+  const [historicoExpandido, setHistoricoExpandido] = useState<Record<number, boolean>>({});
   const { addToast } = useToast();
   const router = useRouter();
   const { id } = router.query;
@@ -137,6 +161,9 @@ export default function ProdutoPage() {
     setResumoSugestoesIa(null);
     setIaJaSolicitada(false);
     setLimpezaInicialIaRealizada(false);
+    setHistorico([]);
+    setHistoricoCarregado(false);
+    setHistoricoExpandido({});
   }, [id]);
 
   useEffect(() => {
@@ -878,6 +905,26 @@ export default function ProdutoPage() {
     }
   }, [router.isReady, id, isNew]);
 
+  useEffect(() => {
+    if (isNew || !id || activeTab !== 'historico' || historicoCarregado) return;
+
+    async function carregarHistorico() {
+      try {
+        setLoadingHistorico(true);
+        const resposta = await api.get<HistoricoProdutoItem[]>(`/produtos/${id}/historico`);
+        setHistorico(resposta.data || []);
+        setHistoricoCarregado(true);
+      } catch (error) {
+        console.error('Erro ao carregar histórico do produto:', error);
+        addToast('Erro ao carregar histórico do produto', 'error');
+      } finally {
+        setLoadingHistorico(false);
+      }
+    }
+
+    carregarHistorico();
+  }, [activeTab, id, isNew, historicoCarregado, addToast]);
+
   function coletarFaltantes(lista: AtributoEstrutura[]): AtributoEstrutura[] {
     const faltantes: AtributoEstrutura[] = [];
     for (const a of lista) {
@@ -1360,6 +1407,87 @@ export default function ProdutoPage() {
                           <div className="grid grid-cols-3 gap-4 text-sm">
                             {estrutura.map(attr => renderCampo(attr))}
                           </div>
+                        </div>
+                      )
+                    },
+                    {
+                      id: 'historico',
+                      label: 'Histórico',
+                      content: (
+                        <div className="flex flex-col gap-3">
+                          {loadingHistorico && (
+                            <p className="text-sm text-gray-400">Carregando histórico de versões...</p>
+                          )}
+
+                          {!loadingHistorico && historico.length === 0 && (
+                            <p className="text-sm text-gray-400">Nenhuma versão registrada para este produto.</p>
+                          )}
+
+                          {!loadingHistorico && historico.length > 0 && (
+                            <div className="flex flex-col gap-3">
+                              {historico.map(item => {
+                                const expandido = historicoExpandido[item.id] === true;
+                                const mudancas = item.delta?.changes || [];
+
+                                return (
+                                  <Card key={item.id} className="p-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div>
+                                        <p className="text-sm text-white font-medium">
+                                          Versão {item.versaoSiscomex} · {item.tipoEvento}
+                                        </p>
+                                        <p className="text-xs text-gray-400">
+                                          {new Date(item.criadoEm).toLocaleString('pt-BR')}
+                                        </p>
+                                        <p className="text-sm text-gray-300 mt-1">
+                                          {item.resumo || 'Alterações registradas na versão.'}
+                                        </p>
+                                      </div>
+
+                                      {mudancas.length > 0 && (
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          onClick={() => setHistoricoExpandido(prev => ({ ...prev, [item.id]: !expandido }))}
+                                        >
+                                          {expandido ? 'Ocultar mudanças' : 'Ver mudanças'}
+                                        </Button>
+                                      )}
+                                    </div>
+
+                                    {expandido && mudancas.length > 0 && (
+                                      <div className="mt-3 overflow-x-auto">
+                                        <table className="w-full text-xs text-left">
+                                          <thead className="text-gray-400 bg-[#0f1419] uppercase">
+                                            <tr>
+                                              <th className="px-3 py-2">Campo</th>
+                                              <th className="px-3 py-2">Operação</th>
+                                              <th className="px-3 py-2">Antes</th>
+                                              <th className="px-3 py-2">Depois</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {mudancas.map((mudanca, idx) => (
+                                              <tr key={`${item.id}-${idx}`} className="border-b border-gray-700">
+                                                <td className="px-3 py-2 text-gray-200">{mudanca.label || mudanca.path}</td>
+                                                <td className="px-3 py-2 text-gray-300">{mudanca.op}</td>
+                                                <td className="px-3 py-2 text-gray-400">
+                                                  {mudanca.before === undefined ? '-' : JSON.stringify(mudanca.before)}
+                                                </td>
+                                                <td className="px-3 py-2 text-gray-400">
+                                                  {mudanca.after === undefined ? '-' : JSON.stringify(mudanca.after)}
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    )}
+                                  </Card>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       )
                     }
