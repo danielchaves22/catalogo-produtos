@@ -75,6 +75,22 @@ function diffRecursivo(
     return;
   }
 
+  if (!pathAtual) {
+    if ((anterior === null || anterior === undefined) && isObject(atual)) {
+      for (const key of Object.keys(atual).sort()) {
+        diffRecursivo(undefined, atual[key], key, changes);
+      }
+      return;
+    }
+
+    if ((atual === null || atual === undefined) && isObject(anterior)) {
+      for (const key of Object.keys(anterior).sort()) {
+        diffRecursivo(anterior[key], undefined, key, changes);
+      }
+      return;
+    }
+  }
+
   if (Array.isArray(anterior) || Array.isArray(atual)) {
     changes.push({
       path: pathAtual,
@@ -115,12 +131,12 @@ export function gerarDeltaHistoricoProduto(anterior: unknown, atual: unknown): D
 }
 
 export function gerarResumoDelta(delta: DeltaHistoricoProduto, versaoSiscomex: number) {
-  if (!delta.changes.length) {
-    return `Versão ${versaoSiscomex} sem alterações de conteúdo.`;
-  }
-
   if (versaoSiscomex <= 1) {
     return 'Produto criado no SISCOMEX.';
+  }
+
+  if (!delta.changes.length) {
+    return `Versão ${versaoSiscomex} sem alterações de conteúdo.`;
   }
 
   return `${delta.changes.length} alteração(ões) na versão ${versaoSiscomex}.`;
