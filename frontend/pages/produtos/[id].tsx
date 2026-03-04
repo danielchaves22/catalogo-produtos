@@ -914,16 +914,23 @@ export default function ProdutoPage() {
         const resposta = await api.get<HistoricoProdutoItem[]>(`/produtos/${id}/historico`);
         setHistorico(resposta.data || []);
         setHistoricoCarregado(true);
-      } catch (error) {
+      } catch (error: any) {
+        if (error?.response?.status === 404) {
+          setHistorico([]);
+          setHistoricoCarregado(true);
+          return;
+        }
+
         console.error('Erro ao carregar histórico do produto:', error);
         addToast('Erro ao carregar histórico do produto', 'error');
+        setHistoricoCarregado(true);
       } finally {
         setLoadingHistorico(false);
       }
     }
 
     carregarHistorico();
-  }, [activeTab, id, isNew, historicoCarregado, addToast]);
+  }, [activeTab, id, isNew, historicoCarregado]);
 
   function coletarFaltantes(lista: AtributoEstrutura[]): AtributoEstrutura[] {
     const faltantes: AtributoEstrutura[] = [];
