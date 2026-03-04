@@ -27,4 +27,23 @@ describe('produto-historico-diff', () => {
     const delta = gerarDeltaHistoricoProduto(null, { denominacao: 'Produto novo' });
     expect(gerarResumoDelta(delta, 1)).toBe('Produto criado no SISCOMEX.');
   });
+
+  it('deve preservar mudanças quando snapshot anterior é nulo', () => {
+    const delta = gerarDeltaHistoricoProduto(null, {
+      denominacao: 'Produto novo',
+      descricao: 'Descrição nova'
+    });
+
+    expect(delta.changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'denominacao', op: 'add', after: 'Produto novo' }),
+        expect.objectContaining({ path: 'descricao', op: 'add', after: 'Descrição nova' })
+      ])
+    );
+  });
+
+  it('deve priorizar resumo de criação mesmo sem mudanças na versão 1', () => {
+    const deltaSemMudancas = gerarDeltaHistoricoProduto({ codigo: '1' }, { codigo: '1' });
+    expect(gerarResumoDelta(deltaSemMudancas, 1)).toBe('Produto criado no SISCOMEX.');
+  });
 });
