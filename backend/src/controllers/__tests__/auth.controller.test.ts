@@ -52,6 +52,7 @@ describe('AuthController - flag administrativa do super usuário', () => {
     email: 'admin@example.com',
     name: 'Admin',
     password: 'hash-super',
+    catprodLibera: '1',
     catprodAdmFull: '1',
   };
 
@@ -98,6 +99,21 @@ describe('AuthController - flag administrativa do super usuário', () => {
     expect(meResponse.body.catprodAdmFull).toBe(true);
     expect(meResponse.body.role).toBe('ADMIN');
     expect(mockedLegacyPrisma.user.findUnique).toHaveBeenCalledWith({ where: { id: superUser.id } });
+  });
+
+  it('nega login quando catprodLibera não está habilitado no legado', async () => {
+    mockedLegacyPrisma.user.findFirst.mockResolvedValue({
+      ...superUser,
+      catprodLibera: '0',
+    });
+
+    const response = await request(app)
+      .post('/api/auth/login')
+      .send({ email: superUser.email, password: 'qualquer' })
+      .expect(401);
+
+    expect(response.body).toEqual({ error: 'Credenciais inválidas.' });
+    expect(verifyPasswordSpy).not.toHaveBeenCalled();
   });
 });
 

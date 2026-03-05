@@ -18,6 +18,8 @@ model User {
   email     String   @unique @map("username")
   password  String   @map("senha")
   name      String   @map("nomecompleto")
+  // Flag legada de liberação de acesso ao Catálogo (0/1)
+  catprodLibera String? @map("catprod_libera")
   // Coluna legada armazena indicadores como "0"/"1", portanto mapeada como string
   catprodAdmFull String? @map("catprod_adm_full")
 

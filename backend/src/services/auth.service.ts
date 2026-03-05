@@ -11,6 +11,7 @@ export interface AuthUserWithPassword extends AuthUser {
 export class AuthService {
   private readonly LEGACY_SALT: string;
   private readonly adminTruthies = new Set(['1', 'true', 's', 'sim']);
+  private readonly accessTruthies = new Set(['1', 'true', 's', 'sim']);
 
   constructor() {
     // Lê o salt do arquivo .env com fallback para o valor original
@@ -38,6 +39,27 @@ export class AuthService {
     return false;
   }
 
+  private isLegacyAccessFlagEnabled(value: unknown): boolean {
+    if (value === null || value === undefined) {
+      return false;
+    }
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return value === 1;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return this.accessTruthies.has(normalized);
+    }
+
+    return false;
+  }
+
   private resolveRole(baseRole: AuthUser['role'], catprodAdmFull: boolean): AuthUser['role'] {
     if (baseRole === 'SUPER' && catprodAdmFull) {
       return 'ADMIN';
@@ -58,6 +80,11 @@ export class AuthService {
         where: { email: { equals: identifier } },
       });
       if (user) {
+        const hasCatalogAccess = this.isLegacyAccessFlagEnabled(user.catprodLibera);
+        if (!hasCatalogAccess) {
+          return null;
+        }
+
         const catprodAdmFull = this.isLegacyAdminFlagEnabled(user.catprodAdmFull);
 
         return {
