@@ -15,11 +15,16 @@ function buildDatabaseUrlWithSchema(baseUrl: string, schema: string): string {
   return `${cleanUrl}/${schema}`;
 }
 
+
+// Permite URLs separadas por ambiente (fallback para DATABASE_URL)
+const LEGACY_DATABASE_URL = process.env.LEGACY_DATABASE_URL || process.env.DATABASE_URL || "";
+const CATALOG_DATABASE_URL = process.env.CATALOG_DATABASE_URL || process.env.DATABASE_URL || "";
+
 // Conexão para schema legicex_2
 const legacyPrisma = new PrismaClientLegacy({
   datasources: {
     db: {
-      url: buildDatabaseUrlWithSchema(process.env.DATABASE_URL || "", LEGACY_SCHEMA)
+      url: buildDatabaseUrlWithSchema(LEGACY_DATABASE_URL, LEGACY_SCHEMA)
     }
   }
 })
@@ -28,7 +33,7 @@ const legacyPrisma = new PrismaClientLegacy({
 const catalogoPrisma = new PrismaClientCatalogo({
   datasources: {
     db: {
-      url: buildDatabaseUrlWithSchema(process.env.DATABASE_URL || "", CATALOG_SCHEMA)
+      url: buildDatabaseUrlWithSchema(CATALOG_DATABASE_URL, CATALOG_SCHEMA)
     }
   }
 })
