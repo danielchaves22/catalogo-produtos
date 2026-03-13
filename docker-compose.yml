@@ -16,6 +16,19 @@ services:
       - "host.docker.internal:host-gateway"
     networks:
       - app-network
+  
+  backend-hml:
+    build:
+      context: ./backend
+    container_name: catalogo-backend-hml
+    ports:
+      - '3002:3002'
+    env_file:
+      - ./backend/.env.docker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - app-network
 
   # === Frontend Next.js ===
   frontend:
