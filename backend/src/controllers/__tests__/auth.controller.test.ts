@@ -5,6 +5,10 @@ import authRoutes from '../../routes/auth.routes';
 import { legacyPrisma, catalogoPrisma } from '../../utils/prisma';
 import { AuthService } from '../../services/auth.service';
 
+const INVALID_CREDENTIALS_ERROR = 'Não foi possível fazer login com as credenciais informadas';
+const ACCESS_DENIED_ERROR =
+  'Não foi possível fazer login com as credenciais informadas, entre em contato pelo e-mail comercial@comexdez.com.br';
+
 jest.mock('../../utils/prisma', () => {
   const user = {
     findFirst: jest.fn(),
@@ -112,8 +116,24 @@ describe('AuthController - flag administrativa do super usuário', () => {
       .send({ email: superUser.email, password: 'qualquer' })
       .expect(401);
 
-    expect(response.body).toEqual({ error: 'Credenciais inválidas.' });
-    expect(verifyPasswordSpy).not.toHaveBeenCalled();
+    expect(response.body).toEqual({ error: ACCESS_DENIED_ERROR });
+    expect(verifyPasswordSpy).toHaveBeenCalledWith('qualquer', superUser.password);
+  });
+
+  it('retorna erro de credenciais quando senha está incorreta mesmo sem catprodLibera', async () => {
+    mockedLegacyPrisma.user.findFirst.mockResolvedValue({
+      ...superUser,
+      catprodLibera: '0',
+    });
+    verifyPasswordSpy.mockReturnValue(false);
+
+    const response = await request(app)
+      .post('/api/auth/login')
+      .send({ email: superUser.email, password: 'senha-incorreta' })
+      .expect(401);
+
+    expect(response.body).toEqual({ error: INVALID_CREDENTIALS_ERROR });
+    expect(verifyPasswordSpy).toHaveBeenCalledWith('senha-incorreta', superUser.password);
   });
 });
 

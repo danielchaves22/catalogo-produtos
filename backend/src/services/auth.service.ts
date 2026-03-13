@@ -6,6 +6,7 @@ import { AuthUser } from '../interfaces/auth-user';
 
 export interface AuthUserWithPassword extends AuthUser {
   password: string;
+  hasCatalogAccess: boolean;
 }
 
 export class AuthService {
@@ -81,10 +82,6 @@ export class AuthService {
       });
       if (user) {
         const hasCatalogAccess = this.isLegacyAccessFlagEnabled(user.catprodLibera);
-        if (!hasCatalogAccess) {
-          return null;
-        }
-
         const catprodAdmFull = this.isLegacyAdminFlagEnabled(user.catprodAdmFull);
 
         return {
@@ -95,6 +92,7 @@ export class AuthService {
           role: this.resolveRole('SUPER', catprodAdmFull),
           catprodAdmFull,
           password: user.password,
+          hasCatalogAccess,
         };
       }
 
@@ -111,6 +109,7 @@ export class AuthService {
           role: 'SUB',
           catprodAdmFull: false,
           password: sub.password,
+          hasCatalogAccess: true,
         };
       }
 

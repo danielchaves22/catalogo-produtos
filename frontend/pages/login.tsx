@@ -30,7 +30,7 @@ export default function LoginPage() {
       const target = redirect && redirect !== '/' ? redirect : '/';
       router.replace(target);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Credenciais inválidas');
+      setError(err.response?.data?.error || 'Não foi possível fazer login com as credenciais informadas');
     } finally {
       setLoading(false);
     }

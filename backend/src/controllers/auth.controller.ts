@@ -6,6 +6,9 @@ import { logger } from '../utils/logger';
 
 // Instancia o serviço de autenticação
 const authService = new AuthService();
+const LOGIN_INVALID_CREDENTIALS_ERROR = 'Não foi possível fazer login com as credenciais informadas';
+const LOGIN_ACCESS_DENIED_ERROR =
+  'Não foi possível fazer login com as credenciais informadas, entre em contato pelo e-mail comercial@comexdez.com.br';
 
 /**
  * POST /api/auth/login
@@ -28,7 +31,7 @@ export async function login(req: Request, res: Response) {
 
     if (!user) {
       logger.warn(`Login falhou para usuário ${usuario} - não encontrado - IP: ${req.ip}`);
-      return res.status(401).json({ error: 'Credenciais inválidas.' });
+      return res.status(401).json({ error: LOGIN_INVALID_CREDENTIALS_ERROR });
     }
 
     // Verifica a senha
@@ -36,11 +39,16 @@ export async function login(req: Request, res: Response) {
 
     if (!isValid) {
       logger.warn(`Login falhou para usuário ${usuario} - senha incorreta - IP: ${req.ip}`);
-      return res.status(401).json({ error: 'Credenciais inválidas.' });
+      return res.status(401).json({ error: LOGIN_INVALID_CREDENTIALS_ERROR });
+    }
+
+    if (!user.hasCatalogAccess) {
+      logger.warn(`Login falhou para usuário ${usuario} - sem autorização no catálogo - IP: ${req.ip}`);
+      return res.status(401).json({ error: LOGIN_ACCESS_DENIED_ERROR });
     }
 
     // Remove a senha do objeto
-    const { password: _pwd, ...userData } = user;
+    const { password: _pwd, hasCatalogAccess: _hasCatalogAccess, ...userData } = user;
 
     // Registra/atualiza o usuário no catálogo
     await authService.registerUserLogin(userData);
@@ -92,4 +100,3 @@ export async function getAuthUser(req: Request, res: Response) {
     return res.status(500).json({ error: 'Erro interno ao buscar usuário' });
   }
 }
-
