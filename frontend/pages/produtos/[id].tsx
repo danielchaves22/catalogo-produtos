@@ -87,6 +87,25 @@ interface HistoricoProdutoItem {
   } | null;
 }
 
+function formatarTipoEvento(tipoEvento: string) {
+  const tipoEventoLabelMap: Record<string, string> = {
+    CRIACAO: 'CRIAÇÃO',
+    ATUALIZACAO: 'ATUALIZAÇÃO',
+  };
+
+  return tipoEventoLabelMap[tipoEvento] ?? tipoEvento;
+}
+
+function formatarOperacaoDelta(op: string) {
+  const operacaoDeltaLabelMap: Record<string, string> = {
+    add: 'adicionado',
+    remove: 'removido',
+    replace: 'atualizado',
+  };
+
+  return operacaoDeltaLabelMap[op] ?? op;
+}
+
 export default function ProdutoPage() {
   const [catalogoId, setCatalogoId] = useState('');
   const [catalogoNome, setCatalogoNome] = useState('');
@@ -1441,7 +1460,7 @@ export default function ProdutoPage() {
                                     <div className="flex items-start justify-between gap-3">
                                       <div>
                                         <p className="text-sm text-white font-medium">
-                                          Versão {item.versaoSiscomex} · {item.tipoEvento}
+                                          Versão {item.versaoSiscomex} · {formatarTipoEvento(item.tipoEvento)}
                                         </p>
                                         <p className="text-xs text-gray-400">
                                           {new Date(item.criadoEm).toLocaleString('pt-BR')}
@@ -1477,7 +1496,7 @@ export default function ProdutoPage() {
                                             {mudancas.map((mudanca, idx) => (
                                               <tr key={`${item.id}-${idx}`} className="border-b border-gray-700">
                                                 <td className="px-3 py-2 text-gray-200">{mudanca.label || mudanca.path}</td>
-                                                <td className="px-3 py-2 text-gray-300">{mudanca.op}</td>
+                                                <td className="px-3 py-2 text-gray-300">{formatarOperacaoDelta(mudanca.op)}</td>
                                                 <td className="px-3 py-2 text-gray-400">
                                                   {mudanca.before === undefined ? '-' : JSON.stringify(mudanca.before)}
                                                 </td>
