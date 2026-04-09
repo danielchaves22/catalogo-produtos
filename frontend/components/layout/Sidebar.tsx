@@ -128,16 +128,13 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
     },
   ];
 
-  if (user?.catprodAdmFull) {
-    menuItems.push({
-      icon: <Send size={20} />,
-      label: 'Transmissões ao SISCOMEX',
-      subItems: [
-        { label: 'Transmissões ao SISCOMEX', href: '/automacao/transmissoes-siscomex', hideWhenExpanded: true },
-      ],
-    });
-  }
-
+  menuItems.push({
+    icon: <Send size={20} />,
+    label: 'Transmissões ao SISCOMEX',
+    subItems: [
+      { label: 'Transmissões ao SISCOMEX', href: '/automacao/transmissoes-siscomex', hideWhenExpanded: true },
+    ],
+  });
   if (user?.role === 'SUPER') {
     menuItems.push({
       icon: <UserCog size={20} />,
