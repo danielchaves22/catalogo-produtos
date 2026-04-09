@@ -51,6 +51,9 @@ model Certificado {
   nome         String @map("nome")
   pfxPath      String @map("pfx_path")
   senha        String @map("senha")
+  compatibilidadeStatus CertificadoCompatibilidadeStatus @default(NAO_VERIFICADO) @map("compatibilidade_status")
+  validadoEm   DateTime? @map("validado_em")
+  detalheValidacao String? @map("detalhe_validacao")
   criadoEm     DateTime @default(now()) @map("criado_em")
 
   superUser    User    @relation(fields: [superUserId], references: [id])
@@ -107,6 +110,12 @@ enum CatalogoAmbiente {
 enum MensagemCategoria {
   ATUALIZACAO_SISCOMEX
   IMPORTACAO_CONCLUIDA
+}
+
+enum CertificadoCompatibilidadeStatus {
+  NAO_VERIFICADO
+  COMPATIVEL
+  CORRIGIDO_AUTOMATICAMENTE
 }
 
 model Catalogo {

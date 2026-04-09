@@ -81,6 +81,49 @@ const swaggerOptions: Options = {
             cpf_cnpj: { type: 'string' },
             status: { $ref: '#/components/schemas/CatalogoStatus' }
           }
+        },
+
+        CertificadoCompatibilidadeStatus: {
+          type: 'string',
+          enum: ['NAO_VERIFICADO', 'COMPATIVEL', 'CORRIGIDO_AUTOMATICAMENTE']
+        },
+
+        Certificado: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            nome: { type: 'string' },
+            compatibilidadeStatus: { $ref: '#/components/schemas/CertificadoCompatibilidadeStatus' },
+            validadoEm: { type: 'string', format: 'date-time', nullable: true },
+            detalheValidacao: { type: 'string', nullable: true }
+          }
+        },
+
+        UploadCertificadoRequest: {
+          type: 'object',
+          required: ['nome', 'fileContent', 'password'],
+          properties: {
+            nome: { type: 'string' },
+            fileContent: { type: 'string', description: 'Conteudo do .pfx em base64' },
+            password: { type: 'string' },
+            tentarCorrigir: { type: 'boolean', default: true }
+          }
+        },
+
+        UploadCertificadoError: {
+          type: 'object',
+          properties: {
+            code: {
+              type: 'string',
+              enum: [
+                'CERTIFICADO_SENHA_INVALIDA',
+                'CERTIFICADO_INCOMPATIVEL',
+                'CERTIFICADO_INVALIDO',
+                'CERTIFICADO_CORRECAO_FALHOU'
+              ]
+            },
+            error: { type: 'string' }
+          }
         }
       },
       securitySchemes: {

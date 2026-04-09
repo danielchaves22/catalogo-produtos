@@ -10,11 +10,41 @@ import api from '@/lib/api';
 import { useRouter } from 'next/router';
 import { Save } from 'lucide-react';
 
+type CompatibilidadeStatus =
+  | 'NAO_VERIFICADO'
+  | 'COMPATIVEL'
+  | 'CORRIGIDO_AUTOMATICAMENTE';
+
+type UploadFeedback = {
+  type: 'success' | 'warning' | 'error' | 'info';
+  title: string;
+  description: string;
+};
+
+interface UploadCertificadoResponse {
+  id: number;
+  nome: string;
+  compatibilidadeStatus: CompatibilidadeStatus;
+  validadoEm?: string | null;
+  detalheValidacao?: string | null;
+}
+
+const uploadErrorMessages: Record<string, string> = {
+  CERTIFICADO_SENHA_INVALIDA: 'A senha informada para o certificado esta incorreta.',
+  CERTIFICADO_INCOMPATIVEL:
+    'O certificado usa um formato legado e nao e compativel sem correcao automatica.',
+  CERTIFICADO_INVALIDO: 'O arquivo de certificado esta invalido ou corrompido.',
+  CERTIFICADO_CORRECAO_FALHOU:
+    'Nao foi possivel corrigir automaticamente o certificado enviado.',
+};
+
 export default function NovoCertificadoPage() {
   const [file, setFile] = useState<File | null>(null);
   const [password, setPassword] = useState('');
   const [nome, setNome] = useState('');
+  const [tentarCorrigir, setTentarCorrigir] = useState(true);
   const [enviando, setEnviando] = useState(false);
+  const [feedback, setFeedback] = useState<UploadFeedback | null>(null);
   const { addToast } = useToast();
   const router = useRouter();
   const podeEnviar = Boolean(file && password && nome);
@@ -23,12 +53,15 @@ export default function NovoCertificadoPage() {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (f && !f.name.toLowerCase().endsWith('.pfx')) {
-      addToast('Apenas arquivos .pfx são permitidos', 'error');
+      addToast('Apenas arquivos .pfx sao permitidos', 'error');
       e.target.value = '';
       setFile(null);
       return;
     }
+
     setFile(f || null);
+    setFeedback(null);
+
     if (f) {
       setNome(f.name.replace(/\.pfx$/i, ''));
     }
@@ -46,21 +79,76 @@ export default function NovoCertificadoPage() {
     });
   }
 
+  function feedbackClasses(type: UploadFeedback['type']) {
+    if (type === 'success') {
+      return 'border-emerald-600 bg-emerald-950/40 text-emerald-200';
+    }
+    if (type === 'warning') {
+      return 'border-amber-500 bg-amber-950/40 text-amber-200';
+    }
+    if (type === 'error') {
+      return 'border-red-600 bg-red-950/40 text-red-200';
+    }
+
+    return 'border-sky-600 bg-sky-950/40 text-sky-200';
+  }
+
+  function montarFeedbackSucesso(data: UploadCertificadoResponse): UploadFeedback {
+    if (data.compatibilidadeStatus === 'CORRIGIDO_AUTOMATICAMENTE') {
+      return {
+        type: 'warning',
+        title: 'Certificado corrigido automaticamente',
+        description:
+          data.detalheValidacao ||
+          'O arquivo foi convertido para um formato compativel antes do salvamento.',
+      };
+    }
+
+    if (data.compatibilidadeStatus === 'COMPATIVEL') {
+      return {
+        type: 'success',
+        title: 'Certificado valido e compativel',
+        description: data.detalheValidacao || 'Nenhuma correcao foi necessaria.',
+      };
+    }
+
+    return {
+      type: 'info',
+      title: 'Certificado salvo',
+      description: data.detalheValidacao || 'Status de compatibilidade nao informado.',
+    };
+  }
+
   async function upload() {
     if (!file || !password || !nome) return;
+
     try {
       setEnviando(true);
+      setFeedback(null);
       const fileContent = await fileToBase64(file);
-      await api.post('/certificados', {
+      const { data } = await api.post<UploadCertificadoResponse>('/certificados', {
         nome,
         fileContent,
-        password
+        password,
+        tentarCorrigir,
       });
+
+      const resultado = montarFeedbackSucesso(data);
+      setFeedback(resultado);
       addToast('Certificado enviado com sucesso', 'success');
-      router.push('/certificados');
     } catch (error) {
       console.error('Erro ao enviar certificado:', error);
-      addToast('Erro ao enviar certificado', 'error');
+      const apiError = error as any;
+      const code = apiError?.response?.data?.code as string | undefined;
+      const apiMessage = apiError?.response?.data?.error as string | undefined;
+      const message = code ? uploadErrorMessages[code] || apiMessage : apiMessage;
+
+      setFeedback({
+        type: 'error',
+        title: 'Falha ao validar certificado',
+        description: message || 'Erro ao enviar certificado',
+      });
+      addToast(message || 'Erro ao enviar certificado', 'error');
     } finally {
       setEnviando(false);
     }
@@ -70,9 +158,9 @@ export default function NovoCertificadoPage() {
     <DashboardLayout title="Novo Certificado">
       <Breadcrumb
         items={[
-          { label: 'Início', href: '/' },
+          { label: 'Inicio', href: '/' },
           { label: 'Certificados', href: '/certificados' },
-          { label: 'Novo' }
+          { label: 'Novo' },
         ]}
       />
 
@@ -80,7 +168,7 @@ export default function NovoCertificadoPage() {
         <h1 className="text-2xl font-semibold text-white">Cadastrar Certificado</h1>
         <div className="flex items-center gap-3 self-end md:self-auto">
           <Button variant="outline" onClick={() => router.push('/certificados')} disabled={enviando}>
-            Cancelar
+            Voltar para lista
           </Button>
           <Button
             variant="accent"
@@ -96,10 +184,35 @@ export default function NovoCertificadoPage() {
 
       <Card>
         <div className="space-y-4">
-          <Input label="Nome" value={nome} onChange={e => setNome(e.target.value)} />
+          <Input label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
           <FileInput label="Certificado (.pfx)" accept=".pfx" onChange={handleFileChange} />
-          <Input label="Senha" type="password" value={password} onChange={e => setPassword(e.target.value)} />
-          <div className="flex gap-3 justify-end pt-2">
+          <Input
+            label="Senha"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <label className="flex items-start gap-3 rounded-lg border border-gray-700 bg-[#141821] p-3 text-sm text-gray-200">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={tentarCorrigir}
+              onChange={(e) => setTentarCorrigir(e.target.checked)}
+            />
+            <span>
+              Tentar corrigir certificado automaticamente (recomendado)
+            </span>
+          </label>
+
+          {feedback && (
+            <div className={`rounded-lg border px-4 py-3 ${feedbackClasses(feedback.type)}`}>
+              <p className="text-sm font-semibold">{feedback.title}</p>
+              <p className="mt-1 text-sm">{feedback.description}</p>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => router.push('/certificados')} disabled={enviando}>
               Cancelar
             </Button>
@@ -118,4 +231,3 @@ export default function NovoCertificadoPage() {
     </DashboardLayout>
   );
 }
-
