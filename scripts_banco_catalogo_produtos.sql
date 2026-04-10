@@ -633,6 +633,8 @@ CREATE TABLE IF NOT EXISTS catalogo (
 
     -- Inserir países principais
     INSERT INTO pais (codigo, sigla, nome) VALUES
+    -- Codigo especial
+    ('XX', 'XX', 'A DESIGNAR'),
     -- América do Sul
     ('BR', 'BR', 'Brasil'),
     ('AR', 'AR', 'Argentina'),

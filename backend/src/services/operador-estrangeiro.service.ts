@@ -206,7 +206,13 @@ export class OperadorEstrangeiroService {
   // ====== Auxiliares ======
   async listarPaises(): Promise<Pais[]> {
     try {
-      return await catalogoPrisma.pais.findMany({ orderBy: { nome: 'asc' } });
+      const paises = await catalogoPrisma.pais.findMany({ orderBy: { nome: 'asc' } });
+
+      return paises.sort((a, b) => {
+        if (a.codigo === 'XX' && b.codigo !== 'XX') return -1;
+        if (a.codigo !== 'XX' && b.codigo === 'XX') return 1;
+        return a.nome.localeCompare(b.nome, 'pt-BR');
+      });
     } catch (error: unknown) {
       logger.error('Erro ao listar países:', error);
       throw new Error('Falha ao listar países');

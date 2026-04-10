@@ -16,6 +16,11 @@ import {
   gerarResumoDelta,
   normalizarProdutoParaHistorico
 } from '../utils/produto-historico-diff';
+import {
+  condicaoAtributoAtendida,
+  filtrarValoresAtributosVisiveis,
+  valoresComoArrayCondicional
+} from '../utils/atributo-condicional';
 
 export interface CreateProdutoDTO {
   codigo?: string;
@@ -532,18 +537,18 @@ export class ProdutoService {
 
     const estrutura = estruturaInfo.estrutura;
 
-    const erros = this.validarValores(
+    const mapaEstrutura = this.mapearEstruturaPorCodigo(estrutura);
+    const valores = filtrarValoresAtributosVisiveis(
       (data.valoresAtributos ?? {}) as Record<string, any>,
-      estrutura
+      mapaEstrutura
     );
+
+    const erros = this.validarValores(valores, estrutura);
     if (Object.keys(erros).length > 0) {
       throw new ValidationError(erros);
     }
 
-    const preencheuObrigatorios = this.todosObrigatoriosPreenchidos(
-      (data.valoresAtributos ?? {}) as Record<string, any>,
-      estrutura
-    );
+    const preencheuObrigatorios = this.todosObrigatoriosPreenchidos(valores, estrutura);
 
     const catalogo = await catalogoPrisma.catalogo.findFirst({
       where: { id: data.catalogoId, superUserId }
@@ -589,7 +594,7 @@ export class ProdutoService {
         tx,
         novoProduto.id,
         estruturaInfo,
-        (data.valoresAtributos ?? {}) as Record<string, any>
+        valores
       );
 
       return novoProduto.id;
@@ -651,8 +656,18 @@ export class ProdutoService {
       estruturaInfo = await this.obterEstruturaAtributos(ncm, modalidade);
     }
 
-    const valoresExistentes = this.montarValoresDosAtributos(atual.atributos);
-    const valores = (data.valoresAtributos ?? valoresExistentes) as Record<string, any>;
+    const mapaEstrutura = this.mapearEstruturaPorCodigo(estruturaInfo.estrutura);
+    const valoresExistentes = filtrarValoresAtributosVisiveis(
+      this.montarValoresDosAtributos(atual.atributos),
+      mapaEstrutura
+    );
+    const valoresInformados = data.valoresAtributos !== undefined
+      ? filtrarValoresAtributosVisiveis(
+          (data.valoresAtributos ?? {}) as Record<string, any>,
+          mapaEstrutura
+        )
+      : undefined;
+    const valores = valoresInformados ?? valoresExistentes;
 
     const erros = this.validarValores(valores, estruturaInfo.estrutura);
     if (Object.keys(erros).length > 0) {
@@ -729,7 +744,7 @@ export class ProdutoService {
         (data.denominacao !== undefined && data.denominacao !== atual.denominacao) ||
         (data.descricao !== undefined && data.descricao !== atual.descricao) ||
         (data.valoresAtributos !== undefined &&
-          serializarJsonEstavel(data.valoresAtributos) !== serializarJsonEstavel(valoresExistentes)) ||
+          serializarJsonEstavel(valoresInformados ?? {}) !== serializarJsonEstavel(valoresExistentes)) ||
         (data.codigosInternos !== undefined &&
           serializarJsonEstavel(normalizarCodigosInternos(data.codigosInternos)) !==
             serializarJsonEstavel(normalizarCodigosInternos(atual.codigosInternos.map(codigo => codigo.codigo)))) ||
@@ -1391,74 +1406,6 @@ export class ProdutoService {
     }
   }
 
-  private avaliarExpressao(cond: any, valor: string): boolean {
-    if (!cond) return true;
-    const esperado = cond.valor;
-    let ok = true;
-    switch (cond.operador) {
-      case '==':
-        ok = valor === esperado;
-        break;
-      case '!=':
-        ok = valor !== esperado;
-        break;
-      case '>':
-        ok = Number(valor) > Number(esperado);
-        break;
-      case '>=':
-        ok = Number(valor) >= Number(esperado);
-        break;
-      case '<':
-        ok = Number(valor) < Number(esperado);
-        break;
-      case '<=':
-        ok = Number(valor) <= Number(esperado);
-        break;
-    }
-    if (cond.condicao) {
-      const next = this.avaliarExpressao(cond.condicao, valor);
-      return cond.composicao === '||' ? ok || next : ok && next;
-    }
-    return ok;
-  }
-
-  private valoresComoArray(valor: any): string[] {
-    if (Array.isArray(valor)) {
-      return valor.reduce<string[]>(
-        (acc, item) => acc.concat(this.valoresComoArray(item)),
-        []
-      );
-    }
-    if (valor === undefined || valor === null) return [];
-    const texto = String(valor);
-    return texto.trim() === '' ? [] : [texto];
-  }
-
-  private condicaoAtendida(
-    attr: AtributoEstruturaDTO,
-    valores: Record<string, any>,
-    mapa: Map<string, AtributoEstruturaDTO>
-  ): boolean {
-    const codigoCondicionante = attr.condicionanteCodigo || attr.parentCodigo;
-    if (!codigoCondicionante) return true;
-
-    const pai = mapa.get(codigoCondicionante);
-    if (pai && !this.condicaoAtendida(pai, valores, mapa)) return false;
-
-    const valoresCondicionante = this.valoresComoArray(valores[codigoCondicionante]);
-    if (valoresCondicionante.length === 0) return false;
-
-    if (attr.condicao) {
-      return valoresCondicionante.some(v => this.avaliarExpressao(attr.condicao, v));
-    }
-
-    if (!attr.descricaoCondicao) return true;
-    const match = attr.descricaoCondicao.match(/valor\s*=\s*'?"?(\w+)"?'?/i);
-    if (!match) return true;
-    const esperado = match[1];
-    return valoresCondicionante.some(v => v === esperado);
-  }
-
   private todosObrigatoriosPreenchidos(
     valores: Record<string, any>,
     estrutura: AtributoEstruturaDTO[]
@@ -1477,9 +1424,9 @@ export class ProdutoService {
 
     for (const attr of todos) {
       if (!attr.obrigatorio) continue;
-      if (!this.condicaoAtendida(attr, valores, mapa)) continue;
+      if (!condicaoAtributoAtendida(attr, valores, mapa)) continue;
       const v = valores[attr.codigo];
-      if (this.valoresComoArray(v).length === 0) return false;
+      if (valoresComoArrayCondicional(v).length === 0) return false;
     }
     return true;
   }
@@ -1500,9 +1447,9 @@ export class ProdutoService {
     for (const a of todos) mapa.set(a.codigo, a);
 
     for (const attr of todos) {
-      if (!this.condicaoAtendida(attr, valores, mapa)) continue;
+      if (!condicaoAtributoAtendida(attr, valores, mapa)) continue;
       const v = valores[attr.codigo];
-      const valoresAttr = this.valoresComoArray(v);
+      const valoresAttr = valoresComoArrayCondicional(v);
       if (valoresAttr.length === 0) continue;
 
       if (attr.validacoes?.tamanho_maximo && valoresAttr.some(item => item.length > attr.validacoes.tamanho_maximo)) {

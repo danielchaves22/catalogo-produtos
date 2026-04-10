@@ -397,8 +397,28 @@ export default function ProdutoPage() {
     setCarregandoSugestoesNcm(false);
   }, [debouncedNcm]);
 
+  function removerValoresOcultos(valoresAtuais: Record<string, string | string[]>) {
+    if (!mapaEstrutura.size) return valoresAtuais;
+
+    const proximo = { ...valoresAtuais };
+    let alterado = false;
+
+    for (const codigoAtual of Object.keys(proximo)) {
+      const attrAtual = mapaEstrutura.get(codigoAtual);
+      if (!attrAtual || !condicaoAtendida(attrAtual, proximo)) {
+        delete proximo[codigoAtual];
+        alterado = true;
+      }
+    }
+
+    return alterado ? proximo : valoresAtuais;
+  }
+
   function handleValor(codigo: string, valor: string | string[]) {
-    setValores(prev => ({ ...prev, [codigo]: valor }));
+    setValores(prev => {
+      const atualizados = { ...prev, [codigo]: valor };
+      return removerValoresOcultos(atualizados);
+    });
   }
 
   function compactarDescricaoParaIa(texto: string) {
