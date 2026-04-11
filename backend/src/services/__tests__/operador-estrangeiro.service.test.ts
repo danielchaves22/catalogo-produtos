@@ -12,6 +12,9 @@ jest.mock('../../utils/prisma', () => ({
     },
     catalogo: {
       findMany: jest.fn()
+    },
+    pais: {
+      findMany: jest.fn()
     }
   }
 }))
@@ -52,5 +55,18 @@ describe('OperadorEstrangeiroService - superUserId', () => {
     expect(catalogoPrisma.operadorEstrangeiro.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 2 } })
     )
+  })
+
+  it('retorna XX como primeiro pais na listagem de paises', async () => {
+    ;(catalogoPrisma.pais.findMany as jest.Mock).mockResolvedValue([
+      { codigo: 'BR', sigla: 'BR', nome: 'Brasil' },
+      { codigo: 'XX', sigla: 'XX', nome: 'A DESIGNAR' },
+      { codigo: 'AR', sigla: 'AR', nome: 'Argentina' }
+    ])
+
+    const paises = await service.listarPaises()
+
+    expect(paises[0].codigo).toBe('XX')
+    expect(paises.map(p => p.codigo)).toEqual(['XX', 'AR', 'BR'])
   })
 })

@@ -5,6 +5,10 @@ import { ProdutoService, RemoverProdutosEmMassaDTO, ListarProdutosFiltro } from 
 import { ValidationError } from '../types/validation-error';
 import { createAsyncJob } from '../jobs/async-job.repository';
 import { logger } from '../utils/logger';
+import {
+  AtributoCondicional,
+  condicaoAtributoAtendida
+} from '../utils/atributo-condicional';
 
 type ProdutoExportacaoDelegate = {
   create: (...args: any[]) => Promise<any>;
@@ -95,6 +99,8 @@ interface ProdutoComAtributos {
       multivalorado: boolean;
       parentCodigo: string | null;
       condicionanteCodigo: string | null;
+      descricaoCondicao?: string | null;
+      condicaoJson?: Prisma.JsonValue | null;
       parent?: {
         codigo: string;
         multivalorado: boolean;
@@ -289,6 +295,8 @@ export class ProdutoExportacaoService {
                 multivalorado: true,
                 parentCodigo: true,
                 condicionanteCodigo: true,
+                descricaoCondicao: true,
+                condicaoJson: true,
                 parent: {
                   select: {
                     codigo: true,
@@ -341,11 +349,22 @@ export class ProdutoExportacaoService {
       const compostosMultivalorados = new Map<string, Map<number, Array<{ atributo: string; valor: unknown }>>>();
 
       const valoresPorCodigo = new Map<string, unknown[]>();
+      const mapaAtributos = new Map<string, AtributoCondicional>();
 
       for (const registro of produto.atributos) {
         if (!registro.atributo?.codigo) continue;
+        mapaAtributos.set(registro.atributo.codigo, {
+          codigo: registro.atributo.codigo,
+          parentCodigo: registro.atributo.parentCodigo,
+          parentEhComposto: Boolean(registro.atributo.parent),
+          condicionanteCodigo: registro.atributo.condicionanteCodigo,
+          descricaoCondicao: registro.atributo.descricaoCondicao,
+          condicao: this.normalizarCondicao(registro.atributo.condicaoJson)
+        });
         valoresPorCodigo.set(registro.atributo.codigo, this.normalizarValores(registro.valores));
       }
+
+      const valoresParaCondicao = Object.fromEntries(valoresPorCodigo.entries()) as Record<string, unknown>;
 
       for (const registro of produto.atributos) {
         if (!registro.atributo) continue;
@@ -358,13 +377,15 @@ export class ProdutoExportacaoService {
         const codigoCondicionante = registro.atributo.condicionanteCodigo ?? (!parent ? parentCodigo : null);
         const isCondicional = !!codigoCondicionante && !parent;
         const isComposto = !!parentCodigo && !!parent;
+        const metadados = mapaAtributos.get(codigo);
+
+        if (metadados && !condicaoAtributoAtendida(metadados, valoresParaCondicao, mapaAtributos)) {
+          continue;
+        }
 
         if (!parentCodigo || isCondicional) {
-          if (isCondicional) {
-            const condicaoAtendida = this.condicaoCondicionalAtendida(codigoCondicionante, valoresPorCodigo);
-            if (!condicaoAtendida || valoresNormalizados.length === 0) {
-              continue;
-            }
+          if (isCondicional && valoresNormalizados.length === 0) {
+            continue;
           }
 
           if (registro.atributo.multivalorado) {
@@ -491,14 +512,12 @@ export class ProdutoExportacaoService {
       .filter(valor => this.valorPreenchido(valor));
   }
 
-  private condicaoCondicionalAtendida(
-    codigoCondicionante: string | null,
-    valoresPorCodigo: Map<string, unknown[]>
-  ): boolean {
-    if (!codigoCondicionante) return true;
+  private normalizarCondicao(condicao?: Prisma.JsonValue | null): Record<string, any> | undefined {
+    if (!condicao || typeof condicao !== 'object' || Array.isArray(condicao)) {
+      return undefined;
+    }
 
-    const valores = valoresPorCodigo.get(codigoCondicionante) ?? [];
-    return valores.some(valor => this.valorPreenchido(valor));
+    return condicao as Record<string, any>;
   }
 
   private converterJsonParaArray(valor: Prisma.JsonValue | null): number[] | undefined {
