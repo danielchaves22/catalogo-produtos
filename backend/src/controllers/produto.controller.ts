@@ -3,8 +3,10 @@ import { Request, Response } from 'express';
 import { ProdutoService, RemoverProdutosEmMassaDTO } from '../services/produto.service';
 import { ValidationError } from '../types/validation-error';
 import { logger } from '../utils/logger';
+import { ProdutoInativacaoError, ProdutoInativacaoService } from '../services/produto-inativacao.service';
 
 const produtoService = new ProdutoService();
+const produtoInativacaoService = new ProdutoInativacaoService();
 
 export async function listarProdutos(req: Request, res: Response) {
   try {
@@ -135,7 +137,10 @@ export async function atualizarProduto(req: Request, res: Response) {
     if (error.message?.includes('não encontrado')) {
       return res.status(404).json({ error: error.message });
     }
-    if (error.message?.includes('não pode ser alterado')) {
+    if (
+      error.message?.includes('não pode ser alterado') ||
+      error.message?.includes('nao pode ser alterado')
+    ) {
       return res.status(400).json({ error: error.message });
     }
     logger.error('Erro ao atualizar produto:', error);
@@ -149,11 +154,37 @@ export async function removerProduto(req: Request, res: Response) {
     await produtoService.remover(id, req.user!.superUserId);
     res.status(204).send();
   } catch (error: any) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, details: error.details });
+    }
     if (error.message?.includes('não encontrado')) {
       return res.status(404).json({ error: error.message });
     }
     logger.error('Erro ao remover produto:', error);
     res.status(500).json({ error: error.message });
+  }
+}
+
+export async function inativarProduto(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'Identificador de produto invalido.' });
+    }
+
+    const resultado = await produtoInativacaoService.inativarProduto(id, req.user!.superUserId);
+    return res.status(200).json(resultado);
+  } catch (error: any) {
+    if (error instanceof ProdutoInativacaoError) {
+      return res.status(error.status).json({
+        error: error.message,
+        codigo: error.codigo,
+        retryable: error.retryable,
+      });
+    }
+
+    logger.error('Erro ao inativar produto:', error);
+    return res.status(500).json({ error: error?.message ?? 'Falha ao inativar produto.' });
   }
 }
 
@@ -234,11 +265,11 @@ export async function ajustarEstruturaCatalogo(req: Request, res: Response) {
 export async function removerProdutosEmMassa(req: Request, res: Response) {
   try {
     const dados = req.body as RemoverProdutosEmMassaDTO;
-    const removidos = await produtoService.removerEmMassa(
+    const resultado = await produtoService.removerEmMassa(
       dados,
       req.user!.superUserId
     );
-    res.status(200).json({ removidos });
+    res.status(200).json(resultado);
   } catch (error: any) {
     if (error instanceof ValidationError) {
       return res.status(400).json({ error: error.message, details: error.details });
@@ -247,3 +278,4 @@ export async function removerProdutosEmMassa(req: Request, res: Response) {
     res.status(500).json({ error: error.message });
   }
 }
+

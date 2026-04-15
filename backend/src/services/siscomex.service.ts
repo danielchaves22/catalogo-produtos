@@ -473,28 +473,16 @@ export class SiscomexService {
   }
 
   /**
-   * Obtém detalhes de uma versão específica do produto
+   * Inativa produto no SISCOMEX
    */
-  async detalharVersaoProduto(codigoProduto: string, versao: number): Promise<SiscomexProduto> {
+  async desativarProduto(cpfCnpjRaiz: string, codigoProduto: string): Promise<unknown> {
     try {
-      const response = await this.api.get<SiscomexProduto>(`/ext/produto/${codigoProduto}/versoes/${versao}`);
+      const response = await this.api.put(
+        `/ext/produto/desativar/${encodeURIComponent(cpfCnpjRaiz)}/${encodeURIComponent(codigoProduto)}`
+      );
       return response.data;
     } catch (error) {
-      logger.error('Erro ao detalhar versão do produto SISCOMEX:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Exporta catálogo de produtos
-   */
-  async exportarCatalogo(cpfCnpjRaiz: string, incluirDesativados = false): Promise<SiscomexProduto[]> {
-    try {
-      const params = { cpfCnpjRaiz, incluirDesativados };
-      const response = await this.api.get<SiscomexProduto[]>('/ext/produto', { params });
-      return response.data;
-    } catch (error) {
-      logger.error('Erro ao exportar catálogo SISCOMEX:', error);
+      logger.error('Erro ao inativar produto SISCOMEX:', error);
       throw error;
     }
   }
@@ -512,17 +500,5 @@ export class SiscomexService {
     }
   }
 
-  /**
-   * Teste de conectividade com a API
-   */
-  async testarConexao(): Promise<boolean> {
-    try {
-      await this.garantirAutenticacao();
-      const response = await this.api.get('/ext/produto', { params: { limite: 1 } });
-      return response.status === 200;
-    } catch (error) {
-      logger.error('Erro ao testar conexão SISCOMEX:', error);
-      return false;
-    }
-  }
 }
+

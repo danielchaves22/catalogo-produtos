@@ -11,6 +11,7 @@ interface RadioGroupProps {
   options: Option[];
   value?: string;
   onChange?: (value: string) => void;
+  disabled?: boolean;
   required?: boolean;
   name?: string;
   className?: string;
@@ -23,6 +24,7 @@ export function RadioGroup({
   options,
   value = '',
   onChange,
+  disabled = false,
   required = false,
   name,
   className = '',
@@ -40,7 +42,10 @@ export function RadioGroup({
       )}
       <div className="flex items-center gap-4 text-sm">
         {options.map(opt => (
-          <label key={opt.value} className="inline-flex items-center gap-2">
+          <label
+            key={opt.value}
+            className={`inline-flex items-center gap-2 ${disabled ? 'cursor-not-allowed text-gray-500' : ''}`}
+          >
             <input
               type="radio"
               name={name}
@@ -48,6 +53,7 @@ export function RadioGroup({
               checked={value === opt.value}
               onChange={() => onChange?.(opt.value)}
               className="form-radio text-accent bg-[#1e2126] border-gray-700 focus:ring focus:border-blue-500"
+              disabled={disabled}
             />
             <span>{opt.label}</span>
           </label>

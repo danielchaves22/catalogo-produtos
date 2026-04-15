@@ -106,6 +106,56 @@ function formatarOperacaoDelta(op: string) {
   return operacaoDeltaLabelMap[op] ?? op;
 }
 
+function serializarEstadoFormularioProduto(params: {
+  catalogoId: string;
+  modalidade: string;
+  ncm: string;
+  denominacao: string;
+  descricao: string;
+  codigosInternos: string[];
+  operadores: Array<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>;
+  valores: Record<string, string | string[]>;
+}) {
+  const valoresNormalizados = Object.entries(params.valores || {})
+    .sort(([codigoA], [codigoB]) => codigoA.localeCompare(codigoB))
+    .reduce<Record<string, string | string[]>>((acc, [codigo, valor]) => {
+      if (Array.isArray(valor)) {
+        acc[codigo] = [...valor].map(item => String(item)).sort();
+      } else {
+        acc[codigo] = String(valor ?? '');
+      }
+      return acc;
+    }, {});
+
+  const operadoresNormalizados = params.operadores
+    .map(item => ({
+      paisCodigo: item.paisCodigo,
+      conhecido: item.conhecido,
+      operadorEstrangeiroId: item.operador?.id ?? null,
+    }))
+    .sort((a, b) => {
+      const pais = a.paisCodigo.localeCompare(b.paisCodigo);
+      if (pais !== 0) return pais;
+      const operadorA = a.operadorEstrangeiroId ?? 0;
+      const operadorB = b.operadorEstrangeiroId ?? 0;
+      if (operadorA !== operadorB) return operadorA - operadorB;
+      return a.conhecido.localeCompare(b.conhecido);
+    });
+
+  const payload = {
+    catalogoId: params.catalogoId || '',
+    modalidade: params.modalidade || '',
+    ncm: params.ncm || '',
+    denominacao: params.denominacao || '',
+    descricao: params.descricao || '',
+    codigosInternos: (params.codigosInternos || []).map(item => item.trim()).filter(Boolean).sort(),
+    operadores: operadoresNormalizados,
+    valores: valoresNormalizados,
+  };
+
+  return JSON.stringify(payload);
+}
+
 export default function ProdutoPage() {
   const [catalogoId, setCatalogoId] = useState('');
   const [catalogoNome, setCatalogoNome] = useState('');
@@ -152,9 +202,36 @@ export default function ProdutoPage() {
   const [resumoSugestoesIa, setResumoSugestoesIa] = useState<string | null>(null);
   const [iaJaSolicitada, setIaJaSolicitada] = useState(false);
   const [limpezaInicialIaRealizada, setLimpezaInicialIaRealizada] = useState(false);
+  const [situacaoProduto, setSituacaoProduto] = useState<'RASCUNHO' | 'ATIVADO' | 'DESATIVADO'>('RASCUNHO');
+  const [assinaturaInicialFormulario, setAssinaturaInicialFormulario] = useState('');
+  const [inativacaoModalAberta, setInativacaoModalAberta] = useState(false);
+  const [inativandoProduto, setInativandoProduto] = useState(false);
   const { user } = useAuth();
 
   const podeSugerirComIa = Boolean(user);
+  const produtoSomenteLeitura = !isNew && situacaoProduto === 'DESATIVADO';
+  const produtoTransmitido = !isNew && situacaoProduto !== 'RASCUNHO' && codigo.trim().length > 0;
+  const podeInativarProduto = produtoTransmitido && !produtoSomenteLeitura;
+
+  const assinaturaFormularioAtual = React.useMemo(
+    () =>
+      serializarEstadoFormularioProduto({
+        catalogoId,
+        modalidade,
+        ncm,
+        denominacao,
+        descricao,
+        codigosInternos,
+        operadores,
+        valores,
+      }),
+    [catalogoId, modalidade, ncm, denominacao, descricao, codigosInternos, operadores, valores]
+  );
+
+  const formularioAlterado =
+    !isNew &&
+    assinaturaInicialFormulario.length > 0 &&
+    assinaturaFormularioAtual !== assinaturaInicialFormulario;
 
   // Format NCM code for display (9999.99.99)
   function formatarNCMExibicao(codigo?: string) {
@@ -180,6 +257,10 @@ export default function ProdutoPage() {
     setResumoSugestoesIa(null);
     setIaJaSolicitada(false);
     setLimpezaInicialIaRealizada(false);
+    setSituacaoProduto('RASCUNHO');
+    setAssinaturaInicialFormulario('');
+    setInativacaoModalAberta(false);
+    setInativandoProduto(false);
     setHistorico([]);
     setHistoricoCarregado(false);
     setHistoricoExpandido({});
@@ -415,6 +496,8 @@ export default function ProdutoPage() {
   }
 
   function handleValor(codigo: string, valor: string | string[]) {
+    if (produtoSomenteLeitura) return;
+
     setValores(prev => {
       const atualizados = { ...prev, [codigo]: valor };
       return removerValoresOcultos(atualizados);
@@ -564,6 +647,11 @@ export default function ProdutoPage() {
   }
 
   async function preencherAtributosComIa() {
+    if (produtoSomenteLeitura) {
+      addToast('Produto desativado esta em modo somente leitura.', 'error');
+      return;
+    }
+
     if (!descricao.trim()) {
       addToast('Informe o detalhamento do produto para sugerir atributos', 'error');
       setActiveTab('informacoes');
@@ -643,6 +731,8 @@ export default function ProdutoPage() {
   }
 
   function adicionarCodigoInterno() {
+    if (produtoSomenteLeitura) return;
+
     const codigo = novoCodigoInterno.trim();
     if (!codigo) return;
     if (codigosInternos.some(c => c.toLowerCase() === codigo.toLowerCase())) {
@@ -654,10 +744,13 @@ export default function ProdutoPage() {
   }
 
   function removerCodigoInterno(index: number) {
+    if (produtoSomenteLeitura) return;
     setCodigosInternos(prev => prev.filter((_, i) => i !== index));
   }
 
   function adicionarOperador() {
+    if (produtoSomenteLeitura) return;
+
     const erros: { paisCodigo?: string; operador?: string } = {};
     if (!novoOperador.paisCodigo) {
       erros.paisCodigo = 'País obrigatório';
@@ -679,6 +772,7 @@ export default function ProdutoPage() {
   }
 
   function removerOperador(index: number) {
+    if (produtoSomenteLeitura) return;
     setOperadores(prev => prev.filter((_, i) => i !== index));
   }
 
@@ -743,6 +837,7 @@ export default function ProdutoPage() {
               placeholder="Selecione..."
               values={normalizarValoresMultivalorados(rawValue)}
               onChange={vals => handleValor(attr.codigo, vals)}
+              disabled={produtoSomenteLeitura}
             />
           );
         }
@@ -761,6 +856,7 @@ export default function ProdutoPage() {
             placeholder="Selecione..."
             value={value}
             onChange={e => handleValor(attr.codigo, e.target.value)}
+            disabled={produtoSomenteLeitura}
           />
         );
       case 'BOOLEANO':
@@ -776,6 +872,7 @@ export default function ProdutoPage() {
             ]}
             value={value}
             onChange={v => handleValor(attr.codigo, v)}
+            disabled={produtoSomenteLeitura}
           />
         );
       case 'NUMERO_INTEIRO':
@@ -788,6 +885,7 @@ export default function ProdutoPage() {
             required={attr.obrigatorio}
             value={value}
             onChange={e => handleValor(attr.codigo, e.target.value)}
+            disabled={produtoSomenteLeitura}
           />
         );
       case 'NUMERO_REAL':
@@ -801,6 +899,7 @@ export default function ProdutoPage() {
             required={attr.obrigatorio}
             value={value}
             onChange={e => handleValor(attr.codigo, e.target.value)}
+            disabled={produtoSomenteLeitura}
           />
         );
       case 'COMPOSTO':
@@ -832,6 +931,7 @@ export default function ProdutoPage() {
                 pattern={pattern}
                 onChange={(valorLimpo, _formatado) => handleValor(attr.codigo, valorLimpo)}
                 className={span}
+                disabled={produtoSomenteLeitura}
               />
             );
           }
@@ -857,6 +957,7 @@ export default function ProdutoPage() {
                   className="w-full px-2 py-1 text-sm bg-[#1e2126] border border-gray-700 text-white rounded-md focus:outline-none focus:ring focus:border-blue-500"
                   value={value}
                   onChange={e => handleValor(attr.codigo, e.target.value)}
+                  disabled={produtoSomenteLeitura}
                 />
               </div>
             );
@@ -875,6 +976,7 @@ export default function ProdutoPage() {
               value={value}
               onChange={e => handleValor(attr.codigo, e.target.value)}
               className={span}
+              disabled={produtoSomenteLeitura}
             />
           );
         }
@@ -887,6 +989,7 @@ export default function ProdutoPage() {
             required={attr.obrigatorio}
             value={value}
             onChange={e => handleValor(attr.codigo, e.target.value)}
+            disabled={produtoSomenteLeitura}
           />
         );
     }
@@ -897,15 +1000,19 @@ export default function ProdutoPage() {
       setLoading(true);
       const response = await api.get(`/produtos/${produtoId}`);
       const dados = response.data;
-      setCodigo(dados.codigo);
-      setCodigosInternos(dados.codigosInternos || []);
-      setOperadores(
-        (dados.operadoresEstrangeiros || []).map((o: any) => ({
-          paisCodigo: o.paisCodigo,
-          conhecido: o.conhecido ? 'sim' : 'nao',
-          operador: o.operadorEstrangeiro || null
-        }))
-      );
+      const codigoCarregado = dados.codigo ? String(dados.codigo) : '';
+      const codigosInternosCarregados = (dados.codigosInternos || []) as string[];
+      const operadoresCarregados = (dados.operadoresEstrangeiros || []).map((o: any) => ({
+        paisCodigo: o.paisCodigo,
+        conhecido: o.conhecido ? 'sim' : 'nao',
+        operador: o.operadorEstrangeiro || null
+      }));
+      const valoresCarregados = (dados.atributos?.[0]?.valoresJson || {}) as Record<string, string | string[]>;
+
+      setCodigo(codigoCarregado);
+      setSituacaoProduto((dados.situacao || 'RASCUNHO') as 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO');
+      setCodigosInternos(codigosInternosCarregados);
+      setOperadores(operadoresCarregados);
       setDenominacao(dados.denominacao || '');
       setDescricao(dados.descricao || '');
       setCatalogoNome(dados.catalogo?.nome || '');
@@ -927,7 +1034,19 @@ export default function ProdutoPage() {
       const estr = dados.atributos?.[0]?.estruturaSnapshotJson || [];
       setEstrutura(ordenarAtributos(estr));
       setEstruturaCarregada(true);
-      setValores((dados.atributos?.[0]?.valoresJson || {}) as Record<string, string | string[]>);
+      setValores(valoresCarregados);
+      setAssinaturaInicialFormulario(
+        serializarEstadoFormularioProduto({
+          catalogoId: String(dados.catalogo?.id || ''),
+          modalidade: dados.modalidade || '',
+          ncm: dados.ncmCodigo || '',
+          denominacao: dados.denominacao || '',
+          descricao: dados.descricao || '',
+          codigosInternos: codigosInternosCarregados,
+          operadores: operadoresCarregados,
+          valores: valoresCarregados,
+        })
+      );
     } catch (error) {
       console.error('Erro ao carregar produto:', error);
       addToast('Erro ao carregar produto', 'error');
@@ -1004,7 +1123,57 @@ export default function ProdutoPage() {
     return Object.keys(newErrors).length === 0;
   }
 
+  function solicitarInativacao() {
+    if (!podeInativarProduto) return;
+
+    if (formularioAlterado) {
+      addToast('Salve as alteracoes pendentes antes de inativar o produto.', 'error');
+      return;
+    }
+
+    setInativacaoModalAberta(true);
+  }
+
+  function cancelarInativacao() {
+    if (inativandoProduto) return;
+    setInativacaoModalAberta(false);
+  }
+
+  async function confirmarInativacao() {
+    if (typeof id !== 'string') return;
+    if (formularioAlterado) {
+      addToast('Salve as alteracoes pendentes antes de inativar o produto.', 'error');
+      return;
+    }
+
+    try {
+      setInativandoProduto(true);
+      const resposta = await api.post(`/produtos/${id}/inativar`);
+      const reconciliado = resposta?.data?.reconciliado === true;
+      addToast(
+        reconciliado
+          ? 'Produto inativado com reconciliacao SISCOMEX concluida.'
+          : 'Produto inativado com sucesso.',
+        'success'
+      );
+      setInativacaoModalAberta(false);
+      setHistoricoCarregado(false);
+      await carregarProduto(id);
+    } catch (error: any) {
+      const mensagem = error?.response?.data?.error || 'Nao foi possivel inativar o produto.';
+      const retryable = error?.response?.data?.retryable === true;
+      addToast(retryable ? `${mensagem} Tente novamente.` : mensagem, 'error');
+    } finally {
+      setInativandoProduto(false);
+    }
+  }
+
   async function salvar(force = false) {
+    if (produtoSomenteLeitura) {
+      addToast('Produto desativado esta em modo somente leitura.', 'error');
+      return;
+    }
+
     if (!validarFormulario()) return;
     if (!force) {
       const pendentes = coletarFaltantes(estrutura);
@@ -1083,17 +1252,39 @@ export default function ProdutoPage() {
           <Button type="button" variant="outline" onClick={voltar}>
             Cancelar
           </Button>
+          {podeInativarProduto && (
+            <Button
+              type="button"
+              variant="danger"
+              onClick={solicitarInativacao}
+              disabled={inativandoProduto}
+              title={
+                formularioAlterado
+                  ? 'Salve as alteracoes pendentes antes de inativar.'
+                  : 'Inativar produto no SISCOMEX'
+              }
+            >
+              {inativandoProduto ? 'Inativando...' : 'Inativar'}
+            </Button>
+          )}
           <Button
             type="button"
             variant="accent"
             className="flex items-center gap-2"
             onClick={() => salvar()}
+            disabled={produtoSomenteLeitura || inativandoProduto}
           >
             <Save size={16} />
             Salvar Produto
           </Button>
         </div>
       </div>
+
+      {produtoSomenteLeitura && (
+        <div className="mb-4 rounded-md border border-red-700 bg-red-900/20 px-4 py-3 text-sm text-red-200">
+          Produto inativado no SISCOMEX. Este registro esta em modo somente leitura.
+        </div>
+      )}
 
       <Card className="mb-6 overflow-visible">
         <div className="grid grid-cols-4 gap-4">
@@ -1128,6 +1319,7 @@ export default function ProdutoPage() {
             ]}
             value={modalidade}
             onChange={e => setModalidade(e.target.value)}
+            disabled={produtoSomenteLeitura}
           />
           {estruturaCarregada && !loadingEstrutura && (
               <div className="grid grid-cols-1 gap-4">
@@ -1234,6 +1426,7 @@ export default function ProdutoPage() {
                             }}
                             error={errors.denominacao}
                             required
+                            disabled={produtoSomenteLeitura}
                             labelRightContent={`${denominacao.length.toLocaleString('pt-BR')} de ${DENOMINACAO_MAX_LENGTH.toLocaleString('pt-BR')}`}
                           />
 
@@ -1260,6 +1453,7 @@ export default function ProdutoPage() {
                                 }
                               }}
                               required
+                              disabled={produtoSomenteLeitura}
                             />
                             {errors.descricao && (
                               <p className="mt-1 text-sm text-red-400">{errors.descricao}</p>
@@ -1281,8 +1475,11 @@ export default function ProdutoPage() {
                                   value={novoCodigoInterno}
                                   onChange={e => setNovoCodigoInterno(e.target.value)}
                                   className="mb-0 w-1/2"
+                                  disabled={produtoSomenteLeitura}
                                 />
-                                <Button type="button" onClick={adicionarCodigoInterno}>+ Incluir</Button>
+                                <Button type="button" onClick={adicionarCodigoInterno} disabled={produtoSomenteLeitura}>
+                                  + Incluir
+                                </Button>
                               </div>
                               {codigosInternos.length > 0 && (
                                 <div className="overflow-x-auto">
@@ -1298,8 +1495,13 @@ export default function ProdutoPage() {
                                         <tr key={i} className="border-b border-gray-700">
                                           <td className="px-4 py-1 text-center">
                                             <button
-                                              className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                                              className={`p-1 transition-colors ${
+                                                produtoSomenteLeitura
+                                                  ? 'text-gray-600 cursor-not-allowed'
+                                                  : 'text-gray-300 hover:text-red-500'
+                                              }`}
                                               onClick={() => removerCodigoInterno(i)}
+                                              disabled={produtoSomenteLeitura}
                                             >
                                               <Trash2 size={16} />
                                             </button>
@@ -1327,7 +1529,7 @@ export default function ProdutoPage() {
                                   setNovoOperador(prev => ({ ...prev, paisCodigo: e.target.value }));
                                 }}
                                 className="mb-0"
-                                disabled={novoOperador.conhecido === 'sim'}
+                                disabled={produtoSomenteLeitura || novoOperador.conhecido === 'sim'}
                                 error={operadorErro.paisCodigo}
                               />
                               <RadioGroup
@@ -1345,6 +1547,7 @@ export default function ProdutoPage() {
                                   });
                                 }}
                                 className="mb-0"
+                                disabled={produtoSomenteLeitura}
                               />
                               {novoOperador.conhecido === 'sim' && (
                                 <div className="flex items-end gap-2">
@@ -1363,14 +1566,21 @@ export default function ProdutoPage() {
                                     }}
                                     className="flex-1 mb-0"
                                     error={operadorErro.operador}
+                                    disabled={produtoSomenteLeitura}
                                   />
-                                  <Button type="button" onClick={() => setSelectorOpen(true)}>
+                                  <Button
+                                    type="button"
+                                    onClick={() => setSelectorOpen(true)}
+                                    disabled={produtoSomenteLeitura}
+                                  >
                                     Buscar
                                   </Button>
                                 </div>
                               )}
                             </div>
-                            <Button type="button" onClick={adicionarOperador}>Vincular</Button>
+                            <Button type="button" onClick={adicionarOperador} disabled={produtoSomenteLeitura}>
+                              Vincular
+                            </Button>
 
                             {operadores.length > 0 && (
                               <div className="overflow-x-auto mt-4">
@@ -1391,7 +1601,15 @@ export default function ProdutoPage() {
                                     {operadores.map((op, i) => (
                                       <tr key={i} className="border-b border-gray-700">
                                         <td className="px-4 py-1 text-center">
-                                          <button className="p-1 text-gray-300 hover:text-red-500 transition-colors" onClick={() => removerOperador(i)}>
+                                          <button
+                                            className={`p-1 transition-colors ${
+                                              produtoSomenteLeitura
+                                                ? 'text-gray-600 cursor-not-allowed'
+                                                : 'text-gray-300 hover:text-red-500'
+                                            }`}
+                                            onClick={() => removerOperador(i)}
+                                            disabled={produtoSomenteLeitura}
+                                          >
                                             <Trash2 size={16} />
                                           </button>
                                         </td>
@@ -1441,7 +1659,8 @@ export default function ProdutoPage() {
                                     gerandoSugestoesIa ||
                                     !estrutura.length ||
                                     !descricao.trim() ||
-                                    iaJaSolicitada
+                                    iaJaSolicitada ||
+                                    produtoSomenteLeitura
                                   }
                                 >
                                   <BrainCog size={16} />
@@ -1549,11 +1768,27 @@ export default function ProdutoPage() {
                 >
                   Cancelar
                 </Button>
+                {podeInativarProduto && (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    onClick={solicitarInativacao}
+                    disabled={inativandoProduto}
+                    title={
+                      formularioAlterado
+                        ? 'Salve as alteracoes pendentes antes de inativar.'
+                        : 'Inativar produto no SISCOMEX'
+                    }
+                  >
+                    {inativandoProduto ? 'Inativando...' : 'Inativar'}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="accent"
                   className="flex items-center gap-2"
                   onClick={() => salvar()}
+                  disabled={produtoSomenteLeitura || inativandoProduto}
                 >
                   <Save size={16} />
                   Salvar Produto
@@ -1563,7 +1798,7 @@ export default function ProdutoPage() {
           )}
         </>
       )}
-      {selectorOpen && (
+      {selectorOpen && !produtoSomenteLeitura && (
         <OperadorEstrangeiroSelector
           onSelect={op => {
             setOperadorErro(prev => ({ ...prev, operador: undefined }));
@@ -1577,6 +1812,35 @@ export default function ProdutoPage() {
           selectedOperadores={[]}
           catalogoId={catalogoId ? Number(catalogoId) : undefined}
         />
+      )}
+
+      {inativacaoModalAberta && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="max-w-md w-full p-6">
+            <h3 className="text-xl font-semibold text-white mb-4">Confirmar inativacao</h3>
+            <p className="text-gray-300 mb-4">
+              A inativacao sera enviada ao SISCOMEX agora. O produto permanecera visivel em modo
+              somente leitura apos confirmacao.
+            </p>
+            {formularioAlterado && (
+              <p className="text-red-400 text-sm mb-4">
+                Existem alteracoes pendentes. Salve antes de inativar.
+              </p>
+            )}
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={cancelarInativacao} disabled={inativandoProduto}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmarInativacao}
+                disabled={inativandoProduto || formularioAlterado}
+              >
+                {inativandoProduto ? 'Inativando...' : 'Confirmar inativacao'}
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
 
       {attrsFaltando && (

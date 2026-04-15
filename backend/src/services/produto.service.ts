@@ -120,6 +120,17 @@ export interface RemoverProdutosEmMassaDTO {
   busca?: string;
 }
 
+export interface ProdutoBloqueioExclusaoDTO {
+  id: number;
+  motivo: string;
+}
+
+export interface RemoverProdutosEmMassaResultadoDTO {
+  removidos: number;
+  bloqueados: ProdutoBloqueioExclusaoDTO[];
+  totalSolicitado: number;
+}
+
 export interface PendenciaAjusteEstruturaCatalogoDTO {
   catalogoId: number;
   catalogoNome: string | null;
@@ -155,6 +166,34 @@ export class ProdutoService {
     private readonly produtoResumoService = new ProdutoResumoService()
   ) {
     ProdutoService.registrarInvalidacaoCache();
+  }
+
+  private normalizarCodigoSiscomex(codigo?: string | null) {
+    if (codigo === null || codigo === undefined) {
+      return null;
+    }
+
+    const valor = String(codigo).trim();
+    return valor.length > 0 ? valor : null;
+  }
+
+  private produtoJaTransmitidoParaRegras(produto: {
+    situacao: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
+    codigo?: string | null;
+  }) {
+    const codigoSiscomex = this.normalizarCodigoSiscomex(produto.codigo);
+    return produto.situacao !== 'RASCUNHO' && codigoSiscomex !== null;
+  }
+
+  private obterMotivoBloqueioExclusao(produto: {
+    situacao: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
+    codigo?: string | null;
+  }) {
+    if (this.produtoJaTransmitidoParaRegras(produto)) {
+      return 'Produto transmitido nao pode ser excluido. Utilize a inativacao no SISCOMEX.';
+    }
+
+    return null;
   }
 
   private static registrarInvalidacaoCache() {
@@ -635,6 +674,10 @@ export class ProdutoService {
       throw new Error(`Produto ID ${id} não encontrado`);
     }
 
+    if (atual.situacao === 'DESATIVADO') {
+      throw new Error('Produto desativado nao pode ser alterado');
+    }
+
     const incoming: any = data as any;
     if (incoming.ncmCodigo && incoming.ncmCodigo !== atual.ncmCodigo) {
       throw new Error('NCM não pode ser alterado');
@@ -870,11 +913,20 @@ export class ProdutoService {
     const deletado = await catalogoPrisma.$transaction(async tx => {
       const produto = await tx.produto.findFirst({
         where: { id, catalogo: { superUserId } },
-        select: { id: true }
+        select: {
+          id: true,
+          codigo: true,
+          situacao: true,
+        }
       });
 
       if (!produto) {
         return 0;
+      }
+
+      const motivoBloqueio = this.obterMotivoBloqueioExclusao(produto);
+      if (motivoBloqueio) {
+        throw new ValidationError({ produto: motivoBloqueio }, motivoBloqueio);
       }
 
       await tx.produtoAtributo.deleteMany({
@@ -896,22 +948,53 @@ export class ProdutoService {
   async removerEmMassa(
     dados: RemoverProdutosEmMassaDTO,
     superUserId: number
-  ): Promise<number> {
+  ): Promise<RemoverProdutosEmMassaResultadoDTO> {
     const idsParaExcluir = await this.resolverSelecaoProdutos(dados, superUserId, {
       mensagemErroVazio: 'Nenhum produto selecionado para exclusão',
       mensagemErroConsulta: 'Nenhum produto correspondente encontrado para exclusão'
     });
 
-    const removidos = await catalogoPrisma.$transaction(async tx => {
-      await tx.produtoAtributo.deleteMany({ where: { produtoId: { in: idsParaExcluir } } });
-      await tx.codigoInternoProduto.deleteMany({ where: { produtoId: { in: idsParaExcluir } } });
-      await tx.operadorEstrangeiroProduto.deleteMany({ where: { produtoId: { in: idsParaExcluir } } });
+    const produtosSelecionados = await catalogoPrisma.produto.findMany({
+      where: {
+        id: { in: idsParaExcluir },
+        catalogo: { superUserId },
+      },
+      select: {
+        id: true,
+        codigo: true,
+        situacao: true,
+      },
+    });
 
-      for (const idProduto of idsParaExcluir) {
+    const bloqueados: ProdutoBloqueioExclusaoDTO[] = [];
+    const idsElegiveis: number[] = [];
+
+    for (const produto of produtosSelecionados) {
+      const motivoBloqueio = this.obterMotivoBloqueioExclusao(produto);
+      if (motivoBloqueio) {
+        bloqueados.push({ id: produto.id, motivo: motivoBloqueio });
+      } else {
+        idsElegiveis.push(produto.id);
+      }
+    }
+
+    if (idsElegiveis.length === 0) {
+      throw new ValidationError(
+        { produtos: 'Nenhum produto elegivel para exclusao na selecao informada.' },
+        'Nenhum produto elegivel para exclusao na selecao informada.'
+      );
+    }
+
+    const removidos = await catalogoPrisma.$transaction(async tx => {
+      await tx.produtoAtributo.deleteMany({ where: { produtoId: { in: idsElegiveis } } });
+      await tx.codigoInternoProduto.deleteMany({ where: { produtoId: { in: idsElegiveis } } });
+      await tx.operadorEstrangeiroProduto.deleteMany({ where: { produtoId: { in: idsElegiveis } } });
+
+      for (const idProduto of idsElegiveis) {
         await this.produtoResumoService.removerResumoProduto(idProduto, tx);
       }
 
-      const resultado = await tx.produto.deleteMany({ where: { id: { in: idsParaExcluir } } });
+      const resultado = await tx.produto.deleteMany({ where: { id: { in: idsElegiveis } } });
       return resultado.count;
     });
 
@@ -919,7 +1002,11 @@ export class ProdutoService {
       throw new Error('Nenhum produto foi excluído');
     }
 
-    return removidos;
+    return {
+      removidos,
+      bloqueados,
+      totalSolicitado: produtosSelecionados.length,
+    };
   }
 
   async contarPendenciasAjusteEstrutura(superUserId: number): Promise<number> {
@@ -1485,3 +1572,4 @@ export class ProdutoService {
     return erros;
   }
 }
+

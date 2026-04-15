@@ -58,7 +58,7 @@ export function ListaProdutosPainel() {
     ncm: string;
   }>(() => ({
     status: [],
-    situacoes: ['RASCUNHO', 'ATIVADO'],
+    situacoes: ['RASCUNHO', 'ATIVADO', 'DESATIVADO'],
     ncm: ''
   }));
   const [ncmSugestoes, setNcmSugestoes] = useState<Array<{ codigo: string; descricao: string | null }>>([]);
@@ -202,6 +202,22 @@ export function ListaProdutosPainel() {
     }
   }
 
+  function produtoJaTransmitido(produto: Produto) {
+    const codigoSiscomex = String(produto.codigo ?? '').trim();
+    return (produto.situacao ?? 'RASCUNHO') !== 'RASCUNHO' && codigoSiscomex.length > 0;
+  }
+
+  function produtoElegivelParaExclusao(produto: Produto) {
+    return !produtoJaTransmitido(produto);
+  }
+
+  function obterMotivoBloqueioExclusao(produto: Produto) {
+    if (produtoJaTransmitido(produto)) {
+      return 'Produto transmitido nao pode ser excluido. Use a opcao de inativacao na edicao.';
+    }
+    return '';
+  }
+
   function formatarNCM(ncm?: string) {
     if (!ncm) return '-';
     const digits = ncm.replace(/\D/g, '').slice(0, 8);
@@ -239,8 +255,12 @@ export function ListaProdutosPainel() {
     router.push(`/produtos/${id}`);
   }
 
-  function confirmarExclusao(id: number) {
-    setProdutoParaExcluir(id);
+  function confirmarExclusao(produto: Produto) {
+    if (!produtoElegivelParaExclusao(produto)) {
+      addToast(obterMotivoBloqueioExclusao(produto), 'error');
+      return;
+    }
+    setProdutoParaExcluir(produto.id);
   }
 
   function cancelarExclusao() {
@@ -252,10 +272,11 @@ export function ListaProdutosPainel() {
     try {
       await api.delete(`/produtos/${produtoParaExcluir}`);
       setProdutos(produtos.filter(p => p.id !== produtoParaExcluir));
-      addToast('Produto excluído com sucesso', 'success');
-    } catch (err) {
+      addToast('Produto excluido com sucesso', 'success');
+    } catch (err: any) {
       console.error('Erro ao excluir produto:', err);
-      addToast('Erro ao excluir produto', 'error');
+      const mensagem = err?.response?.data?.error || 'Erro ao excluir produto';
+      addToast(mensagem, 'error');
     } finally {
       setProdutoParaExcluir(null);
     }
@@ -433,9 +454,18 @@ export function ListaProdutosPainel() {
                           <Pencil size={16} />
                         </button>
                         <button
-                          className="p-1 text-gray-300 hover:text-red-500 transition-colors"
-                          onClick={() => confirmarExclusao(produto.id)}
-                          title="Excluir produto"
+                          className={`p-1 transition-colors ${
+                            produtoElegivelParaExclusao(produto)
+                              ? 'text-gray-300 hover:text-red-500'
+                              : 'text-gray-600 cursor-not-allowed'
+                          }`}
+                          onClick={() => confirmarExclusao(produto)}
+                          title={
+                            produtoElegivelParaExclusao(produto)
+                              ? 'Excluir produto'
+                              : obterMotivoBloqueioExclusao(produto)
+                          }
+                          disabled={!produtoElegivelParaExclusao(produto)}
                         >
                           <Trash2 size={16} />
                         </button>
@@ -527,3 +557,4 @@ export function ListaProdutosPainel() {
 }
 
 export default ListaProdutosPainel;
+

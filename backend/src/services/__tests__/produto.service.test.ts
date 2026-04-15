@@ -19,7 +19,7 @@ beforeEach(() => {
 
 jest.mock('../../utils/prisma', () => ({
   catalogoPrisma: {
-    produto: { findFirst: jest.fn() },
+    produto: { findFirst: jest.fn(), findMany: jest.fn() },
     $transaction: jest.fn()
   }
 }))
@@ -129,7 +129,12 @@ describe('ProdutoService - atualização de status', () => {
       { codigo: 'A', nome: 'A', tipo: 'TEXTO', obrigatorio: true, multivalorado: false, validacoes: {} }
     ]
 
-    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue(estrutura)
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 1,
+      versaoNumero: 1,
+      estrutura,
+    })
+    jest.spyOn(service, 'buscarPorId').mockResolvedValue({} as any)
 
     ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
       id: 1,
@@ -198,5 +203,129 @@ describe('ProdutoService - cache da estrutura de atributos', () => {
 
     expect(buscarEstrutura).toHaveBeenCalledTimes(2)
     expect(aposInvalidacao).toBe(estruturaAtualizada)
+  })
+})
+
+describe('ProdutoService - bloqueio de alteracao para produto desativado', () => {
+  it('impede atualizacao quando situacao local e DESATIVADO', async () => {
+    const service = criarService()
+
+    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
+      id: 1,
+      situacao: 'DESATIVADO',
+      ncmCodigo: '12345678',
+      catalogoId: 1,
+      modalidade: 'IMPORTACAO',
+      atributos: [],
+      codigosInternos: [],
+      operadoresEstrangeiros: [],
+    })
+
+    await expect(service.atualizar(1, { denominacao: 'Teste' }, 1)).rejects.toThrow(
+      'Produto desativado nao pode ser alterado'
+    )
+  })
+})
+
+describe('ProdutoService - exclusao com elegibilidade', () => {
+  it('remove produto rascunho sem codigo SISCOMEX', async () => {
+    const service = criarService()
+
+    const tx = {
+      produto: {
+        findFirst: jest.fn().mockResolvedValue({ id: 10, codigo: null, situacao: 'RASCUNHO' }),
+        delete: jest.fn().mockResolvedValue({}),
+      },
+      produtoAtributo: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    }
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => callback(tx))
+
+    await service.remover(10, 1)
+
+    expect(tx.produto.delete).toHaveBeenCalledWith({ where: { id: 10 } })
+    expect(produtoResumoServiceMock.removerResumoProduto).toHaveBeenCalledWith(10, tx)
+  })
+
+  it('bloqueia exclusao individual de produto transmitido', async () => {
+    const service = criarService()
+
+    const tx = {
+      produto: {
+        findFirst: jest.fn().mockResolvedValue({ id: 11, codigo: 'ABC123', situacao: 'ATIVADO' }),
+        delete: jest.fn().mockResolvedValue({}),
+      },
+      produtoAtributo: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    }
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => callback(tx))
+
+    await expect(service.remover(11, 1)).rejects.toThrow(
+      'Produto transmitido nao pode ser excluido. Utilize a inativacao no SISCOMEX.'
+    )
+    expect(tx.produto.delete).not.toHaveBeenCalled()
+  })
+
+  it('remove somente elegiveis em exclusao em massa mista e retorna bloqueados', async () => {
+    const service = criarService()
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock)
+      .mockResolvedValueOnce([{ id: 1 }, { id: 2 }, { id: 3 }])
+      .mockResolvedValueOnce([
+        { id: 1, codigo: null, situacao: 'RASCUNHO' },
+        { id: 2, codigo: 'COD-2', situacao: 'ATIVADO' },
+        { id: 3, codigo: null, situacao: 'ATIVADO' },
+      ])
+
+    const tx = {
+      produtoAtributo: { deleteMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      codigoInternoProduto: { deleteMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      operadorEstrangeiroProduto: { deleteMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      produto: { deleteMany: jest.fn().mockResolvedValue({ count: 2 }) },
+    }
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => callback(tx))
+
+    const resultado = await service.removerEmMassa(
+      {
+        todosFiltrados: false,
+        idsSelecionados: [1, 2, 3],
+      },
+      1
+    )
+
+    expect(resultado).toEqual({
+      removidos: 2,
+      bloqueados: [
+        {
+          id: 2,
+          motivo: 'Produto transmitido nao pode ser excluido. Utilize a inativacao no SISCOMEX.',
+        },
+      ],
+      totalSolicitado: 3,
+    })
+    expect(tx.produto.deleteMany).toHaveBeenCalledWith({ where: { id: { in: [1, 3] } } })
+  })
+
+  it('retorna erro quando nenhum produto da selecao e elegivel', async () => {
+    const service = criarService()
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock)
+      .mockResolvedValueOnce([{ id: 20 }])
+      .mockResolvedValueOnce([{ id: 20, codigo: 'COD-20', situacao: 'ATIVADO' }])
+
+    await expect(
+      service.removerEmMassa(
+        {
+          todosFiltrados: false,
+          idsSelecionados: [20],
+        },
+        1
+      )
+    ).rejects.toThrow('Nenhum produto elegivel para exclusao na selecao informada.')
   })
 })

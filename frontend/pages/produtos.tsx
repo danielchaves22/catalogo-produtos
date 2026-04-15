@@ -43,6 +43,12 @@ interface ProdutosResponse {
   pageSize: number;
 }
 
+interface ExclusaoEmMassaResponse {
+  removidos: number;
+  bloqueados: Array<{ id: number; motivo: string }>;
+  totalSolicitado: number;
+}
+
 const statusOptions = [
   { value: 'PENDENTE', label: 'Pendente' },
   { value: 'APROVADO', label: 'Aprovado' },
@@ -68,7 +74,7 @@ export default function ProdutosPage() {
     ncm: string;
   }>(() => ({
     status: [],
-    situacoes: ['RASCUNHO', 'ATIVADO'],
+    situacoes: ['RASCUNHO', 'ATIVADO', 'DESATIVADO'],
     catalogoId: '',
     ncm: ''
   }));
@@ -321,8 +327,28 @@ export default function ProdutosPage() {
     const payload = montarSelecaoPayload();
 
     try {
-      await api.post('/produtos/excluir-em-massa', payload);
-      addToast('Produtos excluídos com sucesso.', 'success');
+      const resposta = await api.post<ExclusaoEmMassaResponse>('/produtos/excluir-em-massa', payload);
+      const removidos = Number(resposta?.data?.removidos ?? 0);
+      const bloqueados = Array.isArray(resposta?.data?.bloqueados) ? resposta.data.bloqueados : [];
+
+      if (bloqueados.length === 0) {
+        addToast(`${removidos} produto(s) excluido(s) com sucesso.`, 'success');
+      } else {
+        addToast(
+          `${removidos} removido(s) e ${bloqueados.length} bloqueado(s) na exclusao.`,
+          removidos > 0 ? 'success' : 'error'
+        );
+
+        const motivos = bloqueados
+          .slice(0, 3)
+          .map(item => `#${item.id}: ${item.motivo}`)
+          .join(' | ');
+
+        if (motivos) {
+          addToast(motivos, 'error');
+        }
+      }
+
       fecharExclusaoEmMassa();
       limparSelecao();
       await carregarProdutos();
@@ -463,6 +489,22 @@ export default function ProdutosPage() {
     }
   }
 
+  function produtoJaTransmitido(produto: Produto) {
+    const codigoSiscomex = String(produto.codigo ?? '').trim();
+    return (produto.situacao ?? 'RASCUNHO') !== 'RASCUNHO' && codigoSiscomex.length > 0;
+  }
+
+  function produtoElegivelParaExclusao(produto: Produto) {
+    return !produtoJaTransmitido(produto);
+  }
+
+  function obterMotivoBloqueioExclusao(produto: Produto) {
+    if (produtoJaTransmitido(produto)) {
+      return 'Produto transmitido nao pode ser excluido. Use a opcao de inativacao na edicao.';
+    }
+    return '';
+  }
+
   function selecionarSugestaoNcm(sugestao: { codigo: string; descricao: string | null }) {
     setFiltros(prev => ({ ...prev, ncm: sugestao.codigo.replace(/\D/g, '') }));
     setMostrarSugestoesNcm(false);
@@ -580,8 +622,12 @@ export default function ProdutosPage() {
     router.push(`/produtos/${id}`);
   }
 
-  function confirmarExclusao(id: number) {
-    setProdutoParaExcluir(id);
+  function confirmarExclusao(produto: Produto) {
+    if (!produtoElegivelParaExclusao(produto)) {
+      addToast(obterMotivoBloqueioExclusao(produto), 'error');
+      return;
+    }
+    setProdutoParaExcluir(produto.id);
   }
 
   function cancelarExclusao() {
@@ -593,10 +639,11 @@ export default function ProdutosPage() {
     try {
       await api.delete(`/produtos/${produtoParaExcluir}`);
       setProdutos(produtos.filter(p => p.id !== produtoParaExcluir));
-      addToast('Produto excluído com sucesso', 'success');
-    } catch (err) {
+      addToast('Produto excluido com sucesso', 'success');
+    } catch (err: any) {
       console.error('Erro ao excluir produto:', err);
-      addToast('Erro ao excluir produto', 'error');
+      const mensagem = err?.response?.data?.error || 'Erro ao excluir produto';
+      addToast(mensagem, 'error');
     } finally {
       setProdutoParaExcluir(null);
     }
@@ -986,9 +1033,18 @@ export default function ProdutosPage() {
                           <Pencil size={16} />
                         </button>
                         <button
-                          className="p-1 text-gray-300 hover:text-red-500 transition-colors"
-                          onClick={() => confirmarExclusao(produto.id)}
-                          title="Excluir produto"
+                          className={`p-1 transition-colors ${
+                            produtoElegivelParaExclusao(produto)
+                              ? 'text-gray-300 hover:text-red-500'
+                              : 'text-gray-600 cursor-not-allowed'
+                          }`}
+                          onClick={() => confirmarExclusao(produto)}
+                          title={
+                            produtoElegivelParaExclusao(produto)
+                              ? 'Excluir produto'
+                              : obterMotivoBloqueioExclusao(produto)
+                          }
+                          disabled={!produtoElegivelParaExclusao(produto)}
                         >
                           <Trash2 size={16} />
                         </button>
@@ -1246,3 +1302,4 @@ export default function ProdutosPage() {
     </DashboardLayout>
   );
 }
+
