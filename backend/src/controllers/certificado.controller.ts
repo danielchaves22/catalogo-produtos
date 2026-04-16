@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { CertificadoService, CertificadoValidacaoError } from '../services/certificado.service';
+import { logger } from '../utils/logger';
 
 const certificadoService = new CertificadoService();
 
@@ -8,6 +9,7 @@ export async function listarCertificados(req: Request, res: Response) {
     const certificados = await certificadoService.listar(req.user!.superUserId);
     return res.status(200).json(certificados);
   } catch (error) {
+    logger.error('Erro ao listar certificados', error);
     const message = error instanceof Error ? error.message : 'Erro ao listar certificados';
     return res.status(500).json({ error: message });
   }
@@ -32,6 +34,7 @@ export async function uploadCertificado(req: Request, res: Response) {
     );
     return res.status(201).json(cert);
   } catch (error) {
+    logger.error('Erro ao enviar certificado', error);
     if (error instanceof CertificadoValidacaoError) {
       return res.status(error.status).json({ code: error.code, error: error.message });
     }
@@ -47,6 +50,7 @@ export async function listarCatalogosCertificado(req: Request, res: Response) {
     const catalogos = await certificadoService.listarCatalogos(Number(id), req.user!.superUserId);
     return res.status(200).json(catalogos);
   } catch (error) {
+    logger.error('Erro ao listar catalogos do certificado', error);
     const message = error instanceof Error ? error.message : 'Erro ao listar catalogos do certificado';
     return res.status(500).json({ error: message });
   }
@@ -60,6 +64,7 @@ export async function downloadCertificado(req: Request, res: Response) {
     res.setHeader('Content-Disposition', `attachment; filename=${nome}.pfx`);
     return res.send(file);
   } catch (error) {
+    logger.error('Erro ao baixar certificado', error);
     const message = error instanceof Error ? error.message : 'Erro ao baixar certificado';
     return res.status(500).json({ error: message });
   }
@@ -71,6 +76,7 @@ export async function extrairInformacoes(req: Request, res: Response) {
     const info = await certificadoService.extrairInformacoes(Number(id), req.user!.superUserId);
     return res.status(200).json(info);
   } catch (error) {
+    logger.error('Erro ao extrair informacoes do certificado', error);
     const message = error instanceof Error ? error.message : 'Erro ao extrair informacoes do certificado';
     return res.status(500).json({ error: message });
   }
@@ -82,6 +88,7 @@ export async function removerCertificado(req: Request, res: Response) {
     await certificadoService.remover(Number(id), req.user!.superUserId);
     return res.status(204).send();
   } catch (error) {
+    logger.error('Erro ao remover certificado', error);
     const message = error instanceof Error ? error.message : 'Erro ao remover certificado';
     return res.status(500).json({ error: message });
   }

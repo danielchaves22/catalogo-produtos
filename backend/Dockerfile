@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Garante Python disponível para scripts que dependem do binário `python`
-RUN apk add --no-cache python3 \
+RUN apk add --no-cache python3 openssl \
   && ln -sf python3 /usr/bin/python
 
 # 1) Copia manifestos e schema para gerar o Prisma Client
@@ -24,7 +24,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Disponibiliza Python também na imagem final de execução
-RUN apk add --no-cache python3 \
+RUN apk add --no-cache python3 openssl \
   && ln -sf python3 /usr/bin/python
 
 # 1) Copia apenas o código compilado e as deps de produção
@@ -41,3 +41,4 @@ EXPOSE 3000
 
 # 4) Inicia o servidor sem rodar migrations
 CMD ["node", "dist/server.js"]
+
