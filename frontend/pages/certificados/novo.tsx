@@ -100,22 +100,22 @@ export default function NovoCertificadoPage() {
         title: 'Certificado corrigido automaticamente',
         description:
           data.detalheValidacao ||
-          'O arquivo foi convertido para um formato compativel antes do salvamento.',
+          'O arquivo foi convertido para um formato compatível antes do salvamento.',
       };
     }
 
     if (data.compatibilidadeStatus === 'COMPATIVEL') {
       return {
         type: 'success',
-        title: 'Certificado valido e compativel',
-        description: data.detalheValidacao || 'Nenhuma correcao foi necessaria.',
+        title: 'Certificado válido e compatível',
+        description: data.detalheValidacao || 'Nenhuma correção foi necessária.',
       };
     }
 
     return {
       type: 'info',
       title: 'Certificado salvo',
-      description: data.detalheValidacao || 'Status de compatibilidade nao informado.',
+      description: data.detalheValidacao || 'Status de compatibilidade não informado.',
     };
   }
 

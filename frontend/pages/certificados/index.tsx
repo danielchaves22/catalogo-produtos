@@ -260,13 +260,13 @@ export default function CertificadosPage() {
       {certificadoParaExcluir && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-lg border border-gray-700 bg-[#151921] p-6">
-            <h3 className="mb-4 text-xl font-semibold text-white">Confirmar Exclusao</h3>
-            <p className="mb-4 text-gray-300">O certificado sera desvinculado dos seguintes catalogos:</p>
+            <h3 className="mb-4 text-xl font-semibold text-white">Confirmar exclusão</h3>
+            <p className="mb-4 text-gray-300">O certificado será desvinculado dos seguintes catálogos:</p>
             <ul className="mb-6 max-h-40 list-inside list-disc overflow-y-auto text-gray-300">
               {catalogosVinculados.length > 0 ? (
                 catalogosVinculados.map((cat) => <li key={cat.id}>{cat.nome}</li>)
               ) : (
-                <li>Nenhum catalogo vinculado</li>
+                <li>Nenhum catálogo vinculado.</li>
               )}
             </ul>
             <div className="flex justify-end gap-3">
