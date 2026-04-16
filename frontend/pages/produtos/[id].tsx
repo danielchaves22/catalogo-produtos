@@ -1817,14 +1817,14 @@ export default function ProdutoPage() {
       {inativacaoModalAberta && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="max-w-md w-full p-6">
-            <h3 className="text-xl font-semibold text-white mb-4">Confirmar inativacao</h3>
+            <h3 className="text-xl font-semibold text-white mb-4">Confirmar inativação</h3>
             <p className="text-gray-300 mb-4">
-              A inativacao sera enviada ao SISCOMEX agora. O produto permanecera visivel em modo
-              somente leitura apos confirmacao.
+              A inativação será enviada ao SISCOMEX agora. O produto permanecerá visível em modo
+              somente leitura após confirmação.
             </p>
             {formularioAlterado && (
               <p className="text-red-400 text-sm mb-4">
-                Existem alteracoes pendentes. Salve antes de inativar.
+                Existem alterações pendentes. Salve antes de inativar.
               </p>
             )}
             <div className="flex justify-end gap-3">
@@ -1836,7 +1836,7 @@ export default function ProdutoPage() {
                 onClick={confirmarInativacao}
                 disabled={inativandoProduto || formularioAlterado}
               >
-                {inativandoProduto ? 'Inativando...' : 'Confirmar inativacao'}
+                {inativandoProduto ? 'Inativando...' : 'Confirmar inativação'}
               </Button>
             </div>
           </Card>

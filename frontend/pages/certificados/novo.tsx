@@ -201,7 +201,7 @@ export default function NovoCertificadoPage() {
               onChange={(e) => setTentarCorrigir(e.target.checked)}
             />
             <span>
-              Tentar corrigir certificado automaticamente (recomendado)
+              Realizar correção automática do certificado (recomendado)
             </span>
           </label>
 
