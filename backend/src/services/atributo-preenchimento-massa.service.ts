@@ -7,6 +7,7 @@ import {
 } from './atributo-legacy.service';
 import { ProdutoResumoService } from './produto-resumo.service';
 import { createAsyncJob } from '../jobs/async-job.repository';
+import { resolverStatusProduto } from '../utils/produto-status';
 
 type ModoAtribuicao = 'TODOS_COM_EXCECOES' | 'SELECIONADOS';
 
@@ -473,13 +474,10 @@ export class AtributoPreenchimentoMassaService {
         const resumo = await this.produtoResumoService.recalcularResumoProduto(produto.id, tx);
 
         if (resumo) {
-          let novoStatus = statusAtual;
-
-          if (resumo.obrigatoriosPendentes > 0) {
-            novoStatus = 'PENDENTE';
-          } else if (statusAtual === 'PENDENTE') {
-            novoStatus = 'APROVADO';
-          }
+          const novoStatus = resolverStatusProduto({
+            statusAtual,
+            possuiObrigatoriosPendentes: resumo.obrigatoriosPendentes > 0,
+          });
 
           if (novoStatus !== statusAtual) {
             await tx.produto.update({

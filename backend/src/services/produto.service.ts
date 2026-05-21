@@ -21,6 +21,7 @@ import {
   filtrarValoresAtributosVisiveis,
   valoresComoArrayCondicional
 } from '../utils/atributo-condicional';
+import { resolverStatusProduto } from '../utils/produto-status';
 
 export interface CreateProdutoDTO {
   codigo?: string;
@@ -795,12 +796,13 @@ export class ProdutoService {
           serializarJsonEstavel(normalizarOperadores(data.operadoresEstrangeiros)) !==
             serializarJsonEstavel(normalizarOperadores(atual.operadoresEstrangeiros)));
 
-      let status = data.status ?? statusAtual;
-      if (!preencheuObrigatorios) {
-        status = 'PENDENTE';
-      } else if (statusAtual === 'PENDENTE' || (statusAtual === 'TRANSMITIDO' && houveAlteracaoDadosProduto)) {
-        status = 'APROVADO';
-      }
+      const status = resolverStatusProduto({
+        statusAtual,
+        statusSolicitado: data.status,
+        possuiObrigatoriosPendentes: !preencheuObrigatorios,
+        houveAlteracaoDadosProduto,
+      });
+
       const updated = await tx.produto.updateMany({
         where: { id, catalogo: { superUserId } },
         data: {
@@ -1111,11 +1113,17 @@ export class ProdutoService {
   ): Promise<{ ajustados: number }> {
     const ncmCodigo = parametros.ncmCodigo;
     const modalidade = parametros.modalidade || '';
+    const filtroModalidade =
+      modalidade.trim().length > 0
+        ? { modalidade }
+        : {
+            OR: [{ modalidade: null }, { modalidade: '' }],
+          };
 
     const produtos = await catalogoPrisma.produto.findMany({
       where: {
         ncmCodigo,
-        modalidade,
+        ...filtroModalidade,
         catalogoId: parametros.catalogoId,
         catalogo: { superUserId },
         status: 'AJUSTAR_ESTRUTURA',
@@ -1151,7 +1159,6 @@ export class ProdutoService {
           data: {
             versaoAtributoId: estruturaInfo.versaoId,
             versaoEstruturaAtributos: estruturaInfo.versaoNumero,
-            status: 'PENDENTE',
           },
         });
 
@@ -1159,7 +1166,17 @@ export class ProdutoService {
           await this.salvarValoresProduto(tx, produto.id, estruturaInfo, valoresFiltrados);
         }
 
-        await this.produtoResumoService.recalcularResumoProduto(produto.id, tx);
+        const resumo = await this.produtoResumoService.recalcularResumoProduto(produto.id, tx);
+        const statusAtual = produto.status ?? 'AJUSTAR_ESTRUTURA';
+        const novoStatus = resolverStatusProduto({
+          statusAtual,
+          possuiObrigatoriosPendentes: resumo ? resumo.obrigatoriosPendentes > 0 : true,
+        });
+
+        await tx.produto.update({
+          where: { id: produto.id },
+          data: { status: novoStatus },
+        });
       }
     });
 

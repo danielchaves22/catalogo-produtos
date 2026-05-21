@@ -169,6 +169,167 @@ describe('ProdutoService - atualização de status', () => {
       })
     )
   })
+  it('marca como APROVADO quando produto em AJUSTAR_ESTRUTURA passa a ter obrigatorios completos', async () => {
+    const service = criarService()
+    const estrutura: AtributoEstruturaDTO[] = [
+      { codigo: 'A', nome: 'A', tipo: 'TEXTO', obrigatorio: true, multivalorado: false, validacoes: {} }
+    ]
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 1,
+      versaoNumero: 1,
+      estrutura,
+    })
+    jest.spyOn(service, 'buscarPorId').mockResolvedValue({} as any)
+
+    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
+      id: 1,
+      status: 'AJUSTAR_ESTRUTURA',
+      situacao: 'RASCUNHO',
+      catalogoId: 1,
+      ncmCodigo: '001',
+      modalidade: '',
+      atributos: [],
+      codigosInternos: [],
+      operadoresEstrangeiros: [],
+      versaoAtributoId: 1
+    })
+
+    const updateSpy = jest.fn().mockResolvedValue({ count: 1 })
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { updateMany: updateSpy, findFirst: jest.fn().mockResolvedValue({}) },
+        produtoAtributo: { deleteMany: jest.fn(), create: jest.fn() },
+        produtoAtributoValor: { createMany: jest.fn() },
+        codigoInternoProduto: { deleteMany: jest.fn(), createMany: jest.fn() },
+        operadorEstrangeiroProduto: { deleteMany: jest.fn(), createMany: jest.fn() }
+      })
+    )
+
+    await service.atualizar(1, { valoresAtributos: { A: '1' } }, 1)
+
+    expect(updateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'APROVADO' })
+      })
+    )
+  })
+})
+
+describe('ProdutoService - ajuste de estrutura', () => {
+  it('promove para APROVADO quando nao ha obrigatorios pendentes apos ajustar', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 7,
+      versaoNumero: 3,
+      estrutura: []
+    })
+    produtoResumoServiceMock.recalcularResumoProduto.mockResolvedValue({
+      atributosTotal: 0,
+      obrigatoriosPendentes: 0,
+      validosTransmissao: 0
+    })
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 10,
+        status: 'AJUSTAR_ESTRUTURA',
+        ncmCodigo: '12345678',
+        modalidade: '',
+        denominacao: 'Produto teste',
+        atributos: []
+      }
+    ])
+
+    const updateSpy = jest.fn().mockResolvedValue({})
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { update: updateSpy },
+        produtoAtributo: { deleteMany: jest.fn(), create: jest.fn() }
+      })
+    )
+
+    const resultado = await service.ajustarEstruturaCatalogo(
+      { ncmCodigo: '12345678', modalidade: '', catalogoId: 1 },
+      99
+    )
+
+    expect(resultado).toEqual({ ajustados: 1 })
+    expect(updateSpy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: { status: 'APROVADO' }
+      })
+    )
+  })
+
+  it('mantem PENDENTE quando ainda faltam obrigatorios apos ajustar', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 7,
+      versaoNumero: 3,
+      estrutura: []
+    })
+    produtoResumoServiceMock.recalcularResumoProduto.mockResolvedValue({
+      atributosTotal: 1,
+      obrigatoriosPendentes: 1,
+      validosTransmissao: 0
+    })
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 11,
+        status: 'AJUSTAR_ESTRUTURA',
+        ncmCodigo: '12345678',
+        modalidade: '',
+        denominacao: 'Produto pendente',
+        atributos: []
+      }
+    ])
+
+    const updateSpy = jest.fn().mockResolvedValue({})
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { update: updateSpy },
+        produtoAtributo: { deleteMany: jest.fn(), create: jest.fn() }
+      })
+    )
+
+    await service.ajustarEstruturaCatalogo(
+      { ncmCodigo: '12345678', modalidade: '', catalogoId: 1 },
+      99
+    )
+
+    expect(updateSpy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: { status: 'PENDENTE' }
+      })
+    )
+  })
+
+  it('busca produtos com modalidade nula quando o ajuste chega com modalidade vazia', async () => {
+    const service = criarService()
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([])
+
+    await expect(
+      service.ajustarEstruturaCatalogo(
+        { ncmCodigo: '12345678', modalidade: '', catalogoId: 1 },
+        99
+      )
+    ).rejects.toThrow('Nenhum produto pendente encontrado para o catálogo informado.')
+
+    expect(catalogoPrisma.produto.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ modalidade: null }, { modalidade: '' }]
+        })
+      })
+    )
+  })
 })
 
 describe('ProdutoService - cache da estrutura de atributos', () => {
