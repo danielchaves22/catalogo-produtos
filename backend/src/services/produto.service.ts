@@ -22,6 +22,7 @@ import {
   valoresComoArrayCondicional
 } from '../utils/atributo-condicional';
 import { resolverStatusProduto } from '../utils/produto-status';
+import { normalizarAtributosProdutoPorVersao } from '../utils/produto-atributo-normalizacao';
 
 export interface CreateProdutoDTO {
   codigo?: string;
@@ -414,7 +415,11 @@ export class ProdutoService {
       ? await this.atributosService.buscarEstruturaPorVersao(p.versaoAtributoId)
       : null;
 
-    const valoresMap = this.montarValoresDosAtributos(p.atributos);
+    const valoresMap = this.montarValoresDosAtributos(p.atributos, {
+      produtoId: p.id,
+      versaoAtributoId: p.versaoAtributoId,
+      origem: 'produto.buscarPorId',
+    });
 
     return {
       ...p,
@@ -497,7 +502,11 @@ export class ProdutoService {
       throw new Error(`Produto ID ${produtoId} não encontrado`);
     }
 
-    const valoresAtributos = this.montarValoresDosAtributos(produto.atributos);
+    const valoresAtributos = this.montarValoresDosAtributos(produto.atributos, {
+      produtoId: produto.id,
+      versaoAtributoId: produto.versaoAtributoId,
+      origem: 'produto.obterSnapshotParaHistorico',
+    });
 
     return normalizarProdutoParaHistorico({
       codigo: produto.codigo,
@@ -702,7 +711,11 @@ export class ProdutoService {
 
     const mapaEstrutura = this.mapearEstruturaPorCodigo(estruturaInfo.estrutura);
     const valoresExistentes = filtrarValoresAtributosVisiveis(
-      this.montarValoresDosAtributos(atual.atributos),
+      this.montarValoresDosAtributos(atual.atributos, {
+        produtoId: atual.id,
+        versaoAtributoId: atual.versaoAtributoId,
+        origem: 'produto.atualizar',
+      }),
       mapaEstrutura
     );
     const valoresInformados = data.valoresAtributos !== undefined
@@ -1147,7 +1160,11 @@ export class ProdutoService {
 
     await catalogoPrisma.$transaction(async tx => {
       for (const produto of produtos) {
-        const valoresOriginais = this.montarValoresDosAtributos(produto.atributos);
+        const valoresOriginais = this.montarValoresDosAtributos(produto.atributos, {
+          produtoId: produto.id,
+          versaoAtributoId: produto.versaoAtributoId,
+          origem: 'produto.ajustarEstruturaCatalogo',
+        });
         const valoresFiltrados = Object.fromEntries(
           Object.entries(valoresOriginais).filter(([codigo]) => mapaEstrutura.has(codigo))
         );
@@ -1282,7 +1299,11 @@ export class ProdutoService {
       estruturaInfo = await this.obterEstruturaAtributos(original.ncmCodigo, original.modalidade || '');
     }
 
-    const valoresOriginais = this.montarValoresDosAtributos(original.atributos);
+    const valoresOriginais = this.montarValoresDosAtributos(original.atributos, {
+      produtoId: original.id,
+      versaoAtributoId: original.versaoAtributoId,
+      origem: 'produto.clonar',
+    });
 
     const novoId = await catalogoPrisma.$transaction(async (tx) => {
       const novo = await tx.produto.create({
@@ -1455,12 +1476,21 @@ export class ProdutoService {
 
   private montarValoresDosAtributos(
     registros: Array<{
+      id?: number;
+      atributoVersaoId?: number | null;
       atributo: { codigo: string; multivalorado: boolean } | null;
       valores: Array<{ valorJson: Prisma.JsonValue; ordem: number }>;
-    }>
+    }>,
+    opcoes?: {
+      produtoId?: number;
+      versaoAtributoId?: number | null;
+      origem?: string;
+    }
   ): Record<string, any> {
     const resultado: Record<string, any> = {};
-    for (const registro of registros) {
+    const registrosNormalizados = normalizarAtributosProdutoPorVersao(registros, opcoes);
+
+    for (const registro of registrosNormalizados) {
       if (!registro.atributo) continue;
       const codigo = registro.atributo.codigo;
       const valores = registro.valores.map(v => v.valorJson as any);

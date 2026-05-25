@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { AtributoEstruturaDTO, AtributoLegacyService } from './atributo-legacy.service';
+import { normalizarAtributosProdutoPorVersao } from '../utils/produto-atributo-normalizacao';
 
 export interface ProdutoResumoValores {
   atributosTotal: number;
@@ -9,6 +10,8 @@ export interface ProdutoResumoValores {
 }
 
 type ProdutoAtributoComValores = {
+  id?: number;
+  atributoVersaoId?: number | null;
   atributo: { codigo: string; multivalorado: boolean } | null;
   valores: Array<{ valorJson: Prisma.JsonValue }>;
 };
@@ -49,7 +52,11 @@ export class ProdutoResumoService {
       }
     }
 
-    const valores = montarMapaValoresProduto(produto.atributos);
+    const valores = montarMapaValoresProduto(produto.atributos, {
+      produtoId: produto.id,
+      versaoAtributoId: produto.versaoAtributoId,
+      origem: 'produto-resumo.recalcularResumoProduto',
+    });
     const resumo = calcularResumoProduto(valores, estruturaLista);
 
     await prisma.produtoResumoDashboard.upsert({
@@ -141,7 +148,11 @@ export class ProdutoResumoService {
         const estruturaLista = produto.versaoAtributoId
           ? estruturasCache.get(produto.versaoAtributoId) ?? []
           : [];
-        const valores = montarMapaValoresProduto(produto.atributos as ProdutoAtributoComValores[]);
+        const valores = montarMapaValoresProduto(produto.atributos as ProdutoAtributoComValores[], {
+          produtoId: produto.id,
+          versaoAtributoId: produto.versaoAtributoId,
+          origem: 'produto-resumo.garantirResumos',
+        });
         const resumo = calcularResumoProduto(valores, estruturaLista);
         return {
           produtoId: produto.id,
@@ -292,10 +303,17 @@ function valorPreenchido(valor: unknown): boolean {
 }
 
 function montarMapaValoresProduto(
-  atributos: ProdutoAtributoComValores[]
+  atributos: ProdutoAtributoComValores[],
+  opcoes?: {
+    produtoId?: number;
+    versaoAtributoId?: number | null;
+    origem?: string;
+  }
 ): Record<string, unknown> {
   const resultado: Record<string, unknown> = {};
-  for (const item of atributos) {
+  const atributosNormalizados = normalizarAtributosProdutoPorVersao(atributos, opcoes);
+
+  for (const item of atributosNormalizados) {
     if (!item.atributo) continue;
     const codigo = item.atributo.codigo;
     const valores = item.valores.map(v => v.valorJson as unknown);

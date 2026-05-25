@@ -9,6 +9,7 @@ import {
   AtributoCondicional,
   condicaoAtributoAtendida
 } from '../utils/atributo-condicional';
+import { normalizarAtributosProdutoPorVersao } from '../utils/produto-atributo-normalizacao';
 
 type ProdutoExportacaoDelegate = {
   create: (...args: any[]) => Promise<any>;
@@ -87,6 +88,7 @@ interface ProdutoComAtributos {
   id: number;
   codigo: string | null;
   versao: number | null;
+  versaoAtributoId: number | null;
   status: string;
   situacao: string;
   descricao: string;
@@ -94,6 +96,8 @@ interface ProdutoComAtributos {
   modalidade: string | null;
   ncmCodigo: string;
   atributos: Array<{
+    id?: number;
+    atributoVersaoId?: number | null;
     atributo: {
       codigo: string;
       multivalorado: boolean;
@@ -280,6 +284,7 @@ export class ProdutoExportacaoService {
         id: true,
         codigo: true,
         versao: true,
+        versaoAtributoId: true,
         status: true,
         situacao: true,
         descricao: true,
@@ -343,6 +348,11 @@ export class ProdutoExportacaoService {
     catalogoSelecionado?: { id: number; cpf_cnpj: string | null }
   ): ProdutoExportacaoProdutoDTO[] {
     return produtos.map(produto => {
+      const atributosNormalizados = normalizarAtributosProdutoPorVersao(produto.atributos, {
+        produtoId: produto.id,
+        versaoAtributoId: produto.versaoAtributoId,
+        origem: 'produto-exportacao.transformarParaSiscomex',
+      });
       const simples: ProdutoExportacaoProdutoDTO['atributos'] = [];
       const multivalorados: ProdutoExportacaoProdutoDTO['atributosMultivalorados'] = [];
       const compostos = new Map<string, Array<{ atributo: string; valor: unknown }>>();
@@ -351,7 +361,7 @@ export class ProdutoExportacaoService {
       const valoresPorCodigo = new Map<string, unknown[]>();
       const mapaAtributos = new Map<string, AtributoCondicional>();
 
-      for (const registro of produto.atributos) {
+      for (const registro of atributosNormalizados) {
         if (!registro.atributo?.codigo) continue;
         mapaAtributos.set(registro.atributo.codigo, {
           codigo: registro.atributo.codigo,
@@ -366,7 +376,7 @@ export class ProdutoExportacaoService {
 
       const valoresParaCondicao = Object.fromEntries(valoresPorCodigo.entries()) as Record<string, unknown>;
 
-      for (const registro of produto.atributos) {
+      for (const registro of atributosNormalizados) {
         if (!registro.atributo) continue;
         const codigo = registro.atributo.codigo;
         const parentCodigo = registro.atributo.parentCodigo;

@@ -310,6 +310,77 @@ describe('ProdutoService - ajuste de estrutura', () => {
     )
   })
 
+  it('reaproveita os valores da versao ativa ao reconstruir atributos no ajuste', async () => {
+    const service = criarService()
+    const estruturaInfo = {
+      versaoId: 704,
+      versaoNumero: 4,
+      estrutura: [
+        {
+          id: 9306,
+          codigo: 'ATT_14545',
+          nome: 'Categoria regulatÃ³ria - Anvisa',
+          tipo: 'LISTA_ESTATICA',
+          obrigatorio: true,
+          multivalorado: false,
+          validacoes: {}
+        }
+      ]
+    }
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue(estruturaInfo)
+    const salvarValoresSpy = jest.spyOn(service as any, 'salvarValoresProduto').mockResolvedValue(undefined)
+    produtoResumoServiceMock.recalcularResumoProduto.mockResolvedValue({
+      atributosTotal: 1,
+      obrigatoriosPendentes: 0,
+      validosTransmissao: 1
+    })
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 12,
+        status: 'AJUSTAR_ESTRUTURA',
+        versaoAtributoId: 586,
+        ncmCodigo: '12345678',
+        modalidade: '',
+        denominacao: 'Produto legado',
+        atributos: [
+          {
+            id: 100,
+            atributoVersaoId: 586,
+            atributo: { codigo: 'ATT_14545', multivalorado: false },
+            valores: [{ valorJson: 'VALOR_ATIVO', ordem: 0 }]
+          },
+          {
+            id: 101,
+            atributoVersaoId: 704,
+            atributo: { codigo: 'ATT_14545', multivalorado: false },
+            valores: [{ valorJson: 'VALOR_LEGADO_DUPLICADO', ordem: 0 }]
+          }
+        ]
+      }
+    ])
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { update: jest.fn().mockResolvedValue({}) },
+        produtoAtributo: { deleteMany: jest.fn().mockResolvedValue({ count: 2 }), create: jest.fn() }
+      })
+    )
+
+    await service.ajustarEstruturaCatalogo(
+      { ncmCodigo: '12345678', modalidade: '', catalogoId: 1 },
+      99
+    )
+
+    expect(salvarValoresSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      12,
+      estruturaInfo,
+      { ATT_14545: 'VALOR_ATIVO' }
+    )
+  })
+
   it('busca produtos com modalidade nula quando o ajuste chega com modalidade vazia', async () => {
     const service = criarService()
 

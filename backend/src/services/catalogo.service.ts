@@ -2,6 +2,7 @@
 import { CatalogoStatus, CatalogoAmbiente, Prisma } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import { normalizarAtributosProdutoPorVersao } from '../utils/produto-atributo-normalizacao';
 
 export interface CreateCatalogoDTO {
   nome: string;
@@ -294,6 +295,9 @@ async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
         include: {
           atributos: {
             include: {
+              atributo: {
+                select: { codigo: true }
+              },
               valores: { orderBy: { ordem: 'asc' } }
             }
           },
@@ -389,7 +393,13 @@ async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
         }
       });
 
-      for (const atributo of prod.atributos) {
+      const atributosNormalizados = normalizarAtributosProdutoPorVersao(prod.atributos, {
+        produtoId: prod.id,
+        versaoAtributoId: prod.versaoAtributoId,
+        origem: 'catalogo.clonar',
+      });
+
+      for (const atributo of atributosNormalizados) {
         const novoAtributo = await tx.produtoAtributo.create({
           data: {
             produtoId: novoProduto.id,

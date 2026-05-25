@@ -45,7 +45,7 @@ describe('ProdutoExportacaoService', () => {
     jest.restoreAllMocks()
   })
 
-  it('agenda exportação criando registro e job assíncrono', async () => {
+  it('agenda exportacao criando registro e job assincrono', async () => {
     const resultado = await service.solicitarExportacao(
       {
         todosFiltrados: false,
@@ -86,7 +86,7 @@ describe('ProdutoExportacaoService', () => {
     expect(resultado).toEqual({ exportacaoId: 10, jobId: 99 })
   })
 
-  it('permite configurar o tipo e o prefixo do arquivo ao agendar exportação', async () => {
+  it('permite configurar o tipo e o prefixo do arquivo ao agendar exportacao', async () => {
     mockCatalogoPrisma.produtoExportacao.create.mockResolvedValue({ id: 15 })
 
     await service.solicitarExportacao(
@@ -115,7 +115,7 @@ describe('ProdutoExportacaoService', () => {
         status: 'APROVADO',
         situacao: 'APROVADO',
         descricao: 'Produto 1',
-        denominacao: 'Denominação 1',
+        denominacao: 'Denominacao 1',
         modalidade: 'EXPORTACAO',
         ncmCodigo: '01010101',
         catalogo: { cpf_cnpj: '12.345.678/0001-90' },
@@ -174,7 +174,7 @@ describe('ProdutoExportacaoService', () => {
         status: 'RASCUNHO',
         situacao: 'RASCUNHO',
         descricao: 'Produto 2',
-        denominacao: 'Denominação 2',
+        denominacao: 'Denominacao 2',
         modalidade: null,
         ncmCodigo: '02020202',
         catalogo: { cpf_cnpj: null },
@@ -188,9 +188,10 @@ describe('ProdutoExportacaoService', () => {
     expect(resultado).toEqual([
       {
         seq: 1,
+        catalogoId: null,
         codigo: 'PRD-1',
         descricao: 'Produto 1',
-        denominacao: 'Denominação 1',
+        denominacao: 'Denominacao 1',
         modalidade: 'EXPORTACAO',
         ncm: '01010101',
         cpfCnpjRaiz: '12345678',
@@ -212,9 +213,10 @@ describe('ProdutoExportacaoService', () => {
       },
       {
         seq: 5,
+        catalogoId: null,
         codigo: null,
         descricao: 'Produto 2',
-        denominacao: 'Denominação 2',
+        denominacao: 'Denominacao 2',
         modalidade: null,
         ncm: '02020202',
         cpfCnpjRaiz: null,
@@ -229,7 +231,7 @@ describe('ProdutoExportacaoService', () => {
     ])
   })
 
-  it('exporta atributo condicional no mesmo nível quando condição e valor são atendidos', () => {
+  it('exporta atributo condicional no mesmo nivel quando condicao e valor sao atendidos', () => {
     const produtos = [
       {
         id: 2,
@@ -277,7 +279,7 @@ describe('ProdutoExportacaoService', () => {
     expect(resultado[0].atributosCompostosMultivalorados).toEqual([])
   })
 
-  it('ignora atributo condicional quando condição ou valor não estão preenchidos', () => {
+  it('ignora atributo condicional quando condicao ou valor nao estao preenchidos', () => {
     const produtos = [
       {
         id: 3,
@@ -317,8 +319,55 @@ describe('ProdutoExportacaoService', () => {
 
     const resultado = service.transformarParaSiscomex(produtos)
 
-    expect(resultado[0].atributos).toEqual([])
+    expect(resultado[0].atributos).toEqual([{ atributo: 'ATT_BASE', valor: null }])
     expect(resultado[0].atributosCompostos).toEqual([])
     expect(resultado[0].atributosCompostosMultivalorados).toEqual([])
+  })
+
+  it('ignora atributo duplicado de versao antiga ao transformar para o SISCOMEX', () => {
+    const produtos = [
+      {
+        id: 7,
+        codigo: 'PRD-7',
+        versao: 3,
+        versaoAtributoId: 704,
+        status: 'APROVADO',
+        situacao: 'APROVADO',
+        descricao: 'Produto com duplicidade legado',
+        denominacao: 'Produto com duplicidade legado',
+        modalidade: 'IMPORTACAO',
+        ncmCodigo: '05050505',
+        catalogo: { cpf_cnpj: '22.333.444/0001-55' },
+        atributos: [
+          {
+            id: 10,
+            atributoVersaoId: 586,
+            atributo: {
+              codigo: 'ATT_14545',
+              multivalorado: false,
+              parentCodigo: null,
+              condicionanteCodigo: null,
+            },
+            valores: [{ valorJson: 'ANTIGO', ordem: 0 }],
+          },
+          {
+            id: 11,
+            atributoVersaoId: 704,
+            atributo: {
+              codigo: 'ATT_14545',
+              multivalorado: false,
+              parentCodigo: null,
+              condicionanteCodigo: null,
+            },
+            valores: [{ valorJson: 'ATUAL', ordem: 0 }],
+          },
+        ],
+        codigosInternos: [],
+      },
+    ] as any
+
+    const resultado = service.transformarParaSiscomex(produtos)
+
+    expect(resultado[0].atributos).toEqual([{ atributo: 'ATT_14545', valor: 'ATUAL' }])
   })
 })

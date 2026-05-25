@@ -433,35 +433,23 @@ export class AtributoPreenchimentoMassaService {
         });
 
         for (const atributo of payload.atributosParaAtualizar) {
+          await tx.produtoAtributo.deleteMany({
+            where: {
+              produtoId: produto.id,
+              atributo: { codigo: atributo.codigo }
+            }
+          });
+
           if (!atributo.valores.length) {
-            await tx.produtoAtributo.deleteMany({
-              where: { produtoId: produto.id, atributoId: atributo.atributoId }
-            });
             continue;
           }
 
-          await tx.produtoAtributo.upsert({
-            where: {
-              uk_produto_atributo: {
-                produtoId: produto.id,
-                atributoId: atributo.atributoId
-              }
-            },
-            create: {
+          await tx.produtoAtributo.create({
+            data: {
               produtoId: produto.id,
               atributoId: atributo.atributoId,
               atributoVersaoId: payload.estruturaVersaoId,
               valores: {
-                create: atributo.valores.map((item, ordem) => ({
-                  valorJson: item,
-                  ordem
-                }))
-              }
-            },
-            update: {
-              atributoVersaoId: payload.estruturaVersaoId,
-              valores: {
-                deleteMany: {},
                 create: atributo.valores.map((item, ordem) => ({
                   valorJson: item,
                   ordem
