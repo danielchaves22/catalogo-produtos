@@ -2,6 +2,10 @@
 import { Router } from 'express';
 import {
   transmitirProdutos,
+  prepararTransmissaoProdutos,
+  iniciarTransmissaoProdutos,
+  cancelarPreTransmissaoProdutos,
+  removerItemPreTransmissaoProdutos,
   consultarAtributosPorNcm,
   listarSugestoesNcm,
   listarTransmissoes,
@@ -18,6 +22,71 @@ router.use(authMiddleware);
 router.get('/transmissoes', listarTransmissoes);
 router.get('/transmissoes/:id', detalharTransmissao);
 router.get('/transmissoes/:id/arquivos/:tipo', baixarArquivoTransmissao);
+
+/**
+ * @swagger
+ * /api/v1/siscomex/transmissoes/{id}/iniciar:
+ *   post:
+ *     summary: Inicia uma pré-transmissão já criada e aguardando confirmação
+ *     tags: [SISCOMEX]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       202:
+ *         description: Transmissão enfileirada
+ */
+router.post('/transmissoes/:id/iniciar', iniciarTransmissaoProdutos);
+
+/**
+ * @swagger
+ * /api/v1/siscomex/transmissoes/{id}/cancelar:
+ *   post:
+ *     summary: Cancela uma pré-transmissão aguardando confirmação
+ *     tags: [SISCOMEX]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Pré-transmissão cancelada
+ */
+router.post('/transmissoes/:id/cancelar', cancelarPreTransmissaoProdutos);
+
+/**
+ * @swagger
+ * /api/v1/siscomex/transmissoes/{id}/itens/{itemId}:
+ *   delete:
+ *     summary: Remove um item de uma pré-transmissão aguardando confirmação
+ *     tags: [SISCOMEX]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: itemId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Item removido da pré-transmissão
+ */
+router.delete('/transmissoes/:id/itens/:itemId', removerItemPreTransmissaoProdutos);
 
 /**
  * @swagger
@@ -43,9 +112,9 @@ router.get('/ncm/sugestoes', listarSugestoesNcm);
 
 /**
  * @swagger
- * /api/v1/siscomex/produtos/transmitir:
+ * /api/v1/siscomex/produtos/preparar:
  *   post:
- *     summary: Envia produtos aprovados do catálogo ao SISCOMEX
+ *     summary: Cria uma pré-transmissão persistida de produtos aguardando confirmação
  *     tags: [SISCOMEX]
  *     security:
  *       - bearerAuth: []
@@ -60,7 +129,37 @@ router.get('/ncm/sugestoes', listarSugestoesNcm);
  *                 type: array
  *                 items:
  *                   type: integer
- *                 description: IDs dos produtos aprovados a transmitir (máximo de 100 por envio)
+ *               catalogoId:
+ *                 type: integer
+ *             required:
+ *               - ids
+ *               - catalogoId
+ *     responses:
+ *       201:
+ *         description: Pré-transmissão criada
+ */
+router.post('/produtos/preparar', prepararTransmissaoProdutos);
+
+/**
+ * @swagger
+ * /api/v1/siscomex/produtos/transmitir:
+ *   post:
+ *     summary: Enfileira transmissão assíncrona individual de produtos aprovados ao SISCOMEX
+ *     tags: [SISCOMEX]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: IDs dos produtos aprovados a transmitir
  *               catalogoId:
  *                 type: integer
  *                 description: Catálogo selecionado para utilizar certificado e dados fiscais
@@ -68,8 +167,8 @@ router.get('/ncm/sugestoes', listarSugestoesNcm);
  *               - ids
  *               - catalogoId
  *     responses:
- *       200:
- *         description: Resultado da transmissão
+ *       202:
+ *         description: Transmissão enfileirada
  */
 router.post('/produtos/transmitir', transmitirProdutos);
 

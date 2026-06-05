@@ -1,5 +1,4 @@
-// frontend/pages/automacao/transmissoes-siscomex/index.tsx
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
@@ -15,8 +14,14 @@ interface CatalogoResumo {
   numero: number | null;
 }
 
-type TransmissaoStatus = 'EM_FILA' | 'PROCESSANDO' | 'CONCLUIDO' | 'FALHO' | 'PARCIAL';
-
+type TransmissaoStatus =
+  | 'AGUARDANDO_CONFIRMACAO'
+  | 'EM_FILA'
+  | 'PROCESSANDO'
+  | 'CONCLUIDO'
+  | 'FALHO'
+  | 'PARCIAL'
+  | 'CANCELADA';
 type ModalidadeTransmissao = 'PRODUTOS' | 'OPERADORES_ESTRANGEIROS';
 
 interface TransmissaoListagem {
@@ -35,14 +40,17 @@ interface TransmissaoListagem {
 
 function formatarData(dataIso?: string | null) {
   if (!dataIso) return '-';
-  const data = new Date(dataIso);
-  return data.toLocaleString('pt-BR');
+  return new Date(dataIso).toLocaleString('pt-BR');
 }
 
 function obterEtiquetaStatus(status: TransmissaoStatus) {
   switch (status) {
+    case 'AGUARDANDO_CONFIRMACAO':
+      return 'Aguardando confirmação';
     case 'CONCLUIDO':
       return 'Concluído';
+    case 'CANCELADA':
+      return 'Cancelada';
     case 'FALHO':
       return 'Erro';
     case 'PARCIAL':
@@ -56,8 +64,12 @@ function obterEtiquetaStatus(status: TransmissaoStatus) {
 
 function obterClasseStatus(status: TransmissaoStatus) {
   switch (status) {
+    case 'AGUARDANDO_CONFIRMACAO':
+      return 'text-slate-200 bg-slate-700/40 border border-slate-600/60';
     case 'CONCLUIDO':
       return 'text-emerald-400 bg-emerald-400/10 border border-emerald-500/40';
+    case 'CANCELADA':
+      return 'text-gray-400 bg-gray-500/10 border border-gray-600/40';
     case 'FALHO':
       return 'text-red-400 bg-red-400/10 border border-red-500/40';
     case 'PARCIAL':
@@ -69,27 +81,67 @@ function obterClasseStatus(status: TransmissaoStatus) {
   }
 }
 
+function obterResumoTotais(transmissao: TransmissaoListagem) {
+  if (transmissao.status === 'AGUARDANDO_CONFIRMACAO') {
+    return `${transmissao.totalItens} preparado(s)`;
+  }
+
+  if (transmissao.status === 'CANCELADA') {
+    return `${transmissao.totalItens} item(ns) cancelado(s)`;
+  }
+
+  return `${transmissao.totalSucesso}/${transmissao.totalItens} concluídos`;
+}
+
 export default function TransmissoesSiscomexPage() {
   const [transmissoes, setTransmissoes] = useState<TransmissaoListagem[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [recarregando, setRecarregando] = useState(false);
   const { addToast } = useToast();
   const router = useRouter();
 
-  useEffect(() => {
-    async function carregarTransmissoes() {
+  const carregarTransmissoes = useCallback(
+    async (silencioso = false) => {
       try {
+        if (silencioso) {
+          setRecarregando(true);
+        }
+
         const resposta = await api.get<{ itens: TransmissaoListagem[] }>('/siscomex/transmissoes');
         setTransmissoes(resposta.data?.itens ?? []);
       } catch (error) {
         console.error('Erro ao carregar transmissões SISCOMEX:', error);
-        addToast('Não foi possível carregar as transmissões.', 'error');
+        if (!silencioso) {
+          addToast('Não foi possível carregar as transmissões.', 'error');
+        }
       } finally {
         setCarregando(false);
+        setRecarregando(false);
       }
+    },
+    [addToast]
+  );
+
+  useEffect(() => {
+    carregarTransmissoes();
+  }, [carregarTransmissoes]);
+
+  const possuiTransmissaoAtiva = useMemo(
+    () => transmissoes.some(item => item.status === 'EM_FILA' || item.status === 'PROCESSANDO'),
+    [transmissoes]
+  );
+
+  useEffect(() => {
+    if (!possuiTransmissaoAtiva) {
+      return undefined;
     }
 
-    carregarTransmissoes();
-  }, [addToast]);
+    const intervalo = setInterval(() => {
+      carregarTransmissoes(true);
+    }, 5000);
+
+    return () => clearInterval(intervalo);
+  }, [carregarTransmissoes, possuiTransmissaoAtiva]);
 
   const baixarArquivo = async (transmissaoId: number, tipo: 'envio' | 'retorno', url?: string | null) => {
     try {
@@ -167,6 +219,11 @@ export default function TransmissoesSiscomexPage() {
         <PageLoader message="Carregando transmissões..." />
       ) : (
         <Card>
+          {recarregando && (
+            <div className="border-b border-slate-800/60 px-4 py-3 text-xs text-sky-300">
+              Atualizando progresso das transmissões...
+            </div>
+          )}
           {transmissoes.length === 0 ? (
             <div className="text-center py-10 text-gray-400">
               <FileDown className="mx-auto mb-3" size={32} />
@@ -177,7 +234,7 @@ export default function TransmissoesSiscomexPage() {
               <table className="w-full text-left text-sm">
                 <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
                   <tr>
-                    <th className="w-24 px-4 py-3 text-center">Ações</th>
+                    <th className="w-48 px-4 py-3 text-center">Ações</th>
                     <th className="px-4 py-3">Descrição</th>
                     <th className="px-4 py-3">Modalidade</th>
                     <th className="px-4 py-3">Catálogo</th>
@@ -190,30 +247,44 @@ export default function TransmissoesSiscomexPage() {
                 <tbody>
                   {transmissoes.map(transmissao => (
                     <tr key={transmissao.id} className="border-b border-slate-800/60 hover:bg-slate-800/40">
-                      <td className="px-4 py-3 text-center flex items-center gap-2 justify-center">
-                        <button
-                          className="p-2 rounded bg-slate-800 text-gray-200 hover:text-white hover:bg-slate-700"
-                          title="Visualizar detalhes"
-                          onClick={() => router.push(`/automacao/transmissoes-siscomex/${transmissao.id}`)}
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          className="p-2 rounded bg-slate-800 text-gray-200 hover:text-white hover:bg-slate-700"
-                          title="Baixar payload de envio"
-                          disabled={transmissao.status === 'EM_FILA' || transmissao.status === 'PROCESSANDO'}
-                          onClick={() => baixarArquivo(transmissao.id, 'envio', transmissao.payloadEnvioUrl)}
-                        >
-                          <FileDown size={18} />
-                        </button>
-                        <button
-                          className="p-2 rounded bg-slate-800 text-gray-200 hover:text-white hover:bg-slate-700"
-                          title="Baixar retorno"
-                          disabled={!transmissao.payloadRetornoUrl}
-                          onClick={() => baixarArquivo(transmissao.id, 'retorno', transmissao.payloadRetornoUrl)}
-                        >
-                          <Loader2 size={18} />
-                        </button>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          {transmissao.status === 'AGUARDANDO_CONFIRMACAO' && (
+                            <Button
+                              variant="accent"
+                              size="xs"
+                              className="w-full justify-center"
+                              onClick={() => router.push(`/automacao/transmissoes-siscomex/${transmissao.id}/confirmar`)}
+                            >
+                              Revisar e transmitir
+                            </Button>
+                          )}
+                          <div className="flex items-center gap-2 justify-center">
+                            <button
+                              className="p-2 rounded bg-slate-800 text-gray-200 hover:text-white hover:bg-slate-700"
+                              title="Visualizar detalhes"
+                              onClick={() => router.push(`/automacao/transmissoes-siscomex/${transmissao.id}`)}
+                            >
+                              <Eye size={18} />
+                            </button>
+                            <button
+                              className="p-2 rounded bg-slate-800 text-gray-200 hover:text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              title="Baixar payload de envio"
+                              disabled={!transmissao.payloadEnvioUrl || transmissao.status === 'EM_FILA' || transmissao.status === 'PROCESSANDO'}
+                              onClick={() => baixarArquivo(transmissao.id, 'envio', transmissao.payloadEnvioUrl)}
+                            >
+                              <FileDown size={18} />
+                            </button>
+                            <button
+                              className="p-2 rounded bg-slate-800 text-gray-200 hover:text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              title="Baixar retorno"
+                              disabled={!transmissao.payloadRetornoUrl}
+                              onClick={() => baixarArquivo(transmissao.id, 'retorno', transmissao.payloadRetornoUrl)}
+                            >
+                              <Loader2 size={18} />
+                            </button>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-200">Transmissão #{transmissao.id}</td>
                       <td className="px-4 py-3 text-gray-200">
@@ -226,7 +297,7 @@ export default function TransmissoesSiscomexPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-200">
-                        {transmissao.totalSucesso}/{transmissao.totalItens} concluídos
+                        {obterResumoTotais(transmissao)}
                         {transmissao.totalErro > 0 && (
                           <span className="text-red-400 ml-1">({transmissao.totalErro} com erro)</span>
                         )}

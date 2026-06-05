@@ -1,4 +1,3 @@
-// frontend/pages/automacao/transmissoes-siscomex/produtos.tsx
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -6,12 +5,13 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { MultiSelect } from '@/components/ui/MultiSelect';
 import { PageLoader } from '@/components/ui/PageLoader';
+import { Select } from '@/components/ui/Select';
 import api from '@/lib/api';
 import { useToast } from '@/components/ui/ToastContext';
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
-import { AlertCircle, ArrowLeft, Download, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, Loader2, Save } from 'lucide-react';
 import { LegendInfoModal } from '@/components/ui/LegendInfoModal';
 import { produtoSituacaoLegend, produtoStatusLegend } from '@/constants/statusLegends';
 
@@ -38,18 +38,34 @@ interface ProdutosResponse {
   total: number;
 }
 
+type AcaoPreparacao = 'salvar' | 'transmitir' | null;
+
+const SITUACOES_TRANSMISSAO = ['RASCUNHO', 'ATIVADO'] as const;
+
+function extrairMensagemErro(error: unknown, padrao: string) {
+  const mensagem = (error as any)?.response?.data?.error;
+  if (typeof mensagem === 'string') {
+    return mensagem;
+  }
+  if (Array.isArray(mensagem) && mensagem.length > 0) {
+    const primeiro = mensagem[0];
+    if (typeof primeiro === 'string') return primeiro;
+    if (primeiro?.message) return String(primeiro.message);
+  }
+  return padrao;
+}
+
 export default function NovaTransmissaoProdutosPage() {
   const [produtos, setProdutos] = useState<ProdutoTransmissao[]>([]);
   const [catalogos, setCatalogos] = useState<CatalogoResumo[]>([]);
   const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
   const [busca, setBusca] = useState('');
-  const [situacao, setSituacao] = useState<'ATIVADO' | 'RASCUNHO' | ''>('RASCUNHO');
+  const [situacoesSelecionadas, setSituacoesSelecionadas] = useState<string[]>([...SITUACOES_TRANSMISSAO]);
   const [catalogoId, setCatalogoId] = useState('');
   const [carregando, setCarregando] = useState(true);
-  const [transmitindo, setTransmitindo] = useState(false);
-  const [transmitindoProdutoId, setTransmitindoProdutoId] = useState<number | null>(null);
-  const [produtoParaConfirmar, setProdutoParaConfirmar] = useState<ProdutoTransmissao | null>(null);
+  const [acaoPreparacao, setAcaoPreparacao] = useState<AcaoPreparacao>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [totalEncontrado, setTotalEncontrado] = useState(0);
   const { addToast } = useToast();
   const { workingCatalog } = useWorkingCatalog();
   const router = useRouter();
@@ -88,30 +104,49 @@ export default function NovaTransmissaoProdutosPage() {
   const carregarProdutos = useCallback(async () => {
     try {
       setCarregando(true);
+
       if (!catalogoId) {
         setProdutos([]);
+        setTotalEncontrado(0);
         setErro('Selecione um catálogo para listar produtos aprovados e transmitir.');
         return;
       }
+
+      if (situacoesSelecionadas.length === 0) {
+        setProdutos([]);
+        setTotalEncontrado(0);
+        setErro(null);
+        return;
+      }
+
       const params: Record<string, string> = {
         status: 'APROVADO',
+        pageSize: '1000',
+        catalogoId,
+        situacao: situacoesSelecionadas.join(','),
       };
-      if (busca.trim()) params.busca = busca.trim();
-      if (catalogoId) params.catalogoId = catalogoId;
-      if (situacao) params.situacao = situacao;
+
+      if (busca.trim()) {
+        params.busca = busca.trim();
+      }
 
       const resposta = await api.get<ProdutosResponse>('/produtos', { params });
       const itens = resposta.data.items || [];
       const itensValidos = itens.filter(item => (item.status || 'APROVADO') === 'APROVADO');
+
       setProdutos(itensValidos);
+      setTotalEncontrado(resposta.data.total || itensValidos.length);
+      setSelecionados(prev => new Set(itensValidos.filter(item => prev.has(item.id)).map(item => item.id)));
       setErro(null);
     } catch (error) {
       console.error('Erro ao carregar produtos aprovados:', error);
+      setProdutos([]);
+      setTotalEncontrado(0);
       setErro('Não foi possível carregar os produtos aguardando transmissão.');
     } finally {
       setCarregando(false);
     }
-  }, [busca, catalogoId, situacao]);
+  }, [busca, catalogoId, situacoesSelecionadas]);
 
   useEffect(() => {
     carregarProdutos();
@@ -125,17 +160,17 @@ export default function NovaTransmissaoProdutosPage() {
         (produto.denominacao || '').toLowerCase().includes(termo) ||
         (produto.codigo || '').toLowerCase().includes(termo);
 
-      const atendeSituacao = !situacao || produto.situacao === situacao;
+      const atendeSituacao =
+        situacoesSelecionadas.length === 0 || situacoesSelecionadas.includes(produto.situacao || '');
+
       return atendeBusca && atendeSituacao;
     });
-  }, [busca, produtos, situacao]);
+  }, [busca, produtos, situacoesSelecionadas]);
 
-  const transmissaoIndividual = situacao === 'ATIVADO';
   const todosSelecionados =
-    !transmissaoIndividual && produtosFiltrados.length > 0 && selecionados.size === produtosFiltrados.length;
+    produtosFiltrados.length > 0 && produtosFiltrados.every(produto => selecionados.has(produto.id));
 
   const alternarSelecao = (id: number) => {
-    if (transmissaoIndividual) return;
     setSelecionados(prev => {
       const novo = new Set(prev);
       if (novo.has(id)) {
@@ -148,114 +183,72 @@ export default function NovaTransmissaoProdutosPage() {
   };
 
   const selecionarTodos = () => {
-    if (transmissaoIndividual) return;
     setSelecionados(prev => {
-      if (todosSelecionados) return new Set();
-      return new Set(produtosFiltrados.map(p => p.id));
+      const novo = new Set(prev);
+      if (todosSelecionados) {
+        produtosFiltrados.forEach(produto => novo.delete(produto.id));
+        return novo;
+      }
+      produtosFiltrados.forEach(produto => novo.add(produto.id));
+      return novo;
     });
   };
 
-  const transmitir = async () => {
-    if (transmissaoIndividual) {
-      setErro('Para situação ATIVADO, a transmissão deve ser feita produto a produto.');
-      addToast('Use o botão de envio por item para gerar nova versão.', 'error');
-      return;
-    }
+  const prepararTransmissao = async (modo: Exclude<AcaoPreparacao, null>) => {
     if (!catalogoId) {
       setErro('Selecione um catálogo para transmitir ao SISCOMEX.');
       addToast('Selecione um catálogo para transmitir ao SISCOMEX.', 'error');
       return;
     }
 
-    if (selecionados.size === 0) return;
-    if (selecionados.size > 100) {
-      setErro('Selecione no máximo 100 produtos por transmissão.');
-      addToast('É possível transmitir apenas 100 produtos por vez.', 'error');
+    if (selecionados.size === 0) {
       return;
     }
-    setTransmitindo(true);
+
+    setAcaoPreparacao(modo);
     try {
-      const registros = produtosFiltrados.filter(p => selecionados.has(p.id));
+      const registros = produtos.filter(produto => selecionados.has(produto.id));
       const idsCatalogo = Number(catalogoId);
 
-      const produtosForaDoCatalogo = registros.filter(produto => produto.catalogoId !== idsCatalogo);
+      if (registros.length === 0) {
+        setErro('Nenhum produto selecionado foi localizado para preparação.');
+        addToast('Selecione ao menos um produto para seguir com a transmissão.', 'error');
+        return;
+      }
 
+      const produtosForaDoCatalogo = registros.filter(produto => produto.catalogoId !== idsCatalogo);
       if (produtosForaDoCatalogo.length > 0) {
         setErro('Todos os produtos devem pertencer ao catálogo selecionado para transmissão.');
         addToast('Há produtos de outro catálogo na seleção. Ajuste e tente novamente.', 'error');
         return;
       }
-      const resposta = await api.post('/siscomex/produtos/transmitir', {
+
+      const resposta = await api.post('/siscomex/produtos/preparar', {
         ids: registros.map(produto => produto.id),
         catalogoId: idsCatalogo,
       });
 
       const transmissaoId = resposta.data?.dados?.transmissaoId;
-      addToast('Transmissão enfileirada. Acompanhe o progresso na listagem.', 'success');
-      setErro(null);
-      setSelecionados(new Set());
-
-      if (transmissaoId) {
-        router.push(`/automacao/transmissoes-siscomex/${transmissaoId}`);
-      } else {
-        await carregarProdutos();
+      if (!transmissaoId) {
+        throw new Error('Pré-transmissão criada sem identificador retornado.');
       }
-    } catch (error) {
-      console.error('Erro ao transmitir produtos ao SISCOMEX:', error);
-      const mensagemErro =
-        (error as any)?.response?.data?.error || 'Não foi possível transmitir os produtos selecionados.';
-      setErro(typeof mensagemErro === 'string' ? mensagemErro : 'Erro inesperado ao transmitir.');
-      addToast('Falha na transmissão ao SISCOMEX.', 'error');
-    } finally {
-      setTransmitindo(false);
-    }
-  };
 
-  const solicitarNovaVersao = (produto: ProdutoTransmissao) => {
-    setProdutoParaConfirmar(produto);
-  };
+      setErro(null);
 
-  const confirmarNovaVersao = async () => {
-    if (!produtoParaConfirmar) return;
-    if (!catalogoId) {
-      setErro('Selecione um catálogo para transmitir ao SISCOMEX.');
-      addToast('Selecione um catálogo para transmitir ao SISCOMEX.', 'error');
-      return;
-    }
-
-    setTransmitindoProdutoId(produtoParaConfirmar.id);
-    try {
-      const idsCatalogo = Number(catalogoId);
-      if (produtoParaConfirmar.catalogoId !== idsCatalogo) {
-        setErro('O produto selecionado não pertence ao catálogo atual para transmissão.');
-        addToast('Produto fora do catálogo selecionado.', 'error');
+      if (modo === 'salvar') {
+        addToast('Pré-transmissão criada. Revise e transmita depois na listagem.', 'success');
+        await router.push('/automacao/transmissoes-siscomex');
         return;
       }
 
-      const resposta = await api.post('/siscomex/produtos/transmitir', {
-        ids: [produtoParaConfirmar.id],
-        catalogoId: idsCatalogo,
-        forcarAtualizacaoVersao: true,
-      });
-
-      const transmissaoId = resposta.data?.dados?.transmissaoId;
-      addToast('Solicitação de nova versão enfileirada com sucesso.', 'success');
-      setErro(null);
-      setProdutoParaConfirmar(null);
-
-      if (transmissaoId) {
-        router.push(`/automacao/transmissoes-siscomex/${transmissaoId}`);
-      } else {
-        await carregarProdutos();
-      }
+      await router.push(`/automacao/transmissoes-siscomex/${transmissaoId}/confirmar`);
     } catch (error) {
-      console.error('Erro ao solicitar nova versão do produto:', error);
-      const mensagemErro =
-        (error as any)?.response?.data?.error || 'Não foi possível transmitir a nova versão do produto.';
-      setErro(typeof mensagemErro === 'string' ? mensagemErro : 'Erro inesperado ao transmitir nova versão.');
-      addToast('Falha ao solicitar nova versão no SISCOMEX.', 'error');
+      console.error('Erro ao preparar transmissão de produtos ao SISCOMEX:', error);
+      const mensagem = extrairMensagemErro(error, 'Não foi possível preparar a transmissão.');
+      setErro(mensagem);
+      addToast(mensagem, 'error');
     } finally {
-      setTransmitindoProdutoId(null);
+      setAcaoPreparacao(null);
     }
   };
 
@@ -270,7 +263,7 @@ export default function NovaTransmissaoProdutosPage() {
         ]}
       />
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -283,19 +276,30 @@ export default function NovaTransmissaoProdutosPage() {
           <div>
             <h1 className="text-2xl font-semibold text-white">Selecionar produtos para transmissão</h1>
             <p className="text-gray-400 text-sm">
-              Produtos em rascunho são enviados em lote. Produtos ativados geram nova versão com envio individual.
+              Produtos em rascunho e ativados podem ser enviados juntos. O processamento continua individual, sequencial e assíncrono.
             </p>
           </div>
         </div>
-        <Button
-          variant="accent"
-          className="flex items-center gap-2"
-          disabled={transmissaoIndividual || selecionados.size === 0 || transmitindo || !catalogoId}
-          onClick={transmitir}
-        >
-          {transmitindo ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-          Transmitir registros ao SISCOMEX
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            disabled={selecionados.size === 0 || acaoPreparacao !== null || !catalogoId}
+            onClick={() => prepararTransmissao('salvar')}
+          >
+            {acaoPreparacao === 'salvar' ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Salvar para depois
+          </Button>
+          <Button
+            variant="accent"
+            className="flex items-center gap-2"
+            disabled={selecionados.size === 0 || acaoPreparacao !== null || !catalogoId}
+            onClick={() => prepararTransmissao('transmitir')}
+          >
+            {acaoPreparacao === 'transmitir' ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+            Transmitir agora
+          </Button>
+        </div>
       </div>
 
       <Card className="mb-6">
@@ -305,9 +309,9 @@ export default function NovaTransmissaoProdutosPage() {
             value={catalogoId}
             disabled={catalogoBloqueado}
             onChange={e => setCatalogoId(e.target.value)}
-            options={catalogos.map(c => ({
-              value: String(c.id),
-              label: `${c.numero} · ${c.nome}`,
+            options={catalogos.map(catalogo => ({
+              value: String(catalogo.id),
+              label: `${catalogo.numero} · ${catalogo.nome}`,
             }))}
             placeholder="Selecione o catálogo"
           />
@@ -321,16 +325,15 @@ export default function NovaTransmissaoProdutosPage() {
                 triggerAriaLabel="Ver legenda de situação"
               />
             </div>
-            <Select
-              aria-label="Situação"
+            <MultiSelect
               className="mb-0"
-              value={situacao}
-              onChange={e => setSituacao(e.target.value as typeof situacao)}
               options={[
-                { value: 'ATIVADO', label: 'Ativado' },
                 { value: 'RASCUNHO', label: 'Rascunho' },
+                { value: 'ATIVADO', label: 'Ativado' },
               ]}
-              placeholder="Selecione a situação"
+              values={situacoesSelecionadas}
+              onChange={valores => setSituacoesSelecionadas(valores)}
+              placeholder="Selecione as situações"
             />
           </div>
 
@@ -347,22 +350,20 @@ export default function NovaTransmissaoProdutosPage() {
               legend={produtoStatusLegend}
               triggerAriaLabel="Ver legenda de status"
             />
-            <span className="ml-2">
-              {transmissaoIndividual
-                ? 'Somente produtos aprovados são listados para nova versão.'
-                : 'Somente produtos aprovados são listados para transmissão.'}
-            </span>
+            <span className="ml-2">Somente produtos aprovados são listados para transmissão.</span>
           </div>
         </div>
         <p className="text-sm text-gray-400 mt-3">
-          Escolha o catálogo que fornecerá o certificado PFX e os dados fiscais do envio.
-          {transmissaoIndividual
-            ? ' Para situação ATIVADO, o envio é individual para criação de nova versão.'
-            : ' Para situação RASCUNHO, os produtos são enviados em lote, com limite de 100 itens por transmissão.'}
+          Produtos ativados serão enviados como nova versão; produtos em rascunho serão incluídos como versão inicial. Você pode salvar a pré-transmissão para revisar depois ou seguir direto para a revisão final.
         </p>
         {catalogoSelecionado && (
           <p className="text-sm text-gray-300 mt-1">
             Transmissão vinculada ao catálogo Nº {catalogoSelecionado.numero} · {catalogoSelecionado.nome}.
+          </p>
+        )}
+        {totalEncontrado > produtos.length && (
+          <p className="text-xs text-amber-300 mt-2">
+            Exibindo {produtos.length} de {totalEncontrado} produto(s) encontrados para os filtros atuais.
           </p>
         )}
       </Card>
@@ -380,7 +381,9 @@ export default function NovaTransmissaoProdutosPage() {
         <Card>
           <div className="text-center py-10 text-gray-400">
             {catalogoId
-              ? 'Nenhum produto encontrado com os filtros selecionados.'
+              ? situacoesSelecionadas.length === 0
+                ? 'Selecione ao menos uma situação para listar produtos.'
+                : 'Nenhum produto encontrado com os filtros selecionados.'
               : 'Selecione um catálogo para visualizar os produtos aprovados para transmissão.'}
           </div>
         </Card>
@@ -391,11 +394,7 @@ export default function NovaTransmissaoProdutosPage() {
               <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
                 <tr>
                   <th className="w-20 px-4 py-3">
-                    {transmissaoIndividual ? (
-                      'Ação'
-                    ) : (
-                      <input type="checkbox" checked={todosSelecionados} onChange={selecionarTodos} />
-                    )}
+                    <input type="checkbox" checked={todosSelecionados} onChange={selecionarTodos} />
                   </th>
                   <th className="px-4 py-3">Código</th>
                   <th className="px-4 py-3">Denominação</th>
@@ -409,24 +408,12 @@ export default function NovaTransmissaoProdutosPage() {
                 {produtosFiltrados.map(produto => (
                   <tr key={produto.id} className="border-b border-slate-800/60 hover:bg-slate-800/40">
                     <td className="px-4 py-3">
-                      {transmissaoIndividual ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="px-2 py-1 text-xs"
-                          onClick={() => solicitarNovaVersao(produto)}
-                          disabled={transmitindoProdutoId === produto.id}
-                        >
-                          {transmitindoProdutoId === produto.id ? 'Enviando...' : 'Enviar'}
-                        </Button>
-                      ) : (
-                        <input
-                          type="checkbox"
-                          checked={selecionados.has(produto.id)}
-                          onChange={() => alternarSelecao(produto.id)}
-                          aria-label={`Selecionar produto ${produto.codigo || produto.denominacao || produto.id}`}
-                        />
-                      )}
+                      <input
+                        type="checkbox"
+                        checked={selecionados.has(produto.id)}
+                        onChange={() => alternarSelecao(produto.id)}
+                        aria-label={`Selecionar produto ${produto.codigo || produto.denominacao || produto.id}`}
+                      />
                     </td>
                     <td className="px-4 py-3 text-gray-200">{produto.codigo || `#${produto.id}`}</td>
                     <td className="px-4 py-3 text-gray-200">{produto.denominacao || '-'}</td>
@@ -445,44 +432,9 @@ export default function NovaTransmissaoProdutosPage() {
             </table>
           </div>
           <div className="mt-3 text-sm text-gray-400">
-            {transmissaoIndividual
-              ? `${produtosFiltrados.length} produto(s) disponível(is) para nova versão.`
-              : `${selecionados.size} produto(s) selecionado(s) de ${produtosFiltrados.length} exibidos.`}
+            {selecionados.size} produto(s) selecionado(s) no catálogo e {produtosFiltrados.length} exibido(s) na tela.
           </div>
         </Card>
-      )}
-
-      {produtoParaConfirmar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <Card className="w-full max-w-md p-6">
-            <h3 className="mb-3 text-xl font-semibold text-white">Confirmar envio de nova versão</h3>
-            <p className="mb-5 text-sm text-gray-300">
-              Confirma o envio de nova versão do produto{' '}
-              <span className="font-semibold text-white">
-                {produtoParaConfirmar.codigo || produtoParaConfirmar.denominacao || `#${produtoParaConfirmar.id}`}
-              </span>
-              ?
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setProdutoParaConfirmar(null)}
-                disabled={transmitindoProdutoId === produtoParaConfirmar.id}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                variant="accent"
-                onClick={confirmarNovaVersao}
-                disabled={transmitindoProdutoId === produtoParaConfirmar.id}
-              >
-                {transmitindoProdutoId === produtoParaConfirmar.id ? 'Enviando...' : 'Confirmar envio'}
-              </Button>
-            </div>
-          </Card>
-        </div>
       )}
     </DashboardLayout>
   );

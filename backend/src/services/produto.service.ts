@@ -271,7 +271,7 @@ export class ProdutoService {
     const where = this.montarCondicoesBase(filtros, superUserId);
 
     const page = Math.max(1, paginacao.page ?? 1);
-    const size = Math.max(1, Math.min(paginacao.pageSize ?? 20, 100));
+    const size = Math.max(1, Math.min(paginacao.pageSize ?? 20, 1000));
 
     // Primeiro carrega apenas id e codigo para ordenar numericamente em memória
     const todosProdutos = await catalogoPrisma.produto.findMany({

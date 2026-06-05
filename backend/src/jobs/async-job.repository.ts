@@ -91,6 +91,11 @@ export interface CreateAsyncJobInput {
   };
 }
 
+export interface ClaimNextPendingJobParams {
+  includeTipos?: AsyncJobTipo[];
+  excludeTipos?: AsyncJobTipo[];
+}
+
 const DEFAULT_STALLED_THRESHOLD_MS = 5 * 60 * 1000;
 
 function getClient(tx?: Prisma.TransactionClient | PrismaClient) {
@@ -197,10 +202,22 @@ export async function atualizarArquivoJob(
   });
 }
 
-export async function claimNextPendingJob(): Promise<AsyncJobWithRelations | null> {
+export async function claimNextPendingJob(
+  parametros: ClaimNextPendingJobParams = {}
+): Promise<AsyncJobWithRelations | null> {
   return catalogoPrisma.$transaction(async tx => {
+    const where: Prisma.AsyncJobWhereInput = {
+      status: AsyncJobStatus.PENDENTE,
+    };
+
+    if (parametros.includeTipos?.length) {
+      where.tipo = { in: parametros.includeTipos };
+    } else if (parametros.excludeTipos?.length) {
+      where.tipo = { notIn: parametros.excludeTipos };
+    }
+
     const candidato = await tx.asyncJob.findFirst({
-      where: { status: AsyncJobStatus.PENDENTE },
+      where,
       orderBy: [
         { prioridade: 'desc' },
         { id: 'asc' },
@@ -677,6 +694,7 @@ export async function releaseStalledJobs(
     },
     include: {
       importacaoProduto: { select: { id: true } },
+      atributoPreenchimentoMassa: { select: { id: true } },
       produtoExportacao: {
         select: {
           id: true,
@@ -688,6 +706,7 @@ export async function releaseStalledJobs(
           totalItens: true,
         },
       },
+      produtoTransmissao: { select: { id: true, catalogoId: true, status: true } },
     },
   });
 
@@ -738,7 +757,9 @@ export async function deleteAsyncJob(jobId: number): Promise<boolean> {
         id: true,
         status: true,
         importacaoProduto: { select: { id: true } },
+        atributoPreenchimentoMassa: { select: { id: true } },
         produtoExportacao: { select: { id: true } },
+        produtoTransmissao: { select: { id: true } },
       },
     });
 
@@ -763,6 +784,13 @@ export async function deleteAsyncJob(jobId: number): Promise<boolean> {
     if (existente.produtoExportacao) {
       await tx.produtoExportacao.update({
         where: { id: existente.produtoExportacao.id },
+        data: { asyncJobId: null },
+      });
+    }
+
+    if (existente.produtoTransmissao) {
+      await tx.produtoTransmissao.update({
+        where: { id: existente.produtoTransmissao.id },
         data: { asyncJobId: null },
       });
     }
@@ -802,6 +830,11 @@ export async function clearAsyncJobHistory(): Promise<number> {
     });
 
     await tx.produtoExportacao.updateMany({
+      where: { asyncJobId: { in: ids } },
+      data: { asyncJobId: null },
+    });
+
+    await tx.produtoTransmissao.updateMany({
       where: { asyncJobId: { in: ids } },
       data: { asyncJobId: null },
     });

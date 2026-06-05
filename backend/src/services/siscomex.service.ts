@@ -425,8 +425,17 @@ export class SiscomexService {
    * Inclui novo produto no catálogo SISCOMEX
    */
   async incluirProduto(cpfCnpjRaiz: string, produto: SiscomexProdutoInclusao): Promise<SiscomexProduto> {
-    const [primeiro] = await this.incluirProdutos(cpfCnpjRaiz, [produto]);
-    return primeiro;
+    try {
+      const response = await this.api.post<SiscomexProduto>(
+        `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}`,
+        produto
+      );
+
+      return response.data;
+    } catch (error) {
+      logger.error('Erro ao incluir produto SISCOMEX:', error);
+      throw error;
+    }
   }
 
   /**

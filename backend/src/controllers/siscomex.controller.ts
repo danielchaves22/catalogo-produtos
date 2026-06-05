@@ -84,6 +84,120 @@ export async function transmitirProdutos(req: Request, res: Response) {
   }
 }
 
+export async function prepararTransmissaoProdutos(req: Request, res: Response) {
+  try {
+    const ids = Array.isArray(req.body?.ids)
+      ? (req.body.ids as Array<string | number>).map(id => Number(id)).filter(Number.isFinite)
+      : [];
+
+    const catalogoId = Number(req.body?.catalogoId);
+    const resultado = await produtoTransmissaoService.prepararTransmissao(
+      ids,
+      catalogoId,
+      req.user!.superUserId
+    );
+
+    return res.status(201).json({
+      sucesso: true,
+      mensagem: 'Pré-transmissão criada com sucesso. Revise os itens antes de transmitir.',
+      dados: resultado,
+    });
+  } catch (error: unknown) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.details || error.message });
+    }
+
+    logger.error('Erro ao preparar transmissão de produtos SISCOMEX:', error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro interno ao preparar transmissão de produtos SISCOMEX',
+    });
+  }
+}
+
+export async function iniciarTransmissaoProdutos(req: Request, res: Response) {
+  const id = Number(req.params.id);
+
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: 'Identificador de transmissão inválido.' });
+  }
+
+  try {
+    const resultado = await produtoTransmissaoService.iniciarTransmissao(id, req.user!.superUserId);
+    return res.status(202).json({
+      sucesso: true,
+      mensagem: 'Transmissão enfileirada com sucesso. Acompanhe o progresso na listagem.',
+      dados: resultado,
+    });
+  } catch (error: unknown) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.details || error.message });
+    }
+
+    logger.error('Erro ao iniciar transmissão de produtos SISCOMEX:', error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro interno ao iniciar transmissão de produtos SISCOMEX',
+    });
+  }
+}
+
+export async function cancelarPreTransmissaoProdutos(req: Request, res: Response) {
+  const id = Number(req.params.id);
+
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: 'Identificador de transmissão inválido.' });
+  }
+
+  try {
+    const resultado = await produtoTransmissaoService.cancelarPreTransmissao(id, req.user!.superUserId);
+    return res.status(200).json({
+      sucesso: true,
+      mensagem: 'Pré-transmissão cancelada com sucesso.',
+      dados: resultado,
+    });
+  } catch (error: unknown) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.details || error.message });
+    }
+
+    logger.error('Erro ao cancelar pré-transmissão de produtos SISCOMEX:', error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro interno ao cancelar pré-transmissão de produtos SISCOMEX',
+    });
+  }
+}
+
+export async function removerItemPreTransmissaoProdutos(req: Request, res: Response) {
+  const id = Number(req.params.id);
+  const itemId = Number(req.params.itemId);
+
+  if (!Number.isFinite(id) || !Number.isFinite(itemId)) {
+    return res.status(400).json({ error: 'Identificador de transmissão ou item inválido.' });
+  }
+
+  try {
+    const resultado = await produtoTransmissaoService.removerItemPreTransmissao(
+      id,
+      itemId,
+      req.user!.superUserId
+    );
+
+    return res.status(200).json({
+      sucesso: true,
+      mensagem: 'Item removido da pré-transmissão com sucesso.',
+      dados: resultado,
+    });
+  } catch (error: unknown) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.details || error.message });
+    }
+
+    logger.error('Erro ao remover item da pré-transmissão de produtos SISCOMEX:', error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro interno ao remover item da pré-transmissão de produtos SISCOMEX',
+    });
+  }
+}
+
 /**
  * GET /api/siscomex/atributos/ncm/:ncm
  * Consulta atributos por NCM

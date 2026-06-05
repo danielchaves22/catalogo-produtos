@@ -1,11 +1,11 @@
 // frontend/pages/automacao/transmissoes-siscomex/[id].tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
 import { PageLoader } from '@/components/ui/PageLoader';
-import { AlertCircle, ArrowLeft, Download } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Download, PlayCircle } from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/components/ui/ToastContext';
 import { Button } from '@/components/ui/Button';
@@ -15,13 +15,21 @@ interface CatalogoResumo {
   numero: number | null;
 }
 
-type TransmissaoStatus = 'EM_FILA' | 'PROCESSANDO' | 'CONCLUIDO' | 'FALHO' | 'PARCIAL';
-
+type TransmissaoStatus =
+  | 'AGUARDANDO_CONFIRMACAO'
+  | 'EM_FILA'
+  | 'PROCESSANDO'
+  | 'CONCLUIDO'
+  | 'FALHO'
+  | 'PARCIAL'
+  | 'CANCELADA';
 type TransmissaoItemStatus = 'PENDENTE' | 'PROCESSANDO' | 'SUCESSO' | 'ERRO';
+type TransmissaoItemOperacao = 'INCLUSAO' | 'NOVA_VERSAO';
 
 interface TransmissaoItem {
   id: number;
   produtoId: number;
+  operacao: TransmissaoItemOperacao;
   status: TransmissaoItemStatus;
   mensagem?: string | null;
   retornoCodigo?: string | null;
@@ -40,6 +48,7 @@ interface TransmissaoDetalhe {
   totalItens: number;
   totalSucesso: number;
   totalErro: number;
+  criadoEm?: string | null;
   iniciadoEm?: string | null;
   concluidoEm?: string | null;
   payloadEnvioUrl?: string | null;
@@ -65,31 +74,92 @@ function formatarData(dataIso?: string | null) {
   return new Date(dataIso).toLocaleString('pt-BR');
 }
 
+function obterEtiquetaStatus(status: TransmissaoStatus) {
+  switch (status) {
+    case 'AGUARDANDO_CONFIRMACAO':
+      return 'Aguardando confirmacao';
+    case 'CONCLUIDO':
+      return 'Concluido';
+    case 'CANCELADA':
+      return 'Cancelada';
+    case 'FALHO':
+      return 'Falho';
+    case 'PARCIAL':
+      return 'Parcial';
+    case 'PROCESSANDO':
+      return 'Processando';
+    default:
+      return 'Em fila';
+  }
+}
+
+function obterClasseStatus(status: TransmissaoStatus) {
+  switch (status) {
+    case 'AGUARDANDO_CONFIRMACAO':
+      return 'text-slate-200 bg-slate-700/40 border border-slate-600/60';
+    case 'CONCLUIDO':
+      return 'text-emerald-400 bg-emerald-400/10 border border-emerald-500/40';
+    case 'CANCELADA':
+      return 'text-gray-400 bg-gray-500/10 border border-gray-600/40';
+    case 'FALHO':
+      return 'text-red-400 bg-red-400/10 border border-red-500/40';
+    case 'PARCIAL':
+      return 'text-amber-300 bg-amber-400/10 border border-amber-500/40';
+    case 'PROCESSANDO':
+      return 'text-blue-300 bg-blue-400/10 border border-blue-500/40';
+    default:
+      return 'text-amber-400 bg-amber-400/10 border border-amber-500/40';
+  }
+}
+
 export default function DetalheTransmissaoSiscomexPage() {
   const router = useRouter();
   const { id } = router.query;
   const { addToast } = useToast();
   const [transmissao, setTransmissao] = useState<TransmissaoDetalhe | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [erroCarregamento, setErroCarregamento] = useState(false);
+
+  const carregarDetalhe = useCallback(
+    async (identificador: number, silencioso = false) => {
+      try {
+        const resposta = await api.get<TransmissaoDetalhe>(`/siscomex/transmissoes/${identificador}`);
+        setTransmissao(resposta.data);
+        setErroCarregamento(false);
+      } catch (error) {
+        console.error('Erro ao carregar detalhes da transmissão:', error);
+        if (!silencioso) {
+          addToast('Não foi possível carregar os detalhes da transmissão.', 'error');
+        }
+        setErroCarregamento(true);
+      } finally {
+        if (!silencioso) {
+          setCarregando(false);
+        }
+      }
+    },
+    [addToast]
+  );
 
   useEffect(() => {
     if (!id) return;
     const identificador = Array.isArray(id) ? Number(id[0]) : Number(id);
+    if (!Number.isFinite(identificador)) return;
 
-    async function carregarDetalhe() {
-      try {
-        const resposta = await api.get<TransmissaoDetalhe>(`/siscomex/transmissoes/${identificador}`);
-        setTransmissao(resposta.data);
-      } catch (error) {
-        console.error('Erro ao carregar detalhes da transmissão:', error);
-        addToast('Não foi possível carregar os detalhes da transmissão.', 'error');
-      } finally {
-        setCarregando(false);
-      }
+    carregarDetalhe(identificador);
+  }, [carregarDetalhe, id]);
+
+  useEffect(() => {
+    if (!transmissao || (transmissao.status !== 'EM_FILA' && transmissao.status !== 'PROCESSANDO')) {
+      return undefined;
     }
 
-    carregarDetalhe();
-  }, [id, addToast]);
+    const intervalo = setInterval(() => {
+      carregarDetalhe(transmissao.id, true);
+    }, 5000);
+
+    return () => clearInterval(intervalo);
+  }, [carregarDetalhe, transmissao]);
 
   const resumo = useMemo(() => {
     if (!transmissao) return { sucesso: 0, erros: 0, processando: 0, total: 0 };
@@ -104,6 +174,15 @@ export default function DetalheTransmissaoSiscomexPage() {
       { sucesso: 0, erros: 0, processando: 0, total: 0 }
     );
   }, [transmissao]);
+
+  const aguardandoConfirmacao = transmissao?.status === 'AGUARDANDO_CONFIRMACAO';
+  const payloadEnvioDisponivel = Boolean(
+    transmissao &&
+      transmissao.status !== 'AGUARDANDO_CONFIRMACAO' &&
+      transmissao.status !== 'CANCELADA' &&
+      transmissao.payloadEnvioUrl
+  );
+  const payloadRetornoDisponivel = Boolean(transmissao?.payloadRetornoUrl);
 
   const baixarArquivo = async (tipo: 'envio' | 'retorno', url?: string | null) => {
     if (!transmissao) return;
@@ -154,7 +233,11 @@ export default function DetalheTransmissaoSiscomexPage() {
   if (!transmissao) {
     return (
       <DashboardLayout title="Transmissão não encontrada">
-        <Card className="p-6 text-gray-300">Nenhuma transmissão localizada para o identificador informado.</Card>
+        <Card className="p-6 text-gray-300">
+          {erroCarregamento
+            ? 'Não foi possível carregar os detalhes da transmissão.'
+            : 'Nenhuma transmissão localizada para o identificador informado.'}
+        </Card>
       </DashboardLayout>
     );
   }
@@ -187,15 +270,26 @@ export default function DetalheTransmissaoSiscomexPage() {
                 ? 'Envio de produtos aprovados ao SISCOMEX.'
                 : 'Envio de operadores estrangeiros aprovados ao SISCOMEX.'}
             </p>
+            <p className="text-gray-500 text-xs">Criada em: {formatarData(transmissao.criadoEm)}</p>
             <p className="text-gray-500 text-xs">Iniciada em: {formatarData(transmissao.iniciadoEm)}</p>
             <p className="text-gray-500 text-xs">Concluída em: {formatarData(transmissao.concluidoEm)}</p>
           </div>
         </div>
         <div className="flex gap-2">
+          {aguardandoConfirmacao && (
+            <Button
+              variant="accent"
+              className="flex items-center gap-2"
+              onClick={() => router.push(`/automacao/transmissoes-siscomex/${transmissao.id}/confirmar`)}
+            >
+              <PlayCircle size={16} />
+              Revisar e transmitir
+            </Button>
+          )}
           <Button
             variant="outline"
             className="flex items-center gap-2"
-            disabled={transmissao.status === 'EM_FILA' || transmissao.status === 'PROCESSANDO'}
+            disabled={!payloadEnvioDisponivel}
             onClick={() => baixarArquivo('envio', transmissao.payloadEnvioUrl)}
           >
             <Download size={16} />
@@ -204,7 +298,7 @@ export default function DetalheTransmissaoSiscomexPage() {
           <Button
             variant="accent"
             className="flex items-center gap-2"
-            disabled={!transmissao.payloadRetornoUrl}
+            disabled={!payloadRetornoDisponivel}
             onClick={() => baixarArquivo('retorno', transmissao.payloadRetornoUrl)}
           >
             <Download size={16} />
@@ -212,6 +306,26 @@ export default function DetalheTransmissaoSiscomexPage() {
           </Button>
         </div>
       </div>
+
+      <Card className="mb-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm text-gray-400">Status da transmissao</div>
+            <div className="mt-2">
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseStatus(transmissao.status)}`}>
+                {obterEtiquetaStatus(transmissao.status)}
+              </span>
+            </div>
+          </div>
+          <div className="text-sm text-right text-gray-300">
+            {transmissao.status === 'AGUARDANDO_CONFIRMACAO'
+              ? 'Esta transmissao ainda nao foi enfileirada. Revise os itens antes de iniciar.'
+              : transmissao.status === 'CANCELADA'
+                ? 'Esta pre-transmissao foi cancelada e permanece apenas para historico.'
+                : 'O progresso abaixo reflete a execucao individual e sequencial dos itens.'}
+          </div>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
@@ -239,6 +353,7 @@ export default function DetalheTransmissaoSiscomexPage() {
               <tr>
                 <th className="w-16 px-4 py-3 text-center">#</th>
                 <th className="px-4 py-3">Produto</th>
+                <th className="px-4 py-3">Operação</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Mensagem</th>
               </tr>
@@ -254,15 +369,18 @@ export default function DetalheTransmissaoSiscomexPage() {
                       <div className="text-xs text-gray-400">Código SISCOMEX: {item.retornoCodigo}</div>
                     )}
                   </td>
+                  <td className="px-4 py-3 text-gray-200">
+                    {item.operacao === 'NOVA_VERSAO' ? 'Nova versão' : 'Inclusão'}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseItem(item.status)}`}>
                       {item.status === 'SUCESSO'
                         ? 'Transmitido'
                         : item.status === 'ERRO'
-                        ? 'Erro'
-                        : item.status === 'PROCESSANDO'
-                        ? 'Processando'
-                        : 'Pendente'}
+                          ? 'Erro'
+                          : item.status === 'PROCESSANDO'
+                            ? 'Processando'
+                            : 'Pendente'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-200 flex items-start gap-2">

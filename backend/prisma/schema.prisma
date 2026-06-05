@@ -219,7 +219,7 @@ model ProdutoTransmissao {
   usuarioCatalogoId    Int?                        @map("usuario_catalogo_id")
   asyncJobId           Int?                        @unique @map("async_job_id")
   modalidade           ProdutoTransmissaoModalidade @default(PRODUTOS) @map("modalidade")
-  status               ProdutoTransmissaoStatus    @default(EM_FILA) @map("status")
+  status               ProdutoTransmissaoStatus    @default(AGUARDANDO_CONFIRMACAO) @map("status")
   totalItens           Int                         @default(0) @map("total_itens")
   totalSucesso         Int                         @default(0) @map("total_sucesso")
   totalErro            Int                         @default(0) @map("total_erro")
@@ -251,6 +251,7 @@ model ProdutoTransmissaoItem {
   id             Int                          @id @default(autoincrement()) @map("id")
   transmissaoId  Int                          @map("transmissao_id")
   produtoId      Int                          @map("produto_id")
+  operacao       ProdutoTransmissaoItemOperacao @default(INCLUSAO) @map("operacao")
   status         ProdutoTransmissaoItemStatus @default(PENDENTE) @map("status")
   mensagem       String?                      @map("mensagem") @db.Text
   retornoCodigo  String?                      @map("retorno_codigo")
@@ -421,11 +422,13 @@ enum AsyncJobTipo {
 }
 
 enum ProdutoTransmissaoStatus {
+  AGUARDANDO_CONFIRMACAO
   EM_FILA
   PROCESSANDO
   CONCLUIDO
   FALHO
   PARCIAL
+  CANCELADA
 }
 
 enum ProdutoTransmissaoItemStatus {
@@ -433,6 +436,11 @@ enum ProdutoTransmissaoItemStatus {
   PROCESSANDO
   SUCESSO
   ERRO
+}
+
+enum ProdutoTransmissaoItemOperacao {
+  INCLUSAO
+  NOVA_VERSAO
 }
 
 enum ProdutoTransmissaoModalidade {

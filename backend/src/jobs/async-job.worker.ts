@@ -19,6 +19,7 @@ import {
 import { catalogoPrisma } from '../utils/prisma';
 
 const IDLE_DELAY_MS = 2000;
+const TRANSMISSAO_JOB_TYPES = [AsyncJobTipo.TRANSMISSAO_PRODUTO] as const;
 
 export interface AsyncJobHandlerContext<TPayload = unknown> {
   job: AsyncJobWithRelations;
@@ -31,9 +32,26 @@ export type AsyncJobHandler<TPayload = unknown> = (
   contexto: AsyncJobHandlerContext<TPayload>
 ) => Promise<void>;
 
+interface WorkerQueueConfig {
+  nome: 'geral' | 'transmissao';
+  includeTipos?: AsyncJobTipo[];
+  excludeTipos?: AsyncJobTipo[];
+}
+
+const FILAS: WorkerQueueConfig[] = [
+  {
+    nome: 'geral',
+    excludeTipos: [...TRANSMISSAO_JOB_TYPES],
+  },
+  {
+    nome: 'transmissao',
+    includeTipos: [...TRANSMISSAO_JOB_TYPES],
+  },
+];
+
 const handlers = new Map<AsyncJobTipo, AsyncJobHandler<any>>();
+const estadoFilas = new Map<WorkerQueueConfig['nome'], boolean>();
 let workerIniciado = false;
-let loopEmExecucao = false;
 
 function esperar(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -52,7 +70,7 @@ export function startAsyncJobWorker() {
   }
 
   workerIniciado = true;
-  agendarLoop();
+  FILAS.forEach(agendarLoopFila);
 }
 
 export async function notifyNewAsyncJob() {
@@ -61,27 +79,30 @@ export async function notifyNewAsyncJob() {
   }
 }
 
-function agendarLoop() {
-  if (loopEmExecucao) {
+function agendarLoopFila(fila: WorkerQueueConfig) {
+  if (estadoFilas.get(fila.nome)) {
     return;
   }
 
-  loopEmExecucao = true;
-  processarFila()
+  estadoFilas.set(fila.nome, true);
+  processarFila(fila)
     .catch(error => {
-      logger.error('Falha no loop de processamento de jobs assíncronos', error);
+      logger.error(`Falha no loop da fila ${fila.nome} de jobs assíncronos`, error);
     })
     .finally(() => {
-      loopEmExecucao = false;
+      estadoFilas.set(fila.nome, false);
       if (workerIniciado) {
-        setTimeout(agendarLoop, IDLE_DELAY_MS);
+        setTimeout(() => agendarLoopFila(fila), IDLE_DELAY_MS);
       }
     });
 }
 
-async function processarFila() {
+async function processarFila(fila: WorkerQueueConfig) {
   while (workerIniciado) {
-    const job = await claimNextPendingJob();
+    const job = await claimNextPendingJob({
+      includeTipos: fila.includeTipos,
+      excludeTipos: fila.excludeTipos,
+    });
 
     if (!job) {
       await esperar(IDLE_DELAY_MS);
@@ -182,22 +203,37 @@ async function atualizarTransmissaoComoFalha(job: AsyncJobWithRelations, mensage
     mensagem ?? 'Transmissão marcada como falha após atingir o limite de tentativas do job.';
 
   await catalogoPrisma.$transaction(async tx => {
-    const transmissao = await tx.produtoTransmissao.findUnique({
-      where: { id: transmissaoId },
-      select: { totalItens: true },
-    });
-
     await tx.produtoTransmissaoItem.updateMany({
-      where: { transmissaoId },
+      where: {
+        transmissaoId,
+        status: { in: [ProdutoTransmissaoItemStatus.PENDENTE, ProdutoTransmissaoItemStatus.PROCESSANDO] },
+      },
       data: { status: ProdutoTransmissaoItemStatus.ERRO, mensagem: motivo },
     });
+
+    const [totalItens, totalSucesso, totalErro] = await Promise.all([
+      tx.produtoTransmissaoItem.count({ where: { transmissaoId } }),
+      tx.produtoTransmissaoItem.count({
+        where: { transmissaoId, status: ProdutoTransmissaoItemStatus.SUCESSO },
+      }),
+      tx.produtoTransmissaoItem.count({
+        where: { transmissaoId, status: ProdutoTransmissaoItemStatus.ERRO },
+      }),
+    ]);
+
+    const statusFinal =
+      totalSucesso === 0
+        ? ProdutoTransmissaoStatus.FALHO
+        : totalSucesso === totalItens
+          ? ProdutoTransmissaoStatus.CONCLUIDO
+          : ProdutoTransmissaoStatus.PARCIAL;
 
     await tx.produtoTransmissao.update({
       where: { id: transmissaoId },
       data: {
-        status: ProdutoTransmissaoStatus.FALHO,
-        totalErro: transmissao?.totalItens ?? 0,
-        totalSucesso: 0,
+        status: statusFinal,
+        totalErro,
+        totalSucesso,
         concluidoEm: new Date(),
       },
     });
