@@ -60,7 +60,9 @@ export default function NovaTransmissaoProdutosPage() {
   const [catalogos, setCatalogos] = useState<CatalogoResumo[]>([]);
   const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
   const [busca, setBusca] = useState('');
-  const [situacoesSelecionadas, setSituacoesSelecionadas] = useState<string[]>([...SITUACOES_TRANSMISSAO]);
+  const [situacoesSelecionadas, setSituacoesSelecionadas] = useState<string[]>([
+    ...SITUACOES_TRANSMISSAO,
+  ]);
   const [catalogoId, setCatalogoId] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [acaoPreparacao, setAcaoPreparacao] = useState<AcaoPreparacao>(null);
@@ -152,20 +154,7 @@ export default function NovaTransmissaoProdutosPage() {
     carregarProdutos();
   }, [carregarProdutos]);
 
-  const produtosFiltrados = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
-    return produtos.filter(produto => {
-      const atendeBusca =
-        !termo ||
-        (produto.denominacao || '').toLowerCase().includes(termo) ||
-        (produto.codigo || '').toLowerCase().includes(termo);
-
-      const atendeSituacao =
-        situacoesSelecionadas.length === 0 || situacoesSelecionadas.includes(produto.situacao || '');
-
-      return atendeBusca && atendeSituacao;
-    });
-  }, [busca, produtos, situacoesSelecionadas]);
+  const produtosFiltrados = useMemo(() => produtos, [produtos]);
 
   const todosSelecionados =
     produtosFiltrados.length > 0 && produtosFiltrados.every(produto => selecionados.has(produto.id));
@@ -263,7 +252,7 @@ export default function NovaTransmissaoProdutosPage() {
         ]}
       />
 
-      <div className="flex items-center justify-between mb-6 gap-4">
+      <div className="mb-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -276,7 +265,8 @@ export default function NovaTransmissaoProdutosPage() {
           <div>
             <h1 className="text-2xl font-semibold text-white">Selecionar produtos para transmissão</h1>
             <p className="text-gray-400 text-sm">
-              Produtos em rascunho e ativados podem ser enviados juntos. O processamento continua individual, sequencial e assíncrono.
+              Produtos em rascunho e ativados podem ser enviados juntos. O processamento continua
+              individual, sequencial e assíncrono.
             </p>
           </div>
         </div>
@@ -303,7 +293,7 @@ export default function NovaTransmissaoProdutosPage() {
       </div>
 
       <Card className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <Select
             label="Catálogo"
             value={catalogoId}
@@ -317,7 +307,7 @@ export default function NovaTransmissaoProdutosPage() {
           />
 
           <div>
-            <div className="flex items-center gap-1 text-sm font-medium mb-1 text-gray-300">
+            <div className="mb-1 flex items-center gap-1 text-sm font-medium text-gray-300">
               <span>Situação</span>
               <LegendInfoModal
                 title="Situação dos produtos"
@@ -353,23 +343,27 @@ export default function NovaTransmissaoProdutosPage() {
             <span className="ml-2">Somente produtos aprovados são listados para transmissão.</span>
           </div>
         </div>
-        <p className="text-sm text-gray-400 mt-3">
-          Produtos ativados serão enviados como nova versão; produtos em rascunho serão incluídos como versão inicial. Você pode salvar a pré-transmissão para revisar depois ou seguir direto para a revisão final.
+        <p className="mt-3 text-sm text-gray-400">
+          Produtos ativados serão enviados como nova versão; produtos em rascunho serão incluídos
+          como versão inicial. Você pode salvar a pré-transmissão para revisar depois ou seguir
+          direto para a revisão final.
         </p>
         {catalogoSelecionado && (
-          <p className="text-sm text-gray-300 mt-1">
-            Transmissão vinculada ao catálogo Nº {catalogoSelecionado.numero} · {catalogoSelecionado.nome}.
+          <p className="mt-1 text-sm text-gray-300">
+            Transmissão vinculada ao catálogo Nº {catalogoSelecionado.numero} ·{' '}
+            {catalogoSelecionado.nome}.
           </p>
         )}
         {totalEncontrado > produtos.length && (
-          <p className="text-xs text-amber-300 mt-2">
-            Exibindo {produtos.length} de {totalEncontrado} produto(s) encontrados para os filtros atuais.
+          <p className="mt-2 text-xs text-amber-300">
+            Exibindo {produtos.length} de {totalEncontrado} produto(s) encontrados para os filtros
+            atuais.
           </p>
         )}
       </Card>
 
       {erro && (
-        <div className="bg-[#1f2937] border border-gray-700 text-gray-100 p-4 rounded flex items-center gap-3 mb-4">
+        <div className="mb-4 flex items-center gap-3 rounded border border-gray-700 bg-[#1f2937] p-4 text-gray-100">
           <AlertCircle size={18} className="text-[#f59e0b]" />
           <span>{erro}</span>
         </div>
@@ -379,7 +373,7 @@ export default function NovaTransmissaoProdutosPage() {
         <PageLoader message="Carregando produtos para transmissão..." />
       ) : produtosFiltrados.length === 0 ? (
         <Card>
-          <div className="text-center py-10 text-gray-400">
+          <div className="py-10 text-center text-gray-400">
             {catalogoId
               ? situacoesSelecionadas.length === 0
                 ? 'Selecione ao menos uma situação para listar produtos.'
@@ -391,7 +385,7 @@ export default function NovaTransmissaoProdutosPage() {
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
+              <thead className="bg-[#0f1419] text-xs uppercase text-gray-400">
                 <tr>
                   <th className="w-20 px-4 py-3">
                     <input type="checkbox" checked={todosSelecionados} onChange={selecionarTodos} />
@@ -419,9 +413,9 @@ export default function NovaTransmissaoProdutosPage() {
                     <td className="px-4 py-3 text-gray-200">{produto.denominacao || '-'}</td>
                     <td className="px-4 py-3 text-gray-200">{produto.versao ?? '-'}</td>
                     <td className="px-4 py-3 text-gray-200">
-                      {produto.catalogoNome || '—'}
+                      {produto.catalogoNome || '-'}
                       {produto.catalogoNumero && (
-                        <span className="text-gray-500 block text-xs">Nº {produto.catalogoNumero}</span>
+                        <span className="block text-xs text-gray-500">Nº {produto.catalogoNumero}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-200">{produto.status || 'Aprovado'}</td>
@@ -432,7 +426,8 @@ export default function NovaTransmissaoProdutosPage() {
             </table>
           </div>
           <div className="mt-3 text-sm text-gray-400">
-            {selecionados.size} produto(s) selecionado(s) no catálogo e {produtosFiltrados.length} exibido(s) na tela.
+            {selecionados.size} produto(s) selecionado(s) no catálogo e{' '}
+            {produtosFiltrados.length} exibido(s) na tela.
           </div>
         </Card>
       )}

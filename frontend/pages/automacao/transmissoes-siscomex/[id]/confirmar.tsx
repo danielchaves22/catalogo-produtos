@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { PageLoader } from '@/components/ui/PageLoader';
-import api from '@/lib/api';
-import { useToast } from '@/components/ui/ToastContext';
 import {
   AlertCircle,
   ArrowLeft,
@@ -16,6 +9,21 @@ import {
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { PageLoader } from '@/components/ui/PageLoader';
+import { useToast } from '@/components/ui/ToastContext';
+import api from '@/lib/api';
+import {
+  TransmissaoOrigemContexto,
+  TransmissaoOrigemTipo,
+  ehOrigemAjusteEstrutura,
+  obterDetalhesOrigemTransmissao,
+  obterRotuloOrigemTransmissao,
+  obterResumoOrigemTransmissao,
+} from '@/lib/transmissao-origem';
 
 type TransmissaoStatus =
   | 'AGUARDANDO_CONFIRMACAO'
@@ -56,6 +64,8 @@ interface TransmissaoDetalhe {
   catalogoId: number;
   catalogo: CatalogoResumo;
   modalidade: 'PRODUTOS' | 'OPERADORES_ESTRANGEIROS';
+  origemTipo?: TransmissaoOrigemTipo;
+  origemContexto?: TransmissaoOrigemContexto | null;
   status: TransmissaoStatus;
   totalItens: number;
   totalSucesso: number;
@@ -74,24 +84,24 @@ function formatarData(dataIso?: string | null) {
 function obterClasseStatusProduto(status?: string | null) {
   switch (status) {
     case 'APROVADO':
-      return 'text-emerald-300 bg-emerald-400/10 border border-emerald-500/30';
+      return 'border border-emerald-500/30 bg-emerald-400/10 text-emerald-300';
     case 'ERRO':
-      return 'text-red-300 bg-red-400/10 border border-red-500/30';
+      return 'border border-red-500/30 bg-red-400/10 text-red-300';
     case 'TRANSMITIDO':
-      return 'text-sky-300 bg-sky-400/10 border border-sky-500/30';
+      return 'border border-sky-500/30 bg-sky-400/10 text-sky-300';
     default:
-      return 'text-gray-300 bg-slate-700/40 border border-slate-600/60';
+      return 'border border-slate-600/60 bg-slate-700/40 text-gray-300';
   }
 }
 
 function obterClasseSituacao(situacao?: string | null) {
   switch (situacao) {
     case 'ATIVADO':
-      return 'text-sky-300 bg-sky-400/10 border border-sky-500/30';
+      return 'border border-sky-500/30 bg-sky-400/10 text-sky-300';
     case 'RASCUNHO':
-      return 'text-amber-300 bg-amber-400/10 border border-amber-500/30';
+      return 'border border-amber-500/30 bg-amber-400/10 text-amber-300';
     default:
-      return 'text-gray-300 bg-slate-700/40 border border-slate-600/60';
+      return 'border border-slate-600/60 bg-slate-700/40 text-gray-300';
   }
 }
 
@@ -118,7 +128,8 @@ export default function ConfirmarTransmissaoProdutosPage() {
   const [cancelando, setCancelando] = useState(false);
   const [removendoItemId, setRemovendoItemId] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [confirmacaoCancelamentoAberta, setConfirmacaoCancelamentoAberta] = useState(false);
+  const [confirmacaoCancelamentoAberta, setConfirmacaoCancelamentoAberta] =
+    useState(false);
 
   const transmissaoId = useMemo(() => {
     if (!id) return null;
@@ -129,12 +140,17 @@ export default function ConfirmarTransmissaoProdutosPage() {
   const carregarTransmissao = useCallback(
     async (identificador: number, silencioso = false) => {
       try {
-        const resposta = await api.get<TransmissaoDetalhe>(`/siscomex/transmissoes/${identificador}`);
+        const resposta = await api.get<TransmissaoDetalhe>(
+          `/siscomex/transmissoes/${identificador}`
+        );
         setTransmissao(resposta.data);
         setErro(null);
       } catch (error) {
         console.error('Erro ao carregar transmissão para confirmação:', error);
-        const mensagem = extrairMensagemErro(error, 'Não foi possível carregar a revisão da transmissão.');
+        const mensagem = extrairMensagemErro(
+          error,
+          'Não foi possível carregar a revisão da transmissão.'
+        );
         if (!silencioso) {
           addToast(mensagem, 'error');
         }
@@ -171,6 +187,11 @@ export default function ConfirmarTransmissaoProdutosPage() {
     );
   }, [transmissao]);
 
+  const detalhesOrigem = useMemo(
+    () => obterDetalhesOrigemTransmissao(transmissao?.origemTipo, transmissao?.origemContexto),
+    [transmissao?.origemContexto, transmissao?.origemTipo]
+  );
+
   const inconsistencias = useMemo(() => {
     if (!transmissao) {
       return [];
@@ -181,16 +202,23 @@ export default function ConfirmarTransmissaoProdutosPage() {
     const itensDeOutroCatalogo = transmissao.itens.filter(
       item => item.produto?.catalogoId && item.produto.catalogoId !== transmissao.catalogoId
     );
-    const itensNaoAprovados = transmissao.itens.filter(item => item.produto?.status && item.produto.status !== 'APROVADO');
+    const itensNaoAprovados = transmissao.itens.filter(
+      item => item.produto?.status && item.produto.status !== 'APROVADO'
+    );
     const itensSituacaoInvalida = transmissao.itens.filter(
-      item => item.produto?.situacao && item.produto.situacao !== 'RASCUNHO' && item.produto.situacao !== 'ATIVADO'
+      item =>
+        item.produto?.situacao &&
+        item.produto.situacao !== 'RASCUNHO' &&
+        item.produto.situacao !== 'ATIVADO'
     );
     const itensAtivadosSemCodigo = transmissao.itens.filter(
       item => item.produto?.situacao === 'ATIVADO' && !String(item.produto?.codigo || '').trim()
     );
 
     if (itensSemProduto.length > 0) {
-      mensagens.push(`${itensSemProduto.length} item(ns) perderam o vínculo com o produto original.`);
+      mensagens.push(
+        `${itensSemProduto.length} item(ns) perderam o vínculo com o produto original.`
+      );
     }
     if (itensDeOutroCatalogo.length > 0) {
       mensagens.push(`${itensDeOutroCatalogo.length} produto(s) pertencem a outro catálogo.`);
@@ -199,17 +227,26 @@ export default function ConfirmarTransmissaoProdutosPage() {
       mensagens.push(`${itensNaoAprovados.length} produto(s) não estão com status APROVADO.`);
     }
     if (itensSituacaoInvalida.length > 0) {
-      mensagens.push(`${itensSituacaoInvalida.length} produto(s) estão fora das situações permitidas para transmissão.`);
+      mensagens.push(
+        `${itensSituacaoInvalida.length} produto(s) estão fora das situações permitidas para transmissão.`
+      );
     }
     if (itensAtivadosSemCodigo.length > 0) {
-      mensagens.push(`${itensAtivadosSemCodigo.length} produto(s) ativados estão sem código SISCOMEX para nova versão.`);
+      mensagens.push(
+        `${itensAtivadosSemCodigo.length} produto(s) ativados estão sem código SISCOMEX para nova versão.`
+      );
     }
 
     return mensagens;
   }, [transmissao]);
 
   const aguardandoConfirmacao = transmissao?.status === 'AGUARDANDO_CONFIRMACAO';
-  const podeTransmitir = Boolean(aguardandoConfirmacao && transmissao && transmissao.itens.length > 0 && inconsistencias.length === 0);
+  const podeTransmitir = Boolean(
+    aguardandoConfirmacao &&
+      transmissao &&
+      transmissao.itens.length > 0 &&
+      inconsistencias.length === 0
+  );
 
   const removerItem = async (itemId: number) => {
     if (!transmissaoId || !aguardandoConfirmacao) return;
@@ -221,7 +258,10 @@ export default function ConfirmarTransmissaoProdutosPage() {
       addToast('Item removido da pré-transmissão.', 'success');
     } catch (error) {
       console.error('Erro ao remover item da pré-transmissão:', error);
-      addToast(extrairMensagemErro(error, 'Não foi possível remover o item da pré-transmissão.'), 'error');
+      addToast(
+        extrairMensagemErro(error, 'Não foi possível remover o item da pré-transmissão.'),
+        'error'
+      );
     } finally {
       setRemovendoItemId(null);
     }
@@ -257,7 +297,10 @@ export default function ConfirmarTransmissaoProdutosPage() {
       await router.push('/automacao/transmissoes-siscomex');
     } catch (error) {
       console.error('Erro ao cancelar pré-transmissão:', error);
-      addToast(extrairMensagemErro(error, 'Não foi possível cancelar a pré-transmissão.'), 'error');
+      addToast(
+        extrairMensagemErro(error, 'Não foi possível cancelar a pré-transmissão.'),
+        'error'
+      );
     } finally {
       setCancelando(false);
       setConfirmacaoCancelamentoAberta(false);
@@ -289,12 +332,15 @@ export default function ConfirmarTransmissaoProdutosPage() {
           { label: 'Início', href: '/' },
           { label: 'Automação', href: '/automacao' },
           { label: 'Transmissões ao SISCOMEX', href: '/automacao/transmissoes-siscomex' },
-          { label: `Transmissão #${transmissao.id}`, href: `/automacao/transmissoes-siscomex/${transmissao.id}` },
+          {
+            label: `Transmissão #${transmissao.id}`,
+            href: `/automacao/transmissoes-siscomex/${transmissao.id}`,
+          },
           { label: 'Confirmar' },
         ]}
       />
 
-      <div className="flex items-center justify-between mb-6 gap-4">
+      <div className="mb-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -306,13 +352,17 @@ export default function ConfirmarTransmissaoProdutosPage() {
           </button>
           <div>
             <h1 className="text-2xl font-semibold text-white">Confirmar transmissão em lote</h1>
-            <p className="text-gray-400 text-sm">
-              Revise os produtos da transmissão antes de iniciar o envio individual, sequencial e assíncrono.
+            <p className="text-sm text-gray-400">
+              Revise os produtos da transmissão antes de iniciar o envio individual, sequencial e
+              assíncrono.
             </p>
           </div>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => router.push('/automacao/transmissoes-siscomex')}>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/automacao/transmissoes-siscomex')}
+          >
             Fechar revisão
           </Button>
           <Button
@@ -321,19 +371,34 @@ export default function ConfirmarTransmissaoProdutosPage() {
             disabled={!podeTransmitir || transmitindo}
             onClick={iniciarTransmissao}
           >
-            {transmitindo ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+            {transmitindo ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <CheckCircle2 size={16} />
+            )}
             Transmitir agora
           </Button>
         </div>
       </div>
 
       <Card className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <div>
             <div className="text-xs uppercase tracking-wide text-gray-500">Catálogo</div>
             <div className="text-sm text-gray-100">
               Nº {transmissao.catalogo.numero ?? '-'} · {transmissao.catalogo.nome}
             </div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-gray-500">Origem</div>
+            <div className="text-sm text-gray-100">
+              {obterRotuloOrigemTransmissao(transmissao.origemTipo)}
+            </div>
+            {ehOrigemAjusteEstrutura(transmissao.origemTipo) && (
+              <div className="mt-1 text-xs text-amber-300">
+                {obterResumoOrigemTransmissao(transmissao.origemTipo, transmissao.origemContexto)}
+              </div>
+            )}
           </div>
           <div>
             <div className="text-xs uppercase tracking-wide text-gray-500">Criada em</div>
@@ -350,9 +415,16 @@ export default function ConfirmarTransmissaoProdutosPage() {
             </div>
           </div>
         </div>
+        {detalhesOrigem.length > 0 && (
+          <div className="mt-4 border-t border-slate-800 pt-4 text-sm text-gray-300">
+            {detalhesOrigem.map(detalhe => (
+              <div key={detalhe}>{detalhe}</div>
+            ))}
+          </div>
+        )}
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card>
           <div className="text-sm text-gray-400">Produtos selecionados</div>
           <div className="text-2xl font-semibold text-white">{resumo.total}</div>
@@ -374,7 +446,7 @@ export default function ConfirmarTransmissaoProdutosPage() {
       </div>
 
       {erro && (
-        <div className="bg-[#1f2937] border border-gray-700 text-gray-100 p-4 rounded flex items-center gap-3 mb-4">
+        <div className="mb-4 flex items-center gap-3 rounded border border-gray-700 bg-[#1f2937] p-4 text-gray-100">
           <AlertCircle size={18} className="text-[#f59e0b]" />
           <span>{erro}</span>
         </div>
@@ -395,7 +467,9 @@ export default function ConfirmarTransmissaoProdutosPage() {
           <div className="flex items-start gap-3">
             <TriangleAlert size={18} className="mt-1 text-amber-300" />
             <div>
-              <h2 className="text-sm font-semibold text-amber-200">Revise os itens abaixo antes do envio</h2>
+              <h2 className="text-sm font-semibold text-amber-200">
+                Revise os itens abaixo antes do envio
+              </h2>
               <ul className="mt-2 space-y-1 text-sm text-gray-200">
                 {inconsistencias.map(mensagem => (
                   <li key={mensagem}>{mensagem}</li>
@@ -417,7 +491,7 @@ export default function ConfirmarTransmissaoProdutosPage() {
         <Card className="mb-6">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
+              <thead className="bg-[#0f1419] text-xs uppercase text-gray-400">
                 <tr>
                   <th className="px-4 py-3">Código</th>
                   <th className="px-4 py-3">Denominação</th>
@@ -436,21 +510,33 @@ export default function ConfirmarTransmissaoProdutosPage() {
                       <td className="px-4 py-3 text-gray-200">
                         {codigo || `#${item.produtoId}`}
                         {!codigo && item.produto?.situacao === 'ATIVADO' && (
-                          <div className="text-xs text-amber-300 mt-1">Ativado sem código SISCOMEX.</div>
+                          <div className="mt-1 text-xs text-amber-300">
+                            Ativado sem código SISCOMEX.
+                          </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-200">{item.produto?.denominacao || 'Produto indisponível'}</td>
+                      <td className="px-4 py-3 text-gray-200">
+                        {item.produto?.denominacao || 'Produto indisponível'}
+                      </td>
                       <td className="px-4 py-3 text-gray-200">
                         {item.operacao === 'NOVA_VERSAO' ? 'Nova versão' : 'Inclusão'}
                       </td>
                       <td className="px-4 py-3 text-gray-200">{item.produto?.versao ?? '-'}</td>
                       <td className="px-4 py-3">
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseStatusProduto(item.produto?.status)}`}>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseStatusProduto(
+                            item.produto?.status
+                          )}`}
+                        >
                           {item.produto?.status || 'Indisponível'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseSituacao(item.produto?.situacao)}`}>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseSituacao(
+                            item.produto?.situacao
+                          )}`}
+                        >
                           {item.produto?.situacao || 'Indisponível'}
                         </span>
                       </td>
@@ -460,10 +546,16 @@ export default function ConfirmarTransmissaoProdutosPage() {
                           onClick={() => removerItem(item.id)}
                           disabled={!aguardandoConfirmacao || removendoItemId === item.id}
                           className="inline-flex items-center justify-center rounded-md bg-red-500/10 p-2 text-red-300 transition-colors hover:bg-red-500/20 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
-                          aria-label={`Remover produto ${item.produto?.codigo || item.produto?.denominacao || item.produtoId} da transmissão`}
+                          aria-label={`Remover produto ${
+                            item.produto?.codigo || item.produto?.denominacao || item.produtoId
+                          } da transmissão`}
                           title="Remover da transmissão"
                         >
-                          {removendoItemId === item.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                          {removendoItemId === item.id ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
                         </button>
                       </td>
                     </tr>
@@ -473,7 +565,8 @@ export default function ConfirmarTransmissaoProdutosPage() {
             </table>
           </div>
           <div className="mt-3 text-sm text-gray-400">
-            Remova os itens que não devem seguir para o SISCOMEX. O enfileiramento final usará somente os produtos desta revisão.
+            Remova os itens que não devem seguir para o SISCOMEX. O enfileiramento final usará
+            somente os produtos desta revisão.
           </div>
         </Card>
       )}
@@ -484,21 +577,29 @@ export default function ConfirmarTransmissaoProdutosPage() {
             <div>
               <h2 className="text-sm font-semibold text-white">Cancelar pré-transmissão</h2>
               <p className="text-sm text-gray-400">
-                Fechar a revisão não apaga o registro. Use o cancelamento abaixo apenas se esta pré-transmissão não deve mais existir.
+                Fechar a revisão não apaga o registro. Use o cancelamento abaixo apenas se esta
+                pré-transmissão não deve mais existir.
               </p>
             </div>
-            <Button variant="danger" onClick={() => setConfirmacaoCancelamentoAberta(true)}>
+            <Button
+              variant="danger"
+              onClick={() => setConfirmacaoCancelamentoAberta(true)}
+            >
               Cancelar pré-transmissão
             </Button>
           </div>
 
           {confirmacaoCancelamentoAberta && (
             <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/5 p-4">
-              <p className="text-sm text-gray-200 mb-4">
-                Deseja manter esta pré-transmissão para revisar depois, cancelar o registro ou continuar revisando agora?
+              <p className="mb-4 text-sm text-gray-200">
+                Deseja manter esta pré-transmissão para revisar depois, cancelar o registro ou
+                continuar revisando agora?
               </p>
               <div className="flex flex-wrap gap-3">
-                <Button variant="outline" onClick={() => router.push('/automacao/transmissoes-siscomex')}>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/automacao/transmissoes-siscomex')}
+                >
                   Manter para transmitir depois
                 </Button>
                 <Button
@@ -510,7 +611,10 @@ export default function ConfirmarTransmissaoProdutosPage() {
                   {cancelando ? <Loader2 size={16} className="animate-spin" /> : null}
                   Cancelar pré-transmissão
                 </Button>
-                <Button variant="primary" onClick={() => setConfirmacaoCancelamentoAberta(false)}>
+                <Button
+                  variant="primary"
+                  onClick={() => setConfirmacaoCancelamentoAberta(false)}
+                >
                   Continuar revisando
                 </Button>
               </div>

@@ -1,7 +1,15 @@
 // backend/src/services/produto.service.ts
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
-import { AsyncJobTipo, Prisma } from '@prisma/client';
+import {
+  AsyncJobTipo,
+  Prisma,
+  ProdutoTransmissaoItemOperacao,
+  ProdutoTransmissaoItemStatus,
+  ProdutoTransmissaoModalidade,
+  ProdutoTransmissaoOrigemTipo,
+  ProdutoTransmissaoStatus,
+} from '@prisma/client';
 import {
   AtributoLegacyService,
   AtributoEstruturaDTO,
@@ -146,6 +154,33 @@ export interface PendenciaAjusteEstruturaDTO {
   catalogos: PendenciaAjusteEstruturaCatalogoDTO[];
 }
 
+export interface TransmissaoGeradaAjusteEstruturaDTO {
+  id: number;
+  totalItens: number;
+}
+
+export interface AjusteEstruturaCatalogoResultadoDTO {
+  ajustados: number;
+  transmissaoGerada: TransmissaoGeradaAjusteEstruturaDTO | null;
+  produtosElegiveis: number;
+  produtosIncluidos: number;
+  produtosIgnoradosDuplicidade: number;
+}
+
+interface OrigemTransmissaoAjusteEstruturaContexto {
+  ncmCodigo: string;
+  modalidade: string;
+  catalogoId: number;
+  produtoIdsElegiveis: number[];
+  produtoIdsIgnoradosDuplicidade: number[];
+}
+
+interface PreparacaoTransmissaoAutomaticaResultado {
+  transmissaoGerada: TransmissaoGeradaAjusteEstruturaDTO | null;
+  produtoIdsIncluidos: number[];
+  produtoIdsIgnoradosDuplicidade: number[];
+}
+
 export interface ProdutoHistoricoVersaoDTO {
   id: number;
   versaoSiscomex: number;
@@ -196,6 +231,96 @@ export class ProdutoService {
     }
 
     return null;
+  }
+
+  private async prepararPreTransmissaoAutomaticaAjusteEstrutura(
+    tx: Prisma.TransactionClient,
+    dados: {
+      catalogoId: number;
+      modalidade: string;
+      ncmCodigo: string;
+      produtoIdsElegiveis: number[];
+      superUserId: number;
+    }
+  ): Promise<PreparacaoTransmissaoAutomaticaResultado> {
+    const produtoIdsElegiveis = [...new Set(dados.produtoIdsElegiveis)];
+
+    if (produtoIdsElegiveis.length === 0) {
+      return {
+        transmissaoGerada: null,
+        produtoIdsIncluidos: [],
+        produtoIdsIgnoradosDuplicidade: [],
+      };
+    }
+
+    const itensDuplicados = await tx.produtoTransmissaoItem.findMany({
+      where: {
+        produtoId: { in: produtoIdsElegiveis },
+        transmissao: {
+          catalogoId: dados.catalogoId,
+          status: ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO,
+        },
+      },
+      select: { produtoId: true },
+    });
+
+    const produtoIdsIgnoradosDuplicidade = [
+      ...new Set(itensDuplicados.map(item => Number(item.produtoId)).filter(Number.isFinite)),
+    ];
+    const produtosDuplicadosSet = new Set(produtoIdsIgnoradosDuplicidade);
+    const produtoIdsIncluidos = produtoIdsElegiveis.filter(
+      produtoId => !produtosDuplicadosSet.has(produtoId)
+    );
+
+    if (produtoIdsIncluidos.length === 0) {
+      return {
+        transmissaoGerada: null,
+        produtoIdsIncluidos: [],
+        produtoIdsIgnoradosDuplicidade,
+      };
+    }
+
+    const origemContexto: OrigemTransmissaoAjusteEstruturaContexto = {
+      ncmCodigo: dados.ncmCodigo,
+      modalidade: dados.modalidade,
+      catalogoId: dados.catalogoId,
+      produtoIdsElegiveis,
+      produtoIdsIgnoradosDuplicidade,
+    };
+
+    const transmissao = await tx.produtoTransmissao.create({
+      data: {
+        superUserId: dados.superUserId,
+        catalogoId: dados.catalogoId,
+        usuarioCatalogoId: null,
+        modalidade: ProdutoTransmissaoModalidade.PRODUTOS,
+        origemTipo: ProdutoTransmissaoOrigemTipo.AJUSTE_ESTRUTURA,
+        origemContextoJson: origemContexto as unknown as Prisma.InputJsonValue,
+        status: ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO,
+        totalItens: produtoIdsIncluidos.length,
+        totalSucesso: 0,
+        totalErro: 0,
+        selecaoJson: produtoIdsIncluidos as Prisma.InputJsonValue,
+      },
+    });
+
+    await tx.produtoTransmissaoItem.createMany({
+      data: produtoIdsIncluidos.map(produtoId => ({
+        transmissaoId: transmissao.id,
+        produtoId,
+        operacao: ProdutoTransmissaoItemOperacao.NOVA_VERSAO,
+        status: ProdutoTransmissaoItemStatus.PENDENTE,
+      })),
+    });
+
+    return {
+      transmissaoGerada: {
+        id: transmissao.id,
+        totalItens: produtoIdsIncluidos.length,
+      },
+      produtoIdsIncluidos,
+      produtoIdsIgnoradosDuplicidade,
+    };
   }
 
   private static registrarInvalidacaoCache() {
@@ -1123,7 +1248,7 @@ export class ProdutoService {
   async ajustarEstruturaCatalogo(
     parametros: { ncmCodigo: string; modalidade: string; catalogoId: number },
     superUserId: number
-  ): Promise<{ ajustados: number }> {
+  ): Promise<AjusteEstruturaCatalogoResultadoDTO> {
     const ncmCodigo = parametros.ncmCodigo;
     const modalidade = parametros.modalidade || '';
     const filtroModalidade =
@@ -1158,7 +1283,9 @@ export class ProdutoService {
     const estruturaInfo = await this.obterEstruturaAtributos(ncmCodigo, modalidade);
     const mapaEstrutura = this.mapearEstruturaPorCodigo(estruturaInfo.estrutura);
 
-    await catalogoPrisma.$transaction(async tx => {
+    const resultado = await catalogoPrisma.$transaction(async tx => {
+      const produtoIdsElegiveis: number[] = [];
+
       for (const produto of produtos) {
         const valoresOriginais = this.montarValoresDosAtributos(produto.atributos, {
           produtoId: produto.id,
@@ -1194,10 +1321,30 @@ export class ProdutoService {
           where: { id: produto.id },
           data: { status: novoStatus },
         });
+
+        if (produto.situacao === 'ATIVADO' && novoStatus === 'APROVADO') {
+          produtoIdsElegiveis.push(produto.id);
+        }
       }
+
+      const preparoTransmissao = await this.prepararPreTransmissaoAutomaticaAjusteEstrutura(tx, {
+        catalogoId: parametros.catalogoId,
+        modalidade,
+        ncmCodigo,
+        produtoIdsElegiveis,
+        superUserId,
+      });
+
+      return {
+        ajustados: produtos.length,
+        transmissaoGerada: preparoTransmissao.transmissaoGerada,
+        produtosElegiveis: produtoIdsElegiveis.length,
+        produtosIncluidos: preparoTransmissao.produtoIdsIncluidos.length,
+        produtosIgnoradosDuplicidade: preparoTransmissao.produtoIdsIgnoradosDuplicidade.length,
+      };
     });
 
-    return { ajustados: produtos.length };
+    return resultado;
   }
 
   async resolverSelecaoProdutos(

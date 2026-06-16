@@ -1,4 +1,3 @@
-// frontend/pages/automacao/transmissoes-siscomex/operadores.tsx
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -66,7 +65,9 @@ export default function NovaTransmissaoOperadoresPage() {
         setCarregando(true);
         const params = catalogoId ? { catalogoId: Number(catalogoId) } : undefined;
         const dados = await buscarOperadores(params);
-        const aprovados = dados.filter(op => ((op as OperadorParaTransmissao).status ?? 'APROVADO') === 'APROVADO');
+        const aprovados = dados.filter(
+          op => ((op as OperadorParaTransmissao).status ?? 'APROVADO') === 'APROVADO'
+        );
         setOperadores(aprovados);
         setErro(null);
       } catch (error) {
@@ -93,7 +94,8 @@ export default function NovaTransmissaoOperadoresPage() {
     });
   }, [busca, operadores, situacao]);
 
-  const todosSelecionados = operadoresFiltrados.length > 0 && selecionados.size === operadoresFiltrados.length;
+  const todosSelecionados =
+    operadoresFiltrados.length > 0 && selecionados.size === operadoresFiltrados.length;
 
   const alternarSelecao = (id: number) => {
     setSelecionados(prev => {
@@ -132,7 +134,10 @@ export default function NovaTransmissaoOperadoresPage() {
       link.download = `transmissao-operadores-${Date.now()}.json`;
       link.click();
       URL.revokeObjectURL(url);
-      addToast('Exportação JSON gerada para testes. Processo assíncrono será conectado futuramente.', 'success');
+      addToast(
+        'Exportação JSON gerada para testes. Processo assíncrono será conectado futuramente.',
+        'success'
+      );
       setSelecionados(new Set());
     } catch (error) {
       console.error('Erro ao exportar operadores estrangeiros para transmissão:', error);
@@ -153,7 +158,7 @@ export default function NovaTransmissaoOperadoresPage() {
         ]}
       />
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -166,7 +171,8 @@ export default function NovaTransmissaoOperadoresPage() {
           <div>
             <h1 className="text-2xl font-semibold text-white">Selecionar operadores aprovados</h1>
             <p className="text-gray-400 text-sm">
-              Apenas operadores aprovados e ainda não enviados são exibidos. Ajuste filtros e confirme o envio.
+              Apenas operadores aprovados e ainda não enviados são exibidos. Ajuste filtros e
+              confirme o envio.
             </p>
           </div>
         </div>
@@ -182,7 +188,7 @@ export default function NovaTransmissaoOperadoresPage() {
       </div>
 
       <Card className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <Input
             label="Busca por nome, TIN ou país"
             placeholder="Digite para filtrar"
@@ -211,7 +217,7 @@ export default function NovaTransmissaoOperadoresPage() {
                 ? [
                     {
                       value: String(workingCatalog.id),
-                      label: `${workingCatalog.numero ?? '—'} · ${workingCatalog.nome}`,
+                      label: `${workingCatalog.numero ?? '-'} · ${workingCatalog.nome}`,
                     },
                   ]
                 : catalogos.map(c => ({ value: String(c.id), label: `${c.numero} · ${c.nome}` }))
@@ -226,7 +232,7 @@ export default function NovaTransmissaoOperadoresPage() {
       </Card>
 
       {erro && (
-        <div className="bg-red-500/10 border border-red-700 text-red-200 p-4 rounded flex items-center gap-3 mb-4">
+        <div className="mb-4 flex items-center gap-3 rounded border border-red-700 bg-red-500/10 p-4 text-red-200">
           <AlertCircle size={18} />
           <span>{erro}</span>
         </div>
@@ -244,7 +250,7 @@ export default function NovaTransmissaoOperadoresPage() {
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
+              <thead className="bg-[#0f1419] text-xs uppercase text-gray-400">
                 <tr>
                   <th className="w-12 px-4 py-3">
                     <input type="checkbox" checked={todosSelecionados} onChange={selecionarTodos} />
@@ -276,7 +282,8 @@ export default function NovaTransmissaoOperadoresPage() {
             </table>
           </div>
           <div className="mt-3 text-sm text-gray-400">
-            {selecionados.size} operador(es) selecionado(s) de {operadoresFiltrados.length} exibidos.
+            {selecionados.size} operador(es) selecionado(s) de {operadoresFiltrados.length}{' '}
+            exibidos.
           </div>
         </Card>
       )}

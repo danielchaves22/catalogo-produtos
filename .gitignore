@@ -39,6 +39,9 @@ Thumbs.db
 # Cobertura de testes
 coverage/
 
+# Artefatos locais de automação/browser
+.playwright-mcp/
+
 # Arquivos/pastas gerados pelo Prisma (se houver)
 .prisma/
 

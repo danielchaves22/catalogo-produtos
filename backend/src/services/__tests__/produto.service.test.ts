@@ -255,7 +255,13 @@ describe('ProdutoService - ajuste de estrutura', () => {
       99
     )
 
-    expect(resultado).toEqual({ ajustados: 1 })
+    expect(resultado).toEqual({
+      ajustados: 1,
+      transmissaoGerada: null,
+      produtosElegiveis: 0,
+      produtosIncluidos: 0,
+      produtosIgnoradosDuplicidade: 0,
+    })
     expect(updateSpy).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
@@ -400,6 +406,287 @@ describe('ProdutoService - ajuste de estrutura', () => {
         })
       })
     )
+  })
+
+  it('cria pre-transmissao automatica para produtos ativados que voltam a APROVADO', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 7,
+      versaoNumero: 3,
+      estrutura: []
+    })
+    produtoResumoServiceMock.recalcularResumoProduto.mockResolvedValue({
+      atributosTotal: 0,
+      obrigatoriosPendentes: 0,
+      validosTransmissao: 0
+    })
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 21,
+        status: 'AJUSTAR_ESTRUTURA',
+        situacao: 'ATIVADO',
+        ncmCodigo: '12345678',
+        modalidade: 'IMPORTACAO',
+        denominacao: 'Produto pronto para retransmissao',
+        atributos: []
+      }
+    ])
+
+    const updateSpy = jest.fn().mockResolvedValue({})
+    const transmissaoCreateSpy = jest.fn().mockResolvedValue({ id: 501 })
+    const transmissaoItemCreateManySpy = jest.fn().mockResolvedValue({ count: 1 })
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { update: updateSpy },
+        produtoAtributo: { deleteMany: jest.fn(), create: jest.fn() },
+        produtoTransmissao: { create: transmissaoCreateSpy },
+        produtoTransmissaoItem: {
+          findMany: jest.fn().mockResolvedValue([]),
+          createMany: transmissaoItemCreateManySpy,
+        }
+      })
+    )
+
+    const resultado = await service.ajustarEstruturaCatalogo(
+      { ncmCodigo: '12345678', modalidade: 'IMPORTACAO', catalogoId: 1 },
+      99
+    )
+
+    expect(resultado).toEqual({
+      ajustados: 1,
+      transmissaoGerada: { id: 501, totalItens: 1 },
+      produtosElegiveis: 1,
+      produtosIncluidos: 1,
+      produtosIgnoradosDuplicidade: 0,
+    })
+    expect(transmissaoCreateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          superUserId: 99,
+          catalogoId: 1,
+          status: 'AGUARDANDO_CONFIRMACAO',
+          origemTipo: 'AJUSTE_ESTRUTURA',
+          modalidade: 'PRODUTOS',
+          totalItens: 1,
+          selecaoJson: [21],
+          origemContextoJson: expect.objectContaining({
+            ncmCodigo: '12345678',
+            modalidade: 'IMPORTACAO',
+            catalogoId: 1,
+            produtoIdsElegiveis: [21],
+            produtoIdsIgnoradosDuplicidade: [],
+          }),
+        })
+      })
+    )
+    expect(transmissaoItemCreateManySpy).toHaveBeenCalledWith({
+      data: [
+        {
+          transmissaoId: 501,
+          produtoId: 21,
+          operacao: 'NOVA_VERSAO',
+          status: 'PENDENTE',
+        }
+      ]
+    })
+  })
+
+  it('nao cria pre-transmissao automatica para produto em rascunho apos o ajuste', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 7,
+      versaoNumero: 3,
+      estrutura: []
+    })
+    produtoResumoServiceMock.recalcularResumoProduto.mockResolvedValue({
+      atributosTotal: 0,
+      obrigatoriosPendentes: 0,
+      validosTransmissao: 0
+    })
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 22,
+        status: 'AJUSTAR_ESTRUTURA',
+        situacao: 'RASCUNHO',
+        ncmCodigo: '12345678',
+        modalidade: '',
+        denominacao: 'Produto em rascunho',
+        atributos: []
+      }
+    ])
+
+    const transmissaoCreateSpy = jest.fn().mockResolvedValue({ id: 999 })
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { update: jest.fn().mockResolvedValue({}) },
+        produtoAtributo: { deleteMany: jest.fn(), create: jest.fn() },
+        produtoTransmissao: { create: transmissaoCreateSpy },
+        produtoTransmissaoItem: {
+          findMany: jest.fn().mockResolvedValue([]),
+          createMany: jest.fn().mockResolvedValue({ count: 0 }),
+        }
+      })
+    )
+
+    const resultado = await service.ajustarEstruturaCatalogo(
+      { ncmCodigo: '12345678', modalidade: '', catalogoId: 1 },
+      99
+    )
+
+    expect(resultado).toEqual({
+      ajustados: 1,
+      transmissaoGerada: null,
+      produtosElegiveis: 0,
+      produtosIncluidos: 0,
+      produtosIgnoradosDuplicidade: 0,
+    })
+    expect(transmissaoCreateSpy).not.toHaveBeenCalled()
+  })
+
+  it('ignora produtos ja pendentes em outra pre-transmissao do mesmo catalogo', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 7,
+      versaoNumero: 3,
+      estrutura: []
+    })
+    produtoResumoServiceMock.recalcularResumoProduto.mockResolvedValue({
+      atributosTotal: 0,
+      obrigatoriosPendentes: 0,
+      validosTransmissao: 0
+    })
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 31,
+        status: 'AJUSTAR_ESTRUTURA',
+        situacao: 'ATIVADO',
+        ncmCodigo: '12345678',
+        modalidade: '',
+        denominacao: 'Produto 31',
+        atributos: []
+      },
+      {
+        id: 32,
+        status: 'AJUSTAR_ESTRUTURA',
+        situacao: 'ATIVADO',
+        ncmCodigo: '12345678',
+        modalidade: '',
+        denominacao: 'Produto 32',
+        atributos: []
+      }
+    ])
+
+    const transmissaoCreateSpy = jest.fn().mockResolvedValue({ id: 601 })
+    const transmissaoItemCreateManySpy = jest.fn().mockResolvedValue({ count: 1 })
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { update: jest.fn().mockResolvedValue({}) },
+        produtoAtributo: { deleteMany: jest.fn(), create: jest.fn() },
+        produtoTransmissao: { create: transmissaoCreateSpy },
+        produtoTransmissaoItem: {
+          findMany: jest.fn().mockResolvedValue([{ produtoId: 31 }]),
+          createMany: transmissaoItemCreateManySpy,
+        }
+      })
+    )
+
+    const resultado = await service.ajustarEstruturaCatalogo(
+      { ncmCodigo: '12345678', modalidade: '', catalogoId: 1 },
+      99
+    )
+
+    expect(resultado).toEqual({
+      ajustados: 2,
+      transmissaoGerada: { id: 601, totalItens: 1 },
+      produtosElegiveis: 2,
+      produtosIncluidos: 1,
+      produtosIgnoradosDuplicidade: 1,
+    })
+    expect(transmissaoCreateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          selecaoJson: [32],
+          origemContextoJson: expect.objectContaining({
+            produtoIdsElegiveis: [31, 32],
+            produtoIdsIgnoradosDuplicidade: [31],
+          }),
+        })
+      })
+    )
+    expect(transmissaoItemCreateManySpy).toHaveBeenCalledWith({
+      data: [
+        {
+          transmissaoId: 601,
+          produtoId: 32,
+          operacao: 'NOVA_VERSAO',
+          status: 'PENDENTE',
+        }
+      ]
+    })
+  })
+
+  it('nao cria transmissao quando todos os elegiveis ja estao em outra pre-transmissao', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 7,
+      versaoNumero: 3,
+      estrutura: []
+    })
+    produtoResumoServiceMock.recalcularResumoProduto.mockResolvedValue({
+      atributosTotal: 0,
+      obrigatoriosPendentes: 0,
+      validosTransmissao: 0
+    })
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 41,
+        status: 'AJUSTAR_ESTRUTURA',
+        situacao: 'ATIVADO',
+        ncmCodigo: '12345678',
+        modalidade: '',
+        denominacao: 'Produto duplicado',
+        atributos: []
+      }
+    ])
+
+    const transmissaoCreateSpy = jest.fn().mockResolvedValue({ id: 701 })
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { update: jest.fn().mockResolvedValue({}) },
+        produtoAtributo: { deleteMany: jest.fn(), create: jest.fn() },
+        produtoTransmissao: { create: transmissaoCreateSpy },
+        produtoTransmissaoItem: {
+          findMany: jest.fn().mockResolvedValue([{ produtoId: 41 }]),
+          createMany: jest.fn().mockResolvedValue({ count: 0 }),
+        }
+      })
+    )
+
+    const resultado = await service.ajustarEstruturaCatalogo(
+      { ncmCodigo: '12345678', modalidade: '', catalogoId: 1 },
+      99
+    )
+
+    expect(resultado).toEqual({
+      ajustados: 1,
+      transmissaoGerada: null,
+      produtosElegiveis: 1,
+      produtosIncluidos: 0,
+      produtosIgnoradosDuplicidade: 1,
+    })
+    expect(transmissaoCreateSpy).not.toHaveBeenCalled()
   })
 })
 

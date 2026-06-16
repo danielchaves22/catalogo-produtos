@@ -1,14 +1,21 @@
-// frontend/pages/automacao/transmissoes-siscomex/[id].tsx
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
+import { AlertCircle, ArrowLeft, Download, PlayCircle } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
 import { PageLoader } from '@/components/ui/PageLoader';
-import { AlertCircle, ArrowLeft, Download, PlayCircle } from 'lucide-react';
-import api from '@/lib/api';
-import { useToast } from '@/components/ui/ToastContext';
 import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/ToastContext';
+import api from '@/lib/api';
+import {
+  TransmissaoOrigemContexto,
+  TransmissaoOrigemTipo,
+  ehOrigemAjusteEstrutura,
+  obterDetalhesOrigemTransmissao,
+  obterRotuloOrigemTransmissao,
+  obterResumoOrigemTransmissao,
+} from '@/lib/transmissao-origem';
 
 interface CatalogoResumo {
   nome: string;
@@ -44,6 +51,8 @@ interface TransmissaoDetalhe {
   id: number;
   catalogo: CatalogoResumo;
   modalidade: 'PRODUTOS' | 'OPERADORES_ESTRANGEIROS';
+  origemTipo?: TransmissaoOrigemTipo;
+  origemContexto?: TransmissaoOrigemContexto | null;
   status: TransmissaoStatus;
   totalItens: number;
   totalSucesso: number;
@@ -59,13 +68,13 @@ interface TransmissaoDetalhe {
 function obterClasseItem(status: TransmissaoItemStatus) {
   switch (status) {
     case 'SUCESSO':
-      return 'text-emerald-400 bg-emerald-400/10 border border-emerald-500/40';
+      return 'border border-emerald-500/40 bg-emerald-400/10 text-emerald-400';
     case 'ERRO':
-      return 'text-red-400 bg-red-400/10 border border-red-500/40';
+      return 'border border-red-500/40 bg-red-400/10 text-red-400';
     case 'PROCESSANDO':
-      return 'text-amber-400 bg-amber-400/10 border border-amber-500/40';
+      return 'border border-amber-500/40 bg-amber-400/10 text-amber-400';
     default:
-      return 'text-gray-300 bg-slate-700/40 border border-slate-600/60';
+      return 'border border-slate-600/60 bg-slate-700/40 text-gray-300';
   }
 }
 
@@ -77,9 +86,9 @@ function formatarData(dataIso?: string | null) {
 function obterEtiquetaStatus(status: TransmissaoStatus) {
   switch (status) {
     case 'AGUARDANDO_CONFIRMACAO':
-      return 'Aguardando confirmacao';
+      return 'Aguardando confirmação';
     case 'CONCLUIDO':
-      return 'Concluido';
+      return 'Concluído';
     case 'CANCELADA':
       return 'Cancelada';
     case 'FALHO':
@@ -96,19 +105,19 @@ function obterEtiquetaStatus(status: TransmissaoStatus) {
 function obterClasseStatus(status: TransmissaoStatus) {
   switch (status) {
     case 'AGUARDANDO_CONFIRMACAO':
-      return 'text-slate-200 bg-slate-700/40 border border-slate-600/60';
+      return 'border border-slate-600/60 bg-slate-700/40 text-slate-200';
     case 'CONCLUIDO':
-      return 'text-emerald-400 bg-emerald-400/10 border border-emerald-500/40';
+      return 'border border-emerald-500/40 bg-emerald-400/10 text-emerald-400';
     case 'CANCELADA':
-      return 'text-gray-400 bg-gray-500/10 border border-gray-600/40';
+      return 'border border-gray-600/40 bg-gray-500/10 text-gray-400';
     case 'FALHO':
-      return 'text-red-400 bg-red-400/10 border border-red-500/40';
+      return 'border border-red-500/40 bg-red-400/10 text-red-400';
     case 'PARCIAL':
-      return 'text-amber-300 bg-amber-400/10 border border-amber-500/40';
+      return 'border border-amber-500/40 bg-amber-400/10 text-amber-300';
     case 'PROCESSANDO':
-      return 'text-blue-300 bg-blue-400/10 border border-blue-500/40';
+      return 'border border-blue-500/40 bg-blue-400/10 text-blue-300';
     default:
-      return 'text-amber-400 bg-amber-400/10 border border-amber-500/40';
+      return 'border border-amber-500/40 bg-amber-400/10 text-amber-400';
   }
 }
 
@@ -123,7 +132,9 @@ export default function DetalheTransmissaoSiscomexPage() {
   const carregarDetalhe = useCallback(
     async (identificador: number, silencioso = false) => {
       try {
-        const resposta = await api.get<TransmissaoDetalhe>(`/siscomex/transmissoes/${identificador}`);
+        const resposta = await api.get<TransmissaoDetalhe>(
+          `/siscomex/transmissoes/${identificador}`
+        );
         setTransmissao(resposta.data);
         setErroCarregamento(false);
       } catch (error) {
@@ -162,7 +173,10 @@ export default function DetalheTransmissaoSiscomexPage() {
   }, [carregarDetalhe, transmissao]);
 
   const resumo = useMemo(() => {
-    if (!transmissao) return { sucesso: 0, erros: 0, processando: 0, total: 0 };
+    if (!transmissao) {
+      return { sucesso: 0, erros: 0, processando: 0, total: 0 };
+    }
+
     return transmissao.itens.reduce(
       (acc, item) => {
         if (item.status === 'SUCESSO') acc.sucesso += 1;
@@ -174,6 +188,11 @@ export default function DetalheTransmissaoSiscomexPage() {
       { sucesso: 0, erros: 0, processando: 0, total: 0 }
     );
   }, [transmissao]);
+
+  const detalhesOrigem = useMemo(
+    () => obterDetalhesOrigemTransmissao(transmissao?.origemTipo, transmissao?.origemContexto),
+    [transmissao?.origemContexto, transmissao?.origemTipo]
+  );
 
   const aguardandoConfirmacao = transmissao?.status === 'AGUARDANDO_CONFIRMACAO';
   const payloadEnvioDisponivel = Boolean(
@@ -253,7 +272,7 @@ export default function DetalheTransmissaoSiscomexPage() {
         ]}
       />
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -265,14 +284,14 @@ export default function DetalheTransmissaoSiscomexPage() {
           </button>
           <div>
             <h1 className="text-2xl font-semibold text-white">Transmissão #{transmissao.id}</h1>
-            <p className="text-gray-400 text-sm">
+            <p className="text-sm text-gray-400">
               {transmissao.modalidade === 'PRODUTOS'
                 ? 'Envio de produtos aprovados ao SISCOMEX.'
                 : 'Envio de operadores estrangeiros aprovados ao SISCOMEX.'}
             </p>
-            <p className="text-gray-500 text-xs">Criada em: {formatarData(transmissao.criadoEm)}</p>
-            <p className="text-gray-500 text-xs">Iniciada em: {formatarData(transmissao.iniciadoEm)}</p>
-            <p className="text-gray-500 text-xs">Concluída em: {formatarData(transmissao.concluidoEm)}</p>
+            <p className="text-xs text-gray-500">Criada em: {formatarData(transmissao.criadoEm)}</p>
+            <p className="text-xs text-gray-500">Iniciada em: {formatarData(transmissao.iniciadoEm)}</p>
+            <p className="text-xs text-gray-500">Concluída em: {formatarData(transmissao.concluidoEm)}</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -280,7 +299,9 @@ export default function DetalheTransmissaoSiscomexPage() {
             <Button
               variant="accent"
               className="flex items-center gap-2"
-              onClick={() => router.push(`/automacao/transmissoes-siscomex/${transmissao.id}/confirmar`)}
+              onClick={() =>
+                router.push(`/automacao/transmissoes-siscomex/${transmissao.id}/confirmar`)
+              }
             >
               <PlayCircle size={16} />
               Revisar e transmitir
@@ -310,24 +331,63 @@ export default function DetalheTransmissaoSiscomexPage() {
       <Card className="mb-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <div className="text-sm text-gray-400">Status da transmissao</div>
+            <div className="text-sm text-gray-400">Status da transmissão</div>
             <div className="mt-2">
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseStatus(transmissao.status)}`}>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseStatus(
+                  transmissao.status
+                )}`}
+              >
                 {obterEtiquetaStatus(transmissao.status)}
               </span>
             </div>
           </div>
-          <div className="text-sm text-right text-gray-300">
+          <div className="text-right text-sm text-gray-300">
             {transmissao.status === 'AGUARDANDO_CONFIRMACAO'
-              ? 'Esta transmissao ainda nao foi enfileirada. Revise os itens antes de iniciar.'
+              ? 'Esta transmissão ainda não foi enfileirada. Revise os itens antes de iniciar.'
               : transmissao.status === 'CANCELADA'
-                ? 'Esta pre-transmissao foi cancelada e permanece apenas para historico.'
-                : 'O progresso abaixo reflete a execucao individual e sequencial dos itens.'}
+                ? 'Esta pré-transmissão foi cancelada e permanece apenas para histórico.'
+                : 'O progresso abaixo reflete a execução individual e sequencial dos itens.'}
           </div>
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <Card className="mb-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-gray-500">Origem</div>
+            <div className="mt-1 text-sm text-gray-100">
+              {obterRotuloOrigemTransmissao(transmissao.origemTipo)}
+            </div>
+            {ehOrigemAjusteEstrutura(transmissao.origemTipo) && (
+              <div className="mt-1 text-xs text-amber-300">
+                {obterResumoOrigemTransmissao(transmissao.origemTipo, transmissao.origemContexto)}
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-gray-500">Catálogo</div>
+            <div className="mt-1 text-sm text-gray-100">
+              Nº {transmissao.catalogo.numero ?? '-'} · {transmissao.catalogo.nome}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-gray-500">Modalidade</div>
+            <div className="mt-1 text-sm text-gray-100">
+              {transmissao.modalidade === 'PRODUTOS' ? 'Produtos' : 'Operadores Estrangeiros'}
+            </div>
+          </div>
+        </div>
+        {detalhesOrigem.length > 0 && (
+          <div className="mt-4 border-t border-slate-800 pt-4 text-sm text-gray-300">
+            {detalhesOrigem.map(detalhe => (
+              <div key={detalhe}>{detalhe}</div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card>
           <div className="text-sm text-gray-400">Itens totais</div>
           <div className="text-2xl font-semibold text-white">{resumo.total}</div>
@@ -349,7 +409,7 @@ export default function DetalheTransmissaoSiscomexPage() {
       <Card>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
+            <thead className="bg-[#0f1419] text-xs uppercase text-gray-400">
               <tr>
                 <th className="w-16 px-4 py-3 text-center">#</th>
                 <th className="px-4 py-3">Produto</th>
@@ -363,17 +423,25 @@ export default function DetalheTransmissaoSiscomexPage() {
                 <tr key={item.id} className="border-b border-slate-800/60 hover:bg-slate-800/40">
                   <td className="px-4 py-3 text-center text-gray-200">{item.id}</td>
                   <td className="px-4 py-3 text-gray-200">
-                    <div className="font-semibold">{item.produto?.denominacao ?? 'Produto sem descrição'}</div>
+                    <div className="font-semibold">
+                      {item.produto?.denominacao ?? 'Produto sem descrição'}
+                    </div>
                     <div className="text-xs text-gray-400">ID interno: {item.produtoId}</div>
                     {item.retornoCodigo && (
-                      <div className="text-xs text-gray-400">Código SISCOMEX: {item.retornoCodigo}</div>
+                      <div className="text-xs text-gray-400">
+                        Código SISCOMEX: {item.retornoCodigo}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-200">
                     {item.operacao === 'NOVA_VERSAO' ? 'Nova versão' : 'Inclusão'}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseItem(item.status)}`}>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseItem(
+                        item.status
+                      )}`}
+                    >
                       {item.status === 'SUCESSO'
                         ? 'Transmitido'
                         : item.status === 'ERRO'
@@ -383,9 +451,11 @@ export default function DetalheTransmissaoSiscomexPage() {
                             : 'Pendente'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-200 flex items-start gap-2">
-                    {item.mensagem ? <AlertCircle size={14} className="mt-0.5 text-red-400" /> : null}
-                    <span>{item.mensagem || '—'}</span>
+                  <td className="flex items-start gap-2 px-4 py-3 text-gray-200">
+                    {item.mensagem ? (
+                      <AlertCircle size={14} className="mt-0.5 text-red-400" />
+                    ) : null}
+                    <span>{item.mensagem || '-'}</span>
                   </td>
                 </tr>
               ))}

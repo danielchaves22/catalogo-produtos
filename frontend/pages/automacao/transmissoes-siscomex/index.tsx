@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
+import { Eye, FileDown, Loader2, PlayCircle } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Eye, FileDown, Loader2, PlayCircle } from 'lucide-react';
 import { PageLoader } from '@/components/ui/PageLoader';
-import api from '@/lib/api';
 import { useToast } from '@/components/ui/ToastContext';
+import api from '@/lib/api';
+import {
+  TransmissaoOrigemContexto,
+  TransmissaoOrigemTipo,
+  ehOrigemAjusteEstrutura,
+  obterResumoOrigemTransmissao,
+} from '@/lib/transmissao-origem';
 
 interface CatalogoResumo {
   nome: string;
@@ -28,6 +34,8 @@ interface TransmissaoListagem {
   id: number;
   modalidade: ModalidadeTransmissao;
   catalogo: CatalogoResumo;
+  origemTipo?: TransmissaoOrigemTipo;
+  origemContexto?: TransmissaoOrigemContexto | null;
   totalItens: number;
   totalSucesso: number;
   totalErro: number;
@@ -65,19 +73,19 @@ function obterEtiquetaStatus(status: TransmissaoStatus) {
 function obterClasseStatus(status: TransmissaoStatus) {
   switch (status) {
     case 'AGUARDANDO_CONFIRMACAO':
-      return 'text-slate-200 bg-slate-700/40 border border-slate-600/60';
+      return 'border border-slate-600/60 bg-slate-700/40 text-slate-200';
     case 'CONCLUIDO':
-      return 'text-emerald-400 bg-emerald-400/10 border border-emerald-500/40';
+      return 'border border-emerald-500/40 bg-emerald-400/10 text-emerald-400';
     case 'CANCELADA':
-      return 'text-gray-400 bg-gray-500/10 border border-gray-600/40';
+      return 'border border-gray-600/40 bg-gray-500/10 text-gray-400';
     case 'FALHO':
-      return 'text-red-400 bg-red-400/10 border border-red-500/40';
+      return 'border border-red-500/40 bg-red-400/10 text-red-400';
     case 'PARCIAL':
-      return 'text-amber-300 bg-amber-400/10 border border-amber-500/40';
+      return 'border border-amber-500/40 bg-amber-400/10 text-amber-300';
     case 'PROCESSANDO':
-      return 'text-blue-300 bg-blue-400/10 border border-blue-500/40';
+      return 'border border-blue-500/40 bg-blue-400/10 text-blue-300';
     default:
-      return 'text-amber-400 bg-amber-400/10 border border-amber-500/40';
+      return 'border border-amber-500/40 bg-amber-400/10 text-amber-400';
   }
 }
 
@@ -143,7 +151,11 @@ export default function TransmissoesSiscomexPage() {
     return () => clearInterval(intervalo);
   }, [carregarTransmissoes, possuiTransmissaoAtiva]);
 
-  const baixarArquivo = async (transmissaoId: number, tipo: 'envio' | 'retorno', url?: string | null) => {
+  const baixarArquivo = async (
+    transmissaoId: number,
+    tipo: 'envio' | 'retorno',
+    url?: string | null
+  ) => {
     try {
       if (url) {
         window.open(url, '_blank');
@@ -190,10 +202,12 @@ export default function TransmissoesSiscomexPage() {
         ]}
       />
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-white">Transmissões ao SISCOMEX</h1>
-          <p className="text-gray-400 text-sm">Acompanhe as transmissões de produtos e operadores estrangeiros.</p>
+          <p className="text-sm text-gray-400">
+            Acompanhe as transmissões de produtos e operadores estrangeiros.
+          </p>
         </div>
         <div className="flex gap-3">
           <Button
@@ -202,7 +216,7 @@ export default function TransmissoesSiscomexPage() {
             onClick={() => router.push('/automacao/transmissoes-siscomex/produtos')}
           >
             <PlayCircle size={18} />
-            Nova transmissão de Produtos
+            Nova transmissão de produtos
           </Button>
           <Button
             variant="primary"
@@ -210,7 +224,7 @@ export default function TransmissoesSiscomexPage() {
             onClick={() => router.push('/automacao/transmissoes-siscomex/operadores')}
           >
             <PlayCircle size={18} />
-            Nova transmissão de Operadores
+            Nova transmissão de operadores
           </Button>
         </div>
       </div>
@@ -225,14 +239,14 @@ export default function TransmissoesSiscomexPage() {
             </div>
           )}
           {transmissoes.length === 0 ? (
-            <div className="text-center py-10 text-gray-400">
+            <div className="py-10 text-center text-gray-400">
               <FileDown className="mx-auto mb-3" size={32} />
               Nenhuma transmissão registrada até o momento.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
+                <thead className="bg-[#0f1419] text-xs uppercase text-gray-400">
                   <tr>
                     <th className="w-48 px-4 py-3 text-center">Ações</th>
                     <th className="px-4 py-3">Descrição</th>
@@ -246,7 +260,10 @@ export default function TransmissoesSiscomexPage() {
                 </thead>
                 <tbody>
                   {transmissoes.map(transmissao => (
-                    <tr key={transmissao.id} className="border-b border-slate-800/60 hover:bg-slate-800/40">
+                    <tr
+                      key={transmissao.id}
+                      className="border-b border-slate-800/60 hover:bg-slate-800/40"
+                    >
                       <td className="px-4 py-3 text-center">
                         <div className="flex flex-col items-center gap-2">
                           {transmissao.status === 'AGUARDANDO_CONFIRMACAO' && (
@@ -254,58 +271,102 @@ export default function TransmissoesSiscomexPage() {
                               variant="accent"
                               size="xs"
                               className="w-full justify-center"
-                              onClick={() => router.push(`/automacao/transmissoes-siscomex/${transmissao.id}/confirmar`)}
+                              onClick={() =>
+                                router.push(
+                                  `/automacao/transmissoes-siscomex/${transmissao.id}/confirmar`
+                                )
+                              }
                             >
                               Revisar e transmitir
                             </Button>
                           )}
-                          <div className="flex items-center gap-2 justify-center">
+                          <div className="flex items-center justify-center gap-2">
                             <button
-                              className="p-2 rounded bg-slate-800 text-gray-200 hover:text-white hover:bg-slate-700"
+                              className="rounded bg-slate-800 p-2 text-gray-200 hover:bg-slate-700 hover:text-white"
                               title="Visualizar detalhes"
-                              onClick={() => router.push(`/automacao/transmissoes-siscomex/${transmissao.id}`)}
+                              onClick={() =>
+                                router.push(`/automacao/transmissoes-siscomex/${transmissao.id}`)
+                              }
                             >
                               <Eye size={18} />
                             </button>
                             <button
-                              className="p-2 rounded bg-slate-800 text-gray-200 hover:text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="rounded bg-slate-800 p-2 text-gray-200 hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                               title="Baixar payload de envio"
-                              disabled={!transmissao.payloadEnvioUrl || transmissao.status === 'EM_FILA' || transmissao.status === 'PROCESSANDO'}
-                              onClick={() => baixarArquivo(transmissao.id, 'envio', transmissao.payloadEnvioUrl)}
+                              disabled={
+                                !transmissao.payloadEnvioUrl ||
+                                transmissao.status === 'EM_FILA' ||
+                                transmissao.status === 'PROCESSANDO'
+                              }
+                              onClick={() =>
+                                baixarArquivo(
+                                  transmissao.id,
+                                  'envio',
+                                  transmissao.payloadEnvioUrl
+                                )
+                              }
                             >
                               <FileDown size={18} />
                             </button>
                             <button
-                              className="p-2 rounded bg-slate-800 text-gray-200 hover:text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="rounded bg-slate-800 p-2 text-gray-200 hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                               title="Baixar retorno"
                               disabled={!transmissao.payloadRetornoUrl}
-                              onClick={() => baixarArquivo(transmissao.id, 'retorno', transmissao.payloadRetornoUrl)}
+                              onClick={() =>
+                                baixarArquivo(
+                                  transmissao.id,
+                                  'retorno',
+                                  transmissao.payloadRetornoUrl
+                                )
+                              }
                             >
                               <Loader2 size={18} />
                             </button>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-200">Transmissão #{transmissao.id}</td>
                       <td className="px-4 py-3 text-gray-200">
-                        {transmissao.modalidade === 'PRODUTOS' ? 'Produtos' : 'Operadores Estrangeiros'}
+                        <div className="font-medium">Transmissão #{transmissao.id}</div>
+                        {ehOrigemAjusteEstrutura(transmissao.origemTipo) && (
+                          <div className="mt-1 text-xs text-amber-300">
+                            {obterResumoOrigemTransmissao(
+                              transmissao.origemTipo,
+                              transmissao.origemContexto
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-gray-200">
+                        {transmissao.modalidade === 'PRODUTOS'
+                          ? 'Produtos'
+                          : 'Operadores Estrangeiros'}
                       </td>
                       <td className="px-4 py-3 text-gray-200">
                         <span className="font-medium">{transmissao.catalogo.nome}</span>
-                        <span className="text-gray-400 block text-xs">
+                        <span className="block text-xs text-gray-400">
                           Catálogo Nº {transmissao.catalogo.numero ?? '-'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-200">
                         {obterResumoTotais(transmissao)}
                         {transmissao.totalErro > 0 && (
-                          <span className="text-red-400 ml-1">({transmissao.totalErro} com erro)</span>
+                          <span className="ml-1 text-red-400">
+                            ({transmissao.totalErro} com erro)
+                          </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-200">{formatarData(transmissao.iniciadoEm)}</td>
-                      <td className="px-4 py-3 text-gray-200">{formatarData(transmissao.concluidoEm)}</td>
+                      <td className="px-4 py-3 text-gray-200">
+                        {formatarData(transmissao.iniciadoEm)}
+                      </td>
+                      <td className="px-4 py-3 text-gray-200">
+                        {formatarData(transmissao.concluidoEm)}
+                      </td>
                       <td className="px-4 py-3">
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseStatus(transmissao.status)}`}>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseStatus(
+                            transmissao.status
+                          )}`}
+                        >
                           {obterEtiquetaStatus(transmissao.status)}
                         </span>
                       </td>

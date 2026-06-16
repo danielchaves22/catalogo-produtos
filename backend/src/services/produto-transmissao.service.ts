@@ -4,6 +4,7 @@ import {
   AsyncJobTipo,
   Prisma,
   ProdutoTransmissaoItemOperacao,
+  ProdutoTransmissaoOrigemTipo,
   ProdutoTransmissaoItemStatus,
   ProdutoTransmissaoModalidade,
   ProdutoTransmissaoStatus,
@@ -49,6 +50,14 @@ interface PreparacaoTransmissaoValidada {
   cpfCnpjRaiz: string;
   idsSelecionados: number[];
   itens: ItemPreparadoTransmissao[];
+}
+
+interface OrigemTransmissaoAjusteEstruturaContexto {
+  ncmCodigo?: string;
+  modalidade?: string;
+  catalogoId?: number;
+  produtoIdsElegiveis?: number[];
+  produtoIdsIgnoradosDuplicidade?: number[];
 }
 
 interface RetornoItemTransmissao {
@@ -324,6 +333,7 @@ export class ProdutoTransmissaoService {
           catalogoId: preparacao.catalogoId,
           usuarioCatalogoId: usuarioCatalogoId ?? null,
           modalidade: ProdutoTransmissaoModalidade.PRODUTOS,
+          origemTipo: ProdutoTransmissaoOrigemTipo.MANUAL,
           status: ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO,
           totalItens: preparacao.itens.length,
           totalSucesso: 0,
@@ -1557,6 +1567,8 @@ export class ProdutoTransmissaoService {
       id: transmissao.id,
       catalogoId: transmissao.catalogoId,
       catalogo: transmissao.catalogo,
+      origemTipo: transmissao.origemTipo ?? ProdutoTransmissaoOrigemTipo.MANUAL,
+      origemContexto: (transmissao.origemContextoJson ?? null) as OrigemTransmissaoAjusteEstruturaContexto | null,
       status: transmissao.status,
       modalidade: transmissao.modalidade,
       totalItens: transmissao.totalItens,

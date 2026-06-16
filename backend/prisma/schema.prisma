@@ -219,6 +219,8 @@ model ProdutoTransmissao {
   usuarioCatalogoId    Int?                        @map("usuario_catalogo_id")
   asyncJobId           Int?                        @unique @map("async_job_id")
   modalidade           ProdutoTransmissaoModalidade @default(PRODUTOS) @map("modalidade")
+  origemTipo           ProdutoTransmissaoOrigemTipo @default(MANUAL) @map("origem_tipo")
+  origemContextoJson   Json?                       @map("origem_contexto_json")
   status               ProdutoTransmissaoStatus    @default(AGUARDANDO_CONFIRMACAO) @map("status")
   totalItens           Int                         @default(0) @map("total_itens")
   totalSucesso         Int                         @default(0) @map("total_sucesso")
@@ -429,6 +431,11 @@ enum ProdutoTransmissaoStatus {
   FALHO
   PARCIAL
   CANCELADA
+}
+
+enum ProdutoTransmissaoOrigemTipo {
+  MANUAL
+  AJUSTE_ESTRUTURA
 }
 
 enum ProdutoTransmissaoItemStatus {
