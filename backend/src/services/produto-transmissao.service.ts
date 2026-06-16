@@ -3,10 +3,11 @@ import {
   AsyncJobStatus,
   AsyncJobTipo,
   Prisma,
+  ProdutoTransmissaoBlocoStatus,
   ProdutoTransmissaoItemOperacao,
-  ProdutoTransmissaoOrigemTipo,
   ProdutoTransmissaoItemStatus,
   ProdutoTransmissaoModalidade,
+  ProdutoTransmissaoOrigemTipo,
   ProdutoTransmissaoStatus,
 } from '@prisma/client';
 import { ProdutoExportacaoService } from './produto-exportacao.service';
@@ -19,7 +20,10 @@ import { ValidationError } from '../types/validation-error';
 import { createAsyncJob, registerJobLog } from '../jobs/async-job.repository';
 import { storageFactory } from './storage.factory';
 import { logger } from '../utils/logger';
-import { STATUS_TRANSMISSAO_EXECUCAO } from '../constants/transmissao-status';
+import {
+  STATUS_TRANSMISSAO_EXECUCAO,
+  STATUS_TRANSMISSAO_FILA_CATALOGO,
+} from '../constants/transmissao-status';
 
 interface OpcaoSolicitarTransmissao {
   forcarAtualizacaoVersao?: boolean;
@@ -33,6 +37,8 @@ interface SiscomexClientCacheItem {
 
 interface PlanejamentoItemTransmissao {
   itemId: number;
+  blocoId: number | null;
+  ordemExecucao: number | null;
   produtoId: number;
   operacao: ProdutoTransmissaoItemOperacao;
   codigo: string | null;
@@ -62,6 +68,8 @@ interface OrigemTransmissaoAjusteEstruturaContexto {
 
 interface RetornoItemTransmissao {
   produtoId: number;
+  blocoId?: number | null;
+  ordemExecucao?: number | null;
   operacao: ProdutoTransmissaoItemOperacao;
   status: 'SUCESSO' | 'ERRO';
   endpoint: string | null;
@@ -97,12 +105,45 @@ type ClassificacaoErroTransmissao = {
   retryable: boolean;
 };
 
+interface ResultadoEnfileiramentoTransmissao {
+  transmissaoId: number;
+  jobId: number | null;
+  posicaoFilaCatalogo: number;
+}
+
+interface ResumoBlocoTransmissao {
+  id: number;
+  ordem: number;
+  status: ProdutoTransmissaoBlocoStatus;
+  totalItens: number;
+  totalSucesso: number;
+  totalErro: number;
+  mensagem: string | null;
+  iniciadoEm: Date | null;
+  concluidoEm: Date | null;
+}
+
+type ItemTransmissaoPersistido = {
+  id: number;
+  transmissaoId: number;
+  blocoId: number | null;
+  ordemExecucao: number | null;
+  produtoId: number;
+  operacao: ProdutoTransmissaoItemOperacao;
+  status: ProdutoTransmissaoItemStatus;
+  mensagem?: string | null;
+  retornoCodigo?: string | null;
+  retornoVersao?: number | null;
+  retornoSituacao?: string | null;
+};
+
 const UM_DIA_EM_MS = 24 * 60 * 60 * 1000;
 const SISCOMEX_CLIENTE_CACHE_TTL_PADRAO_MS = 60000;
 const SISCOMEX_TRANSMISSAO_DELAY_PADRAO_MS = 750;
 const SISCOMEX_TRANSMISSAO_RETRY_MAX_PADRAO = 3;
 const SISCOMEX_TRANSMISSAO_BACKOFF_PADRAO_MS = 2000;
 const SISCOMEX_TRANSMISSAO_COOLDOWN_PADRAO_MS = 60000;
+const TAMANHO_BLOCO_TRANSMISSAO = 100;
 const HEARTBEAT_WAIT_STEP_MS = 1000;
 
 export class ProdutoTransmissaoService {
@@ -129,6 +170,7 @@ export class ProdutoTransmissaoService {
     process.env.SISCOMEX_TRANSMISSAO_COOLDOWN_MS,
     SISCOMEX_TRANSMISSAO_COOLDOWN_PADRAO_MS
   );
+  private readonly transmissaoBlocoTamanho = TAMANHO_BLOCO_TRANSMISSAO;
 
   constructor(
     private readonly exportacaoService = new ProdutoExportacaoService(),
@@ -312,20 +354,6 @@ export class ProdutoTransmissaoService {
   ) {
     const preparacao = await this.validarSelecaoParaTransmissao(ids, catalogoId, superUserId);
 
-    const transmissaoEmAndamento = await catalogoPrisma.produtoTransmissao.findFirst({
-      where: {
-        catalogoId: preparacao.catalogoId,
-        status: { in: STATUS_TRANSMISSAO_EXECUCAO },
-      },
-    });
-
-    if (transmissaoEmAndamento) {
-      throw new ValidationError({
-        catalogoId:
-          'Já existe uma transmissão em andamento para o catálogo selecionado. Aguarde a conclusão antes de criar uma nova.',
-      });
-    }
-
     return catalogoPrisma.$transaction(async tx => {
       const transmissao = await tx.produtoTransmissao.create({
         data: {
@@ -364,7 +392,10 @@ export class ProdutoTransmissaoService {
       where: { id: transmissaoId, superUserId },
       include: {
         itens: {
-          orderBy: { id: 'asc' },
+          orderBy: [{ ordemExecucao: 'asc' }, { id: 'asc' }],
+        },
+        blocos: {
+          orderBy: { ordem: 'asc' },
         },
       },
     });
@@ -373,101 +404,108 @@ export class ProdutoTransmissaoService {
       throw new ValidationError({ transmissaoId: 'Transmissão não encontrada.' });
     }
 
-    if (transmissao.status !== ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO) {
+    if (
+      transmissao.status !== ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO &&
+      transmissao.status !== ProdutoTransmissaoStatus.INTERROMPIDA
+    ) {
       throw new ValidationError({
-        transmissaoId: 'Somente transmissões aguardando confirmação podem ser iniciadas.',
+        transmissaoId:
+          'Somente transmissões aguardando confirmação ou interrompidas podem ser iniciadas.',
       });
     }
 
     const idsSelecionados = transmissao.itens.map(item => item.produtoId);
     if (idsSelecionados.length === 0) {
       throw new ValidationError({
-        transmissaoId: 'A transmissão não possui itens para enviar. Revise ou cancele a pré-transmissão.',
+        transmissaoId:
+          'A transmissão não possui itens para enviar. Revise ou cancele a pré-transmissão.',
       });
     }
-
-    const transmissaoAtiva = await catalogoPrisma.produtoTransmissao.findFirst({
-      where: {
-        catalogoId: transmissao.catalogoId,
-        status: { in: STATUS_TRANSMISSAO_EXECUCAO },
-      },
-    });
-
-    if (transmissaoAtiva && transmissaoAtiva.id !== transmissao.id) {
-      throw new ValidationError({
-        catalogoId: 'Já existe uma transmissão em andamento para o catálogo selecionado. Aguarde a conclusão.',
-      });
-    }
-
-    const preparacao = await this.validarSelecaoParaTransmissao(
-      idsSelecionados,
-      transmissao.catalogoId,
-      superUserId
-    );
-    const itensPorProdutoId = new Map(preparacao.itens.map(item => [item.produtoId, item]));
 
     return catalogoPrisma.$transaction(async tx => {
-      for (const item of transmissao.itens) {
-        const itemAtualizado = itensPorProdutoId.get(item.produtoId);
+      if (transmissao.status === ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO) {
+        const preparacao = await this.validarSelecaoParaTransmissao(
+          idsSelecionados,
+          transmissao.catalogoId,
+          superUserId
+        );
 
-        if (!itemAtualizado) {
+        await this.prepararItensEBlocosParaFila(
+          tx,
+          transmissao.id,
+          transmissao.itens,
+          preparacao
+        );
+
+        await tx.produtoTransmissao.update({
+          where: { id: transmissao.id },
+          data: {
+            status: ProdutoTransmissaoStatus.EM_FILA,
+            totalItens: preparacao.itens.length,
+            totalSucesso: 0,
+            totalErro: 0,
+            selecaoJson: preparacao.idsSelecionados as Prisma.InputJsonValue,
+            asyncJobId: null,
+            enfileiradaEm: transmissao.enfileiradaEm ?? new Date(),
+            iniciadoEm: null,
+            concluidoEm: null,
+            payloadEnvioPath: null,
+            payloadEnvioExpiraEm: null,
+            payloadEnvioTamanho: null,
+            payloadEnvioProvider: null,
+            payloadRetornoPath: null,
+            payloadRetornoExpiraEm: null,
+            payloadRetornoTamanho: null,
+            payloadRetornoProvider: null,
+          },
+        });
+      } else {
+        await this.normalizarItensEmProcessamentoTx(transmissao.id, tx);
+        await this.sincronizarBlocosTransmissao(transmissao.id, tx);
+
+        const pendentes = await tx.produtoTransmissaoItem.count({
+          where: {
+            transmissaoId: transmissao.id,
+            status: ProdutoTransmissaoItemStatus.PENDENTE,
+          },
+        });
+
+        if (pendentes === 0) {
           throw new ValidationError({
-            produtos: `O produto ${item.produtoId} não está mais elegível para transmissão.`,
+            transmissaoId:
+              'A transmissão interrompida não possui itens pendentes para retomada.',
           });
         }
 
-        await tx.produtoTransmissaoItem.update({
-          where: { id: item.id },
+        await tx.produtoTransmissao.update({
+          where: { id: transmissao.id },
           data: {
-            operacao: itemAtualizado.operacao,
-            status: ProdutoTransmissaoItemStatus.PENDENTE,
-            mensagem: null,
-            retornoCodigo: null,
-            retornoVersao: null,
-            retornoSituacao: null,
+            status: ProdutoTransmissaoStatus.EM_FILA,
+            asyncJobId: null,
+            concluidoEm: null,
+            enfileiradaEm: transmissao.enfileiradaEm ?? transmissao.criadoEm,
           },
         });
       }
 
-      await tx.produtoTransmissao.update({
-        where: { id: transmissao.id },
-        data: {
-          status: ProdutoTransmissaoStatus.EM_FILA,
-          totalItens: preparacao.itens.length,
-          totalSucesso: 0,
-          totalErro: 0,
-          selecaoJson: preparacao.idsSelecionados as Prisma.InputJsonValue,
-          asyncJobId: null,
-          iniciadoEm: null,
-          concluidoEm: null,
-          payloadEnvioPath: null,
-          payloadEnvioExpiraEm: null,
-          payloadEnvioTamanho: null,
-          payloadEnvioProvider: null,
-          payloadRetornoPath: null,
-          payloadRetornoExpiraEm: null,
-          payloadRetornoTamanho: null,
-          payloadRetornoProvider: null,
-        },
-      });
-
-      const job = await createAsyncJob(
-        {
-          tipo: AsyncJobTipo.TRANSMISSAO_PRODUTO,
-          payload: {
-            transmissaoId: transmissao.id,
-            superUserId,
-          },
-        },
-        tx
+      const job = await this.dispararTransmissaoSeCabecaDaFila(
+        tx,
+        transmissao.id,
+        transmissao.catalogoId,
+        superUserId
       );
 
-      await tx.produtoTransmissao.update({
-        where: { id: transmissao.id },
-        data: { asyncJobId: job.id },
-      });
+      const posicaoFilaCatalogo = await this.calcularPosicaoFilaCatalogoTx(
+        tx,
+        transmissao.catalogoId,
+        transmissao.id
+      );
 
-      return { transmissaoId: transmissao.id, jobId: job.id };
+      return {
+        transmissaoId: transmissao.id,
+        jobId: job?.id ?? null,
+        posicaoFilaCatalogo,
+      } satisfies ResultadoEnfileiramentoTransmissao;
     });
   }
 
@@ -558,6 +596,9 @@ export class ProdutoTransmissaoService {
       where: { superUserId },
       include: {
         catalogo: { select: { id: true, nome: true, numero: true } },
+        blocos: {
+          orderBy: { ordem: 'asc' },
+        },
       },
       orderBy: { criadoEm: 'desc' },
     });
@@ -570,6 +611,9 @@ export class ProdutoTransmissaoService {
       where: { id, superUserId },
       include: {
         catalogo: { select: { id: true, nome: true, numero: true } },
+        blocos: {
+          orderBy: { ordem: 'asc' },
+        },
         itens: {
           include: {
             produto: {
@@ -584,7 +628,7 @@ export class ProdutoTransmissaoService {
               },
             },
           },
-          orderBy: { id: 'asc' },
+          orderBy: [{ ordemExecucao: 'asc' }, { id: 'asc' }],
         },
       },
     });
@@ -594,7 +638,7 @@ export class ProdutoTransmissaoService {
     }
 
     const resposta = await this.mapearTransmissaoParaResposta(transmissao);
-    return { ...resposta, itens: transmissao.itens };
+    return { ...resposta, blocos: transmissao.blocos, itens: transmissao.itens };
   }
 
   async gerarLinkArquivo(transmissaoId: number, tipo: 'envio' | 'retorno', superUserId: number) {
@@ -635,7 +679,7 @@ export class ProdutoTransmissaoService {
     superUserId: number,
     heartbeat: () => Promise<void>,
     jobId?: number
-  ) {
+  ): Promise<ProdutoTransmissaoStatus> {
     const transmissao = await catalogoPrisma.produtoTransmissao.findUnique({
       where: { id: transmissaoId },
       include: {
@@ -647,21 +691,39 @@ export class ProdutoTransmissaoService {
       throw new Error('Transmissão não encontrada para o superusuário informado.');
     }
 
+    if (
+      transmissao.status !== ProdutoTransmissaoStatus.EM_FILA &&
+      transmissao.status !== ProdutoTransmissaoStatus.PROCESSANDO
+    ) {
+      return transmissao.status;
+    }
+
     const ids = this.converterSelecaoParaIds(transmissao.selecaoJson);
 
     if (!ids.length) {
-      await this.marcarComoFalha(transmissao.id, 'Nenhum produto encontrado para enviar.', heartbeat, jobId);
-      return;
+      await this.marcarComoFalha(
+        transmissao.id,
+        'Nenhum produto encontrado para enviar.',
+        heartbeat,
+        jobId
+      );
+      return ProdutoTransmissaoStatus.FALHO;
     }
 
     const cpfCnpjRaiz = this.extrairCpfCnpjRaiz(transmissao.catalogo.cpf_cnpj);
 
     if (!cpfCnpjRaiz) {
-      await this.marcarComoFalha(transmissao.id, 'Catálogo sem CNPJ válido para transmissão.', heartbeat, jobId);
-      return;
+      await this.marcarComoFalha(
+        transmissao.id,
+        'Catálogo sem CNPJ válido para transmissão.',
+        heartbeat,
+        jobId
+      );
+      return ProdutoTransmissaoStatus.FALHO;
     }
 
     await this.normalizarItensEmProcessamento(transmissao.id);
+    const blocosPersistidos = await this.garantirBlocosPersistidos(transmissao.id);
 
     await catalogoPrisma.produtoTransmissao.update({
       where: { id: transmissao.id },
@@ -673,33 +735,59 @@ export class ProdutoTransmissaoService {
     });
 
     if (jobId) {
-      await registerJobLog(jobId, AsyncJobStatus.PROCESSANDO, 'Preparando transmissão individual de produtos.');
+      await registerJobLog(
+        jobId,
+        AsyncJobStatus.PROCESSANDO,
+        'Preparando transmissão individual de produtos.'
+      );
     }
     await heartbeat();
 
     const itensPersistidos = await catalogoPrisma.produtoTransmissaoItem.findMany({
       where: { transmissaoId: transmissao.id },
-      orderBy: { id: 'asc' },
+      orderBy: [{ ordemExecucao: 'asc' }, { id: 'asc' }],
     });
 
     if (itensPersistidos.length === 0) {
-      await this.marcarComoFalha(transmissao.id, 'Nenhum item de transmissão foi encontrado.', heartbeat, jobId);
-      return;
+      await this.marcarComoFalha(
+        transmissao.id,
+        'Nenhum item de transmissão foi encontrado.',
+        heartbeat,
+        jobId
+      );
+      return ProdutoTransmissaoStatus.FALHO;
     }
 
-    const produtos = await this.exportacaoService.buscarProdutosComAtributos(ids, transmissao.superUserId, transmissao.catalogoId);
+    if (blocosPersistidos.length === 0) {
+      await this.marcarComoFalha(
+        transmissao.id,
+        'Nenhum bloco de transmissão foi encontrado para processar a fila.',
+        heartbeat,
+        jobId
+      );
+      return ProdutoTransmissaoStatus.FALHO;
+    }
+
+    const produtos = await this.exportacaoService.buscarProdutosComAtributos(
+      ids,
+      transmissao.superUserId,
+      transmissao.catalogoId
+    );
     const produtosPorId = new Map(produtos.map(produto => [produto.id, produto]));
     const produtosExportados = this.exportacaoService.transformarParaSiscomex(produtos, {
       id: transmissao.catalogo.id,
       cpf_cnpj: transmissao.catalogo.cpf_cnpj ?? null,
     });
-    const produtosExportadosPorId = new Map(produtosExportados.map(produto => [Number(produto.seq), produto]));
+    const produtosExportadosPorId = new Map(
+      produtosExportados.map(produto => [Number(produto.seq), produto])
+    );
 
     const itensParaEnvio = this.montarPlanejamentoItens(
       itensPersistidos,
       produtosExportadosPorId,
       cpfCnpjRaiz
     );
+    const planejamentoPorItemId = new Map(itensParaEnvio.map(item => [item.itemId, item]));
 
     await this.gerarPayloadEnvio(transmissao.id, transmissao.superUserId, itensParaEnvio);
     await heartbeat();
@@ -712,119 +800,542 @@ export class ProdutoTransmissaoService {
       );
     }
 
-    const itensPendentes = itensPersistidos.filter(item => item.status === ProdutoTransmissaoItemStatus.PENDENTE);
+    const itensPorBlocoId = new Map<number, ItemTransmissaoPersistido[]>();
+    for (const item of itensPersistidos) {
+      if (!item.blocoId) {
+        continue;
+      }
+
+      const itensBloco = itensPorBlocoId.get(item.blocoId) ?? [];
+      itensBloco.push(item);
+      itensPorBlocoId.set(item.blocoId, itensBloco);
+    }
+
     let processadosNoCiclo = 0;
 
-    for (const item of itensPendentes) {
-      const planejamento = itensParaEnvio.find(planejado => planejado.itemId === item.id);
-
-      if (!planejamento) {
-        await this.marcarItemComoErro(
-          transmissao.id,
-          item.id,
-          'Produto não encontrado ou sem dados suficientes para montar a transmissão.'
-        );
-        processadosNoCiclo += 1;
-        continue;
-      }
-
-      const produtoAtual = produtosPorId.get(item.produtoId);
-
-      if (!produtoAtual) {
-        await this.marcarItemComoErro(
-          transmissao.id,
-          item.id,
-          'Produto não encontrado no catálogo para processamento da transmissão.'
-        );
-        processadosNoCiclo += 1;
-        continue;
-      }
-
-      const statusProduto = String(produtoAtual.status || '').toUpperCase();
-      if (statusProduto !== 'APROVADO') {
-        await this.marcarItemComoErro(
-          transmissao.id,
-          item.id,
-          `Produto não está mais aprovado para transmissão. Status atual: ${statusProduto || 'desconhecido'}.`
-        );
-        processadosNoCiclo += 1;
-        continue;
-      }
-
-      await this.marcarItemComoProcessando(transmissao.id, item.id);
-      await heartbeat();
-
-      const cliente = await this.obterClienteSiscomex(
-        transmissao.catalogoId,
-        transmissao.superUserId,
-        this.siscomexClients
-      );
-
-      const resultado = await this.executarItemComRetry({
-        cliente,
-        cpfCnpjRaiz,
-        heartbeat,
-        item: planejamento,
-        jobId,
-        superUserId: transmissao.superUserId,
-        transmissaoId: transmissao.id,
+    for (const bloco of blocosPersistidos) {
+      const itensBloco = (itensPorBlocoId.get(bloco.id) ?? []).sort((a, b) => {
+        const ordemA = a.ordemExecucao ?? a.id;
+        const ordemB = b.ordemExecucao ?? b.id;
+        return ordemA - ordemB;
       });
 
-      if (resultado.tipo === 'sucesso') {
-        await this.produtoService.marcarComoTransmitido(item.produtoId, transmissao.superUserId, {
-          codigo: resultado.codigoPersistencia,
-          versao: resultado.versao,
-          situacao: resultado.situacao,
-          atualizarCodigo: planejamento.operacao !== ProdutoTransmissaoItemOperacao.NOVA_VERSAO,
+      if (!itensBloco.some(item => item.status === ProdutoTransmissaoItemStatus.PENDENTE)) {
+        await this.sincronizarResumoBloco(bloco.id);
+        continue;
+      }
+
+      await this.marcarBlocoComoProcessando(bloco.id);
+      await heartbeat();
+
+      for (const item of itensBloco) {
+        if (item.status !== ProdutoTransmissaoItemStatus.PENDENTE) {
+          continue;
+        }
+
+        const planejamento = planejamentoPorItemId.get(item.id);
+
+        if (!planejamento) {
+          await this.marcarItemComoErro(
+            transmissao.id,
+            item.blocoId,
+            item.id,
+            'Produto não encontrado ou sem dados suficientes para montar a transmissão.'
+          );
+          processadosNoCiclo += 1;
+          continue;
+        }
+
+        const produtoAtual = produtosPorId.get(item.produtoId);
+
+        if (!produtoAtual) {
+          await this.marcarItemComoErro(
+            transmissao.id,
+            item.blocoId,
+            item.id,
+            'Produto não encontrado no catálogo para processamento da transmissão.'
+          );
+          processadosNoCiclo += 1;
+          continue;
+        }
+
+        const statusProduto = String(produtoAtual.status || '').toUpperCase();
+        if (statusProduto !== 'APROVADO') {
+          await this.marcarItemComoErro(
+            transmissao.id,
+            item.blocoId,
+            item.id,
+            `Produto não está mais aprovado para transmissão. Status atual: ${statusProduto || 'desconhecido'}.`
+          );
+          processadosNoCiclo += 1;
+          continue;
+        }
+
+        await this.marcarItemComoProcessando(transmissao.id, item.blocoId, item.id);
+        await heartbeat();
+
+        const cliente = await this.obterClienteSiscomex(
+          transmissao.catalogoId,
+          transmissao.superUserId,
+          this.siscomexClients
+        );
+
+        const resultado = await this.executarItemComRetry({
+          cliente,
+          cpfCnpjRaiz,
+          heartbeat,
+          item: planejamento,
+          jobId,
+          superUserId: transmissao.superUserId,
           transmissaoId: transmissao.id,
         });
 
-        await this.marcarItemComoSucesso(
-          transmissao.id,
-          item.id,
-          resultado.codigoPersistencia,
-          resultado.versao,
-          resultado.situacao
-        );
+        if (resultado.tipo === 'sucesso') {
+          await this.produtoService.marcarComoTransmitido(item.produtoId, transmissao.superUserId, {
+            codigo: resultado.codigoPersistencia,
+            versao: resultado.versao,
+            situacao: resultado.situacao,
+            atualizarCodigo: planejamento.operacao !== ProdutoTransmissaoItemOperacao.NOVA_VERSAO,
+            transmissaoId: transmissao.id,
+          });
 
-        processadosNoCiclo += 1;
-      } else if (resultado.tipo === 'erro') {
-        await this.marcarItemComoErro(transmissao.id, item.id, resultado.mensagem);
-        processadosNoCiclo += 1;
-      } else {
-        await this.marcarItemComoErro(transmissao.id, item.id, resultado.mensagem);
-        await this.marcarItensPendentesComoErro(
-          transmissao.id,
-          'Transmissão interrompida por falha persistente de autenticação/permissão/certificado na integração com o SISCOMEX.'
-        );
-        processadosNoCiclo += 1;
-
-        if (jobId) {
-          await registerJobLog(jobId, AsyncJobStatus.FALHO, resultado.mensagem);
+          await this.marcarItemComoSucesso(
+            transmissao.id,
+            item.blocoId,
+            item.id,
+            resultado.codigoPersistencia,
+            resultado.versao,
+            resultado.situacao
+          );
+          processadosNoCiclo += 1;
+        } else if (resultado.tipo === 'erro') {
+          await this.marcarItemComoErro(
+            transmissao.id,
+            item.blocoId,
+            item.id,
+            resultado.mensagem
+          );
+          processadosNoCiclo += 1;
+        } else {
+          await this.interromperTransmissao(
+            transmissao.id,
+            item.blocoId,
+            resultado.mensagem,
+            jobId
+          );
+          await heartbeat();
+          return ProdutoTransmissaoStatus.INTERROMPIDA;
         }
 
-        await this.finalizarTransmissao(transmissao.id, cpfCnpjRaiz, jobId);
+        if (jobId && processadosNoCiclo > 0 && processadosNoCiclo % 10 === 0) {
+          await registerJobLog(
+            jobId,
+            AsyncJobStatus.PROCESSANDO,
+            `Transmissão em andamento: ${processadosNoCiclo} item(ns) concluído(s) neste ciclo.`
+          );
+        }
+
         await heartbeat();
-        return;
+
+        if (this.transmissaoDelayMs > 0) {
+          await this.esperarComHeartbeat(this.transmissaoDelayMs, heartbeat);
+        }
       }
 
-      if (jobId && processadosNoCiclo > 0 && processadosNoCiclo % 10 === 0) {
-        await registerJobLog(
-          jobId,
-          AsyncJobStatus.PROCESSANDO,
-          `Transmissão em andamento: ${processadosNoCiclo} item(ns) concluído(s) neste ciclo.`
-        );
-      }
-
-      await heartbeat();
-
-      if (this.transmissaoDelayMs > 0) {
-        await this.esperarComHeartbeat(this.transmissaoDelayMs, heartbeat);
-      }
+      await this.sincronizarResumoBloco(bloco.id);
     }
 
     await this.finalizarTransmissao(transmissao.id, cpfCnpjRaiz, jobId);
     await heartbeat();
+
+    const transmissaoFinal = await catalogoPrisma.produtoTransmissao.findUnique({
+      where: { id: transmissao.id },
+      select: { status: true },
+    });
+
+    return transmissaoFinal?.status ?? ProdutoTransmissaoStatus.CONCLUIDO;
+  }
+
+  private async prepararItensEBlocosParaFila(
+    tx: Prisma.TransactionClient,
+    transmissaoId: number,
+    itensPersistidos: Array<{ id: number; produtoId: number }>,
+    preparacao: PreparacaoTransmissaoValidada
+  ) {
+    const itensPorProdutoId = new Map(preparacao.itens.map(item => [item.produtoId, item]));
+    let ordemExecucao = 1;
+
+    for (const item of itensPersistidos) {
+      const itemAtualizado = itensPorProdutoId.get(item.produtoId);
+
+      if (!itemAtualizado) {
+        throw new ValidationError({
+          produtos: `O produto ${item.produtoId} não está mais elegível para transmissão.`,
+        });
+      }
+
+      await tx.produtoTransmissaoItem.update({
+        where: { id: item.id },
+        data: {
+          blocoId: null,
+          ordemExecucao,
+          operacao: itemAtualizado.operacao,
+          status: ProdutoTransmissaoItemStatus.PENDENTE,
+          mensagem: null,
+          retornoCodigo: null,
+          retornoVersao: null,
+          retornoSituacao: null,
+        },
+      });
+
+      ordemExecucao += 1;
+    }
+
+    const itensAtualizados = await tx.produtoTransmissaoItem.findMany({
+      where: { transmissaoId },
+      orderBy: [{ ordemExecucao: 'asc' }, { id: 'asc' }],
+    });
+
+    await this.recriarBlocosTransmissao(tx, transmissaoId, itensAtualizados);
+    await this.sincronizarBlocosTransmissao(transmissaoId, tx);
+  }
+
+  private async recriarBlocosTransmissao(
+    tx: Prisma.TransactionClient,
+    transmissaoId: number,
+    itensOrdenados: Array<{ id: number; ordemExecucao: number | null }>
+  ) {
+    await tx.produtoTransmissaoBloco.deleteMany({
+      where: { transmissaoId },
+    });
+
+    let ordemBloco = 1;
+    for (let indice = 0; indice < itensOrdenados.length; indice += this.transmissaoBlocoTamanho) {
+      const lote = itensOrdenados.slice(indice, indice + this.transmissaoBlocoTamanho);
+      const bloco = await tx.produtoTransmissaoBloco.create({
+        data: {
+          transmissaoId,
+          ordem: ordemBloco,
+          status: ProdutoTransmissaoBlocoStatus.PENDENTE,
+          totalItens: lote.length,
+          totalSucesso: 0,
+          totalErro: 0,
+          mensagem: null,
+        },
+      });
+
+      await tx.produtoTransmissaoItem.updateMany({
+        where: {
+          id: { in: lote.map(item => item.id) },
+        },
+        data: {
+          blocoId: bloco.id,
+        },
+      });
+
+      ordemBloco += 1;
+    }
+  }
+
+  private async garantirBlocosPersistidos(transmissaoId: number) {
+    const blocosExistentes = await catalogoPrisma.produtoTransmissaoBloco.findMany({
+      where: { transmissaoId },
+      orderBy: { ordem: 'asc' },
+    });
+
+    if (blocosExistentes.length > 0) {
+      return blocosExistentes;
+    }
+
+    await catalogoPrisma.$transaction(async tx => {
+      const itens = await tx.produtoTransmissaoItem.findMany({
+        where: { transmissaoId },
+        orderBy: [{ ordemExecucao: 'asc' }, { id: 'asc' }],
+      });
+
+      if (itens.length === 0) {
+        return;
+      }
+
+      let ordemExecucao = 1;
+      for (const item of itens) {
+        if (item.ordemExecucao !== ordemExecucao) {
+          await tx.produtoTransmissaoItem.update({
+            where: { id: item.id },
+            data: { ordemExecucao },
+          });
+        }
+        ordemExecucao += 1;
+      }
+
+      const itensAtualizados = await tx.produtoTransmissaoItem.findMany({
+        where: { transmissaoId },
+        orderBy: [{ ordemExecucao: 'asc' }, { id: 'asc' }],
+      });
+
+      await this.recriarBlocosTransmissao(tx, transmissaoId, itensAtualizados);
+      await this.sincronizarBlocosTransmissao(transmissaoId, tx);
+    });
+
+    return catalogoPrisma.produtoTransmissaoBloco.findMany({
+      where: { transmissaoId },
+      orderBy: { ordem: 'asc' },
+    });
+  }
+
+  private async listarFilaCatalogoTx(
+    tx: Prisma.TransactionClient,
+    catalogoId: number
+  ) {
+    return tx.produtoTransmissao.findMany({
+      where: {
+        catalogoId,
+        status: { in: STATUS_TRANSMISSAO_FILA_CATALOGO },
+      },
+      orderBy: [{ enfileiradaEm: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        status: true,
+        asyncJobId: true,
+      },
+    });
+  }
+
+  private async calcularPosicaoFilaCatalogoTx(
+    tx: Prisma.TransactionClient,
+    catalogoId: number,
+    transmissaoId: number
+  ) {
+    const fila = await this.listarFilaCatalogoTx(tx, catalogoId);
+    const indice = fila.findIndex(item => item.id === transmissaoId);
+    return indice >= 0 ? indice + 1 : 0;
+  }
+
+  private async calcularPosicaoFilaCatalogo(catalogoId: number, transmissaoId: number) {
+    return catalogoPrisma.$transaction(tx =>
+      this.calcularPosicaoFilaCatalogoTx(tx, catalogoId, transmissaoId)
+    );
+  }
+
+  private async dispararTransmissaoSeCabecaDaFila(
+    tx: Prisma.TransactionClient,
+    transmissaoId: number,
+    catalogoId: number,
+    superUserId: number
+  ) {
+    const fila = await this.listarFilaCatalogoTx(tx, catalogoId);
+    const cabeca = fila[0];
+
+    if (!cabeca || cabeca.id !== transmissaoId) {
+      return null;
+    }
+
+    if (cabeca.status !== ProdutoTransmissaoStatus.EM_FILA) {
+      return null;
+    }
+
+    if (cabeca.asyncJobId) {
+      return { id: cabeca.asyncJobId };
+    }
+
+    const job = await createAsyncJob(
+      {
+        tipo: AsyncJobTipo.TRANSMISSAO_PRODUTO,
+        payload: {
+          transmissaoId,
+          superUserId,
+        },
+      },
+      tx
+    );
+
+    await tx.produtoTransmissao.update({
+      where: { id: transmissaoId },
+      data: {
+        asyncJobId: job.id,
+      },
+    });
+
+    return job;
+  }
+
+  private async marcarBlocoComoProcessando(blocoId: number) {
+    await catalogoPrisma.produtoTransmissaoBloco.update({
+      where: { id: blocoId },
+      data: {
+        status: ProdutoTransmissaoBlocoStatus.PROCESSANDO,
+        mensagem: null,
+        iniciadoEm: new Date(),
+        concluidoEm: null,
+      },
+    });
+  }
+
+  private async interromperTransmissao(
+    transmissaoId: number,
+    blocoId: number | null,
+    mensagem: string,
+    jobId?: number
+  ) {
+    await catalogoPrisma.$transaction(async tx => {
+      await tx.produtoTransmissaoItem.updateMany({
+        where: {
+          transmissaoId,
+          status: ProdutoTransmissaoItemStatus.PROCESSANDO,
+        },
+        data: {
+          status: ProdutoTransmissaoItemStatus.PENDENTE,
+          mensagem,
+        },
+      });
+
+      if (blocoId) {
+        await tx.produtoTransmissaoBloco.update({
+          where: { id: blocoId },
+          data: {
+            status: ProdutoTransmissaoBlocoStatus.INTERROMPIDO,
+            mensagem,
+            concluidoEm: null,
+          },
+        });
+      }
+
+      await tx.produtoTransmissao.update({
+        where: { id: transmissaoId },
+        data: {
+          status: ProdutoTransmissaoStatus.INTERROMPIDA,
+          asyncJobId: null,
+          concluidoEm: null,
+        },
+      });
+
+      await this.sincronizarBlocosTransmissao(transmissaoId, tx);
+      await this.sincronizarTotaisTransmissao(transmissaoId, tx);
+    });
+
+    if (jobId) {
+      await registerJobLog(jobId, AsyncJobStatus.FALHO, mensagem);
+    }
+  }
+
+  private async sincronizarResumoBloco(
+    blocoId: number,
+    tx?: Prisma.TransactionClient
+  ) {
+    const prisma = tx ?? catalogoPrisma;
+    const itens = await prisma.produtoTransmissaoItem.findMany({
+      where: { blocoId },
+      select: { status: true },
+    });
+
+    const totalItens = itens.length;
+    const totalSucesso = itens.filter(item => item.status === ProdutoTransmissaoItemStatus.SUCESSO).length;
+    const totalErro = itens.filter(item => item.status === ProdutoTransmissaoItemStatus.ERRO).length;
+    const totalProcessando = itens.filter(
+      item => item.status === ProdutoTransmissaoItemStatus.PROCESSANDO
+    ).length;
+    const totalPendentes = totalItens - totalSucesso - totalErro - totalProcessando;
+    const status = this.determinarStatusBloco({
+      totalItens,
+      totalSucesso,
+      totalErro,
+      totalPendentes,
+      totalProcessando,
+    });
+
+    const data: Prisma.ProdutoTransmissaoBlocoUpdateInput = {
+      status,
+      totalItens,
+      totalSucesso,
+      totalErro,
+      concluidoEm: this.blocoConcluido(status) ? new Date() : null,
+    };
+
+    if (status !== ProdutoTransmissaoBlocoStatus.INTERROMPIDO) {
+      data.mensagem = null;
+    }
+
+    await prisma.produtoTransmissaoBloco.update({
+      where: { id: blocoId },
+      data,
+    });
+  }
+
+  private async sincronizarBlocosTransmissao(
+    transmissaoId: number,
+    tx?: Prisma.TransactionClient
+  ) {
+    const prisma = tx ?? catalogoPrisma;
+    const blocos = await prisma.produtoTransmissaoBloco.findMany({
+      where: { transmissaoId },
+      select: { id: true },
+      orderBy: { ordem: 'asc' },
+    });
+
+    for (const bloco of blocos) {
+      if (tx) {
+        await this.sincronizarResumoBloco(bloco.id, tx);
+      } else {
+        await this.sincronizarResumoBloco(bloco.id);
+      }
+    }
+  }
+
+  private determinarStatusBloco(dados: {
+    totalItens: number;
+    totalSucesso: number;
+    totalErro: number;
+    totalPendentes: number;
+    totalProcessando: number;
+  }) {
+    if (dados.totalProcessando > 0) {
+      return ProdutoTransmissaoBlocoStatus.PROCESSANDO;
+    }
+
+    if (dados.totalPendentes === dados.totalItens) {
+      return ProdutoTransmissaoBlocoStatus.PENDENTE;
+    }
+
+    if (dados.totalPendentes > 0) {
+      return ProdutoTransmissaoBlocoStatus.INTERROMPIDO;
+    }
+
+    if (dados.totalSucesso === dados.totalItens) {
+      return ProdutoTransmissaoBlocoStatus.CONCLUIDO;
+    }
+
+    if (dados.totalErro === dados.totalItens) {
+      return ProdutoTransmissaoBlocoStatus.FALHO;
+    }
+
+    return ProdutoTransmissaoBlocoStatus.PARCIAL;
+  }
+
+  private blocoConcluido(status: ProdutoTransmissaoBlocoStatus) {
+    return (
+      status === ProdutoTransmissaoBlocoStatus.CONCLUIDO ||
+      status === ProdutoTransmissaoBlocoStatus.FALHO ||
+      status === ProdutoTransmissaoBlocoStatus.PARCIAL
+    );
+  }
+
+  private async normalizarItensEmProcessamentoTx(
+    transmissaoId: number,
+    tx: Prisma.TransactionClient
+  ) {
+    await tx.produtoTransmissaoItem.updateMany({
+      where: {
+        transmissaoId,
+        status: ProdutoTransmissaoItemStatus.PROCESSANDO,
+      },
+      data: {
+        status: ProdutoTransmissaoItemStatus.PENDENTE,
+        mensagem: null,
+      },
+    });
+
+    await this.sincronizarBlocosTransmissao(transmissaoId, tx);
+    await this.sincronizarTotaisTransmissao(transmissaoId, tx);
   }
 
   private async validarSelecaoParaTransmissao(
@@ -937,11 +1448,7 @@ export class ProdutoTransmissaoService {
   }
 
   private montarPlanejamentoItens(
-    itensPersistidos: Array<{
-      id: number;
-      produtoId: number;
-      operacao: ProdutoTransmissaoItemOperacao;
-    }>,
+    itensPersistidos: ItemTransmissaoPersistido[],
     produtosExportadosPorId: Map<number, any>,
     cpfCnpjRaiz: string
   ): PlanejamentoItemTransmissao[] {
@@ -972,6 +1479,8 @@ export class ProdutoTransmissaoService {
         return [
           {
             itemId: item.id,
+            blocoId: item.blocoId,
+            ordemExecucao: item.ordemExecucao,
             produtoId: item.produtoId,
             operacao,
             codigo: codigoNormalizado,
@@ -997,6 +1506,8 @@ export class ProdutoTransmissaoService {
     const caminhoEnvio = `${superUserId}/transmissoes/${transmissaoId}/payload-envio.json`;
     const payloadEnvio = itens.map(item => ({
       produtoId: item.produtoId,
+      blocoId: item.blocoId,
+      ordemExecucao: item.ordemExecucao,
       operacao: item.operacao,
       endpoint: item.endpoint,
       payload: item.payload,
@@ -1305,7 +1816,11 @@ export class ProdutoTransmissaoService {
     return (error as Error & { siscomexDetalhes?: SiscomexErroDetalhado }).siscomexDetalhes;
   }
 
-  private async marcarItemComoProcessando(transmissaoId: number, itemId: number) {
+  private async marcarItemComoProcessando(
+    transmissaoId: number,
+    blocoId: number | null,
+    itemId: number
+  ) {
     await catalogoPrisma.$transaction(async tx => {
       await tx.produtoTransmissaoItem.update({
         where: { id: itemId },
@@ -1315,12 +1830,16 @@ export class ProdutoTransmissaoService {
         },
       });
 
+      if (blocoId) {
+        await this.sincronizarResumoBloco(blocoId, tx);
+      }
       await this.sincronizarTotaisTransmissao(transmissaoId, tx);
     });
   }
 
   private async marcarItemComoSucesso(
     transmissaoId: number,
+    blocoId: number | null,
     itemId: number,
     codigo: string | null,
     versao: number,
@@ -1338,11 +1857,19 @@ export class ProdutoTransmissaoService {
         },
       });
 
+      if (blocoId) {
+        await this.sincronizarResumoBloco(blocoId, tx);
+      }
       await this.sincronizarTotaisTransmissao(transmissaoId, tx);
     });
   }
 
-  private async marcarItemComoErro(transmissaoId: number, itemId: number, mensagem: string) {
+  private async marcarItemComoErro(
+    transmissaoId: number,
+    blocoId: number | null,
+    itemId: number,
+    mensagem: string
+  ) {
     await catalogoPrisma.$transaction(async tx => {
       await tx.produtoTransmissaoItem.update({
         where: { id: itemId },
@@ -1352,6 +1879,9 @@ export class ProdutoTransmissaoService {
         },
       });
 
+      if (blocoId) {
+        await this.sincronizarResumoBloco(blocoId, tx);
+      }
       await this.sincronizarTotaisTransmissao(transmissaoId, tx);
     });
   }
@@ -1369,24 +1899,14 @@ export class ProdutoTransmissaoService {
         },
       });
 
+      await this.sincronizarBlocosTransmissao(transmissaoId, tx);
       await this.sincronizarTotaisTransmissao(transmissaoId, tx);
     });
   }
 
   private async normalizarItensEmProcessamento(transmissaoId: number) {
     await catalogoPrisma.$transaction(async tx => {
-      await tx.produtoTransmissaoItem.updateMany({
-        where: {
-          transmissaoId,
-          status: ProdutoTransmissaoItemStatus.PROCESSANDO,
-        },
-        data: {
-          status: ProdutoTransmissaoItemStatus.PENDENTE,
-          mensagem: null,
-        },
-      });
-
-      await this.sincronizarTotaisTransmissao(transmissaoId, tx);
+      await this.normalizarItensEmProcessamentoTx(transmissaoId, tx);
     });
   }
 
@@ -1413,9 +1933,17 @@ export class ProdutoTransmissaoService {
   }
 
   private async finalizarTransmissao(transmissaoId: number, cpfCnpjRaiz: string, jobId?: number) {
+    await catalogoPrisma.$transaction(async tx => {
+      await this.sincronizarBlocosTransmissao(transmissaoId, tx);
+      await this.sincronizarTotaisTransmissao(transmissaoId, tx);
+    });
+
     const transmissao = await catalogoPrisma.produtoTransmissao.findUnique({
       where: { id: transmissaoId },
       include: {
+        blocos: {
+          orderBy: { ordem: 'asc' },
+        },
         itens: {
           include: {
             produto: {
@@ -1426,7 +1954,7 @@ export class ProdutoTransmissaoService {
               },
             },
           },
-          orderBy: { id: 'asc' },
+          orderBy: [{ ordemExecucao: 'asc' }, { id: 'asc' }],
         },
       },
     });
@@ -1436,12 +1964,26 @@ export class ProdutoTransmissaoService {
     }
 
     const totalItens = transmissao.itens.length;
-    const totalSucesso = transmissao.itens.filter(item => item.status === ProdutoTransmissaoItemStatus.SUCESSO).length;
-    const totalErro = transmissao.itens.filter(item => item.status === ProdutoTransmissaoItemStatus.ERRO).length;
+    const totalSucesso = transmissao.itens.filter(
+      item => item.status === ProdutoTransmissaoItemStatus.SUCESSO
+    ).length;
+    const totalErro = transmissao.itens.filter(
+      item => item.status === ProdutoTransmissaoItemStatus.ERRO
+    ).length;
+    const totalPendentes = transmissao.itens.filter(
+      item =>
+        item.status === ProdutoTransmissaoItemStatus.PENDENTE ||
+        item.status === ProdutoTransmissaoItemStatus.PROCESSANDO
+    ).length;
+
+    if (totalPendentes > 0) {
+      return;
+    }
+
     const statusFinal =
       totalSucesso === totalItens
         ? ProdutoTransmissaoStatus.CONCLUIDO
-        : totalSucesso === 0
+        : totalErro === totalItens
           ? ProdutoTransmissaoStatus.FALHO
           : ProdutoTransmissaoStatus.PARCIAL;
 
@@ -1449,6 +1991,8 @@ export class ProdutoTransmissaoService {
     const caminhoCompleto = `${await this.resolverDiretorioTransmissao(transmissaoId)}/payload-retorno.json`;
     const retorno = transmissao.itens.map<RetornoItemTransmissao>(item => ({
       produtoId: item.produtoId,
+      blocoId: item.blocoId ?? null,
+      ordemExecucao: item.ordemExecucao ?? null,
       operacao: item.operacao,
       status: item.status === ProdutoTransmissaoItemStatus.SUCESSO ? 'SUCESSO' : 'ERRO',
       endpoint:
@@ -1491,6 +2035,37 @@ export class ProdutoTransmissaoService {
         `Resumo da transmissão: ${totalSucesso}/${totalItens} sucesso(s), ${totalErro} erro(s), status ${statusFinal}.`
       );
     }
+
+    await this.dispararProximaTransmissaoCatalogo(transmissao.catalogoId, transmissao.superUserId);
+  }
+
+  private async dispararProximaTransmissaoCatalogo(catalogoId: number, superUserId: number) {
+    await catalogoPrisma.$transaction(async tx => {
+      const fila = await this.listarFilaCatalogoTx(tx, catalogoId);
+      const proxima = fila[0];
+
+      if (!proxima || proxima.status !== ProdutoTransmissaoStatus.EM_FILA || proxima.asyncJobId) {
+        return;
+      }
+
+      const job = await createAsyncJob(
+        {
+          tipo: AsyncJobTipo.TRANSMISSAO_PRODUTO,
+          payload: {
+            transmissaoId: proxima.id,
+            superUserId,
+          },
+        },
+        tx
+      );
+
+      await tx.produtoTransmissao.update({
+        where: { id: proxima.id },
+        data: {
+          asyncJobId: job.id,
+        },
+      });
+    });
   }
 
   private async marcarComoFalha(
@@ -1535,6 +2110,7 @@ export class ProdutoTransmissaoService {
 
   private async mapearTransmissaoParaResposta(transmissao: any) {
     const provider = storageFactory();
+    const blocos = Array.isArray(transmissao.blocos) ? transmissao.blocos : [];
 
     const gerarUrlAssinada = async (path?: string | null, nome?: string | null, expira?: Date | null) => {
       if (!path) return null;
@@ -1563,6 +2139,16 @@ export class ProdutoTransmissaoService {
         ) ?? `/api/siscomex/transmissoes/${transmissao.id}/arquivos/retorno`
       : null;
 
+    const filaCatalogoPosicao = STATUS_TRANSMISSAO_FILA_CATALOGO.includes(transmissao.status)
+      ? await this.calcularPosicaoFilaCatalogo(transmissao.catalogoId, transmissao.id)
+      : null;
+    const blocoAtual =
+      blocos.find((bloco: any) => bloco.status === ProdutoTransmissaoBlocoStatus.PROCESSANDO) ??
+      blocos.find((bloco: any) => bloco.status === ProdutoTransmissaoBlocoStatus.INTERROMPIDO) ??
+      blocos.find((bloco: any) => bloco.status === ProdutoTransmissaoBlocoStatus.PENDENTE) ??
+      null;
+    const blocosConcluidos = blocos.filter((bloco: any) => this.blocoConcluido(bloco.status)).length;
+
     return {
       id: transmissao.id,
       catalogoId: transmissao.catalogoId,
@@ -1574,6 +2160,40 @@ export class ProdutoTransmissaoService {
       totalItens: transmissao.totalItens,
       totalSucesso: transmissao.totalSucesso,
       totalErro: transmissao.totalErro,
+      itensPendentes: Math.max(
+        0,
+        Number(transmissao.totalItens || 0) -
+          Number(transmissao.totalSucesso || 0) -
+          Number(transmissao.totalErro || 0)
+      ),
+      enfileiradaEm: transmissao.enfileiradaEm ?? null,
+      filaCatalogoPosicao,
+      totalBlocos: blocos.length,
+      blocosConcluidos,
+      blocoAtual: blocoAtual
+        ? {
+            id: blocoAtual.id,
+            ordem: blocoAtual.ordem,
+            status: blocoAtual.status,
+            totalItens: blocoAtual.totalItens,
+            totalSucesso: blocoAtual.totalSucesso,
+            totalErro: blocoAtual.totalErro,
+            mensagem: blocoAtual.mensagem ?? null,
+            iniciadoEm: blocoAtual.iniciadoEm ?? null,
+            concluidoEm: blocoAtual.concluidoEm ?? null,
+          }
+        : null,
+      blocos: blocos.map((bloco: any) => ({
+        id: bloco.id,
+        ordem: bloco.ordem,
+        status: bloco.status,
+        totalItens: bloco.totalItens,
+        totalSucesso: bloco.totalSucesso,
+        totalErro: bloco.totalErro,
+        mensagem: bloco.mensagem ?? null,
+        iniciadoEm: bloco.iniciadoEm ?? null,
+        concluidoEm: bloco.concluidoEm ?? null,
+      })) as ResumoBlocoTransmissao[],
       iniciadoEm: transmissao.iniciadoEm,
       concluidoEm: transmissao.concluidoEm,
       criadoEm: transmissao.criadoEm,

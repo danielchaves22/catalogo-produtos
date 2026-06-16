@@ -11,6 +11,21 @@ const atributoLegacyService = new AtributoLegacyService();
 const ncmLegacyService = new NcmLegacyService();
 const produtoTransmissaoService = new ProdutoTransmissaoService();
 
+function montarMensagemEnfileiramentoTransmissao(resultado: {
+  jobId?: number | null;
+  posicaoFilaCatalogo?: number;
+}) {
+  if (resultado.jobId) {
+    return 'Transmissão enfileirada com sucesso. Acompanhe o progresso na listagem.';
+  }
+
+  if ((resultado.posicaoFilaCatalogo ?? 0) > 1) {
+    return `Transmissão posicionada na fila do catálogo (${resultado.posicaoFilaCatalogo}ª posição). Ela será iniciada automaticamente quando a anterior terminar.`;
+  }
+
+  return 'Transmissão preparada na fila do catálogo. Ela será iniciada automaticamente assim que estiver liberada para processamento.';
+}
+
 /**
  * GET /api/siscomex/ncm/sugestoes
  * Lista sugestões de NCM filtrando por prefixo
@@ -69,7 +84,7 @@ export async function transmitirProdutos(req: Request, res: Response) {
 
     return res.status(202).json({
       sucesso: true,
-      mensagem: 'Transmissão enfileirada com sucesso. Acompanhe o progresso na listagem.',
+      mensagem: montarMensagemEnfileiramentoTransmissao(resultado),
       dados: resultado,
     });
   } catch (error: unknown) {
@@ -125,7 +140,7 @@ export async function iniciarTransmissaoProdutos(req: Request, res: Response) {
     const resultado = await produtoTransmissaoService.iniciarTransmissao(id, req.user!.superUserId);
     return res.status(202).json({
       sucesso: true,
-      mensagem: 'Transmissão enfileirada com sucesso. Acompanhe o progresso na listagem.',
+      mensagem: montarMensagemEnfileiramentoTransmissao(resultado),
       dados: resultado,
     });
   } catch (error: unknown) {

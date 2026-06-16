@@ -27,7 +27,7 @@ router.get('/transmissoes/:id/arquivos/:tipo', baixarArquivoTransmissao);
  * @swagger
  * /api/v1/siscomex/transmissoes/{id}/iniciar:
  *   post:
- *     summary: Inicia uma pré-transmissão já criada e aguardando confirmação
+ *     summary: Inicia uma pré-transmissão já criada ou retoma uma transmissão interrompida
  *     tags: [SISCOMEX]
  *     security:
  *       - bearerAuth: []

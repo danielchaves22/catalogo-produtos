@@ -1,4 +1,4 @@
-import { AsyncJobStatus } from '@prisma/client';
+import { AsyncJobStatus, ProdutoTransmissaoStatus } from '@prisma/client';
 import { AsyncJobHandler } from '../async-job.worker';
 import { ProdutoTransmissaoService } from '../../services/produto-transmissao.service';
 import { registerJobLog } from '../async-job.repository';
@@ -19,12 +19,18 @@ export const transmissaoProdutoJobHandler: AsyncJobHandler<TransmissaoProdutoPay
     throw new Error('Payload da transmissão de produtos inválido.');
   }
 
-  await produtoTransmissaoService.processarTransmissaoJob(
+  const status = await produtoTransmissaoService.processarTransmissaoJob(
     payload.transmissaoId,
     payload.superUserId,
     heartbeat,
     job.id
   );
 
-  await registerJobLog(job.id, AsyncJobStatus.CONCLUIDO, 'Transmissão finalizada.');
+  await registerJobLog(
+    job.id,
+    AsyncJobStatus.CONCLUIDO,
+    status === ProdutoTransmissaoStatus.INTERROMPIDA
+      ? 'Transmissão interrompida e aguardando retomada.'
+      : 'Transmissão finalizada.'
+  );
 };

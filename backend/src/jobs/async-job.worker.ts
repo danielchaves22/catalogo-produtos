@@ -1,6 +1,7 @@
 import {
   AsyncJobStatus,
   AsyncJobTipo,
+  ProdutoTransmissaoBlocoStatus,
   ProdutoTransmissaoItemStatus,
   ProdutoTransmissaoStatus,
 } from '@prisma/client';
@@ -203,29 +204,65 @@ async function atualizarTransmissaoComoFalha(job: AsyncJobWithRelations, mensage
     mensagem ?? 'Transmissão marcada como falha após atingir o limite de tentativas do job.';
 
   await catalogoPrisma.$transaction(async tx => {
-    await tx.produtoTransmissaoItem.updateMany({
-      where: {
-        transmissaoId,
-        status: { in: [ProdutoTransmissaoItemStatus.PENDENTE, ProdutoTransmissaoItemStatus.PROCESSANDO] },
+    const itens = await tx.produtoTransmissaoItem.findMany({
+      where: { transmissaoId },
+      select: {
+        status: true,
       },
-      data: { status: ProdutoTransmissaoItemStatus.ERRO, mensagem: motivo },
     });
 
-    const [totalItens, totalSucesso, totalErro] = await Promise.all([
-      tx.produtoTransmissaoItem.count({ where: { transmissaoId } }),
-      tx.produtoTransmissaoItem.count({
-        where: { transmissaoId, status: ProdutoTransmissaoItemStatus.SUCESSO },
-      }),
-      tx.produtoTransmissaoItem.count({
-        where: { transmissaoId, status: ProdutoTransmissaoItemStatus.ERRO },
-      }),
-    ]);
+    const totalItens = itens.length;
+    const totalSucesso = itens.filter(item => item.status === ProdutoTransmissaoItemStatus.SUCESSO).length;
+    const totalErro = itens.filter(item => item.status === ProdutoTransmissaoItemStatus.ERRO).length;
+    const possuiPendentes = itens.some(
+      item =>
+        item.status === ProdutoTransmissaoItemStatus.PENDENTE ||
+        item.status === ProdutoTransmissaoItemStatus.PROCESSANDO
+    );
+
+    if (possuiPendentes) {
+      await tx.produtoTransmissaoItem.updateMany({
+        where: {
+          transmissaoId,
+          status: ProdutoTransmissaoItemStatus.PROCESSANDO,
+        },
+        data: {
+          status: ProdutoTransmissaoItemStatus.PENDENTE,
+          mensagem: motivo,
+        },
+      });
+
+      await tx.produtoTransmissaoBloco.updateMany({
+        where: {
+          transmissaoId,
+          status: ProdutoTransmissaoBlocoStatus.PROCESSANDO,
+        },
+        data: {
+          status: ProdutoTransmissaoBlocoStatus.INTERROMPIDO,
+          mensagem: motivo,
+          concluidoEm: null,
+        },
+      });
+
+      await tx.produtoTransmissao.update({
+        where: { id: transmissaoId },
+        data: {
+          status: ProdutoTransmissaoStatus.INTERROMPIDA,
+          asyncJobId: null,
+          totalErro,
+          totalSucesso,
+          concluidoEm: null,
+        },
+      });
+
+      return;
+    }
 
     const statusFinal =
-      totalSucesso === 0
-        ? ProdutoTransmissaoStatus.FALHO
-        : totalSucesso === totalItens
-          ? ProdutoTransmissaoStatus.CONCLUIDO
+      totalSucesso === totalItens
+        ? ProdutoTransmissaoStatus.CONCLUIDO
+        : totalErro === totalItens
+          ? ProdutoTransmissaoStatus.FALHO
           : ProdutoTransmissaoStatus.PARCIAL;
 
     await tx.produtoTransmissao.update({

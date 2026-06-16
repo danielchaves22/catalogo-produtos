@@ -248,7 +248,9 @@ export default function AjustesEstruturaPage() {
                         </ul>
                       ) : (
                         <p className="text-sm text-slate-400">
-                          Nenhuma diferença registrada para esta NCM.
+                          A verificação mais recente não registrou diferenças para esta NCM, mas
+                          os produtos abaixo ainda aguardam a reaplicação da estrutura já
+                          sincronizada.
                         </p>
                       )}
                     </div>

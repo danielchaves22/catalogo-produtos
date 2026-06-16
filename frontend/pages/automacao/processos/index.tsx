@@ -64,6 +64,20 @@ interface AsyncJobResumo {
   } | null;
 }
 
+const STATUS_PADRAO_ACOMPANHAMENTO: AsyncJobResumo['status'][] = [
+  'PENDENTE',
+  'PROCESSANDO',
+  'FALHO',
+];
+
+const STATUS_JOB_OPCOES: AsyncJobResumo['status'][] = [
+  'PENDENTE',
+  'PROCESSANDO',
+  'FALHO',
+  'CONCLUIDO',
+  'CANCELADO',
+];
+
 function formatarData(data?: string | null) {
   if (!data) return '-';
   const instancia = new Date(data);
@@ -156,6 +170,9 @@ export default function ProcessosAssincronosPage() {
   const [limpandoHistorico, setLimpandoHistorico] = useState(false);
   const [baixandoArquivoId, setBaixandoArquivoId] = useState<number | null>(null);
   const [tiposSelecionados, setTiposSelecionados] = useState<AsyncJobResumo['tipo'][]>([]);
+  const [statusSelecionados, setStatusSelecionados] = useState<AsyncJobResumo['status'][]>(
+    STATUS_PADRAO_ACOMPANHAMENTO
+  );
 
   const tipoOptions = useMemo(() => {
     const tipos: AsyncJobResumo['tipo'][] = [
@@ -170,6 +187,15 @@ export default function ProcessosAssincronosPage() {
     ];
     return tipos.map(tipo => ({ value: tipo, label: traduzirTipo(tipo) }));
   }, []);
+
+  const statusOptions = useMemo(
+    () =>
+      STATUS_JOB_OPCOES.map(status => ({
+        value: status,
+        label: traduzirStatus(status),
+      })),
+    []
+  );
 
   const carregar = useCallback(async () => {
     try {
@@ -328,9 +354,22 @@ export default function ProcessosAssincronosPage() {
   );
 
   const jobsFiltrados = useMemo(() => {
-    if (tiposSelecionados.length === 0) return jobs;
-    return jobs.filter(job => tiposSelecionados.includes(job.tipo));
-  }, [jobs, tiposSelecionados]);
+    return jobs.filter(job => {
+      const correspondeTipo =
+        tiposSelecionados.length === 0 || tiposSelecionados.includes(job.tipo);
+      const correspondeStatus =
+        statusSelecionados.length === 0 || statusSelecionados.includes(job.status);
+
+      return correspondeTipo && correspondeStatus;
+    });
+  }, [jobs, statusSelecionados, tiposSelecionados]);
+
+  const filtroPadraoStatusAtivo = useMemo(
+    () =>
+      statusSelecionados.length === STATUS_PADRAO_ACOMPANHAMENTO.length &&
+      STATUS_PADRAO_ACOMPANHAMENTO.every(status => statusSelecionados.includes(status)),
+    [statusSelecionados]
+  );
 
   useEffect(() => {
     if (!possuiEmExecucao) return undefined;
@@ -398,7 +437,7 @@ export default function ProcessosAssincronosPage() {
       )}
 
       <Card className="mb-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,320px)_minmax(0,320px)_auto] xl:items-end">
           <MultiSelect
             label="Tipo de processo"
             options={tipoOptions}
@@ -406,7 +445,35 @@ export default function ProcessosAssincronosPage() {
             onChange={valores => setTiposSelecionados(valores as AsyncJobResumo['tipo'][])}
             placeholder="Todos os tipos"
           />
+          <MultiSelect
+            label="Status do processo"
+            options={statusOptions}
+            values={statusSelecionados}
+            onChange={valores => setStatusSelecionados(valores as AsyncJobResumo['status'][])}
+            placeholder="Todos os status"
+            hint="Por padrão, a tela destaca processos em andamento ou com falha."
+          />
+          <div className="flex flex-wrap items-center gap-2 pb-4 xl:justify-end">
+            <Button
+              type="button"
+              variant={filtroPadraoStatusAtivo ? 'accent' : 'outline'}
+              onClick={() => setStatusSelecionados(STATUS_PADRAO_ACOMPANHAMENTO)}
+            >
+              Somente ativos e falhas
+            </Button>
+            <Button
+              type="button"
+              variant={statusSelecionados.length === 0 ? 'accent' : 'outline'}
+              onClick={() => setStatusSelecionados([])}
+            >
+              Mostrar todos
+            </Button>
+          </div>
         </div>
+
+        <p className="text-sm text-slate-300">
+          Exibindo {jobsFiltrados.length} de {jobs.length} processo(s).
+        </p>
       </Card>
 
       <Card>

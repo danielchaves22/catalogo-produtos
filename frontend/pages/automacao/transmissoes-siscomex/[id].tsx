@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
-import { AlertCircle, ArrowLeft, Download, PlayCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Download, Loader2, PlayCircle } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
@@ -22,10 +22,23 @@ interface CatalogoResumo {
   numero: number | null;
 }
 
+interface ResumoBloco {
+  id: number;
+  ordem: number;
+  status: 'PENDENTE' | 'PROCESSANDO' | 'INTERROMPIDO' | 'CONCLUIDO' | 'FALHO' | 'PARCIAL';
+  totalItens: number;
+  totalSucesso: number;
+  totalErro: number;
+  mensagem?: string | null;
+  iniciadoEm?: string | null;
+  concluidoEm?: string | null;
+}
+
 type TransmissaoStatus =
   | 'AGUARDANDO_CONFIRMACAO'
   | 'EM_FILA'
   | 'PROCESSANDO'
+  | 'INTERROMPIDA'
   | 'CONCLUIDO'
   | 'FALHO'
   | 'PARCIAL'
@@ -35,6 +48,8 @@ type TransmissaoItemOperacao = 'INCLUSAO' | 'NOVA_VERSAO';
 
 interface TransmissaoItem {
   id: number;
+  blocoId?: number | null;
+  ordemExecucao?: number | null;
   produtoId: number;
   operacao: TransmissaoItemOperacao;
   status: TransmissaoItemStatus;
@@ -57,11 +72,18 @@ interface TransmissaoDetalhe {
   totalItens: number;
   totalSucesso: number;
   totalErro: number;
+  itensPendentes?: number;
+  totalBlocos?: number;
+  blocosConcluidos?: number;
+  blocoAtual?: ResumoBloco | null;
+  filaCatalogoPosicao?: number | null;
+  enfileiradaEm?: string | null;
   criadoEm?: string | null;
   iniciadoEm?: string | null;
   concluidoEm?: string | null;
   payloadEnvioUrl?: string | null;
   payloadRetornoUrl?: string | null;
+  blocos: ResumoBloco[];
   itens: TransmissaoItem[];
 }
 
@@ -78,6 +100,23 @@ function obterClasseItem(status: TransmissaoItemStatus) {
   }
 }
 
+function obterClasseBloco(status: ResumoBloco['status']) {
+  switch (status) {
+    case 'CONCLUIDO':
+      return 'border border-emerald-500/40 bg-emerald-400/10 text-emerald-400';
+    case 'FALHO':
+      return 'border border-red-500/40 bg-red-400/10 text-red-400';
+    case 'PARCIAL':
+      return 'border border-amber-500/40 bg-amber-400/10 text-amber-300';
+    case 'PROCESSANDO':
+      return 'border border-blue-500/40 bg-blue-400/10 text-blue-300';
+    case 'INTERROMPIDO':
+      return 'border border-orange-500/40 bg-orange-400/10 text-orange-300';
+    default:
+      return 'border border-slate-600/60 bg-slate-700/40 text-gray-300';
+  }
+}
+
 function formatarData(dataIso?: string | null) {
   if (!dataIso) return '-';
   return new Date(dataIso).toLocaleString('pt-BR');
@@ -88,15 +127,17 @@ function obterEtiquetaStatus(status: TransmissaoStatus) {
     case 'AGUARDANDO_CONFIRMACAO':
       return 'Aguardando confirmação';
     case 'CONCLUIDO':
-      return 'Concluído';
+      return 'Concluída';
     case 'CANCELADA':
       return 'Cancelada';
     case 'FALHO':
-      return 'Falho';
+      return 'Falha';
     case 'PARCIAL':
       return 'Parcial';
     case 'PROCESSANDO':
       return 'Processando';
+    case 'INTERROMPIDA':
+      return 'Interrompida';
     default:
       return 'Em fila';
   }
@@ -116,9 +157,24 @@ function obterClasseStatus(status: TransmissaoStatus) {
       return 'border border-amber-500/40 bg-amber-400/10 text-amber-300';
     case 'PROCESSANDO':
       return 'border border-blue-500/40 bg-blue-400/10 text-blue-300';
+    case 'INTERROMPIDA':
+      return 'border border-orange-500/40 bg-orange-400/10 text-orange-300';
     default:
       return 'border border-amber-500/40 bg-amber-400/10 text-amber-400';
   }
+}
+
+function extrairMensagemErro(error: unknown, padrao: string) {
+  const mensagem = (error as any)?.response?.data?.error;
+  if (typeof mensagem === 'string') {
+    return mensagem;
+  }
+  if (Array.isArray(mensagem) && mensagem.length > 0) {
+    const primeiro = mensagem[0];
+    if (typeof primeiro === 'string') return primeiro;
+    if (primeiro?.message) return String(primeiro.message);
+  }
+  return padrao;
 }
 
 export default function DetalheTransmissaoSiscomexPage() {
@@ -128,6 +184,7 @@ export default function DetalheTransmissaoSiscomexPage() {
   const [transmissao, setTransmissao] = useState<TransmissaoDetalhe | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState(false);
+  const [retomando, setRetomando] = useState(false);
 
   const carregarDetalhe = useCallback(
     async (identificador: number, silencioso = false) => {
@@ -172,29 +229,24 @@ export default function DetalheTransmissaoSiscomexPage() {
     return () => clearInterval(intervalo);
   }, [carregarDetalhe, transmissao]);
 
-  const resumo = useMemo(() => {
-    if (!transmissao) {
-      return { sucesso: 0, erros: 0, processando: 0, total: 0 };
-    }
-
-    return transmissao.itens.reduce(
-      (acc, item) => {
-        if (item.status === 'SUCESSO') acc.sucesso += 1;
-        else if (item.status === 'ERRO') acc.erros += 1;
-        else if (item.status === 'PROCESSANDO') acc.processando += 1;
-        acc.total += 1;
-        return acc;
-      },
-      { sucesso: 0, erros: 0, processando: 0, total: 0 }
-    );
-  }, [transmissao]);
-
   const detalhesOrigem = useMemo(
     () => obterDetalhesOrigemTransmissao(transmissao?.origemTipo, transmissao?.origemContexto),
     [transmissao?.origemContexto, transmissao?.origemTipo]
   );
 
+  const blocosPorId = useMemo(
+    () =>
+      new Map(
+        (transmissao?.blocos ?? []).map(bloco => [
+          bloco.id,
+          `Bloco ${bloco.ordem}/${transmissao?.totalBlocos ?? transmissao?.blocos.length ?? 0}`,
+        ])
+      ),
+    [transmissao?.blocos, transmissao?.totalBlocos]
+  );
+
   const aguardandoConfirmacao = transmissao?.status === 'AGUARDANDO_CONFIRMACAO';
+  const interrompida = transmissao?.status === 'INTERROMPIDA';
   const payloadEnvioDisponivel = Boolean(
     transmissao &&
       transmissao.status !== 'AGUARDANDO_CONFIRMACAO' &&
@@ -238,6 +290,28 @@ export default function DetalheTransmissaoSiscomexPage() {
     } catch (error) {
       console.error('Erro ao baixar payload da transmissão:', error);
       addToast('Não foi possível baixar o payload solicitado.', 'error');
+    }
+  };
+
+  const retomarTransmissao = async () => {
+    if (!transmissao || !interrompida) return;
+
+    setRetomando(true);
+    try {
+      const resposta = await api.post(`/siscomex/transmissoes/${transmissao.id}/iniciar`);
+      addToast(
+        resposta.data?.mensagem || 'Transmissão recolocada na fila do catálogo.',
+        'success'
+      );
+      await carregarDetalhe(transmissao.id, true);
+    } catch (error) {
+      console.error('Erro ao retomar transmissão:', error);
+      addToast(
+        extrairMensagemErro(error, 'Não foi possível retomar a transmissão.'),
+        'error'
+      );
+    } finally {
+      setRetomando(false);
     }
   };
 
@@ -286,11 +360,13 @@ export default function DetalheTransmissaoSiscomexPage() {
             <h1 className="text-2xl font-semibold text-white">Transmissão #{transmissao.id}</h1>
             <p className="text-sm text-gray-400">
               {transmissao.modalidade === 'PRODUTOS'
-                ? 'Envio de produtos aprovados ao SISCOMEX.'
+                ? 'Envio de produtos aprovados ao SISCOMEX com execução individual por blocos.'
                 : 'Envio de operadores estrangeiros aprovados ao SISCOMEX.'}
             </p>
             <p className="text-xs text-gray-500">Criada em: {formatarData(transmissao.criadoEm)}</p>
-            <p className="text-xs text-gray-500">Iniciada em: {formatarData(transmissao.iniciadoEm)}</p>
+            <p className="text-xs text-gray-500">
+              Enfileirada em: {formatarData(transmissao.enfileiradaEm || transmissao.iniciadoEm)}
+            </p>
             <p className="text-xs text-gray-500">Concluída em: {formatarData(transmissao.concluidoEm)}</p>
           </div>
         </div>
@@ -305,6 +381,17 @@ export default function DetalheTransmissaoSiscomexPage() {
             >
               <PlayCircle size={16} />
               Revisar e transmitir
+            </Button>
+          )}
+          {interrompida && (
+            <Button
+              variant="accent"
+              className="flex items-center gap-2"
+              disabled={retomando}
+              onClick={retomarTransmissao}
+            >
+              {retomando ? <Loader2 size={16} className="animate-spin" /> : <PlayCircle size={16} />}
+              Continuar transmissão
             </Button>
           )}
           <Button
@@ -343,11 +430,23 @@ export default function DetalheTransmissaoSiscomexPage() {
             </div>
           </div>
           <div className="text-right text-sm text-gray-300">
-            {transmissao.status === 'AGUARDANDO_CONFIRMACAO'
-              ? 'Esta transmissão ainda não foi enfileirada. Revise os itens antes de iniciar.'
-              : transmissao.status === 'CANCELADA'
-                ? 'Esta pré-transmissão foi cancelada e permanece apenas para histórico.'
-                : 'O progresso abaixo reflete a execução individual e sequencial dos itens.'}
+            {transmissao.status === 'AGUARDANDO_CONFIRMACAO' &&
+              'Esta transmissão ainda não foi enfileirada. Revise os itens antes de iniciar.'}
+            {transmissao.status === 'EM_FILA' &&
+              `Aguardando sua vez na fila do catálogo. Posição atual: ${
+                transmissao.filaCatalogoPosicao ?? '-'
+              }.`}
+            {transmissao.status === 'PROCESSANDO' &&
+              `Processamento em andamento${
+                transmissao.blocoAtual ? ` no bloco ${transmissao.blocoAtual.ordem}` : ''
+              }.`}
+            {transmissao.status === 'INTERROMPIDA' &&
+              'O processo foi interrompido e pode ser retomado sem retransmitir os itens já concluídos.'}
+            {(transmissao.status === 'CONCLUIDO' ||
+              transmissao.status === 'FALHO' ||
+              transmissao.status === 'PARCIAL' ||
+              transmissao.status === 'CANCELADA') &&
+              'O progresso abaixo reflete o histórico persistido desta transmissão.'}
           </div>
         </div>
       </Card>
@@ -374,7 +473,7 @@ export default function DetalheTransmissaoSiscomexPage() {
           <div>
             <div className="text-xs uppercase tracking-wide text-gray-500">Modalidade</div>
             <div className="mt-1 text-sm text-gray-100">
-              {transmissao.modalidade === 'PRODUTOS' ? 'Produtos' : 'Operadores Estrangeiros'}
+              {transmissao.modalidade === 'PRODUTOS' ? 'Produtos' : 'Operadores estrangeiros'}
             </div>
           </div>
         </div>
@@ -390,29 +489,98 @@ export default function DetalheTransmissaoSiscomexPage() {
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card>
           <div className="text-sm text-gray-400">Itens totais</div>
-          <div className="text-2xl font-semibold text-white">{resumo.total}</div>
+          <div className="text-2xl font-semibold text-white">{transmissao.totalItens}</div>
         </Card>
         <Card>
           <div className="text-sm text-gray-400">Transmitidos</div>
-          <div className="text-2xl font-semibold text-emerald-400">{resumo.sucesso}</div>
+          <div className="text-2xl font-semibold text-emerald-400">
+            {transmissao.totalSucesso}
+          </div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-400">Processando</div>
-          <div className="text-2xl font-semibold text-amber-400">{resumo.processando}</div>
+          <div className="text-sm text-gray-400">Pendentes</div>
+          <div className="text-2xl font-semibold text-amber-300">
+            {transmissao.itensPendentes ?? Math.max(0, transmissao.totalItens - transmissao.totalSucesso - transmissao.totalErro)}
+          </div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-400">Com erro</div>
-          <div className="text-2xl font-semibold text-red-400">{resumo.erros}</div>
+          <div className="text-sm text-gray-400">Blocos</div>
+          <div className="text-2xl font-semibold text-white">
+            {transmissao.blocosConcluidos ?? 0}/{transmissao.totalBlocos ?? transmissao.blocos.length}
+          </div>
         </Card>
       </div>
+
+      <Card className="mb-6">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Blocos da transmissão</h2>
+            <p className="text-sm text-gray-400">
+              Cada bloco agrupa até 100 produtos e segue a fila do catálogo.
+            </p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-[#0f1419] text-xs uppercase text-gray-400">
+              <tr>
+                <th className="px-4 py-3">Bloco</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Progresso</th>
+                <th className="px-4 py-3">Iniciado em</th>
+                <th className="px-4 py-3">Concluído em</th>
+                <th className="px-4 py-3">Mensagem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transmissao.blocos.map(bloco => (
+                <tr key={bloco.id} className="border-b border-slate-800/60 hover:bg-slate-800/40">
+                  <td className="px-4 py-3 text-gray-200">
+                    Bloco {bloco.ordem}/{transmissao.totalBlocos ?? transmissao.blocos.length}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${obterClasseBloco(
+                        bloco.status
+                      )}`}
+                    >
+                      {bloco.status === 'CONCLUIDO'
+                        ? 'Concluído'
+                        : bloco.status === 'PROCESSANDO'
+                          ? 'Processando'
+                          : bloco.status === 'INTERROMPIDO'
+                            ? 'Interrompido'
+                            : bloco.status === 'FALHO'
+                              ? 'Falho'
+                              : bloco.status === 'PARCIAL'
+                                ? 'Parcial'
+                                : 'Pendente'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-200">
+                    {bloco.totalSucesso}/{bloco.totalItens} sucesso(s)
+                    {bloco.totalErro > 0 && (
+                      <span className="ml-1 text-red-400">· {bloco.totalErro} erro(s)</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-200">{formatarData(bloco.iniciadoEm)}</td>
+                  <td className="px-4 py-3 text-gray-200">{formatarData(bloco.concluidoEm)}</td>
+                  <td className="px-4 py-3 text-gray-200">{bloco.mensagem || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       <Card>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-[#0f1419] text-xs uppercase text-gray-400">
               <tr>
-                <th className="w-16 px-4 py-3 text-center">#</th>
+                <th className="w-20 px-4 py-3 text-center">Ordem</th>
                 <th className="px-4 py-3">Produto</th>
+                <th className="px-4 py-3">Bloco</th>
                 <th className="px-4 py-3">Operação</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Mensagem</th>
@@ -421,7 +589,9 @@ export default function DetalheTransmissaoSiscomexPage() {
             <tbody>
               {transmissao.itens.map(item => (
                 <tr key={item.id} className="border-b border-slate-800/60 hover:bg-slate-800/40">
-                  <td className="px-4 py-3 text-center text-gray-200">{item.id}</td>
+                  <td className="px-4 py-3 text-center text-gray-200">
+                    {item.ordemExecucao ?? item.id}
+                  </td>
                   <td className="px-4 py-3 text-gray-200">
                     <div className="font-semibold">
                       {item.produto?.denominacao ?? 'Produto sem descrição'}
@@ -432,6 +602,9 @@ export default function DetalheTransmissaoSiscomexPage() {
                         Código SISCOMEX: {item.retornoCodigo}
                       </div>
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-200">
+                    {item.blocoId ? blocosPorId.get(item.blocoId) || `Bloco #${item.blocoId}` : '-'}
                   </td>
                   <td className="px-4 py-3 text-gray-200">
                     {item.operacao === 'NOVA_VERSAO' ? 'Nova versão' : 'Inclusão'}

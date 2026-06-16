@@ -61,7 +61,7 @@ export function obterDetalhesOrigemTransmissao(
   }
 
   if (ignorados > 0) {
-    detalhes.push(`${ignorados} produto(s) já pendentes em outra pré-transmissão`);
+    detalhes.push(`${ignorados} produto(s) já pendentes em outra transmissão aberta`);
   }
 
   return detalhes;

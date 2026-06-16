@@ -138,7 +138,9 @@ export default function NovaTransmissaoProdutosPage() {
 
       setProdutos(itensValidos);
       setTotalEncontrado(resposta.data.total || itensValidos.length);
-      setSelecionados(prev => new Set(itensValidos.filter(item => prev.has(item.id)).map(item => item.id)));
+      setSelecionados(
+        prev => new Set(itensValidos.filter(item => prev.has(item.id)).map(item => item.id))
+      );
       setErro(null);
     } catch (error) {
       console.error('Erro ao carregar produtos aprovados:', error);
@@ -264,9 +266,9 @@ export default function NovaTransmissaoProdutosPage() {
           </button>
           <div>
             <h1 className="text-2xl font-semibold text-white">Selecionar produtos para transmissão</h1>
-            <p className="text-gray-400 text-sm">
-              Produtos em rascunho e ativados podem ser enviados juntos. O processamento continua
-              individual, sequencial e assíncrono.
+            <p className="text-sm text-gray-400">
+              Produtos em rascunho e ativados podem ser enviados juntos. O processamento seguirá
+              item a item, em blocos de até 100 produtos por transmissão.
             </p>
           </div>
         </div>
@@ -277,8 +279,12 @@ export default function NovaTransmissaoProdutosPage() {
             disabled={selecionados.size === 0 || acaoPreparacao !== null || !catalogoId}
             onClick={() => prepararTransmissao('salvar')}
           >
-            {acaoPreparacao === 'salvar' ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            Salvar para depois
+            {acaoPreparacao === 'salvar' ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Save size={16} />
+            )}
+            Criar para depois
           </Button>
           <Button
             variant="accent"
@@ -286,8 +292,12 @@ export default function NovaTransmissaoProdutosPage() {
             disabled={selecionados.size === 0 || acaoPreparacao !== null || !catalogoId}
             onClick={() => prepararTransmissao('transmitir')}
           >
-            {acaoPreparacao === 'transmitir' ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-            Transmitir agora
+            {acaoPreparacao === 'transmitir' ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <ArrowRight size={16} />
+            )}
+            Criar e transmitir
           </Button>
         </div>
       </div>
@@ -345,8 +355,12 @@ export default function NovaTransmissaoProdutosPage() {
         </div>
         <p className="mt-3 text-sm text-gray-400">
           Produtos ativados serão enviados como nova versão; produtos em rascunho serão incluídos
-          como versão inicial. Você pode salvar a pré-transmissão para revisar depois ou seguir
-          direto para a revisão final.
+          como versão inicial. Você pode apenas criar a pré-transmissão para revisão posterior ou
+          seguir direto para a confirmação final.
+        </p>
+        <p className="mt-1 text-sm text-gray-400">
+          Depois da confirmação, a execução entra na fila do catálogo e progride automaticamente por
+          blocos de até 100 itens, sempre de forma sequencial.
         </p>
         {catalogoSelecionado && (
           <p className="mt-1 text-sm text-gray-300">

@@ -1,5 +1,6 @@
 import {
   AsyncJobStatus,
+  ProdutoTransmissaoBlocoStatus,
   ProdutoTransmissaoItemOperacao,
   ProdutoTransmissaoItemStatus,
   ProdutoTransmissaoStatus,
@@ -32,6 +33,9 @@ type MockTransmissao = {
   totalSucesso: number
   totalErro: number
   selecaoJson: number[]
+  origemTipo?: 'MANUAL' | 'AJUSTE_ESTRUTURA'
+  origemContextoJson?: Record<string, any> | null
+  enfileiradaEm?: Date | null
   payloadEnvioPath: string | null
   payloadEnvioExpiraEm: Date | null
   payloadEnvioTamanho: number | null
@@ -48,7 +52,9 @@ type MockTransmissao = {
 type MockItem = {
   id: number
   transmissaoId: number
+  blocoId?: number | null
   produtoId: number
+  ordemExecucao?: number | null
   operacao: ProdutoTransmissaoItemOperacao
   status: ProdutoTransmissaoItemStatus
   mensagem: string | null
@@ -59,9 +65,26 @@ type MockItem = {
   atualizadoEm: Date
 }
 
+type MockBloco = {
+  id: number
+  transmissaoId: number
+  ordem: number
+  status: ProdutoTransmissaoBlocoStatus
+  totalItens: number
+  totalSucesso: number
+  totalErro: number
+  mensagem: string | null
+  iniciadoEm: Date | null
+  concluidoEm: Date | null
+  criadoEm: Date
+  atualizadoEm: Date
+}
+
 const state = {
+  blocos: [] as MockBloco[],
   catalogos: new Map<number, any>(),
   itens: [] as MockItem[],
+  nextBlocoId: 1,
   nextItemId: 1,
   nextTransmissaoId: 1,
   produtos: new Map<number, any>(),
@@ -69,8 +92,10 @@ const state = {
 }
 
 function resetState() {
+  state.blocos = []
   state.catalogos.clear()
   state.itens = []
+  state.nextBlocoId = 1
   state.nextItemId = 1
   state.nextTransmissaoId = 1
   state.produtos.clear()
@@ -86,6 +111,10 @@ function aplicarData(target: Record<string, any>, data: Record<string, any>) {
 
 function clonarItem(item: MockItem) {
   return { ...item }
+}
+
+function clonarBloco(bloco: MockBloco) {
+  return { ...bloco }
 }
 
 function clonarTransmissao(transmissao: MockTransmissao) {
@@ -104,10 +133,18 @@ function localizarProduto(id: number) {
   return state.produtos.get(id) ?? null
 }
 
+function localizarBloco(id: number) {
+  return state.blocos.find(item => item.id === id) ?? null
+}
+
 function montarItensTransmissao(transmissaoId: number, includeProduto = false) {
   return state.itens
     .filter(item => item.transmissaoId === transmissaoId)
-    .sort((a, b) => a.id - b.id)
+    .sort((a, b) => {
+      const ordemA = a.ordemExecucao ?? a.id
+      const ordemB = b.ordemExecucao ?? b.id
+      return ordemA - ordemB
+    })
     .map(item => ({
       ...clonarItem(item),
       ...(includeProduto
@@ -122,6 +159,13 @@ function montarItensTransmissao(transmissaoId: number, includeProduto = false) {
           }
         : {}),
     }))
+}
+
+function montarBlocosTransmissao(transmissaoId: number) {
+  return state.blocos
+    .filter(bloco => bloco.transmissaoId === transmissaoId)
+    .sort((a, b) => a.ordem - b.ordem)
+    .map(clonarBloco)
 }
 
 function selecionarCampos<T extends Record<string, any>>(origem: T, select?: Record<string, boolean>) {
@@ -155,6 +199,9 @@ jest.mock('../../utils/prisma', () => {
           totalSucesso: data.totalSucesso ?? 0,
           totalErro: data.totalErro ?? 0,
           selecaoJson: data.selecaoJson ?? [],
+          origemTipo: data.origemTipo ?? 'MANUAL',
+          origemContextoJson: data.origemContextoJson ?? null,
+          enfileiradaEm: data.enfileiradaEm ?? null,
           payloadEnvioPath: null,
           payloadEnvioExpiraEm: null,
           payloadEnvioTamanho: null,
@@ -185,6 +232,7 @@ jest.mock('../../utils/prisma', () => {
         return {
           ...clonarTransmissao(transmissao),
           ...(include?.catalogo ? { catalogo: localizarCatalogo(transmissao.catalogoId) } : {}),
+          ...(include?.blocos ? { blocos: montarBlocosTransmissao(transmissao.id) } : {}),
           ...(include?.itens
             ? {
                 itens: montarItensTransmissao(
@@ -206,6 +254,7 @@ jest.mock('../../utils/prisma', () => {
               nome: localizarCatalogo(item.catalogoId)?.nome ?? 'Catálogo',
               numero: localizarCatalogo(item.catalogoId)?.numero ?? null,
             },
+            blocos: montarBlocosTransmissao(item.id),
           }))
       }),
       findUnique: jest.fn(async ({ where, include, select }) => {
@@ -219,6 +268,9 @@ jest.mock('../../utils/prisma', () => {
         const resposta: Record<string, any> = clonarTransmissao(transmissao)
         if (include?.catalogo) {
           resposta.catalogo = localizarCatalogo(transmissao.catalogoId)
+        }
+        if (include?.blocos) {
+          resposta.blocos = montarBlocosTransmissao(transmissao.id)
         }
         if (include?.itens) {
           resposta.itens = montarItensTransmissao(transmissao.id, Boolean(include.itens.include?.produto))
@@ -245,7 +297,9 @@ jest.mock('../../utils/prisma', () => {
           state.itens.push({
             id: state.nextItemId++,
             transmissaoId: item.transmissaoId,
+            blocoId: item.blocoId ?? null,
             produtoId: item.produtoId,
+            ordemExecucao: item.ordemExecucao ?? null,
             operacao: item.operacao,
             status: item.status,
             mensagem: null,
@@ -258,8 +312,26 @@ jest.mock('../../utils/prisma', () => {
         })
         return { count: data.length }
       }),
-      findMany: jest.fn(async ({ where }) => {
-        return montarItensTransmissao(where.transmissaoId, false)
+      findMany: jest.fn(async ({ where, select }) => {
+        const itens = state.itens
+          .filter(item => {
+            if (where?.transmissaoId !== undefined && item.transmissaoId !== where.transmissaoId) return false
+            if (where?.blocoId !== undefined && item.blocoId !== where.blocoId) return false
+            if (where?.status !== undefined && item.status !== where.status) return false
+            return true
+          })
+          .sort((a, b) => {
+            const ordemA = a.ordemExecucao ?? a.id
+            const ordemB = b.ordemExecucao ?? b.id
+            return ordemA - ordemB
+          })
+          .map(item => clonarItem(item))
+
+        if (!select) {
+          return itens
+        }
+
+        return itens.map(item => selecionarCampos(item as any, select))
       }),
       update: jest.fn(async ({ where, data }) => {
         const item = state.itens.find(registro => registro.id === where.id)
@@ -271,8 +343,10 @@ jest.mock('../../utils/prisma', () => {
         const itens = state.itens.filter(item => {
           if (where?.transmissaoId !== undefined && item.transmissaoId !== where.transmissaoId) return false
           if (where?.id !== undefined && item.id !== where.id) return false
+          if (where?.id?.in && !where.id.in.includes(item.id)) return false
           if (where?.produtoId !== undefined && item.produtoId !== where.produtoId) return false
           if (where?.status?.in && !where.status.in.includes(item.status)) return false
+          if (where?.status !== undefined && item.status !== where.status) return false
           return true
         })
         itens.forEach(item => aplicarData(item as any, data))
@@ -283,6 +357,67 @@ jest.mock('../../utils/prisma', () => {
         if (indice < 0) throw new Error('Item nÃ£o encontrado')
         const [removido] = state.itens.splice(indice, 1)
         return clonarItem(removido)
+      }),
+    },
+    produtoTransmissaoBloco: {
+      create: jest.fn(async ({ data }) => {
+        const bloco: MockBloco = {
+          id: state.nextBlocoId++,
+          transmissaoId: data.transmissaoId,
+          ordem: data.ordem,
+          status: data.status,
+          totalItens: data.totalItens ?? 0,
+          totalSucesso: data.totalSucesso ?? 0,
+          totalErro: data.totalErro ?? 0,
+          mensagem: data.mensagem ?? null,
+          iniciadoEm: data.iniciadoEm ?? null,
+          concluidoEm: data.concluidoEm ?? null,
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+        }
+        state.blocos.push(bloco)
+        return clonarBloco(bloco)
+      }),
+      deleteMany: jest.fn(async ({ where }) => {
+        const anteriores = state.blocos.length
+        state.blocos = state.blocos.filter(bloco => bloco.transmissaoId !== where.transmissaoId)
+        state.itens.forEach(item => {
+          if (item.transmissaoId === where.transmissaoId) {
+            item.blocoId = null
+          }
+        })
+        return { count: anteriores - state.blocos.length }
+      }),
+      findMany: jest.fn(async ({ where, select }) => {
+        const blocos = state.blocos
+          .filter(bloco => {
+            if (where?.transmissaoId !== undefined && bloco.transmissaoId !== where.transmissaoId) return false
+            if (where?.status !== undefined && bloco.status !== where.status) return false
+            return true
+          })
+          .sort((a, b) => a.ordem - b.ordem)
+          .map(bloco => clonarBloco(bloco))
+
+        if (!select) {
+          return blocos
+        }
+
+        return blocos.map(bloco => selecionarCampos(bloco as any, select))
+      }),
+      update: jest.fn(async ({ where, data }) => {
+        const bloco = localizarBloco(where.id)
+        if (!bloco) throw new Error('Bloco não encontrado')
+        aplicarData(bloco as any, data)
+        return clonarBloco(bloco)
+      }),
+      updateMany: jest.fn(async ({ where, data }) => {
+        const blocos = state.blocos.filter(bloco => {
+          if (where?.transmissaoId !== undefined && bloco.transmissaoId !== where.transmissaoId) return false
+          if (where?.status !== undefined && bloco.status !== where.status) return false
+          return true
+        })
+        blocos.forEach(bloco => aplicarData(bloco as any, data))
+        return { count: blocos.length }
       }),
     },
     $transaction: jest.fn(async (callback: any): Promise<any> => callback(catalogoPrisma)),
@@ -355,8 +490,9 @@ describe('ProdutoTransmissaoService', () => {
 
     const resultado = await service.solicitarTransmissao([1, 2], 5, 99, null, { forcarAtualizacaoVersao: true })
 
-    expect(resultado).toEqual({ transmissaoId: 1, jobId: 700 })
+    expect(resultado).toEqual({ transmissaoId: 1, jobId: 700, posicaoFilaCatalogo: 1 })
     expect(state.itens).toHaveLength(2)
+    expect(state.blocos).toHaveLength(1)
     expect(state.itens.map(item => ({ produtoId: item.produtoId, operacao: item.operacao }))).toEqual([
       { produtoId: 1, operacao: ProdutoTransmissaoItemOperacao.INCLUSAO },
       { produtoId: 2, operacao: ProdutoTransmissaoItemOperacao.NOVA_VERSAO },
@@ -388,6 +524,20 @@ describe('ProdutoTransmissaoService', () => {
   it('processa transmissão mista com inclusão e nova versão em sequência', async () => {
     state.produtos.set(1, { id: 1, codigo: null, denominacao: 'Produto 1' })
     state.produtos.set(2, { id: 2, codigo: 'COD-2', denominacao: 'Produto 2' })
+    state.blocos.push({
+      id: 1,
+      transmissaoId: 1,
+      ordem: 1,
+      status: ProdutoTransmissaoBlocoStatus.PENDENTE,
+      totalItens: 2,
+      totalSucesso: 0,
+      totalErro: 0,
+      mensagem: null,
+      iniciadoEm: null,
+      concluidoEm: null,
+      criadoEm: new Date(),
+      atualizadoEm: new Date(),
+    })
     state.transmissoes.push({
       id: 1,
       superUserId: 99,
@@ -416,7 +566,9 @@ describe('ProdutoTransmissaoService', () => {
       {
         id: 11,
         transmissaoId: 1,
+        blocoId: 1,
         produtoId: 1,
+        ordemExecucao: 1,
         operacao: ProdutoTransmissaoItemOperacao.INCLUSAO,
         status: ProdutoTransmissaoItemStatus.PENDENTE,
         mensagem: null,
@@ -429,7 +581,9 @@ describe('ProdutoTransmissaoService', () => {
       {
         id: 12,
         transmissaoId: 1,
+        blocoId: 1,
         produtoId: 2,
+        ordemExecucao: 2,
         operacao: ProdutoTransmissaoItemOperacao.NOVA_VERSAO,
         status: ProdutoTransmissaoItemStatus.PENDENTE,
         mensagem: null,
@@ -481,6 +635,20 @@ describe('ProdutoTransmissaoService', () => {
 
   it('faz retry em erro técnico e conclui com sucesso', async () => {
     state.produtos.set(1, { id: 1, codigo: null, denominacao: 'Produto 1' })
+    state.blocos.push({
+      id: 1,
+      transmissaoId: 1,
+      ordem: 1,
+      status: ProdutoTransmissaoBlocoStatus.PENDENTE,
+      totalItens: 1,
+      totalSucesso: 0,
+      totalErro: 0,
+      mensagem: null,
+      iniciadoEm: null,
+      concluidoEm: null,
+      criadoEm: new Date(),
+      atualizadoEm: new Date(),
+    })
     state.transmissoes.push({
       id: 1,
       superUserId: 99,
@@ -508,7 +676,9 @@ describe('ProdutoTransmissaoService', () => {
     state.itens.push({
       id: 11,
       transmissaoId: 1,
+      blocoId: 1,
       produtoId: 1,
+      ordemExecucao: 1,
       operacao: ProdutoTransmissaoItemOperacao.INCLUSAO,
       status: ProdutoTransmissaoItemStatus.PENDENTE,
       mensagem: null,
@@ -539,9 +709,23 @@ describe('ProdutoTransmissaoService', () => {
     expect(localizarTransmissao(1)?.status).toBe(ProdutoTransmissaoStatus.CONCLUIDO)
   })
 
-  it('interrompe a fila em erro persistente de autenticação e marca pendentes como erro', async () => {
+  it('interrompe a fila em erro persistente de autenticação preservando os itens pendentes para retomada', async () => {
     state.produtos.set(1, { id: 1, codigo: null, denominacao: 'Produto 1' })
     state.produtos.set(2, { id: 2, codigo: null, denominacao: 'Produto 2' })
+    state.blocos.push({
+      id: 1,
+      transmissaoId: 1,
+      ordem: 1,
+      status: ProdutoTransmissaoBlocoStatus.PENDENTE,
+      totalItens: 2,
+      totalSucesso: 0,
+      totalErro: 0,
+      mensagem: null,
+      iniciadoEm: null,
+      concluidoEm: null,
+      criadoEm: new Date(),
+      atualizadoEm: new Date(),
+    })
     state.transmissoes.push({
       id: 1,
       superUserId: 99,
@@ -570,7 +754,9 @@ describe('ProdutoTransmissaoService', () => {
       {
         id: 11,
         transmissaoId: 1,
+        blocoId: 1,
         produtoId: 1,
+        ordemExecucao: 1,
         operacao: ProdutoTransmissaoItemOperacao.INCLUSAO,
         status: ProdutoTransmissaoItemStatus.PENDENTE,
         mensagem: null,
@@ -583,7 +769,9 @@ describe('ProdutoTransmissaoService', () => {
       {
         id: 12,
         transmissaoId: 1,
+        blocoId: 1,
         produtoId: 2,
+        ordemExecucao: 2,
         operacao: ProdutoTransmissaoItemOperacao.INCLUSAO,
         status: ProdutoTransmissaoItemStatus.PENDENTE,
         mensagem: null,
@@ -608,17 +796,16 @@ describe('ProdutoTransmissaoService', () => {
 
     expect(siscomexClientMock.incluirProduto).toHaveBeenCalledTimes(1)
     expect(state.itens[0]).toMatchObject({
-      status: ProdutoTransmissaoItemStatus.ERRO,
+      status: ProdutoTransmissaoItemStatus.PENDENTE,
       mensagem: 'acesso negado',
     })
     expect(state.itens[1]).toMatchObject({
-      status: ProdutoTransmissaoItemStatus.ERRO,
-      mensagem: expect.stringContaining('Transmissão interrompida'),
+      status: ProdutoTransmissaoItemStatus.PENDENTE,
     })
     expect(localizarTransmissao(1)).toMatchObject({
-      status: ProdutoTransmissaoStatus.FALHO,
+      status: ProdutoTransmissaoStatus.INTERROMPIDA,
       totalSucesso: 0,
-      totalErro: 2,
+      totalErro: 0,
     })
   })
 
@@ -656,8 +843,9 @@ describe('ProdutoTransmissaoService', () => {
 
     const resultado = await service.iniciarTransmissao(preparo.transmissaoId, 99)
 
-    expect(resultado).toEqual({ transmissaoId: 1, jobId: 700 })
+    expect(resultado).toEqual({ transmissaoId: 1, jobId: 700, posicaoFilaCatalogo: 1 })
     expect(createAsyncJob).toHaveBeenCalledTimes(1)
+    expect(state.blocos).toHaveLength(1)
     expect(localizarTransmissao(1)).toMatchObject({
       status: ProdutoTransmissaoStatus.EM_FILA,
       asyncJobId: 700,
@@ -751,7 +939,7 @@ describe('ProdutoTransmissaoService', () => {
     })
   })
 
-  it('continua bloqueando nova preparacao quando ha transmissao em fila ou processando', async () => {
+  it('permite nova pre-transmissao mesmo quando já existe outra em fila', async () => {
     state.transmissoes.push({
       id: 1,
       superUserId: 99,
@@ -776,17 +964,11 @@ describe('ProdutoTransmissaoService', () => {
       concluidoEm: null,
       criadoEm: new Date(),
     })
+    state.nextTransmissaoId = 2
     exportacaoServiceMock.buscarProdutosComAtributos.mockResolvedValue([
       { id: 2, status: 'APROVADO', situacao: 'RASCUNHO', codigo: null },
     ])
 
-    await expect(service.prepararTransmissao([2], 5, 99)).rejects.toMatchObject({
-      details: expect.arrayContaining([
-        expect.objectContaining({
-          field: 'catalogoId',
-          message: expect.stringContaining('transmissão em andamento'),
-        }),
-      ]),
-    })
+    await expect(service.prepararTransmissao([2], 5, 99)).resolves.toEqual({ transmissaoId: 2 })
   })
 })

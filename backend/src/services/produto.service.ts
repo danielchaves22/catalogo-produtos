@@ -31,6 +31,7 @@ import {
 } from '../utils/atributo-condicional';
 import { resolverStatusProduto } from '../utils/produto-status';
 import { normalizarAtributosProdutoPorVersao } from '../utils/produto-atributo-normalizacao';
+import { STATUS_TRANSMISSAO_ABERTA } from '../constants/transmissao-status';
 
 export interface CreateProdutoDTO {
   codigo?: string;
@@ -154,6 +155,22 @@ export interface PendenciaAjusteEstruturaDTO {
   catalogos: PendenciaAjusteEstruturaCatalogoDTO[];
 }
 
+interface ProdutoPendenciaAjusteEstruturaRow {
+  id: number;
+  denominacao: string;
+  ncmCodigo: string;
+  modalidade: string | null;
+  catalogoId: number;
+  versaoEstruturaAtributos: number | null;
+  versaoAtributoId: number | null;
+  catalogo: { nome: string | null } | null;
+}
+
+interface VersaoEstruturaAtualResumo {
+  id: number;
+  versao: number;
+}
+
 export interface TransmissaoGeradaAjusteEstruturaDTO {
   id: number;
   totalItens: number;
@@ -214,6 +231,150 @@ export class ProdutoService {
     return valor.length > 0 ? valor : null;
   }
 
+  private montarChaveNcmModalidade(ncmCodigo: string, modalidade?: string | null) {
+    return `${ncmCodigo}|${modalidade?.trim() ?? ''}`;
+  }
+
+  private async carregarProdutosPendentesAjusteEstrutura(
+    superUserId: number
+  ): Promise<ProdutoPendenciaAjusteEstruturaRow[]> {
+    return catalogoPrisma.produto.findMany({
+      where: { status: 'AJUSTAR_ESTRUTURA', catalogo: { superUserId } },
+      select: {
+        id: true,
+        denominacao: true,
+        ncmCodigo: true,
+        modalidade: true,
+        catalogoId: true,
+        versaoEstruturaAtributos: true,
+        versaoAtributoId: true,
+        catalogo: { select: { nome: true } },
+      },
+      orderBy: [
+        { ncmCodigo: 'asc' },
+        { catalogoId: 'asc' },
+        { denominacao: 'asc' },
+      ],
+    });
+  }
+
+  private async carregarMapaUltimaVersaoEstrutura(
+    produtos: ProdutoPendenciaAjusteEstruturaRow[]
+  ): Promise<Map<string, VersaoEstruturaAtualResumo>> {
+    const combinacoes = new Map<string, { ncmCodigo: string; modalidade: string }>();
+
+    for (const produto of produtos) {
+      const modalidade = produto.modalidade?.trim() ?? '';
+      const chave = this.montarChaveNcmModalidade(produto.ncmCodigo, modalidade);
+
+      if (!combinacoes.has(chave)) {
+        combinacoes.set(chave, { ncmCodigo: produto.ncmCodigo, modalidade });
+      }
+    }
+
+    if (combinacoes.size === 0) {
+      return new Map();
+    }
+
+    const where = Array.from(combinacoes.values()).map(combinacao =>
+      combinacao.modalidade
+        ? { ncmCodigo: combinacao.ncmCodigo, modalidade: combinacao.modalidade }
+        : {
+            ncmCodigo: combinacao.ncmCodigo,
+            OR: [{ modalidade: null }, { modalidade: '' }],
+          }
+    );
+
+    const versoes = await catalogoPrisma.atributoVersao.findMany({
+      where: { OR: where },
+      select: {
+        id: true,
+        ncmCodigo: true,
+        modalidade: true,
+        versao: true,
+      },
+      orderBy: [{ ncmCodigo: 'asc' }, { modalidade: 'asc' }, { versao: 'desc' }],
+    });
+
+    const mapa = new Map<string, VersaoEstruturaAtualResumo>();
+
+    for (const versao of versoes) {
+      const chave = this.montarChaveNcmModalidade(versao.ncmCodigo, versao.modalidade);
+
+      if (!mapa.has(chave)) {
+        mapa.set(chave, { id: versao.id, versao: versao.versao });
+      }
+    }
+
+    return mapa;
+  }
+
+  private async normalizarPendenciasAjusteEstruturaSemDivergencia(
+    produtos: ProdutoPendenciaAjusteEstruturaRow[]
+  ): Promise<Set<number>> {
+    if (produtos.length === 0) {
+      return new Set<number>();
+    }
+
+    const mapaVersoes = await this.carregarMapaUltimaVersaoEstrutura(produtos);
+    const produtosInconsistentes = produtos.filter(produto => {
+      const versaoAtual = mapaVersoes.get(
+        this.montarChaveNcmModalidade(produto.ncmCodigo, produto.modalidade)
+      );
+
+      if (!versaoAtual) {
+        return false;
+      }
+
+      return (
+        produto.versaoAtributoId === versaoAtual.id ||
+        produto.versaoEstruturaAtributos === versaoAtual.versao
+      );
+    });
+
+    if (produtosInconsistentes.length === 0) {
+      return new Set<number>();
+    }
+
+    const idsNormalizados = new Set<number>();
+
+    await catalogoPrisma.$transaction(async tx => {
+      for (const produto of produtosInconsistentes) {
+        const resumo = await this.produtoResumoService.recalcularResumoProduto(produto.id, tx);
+        const novoStatus = resolverStatusProduto({
+          statusAtual: 'AJUSTAR_ESTRUTURA',
+          possuiObrigatoriosPendentes: resumo ? resumo.obrigatoriosPendentes > 0 : true,
+        });
+
+        await tx.produto.update({
+          where: { id: produto.id },
+          data: { status: novoStatus },
+        });
+
+        idsNormalizados.add(produto.id);
+      }
+    });
+
+    logger.info(
+      `Ajuste de estrutura: ${idsNormalizados.size} produto(s) com status inconsistente foram normalizados automaticamente.`
+    );
+
+    return idsNormalizados;
+  }
+
+  private async listarProdutosPendentesAjusteEstrutura(
+    superUserId: number
+  ): Promise<ProdutoPendenciaAjusteEstruturaRow[]> {
+    const produtos = await this.carregarProdutosPendentesAjusteEstrutura(superUserId);
+    const idsNormalizados = await this.normalizarPendenciasAjusteEstruturaSemDivergencia(produtos);
+
+    if (idsNormalizados.size === 0) {
+      return produtos;
+    }
+
+    return produtos.filter(produto => !idsNormalizados.has(produto.id));
+  }
+
   private produtoJaTransmitidoParaRegras(produto: {
     situacao: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
     codigo?: string | null;
@@ -258,7 +419,7 @@ export class ProdutoService {
         produtoId: { in: produtoIdsElegiveis },
         transmissao: {
           catalogoId: dados.catalogoId,
-          status: ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO,
+          status: { in: STATUS_TRANSMISSAO_ABERTA },
         },
       },
       select: { produtoId: true },
@@ -1150,9 +1311,8 @@ export class ProdutoService {
   }
 
   async contarPendenciasAjusteEstrutura(superUserId: number): Promise<number> {
-    return catalogoPrisma.produto.count({
-      where: { status: 'AJUSTAR_ESTRUTURA', catalogo: { superUserId } },
-    });
+    const produtos = await this.listarProdutosPendentesAjusteEstrutura(superUserId);
+    return produtos.length;
   }
 
   private lerResultadosVerificacao(conteudoBase64?: string | null): ResultadoVerificacao[] {
@@ -1180,7 +1340,7 @@ export class ProdutoService {
     resultados
       .filter(item => item.divergente)
       .forEach(item => {
-        const chave = `${item.ncmCodigo}|${item.modalidade || ''}`;
+        const chave = this.montarChaveNcmModalidade(item.ncmCodigo, item.modalidade);
         if (!mapa.has(chave)) {
           mapa.set(chave, item);
         }
@@ -1193,29 +1353,14 @@ export class ProdutoService {
     itens: PendenciaAjusteEstruturaDTO[];
     totalProdutos: number;
   }> {
-    const produtos = await catalogoPrisma.produto.findMany({
-      where: { status: 'AJUSTAR_ESTRUTURA', catalogo: { superUserId } },
-      select: {
-        id: true,
-        denominacao: true,
-        ncmCodigo: true,
-        modalidade: true,
-        catalogoId: true,
-        catalogo: { select: { nome: true } },
-      },
-      orderBy: [
-        { ncmCodigo: 'asc' },
-        { catalogoId: 'asc' },
-        { denominacao: 'asc' },
-      ],
-    });
+    const produtos = await this.listarProdutosPendentesAjusteEstrutura(superUserId);
 
     const mapaDivergencias = await this.carregarMapaDivergencias();
     const agrupados = new Map<string, PendenciaAjusteEstruturaDTO>();
 
     for (const produto of produtos) {
       const modalidade = produto.modalidade || '';
-      const chave = `${produto.ncmCodigo}|${modalidade}`;
+      const chave = this.montarChaveNcmModalidade(produto.ncmCodigo, modalidade);
       if (!agrupados.has(chave)) {
         agrupados.set(chave, {
           ncmCodigo: produto.ncmCodigo,

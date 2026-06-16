@@ -393,11 +393,12 @@ CREATE TABLE IF NOT EXISTS catalogo (
         modalidade ENUM('PRODUTOS') NOT NULL DEFAULT 'PRODUTOS',
         origem_tipo ENUM('MANUAL', 'AJUSTE_ESTRUTURA') NOT NULL DEFAULT 'MANUAL',
         origem_contexto_json JSON NULL,
-        status ENUM('AGUARDANDO_CONFIRMACAO', 'EM_FILA', 'PROCESSANDO', 'CONCLUIDO', 'FALHO', 'PARCIAL', 'CANCELADA') NOT NULL DEFAULT 'AGUARDANDO_CONFIRMACAO',
+        status ENUM('AGUARDANDO_CONFIRMACAO', 'EM_FILA', 'PROCESSANDO', 'INTERROMPIDA', 'CONCLUIDO', 'FALHO', 'PARCIAL', 'CANCELADA') NOT NULL DEFAULT 'AGUARDANDO_CONFIRMACAO',
         total_itens INT UNSIGNED NOT NULL DEFAULT 0,
         total_sucesso INT UNSIGNED NOT NULL DEFAULT 0,
         total_erro INT UNSIGNED NOT NULL DEFAULT 0,
         selecao_json JSON NULL,
+        enfileirada_em DATETIME NULL,
         payload_envio_path VARCHAR(512) NULL,
         payload_envio_expira_em DATETIME NULL,
         payload_envio_tamanho INT UNSIGNED NULL,
@@ -420,10 +421,31 @@ CREATE TABLE IF NOT EXISTS catalogo (
         CONSTRAINT fk_transmissao_job FOREIGN KEY (async_job_id) REFERENCES async_job(id)
     );
 
+    CREATE TABLE IF NOT EXISTS produto_transmissao_bloco (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        transmissao_id INT UNSIGNED NOT NULL,
+        ordem INT UNSIGNED NOT NULL,
+        status ENUM('PENDENTE', 'PROCESSANDO', 'INTERROMPIDO', 'CONCLUIDO', 'FALHO', 'PARCIAL') NOT NULL DEFAULT 'PENDENTE',
+        total_itens INT UNSIGNED NOT NULL DEFAULT 0,
+        total_sucesso INT UNSIGNED NOT NULL DEFAULT 0,
+        total_erro INT UNSIGNED NOT NULL DEFAULT 0,
+        mensagem TEXT NULL,
+        iniciado_em DATETIME NULL,
+        concluido_em DATETIME NULL,
+        criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE INDEX uk_transmissao_bloco_ordem (transmissao_id, ordem),
+        INDEX idx_transmissao_bloco_transmissao (transmissao_id),
+        CONSTRAINT fk_transmissao_bloco_transmissao FOREIGN KEY (transmissao_id) REFERENCES produto_transmissao(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS produto_transmissao_item (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
         transmissao_id INT UNSIGNED NOT NULL,
+        bloco_id INT UNSIGNED NULL,
         produto_id INT UNSIGNED NOT NULL,
+        ordem_execucao INT UNSIGNED NULL,
         operacao ENUM('INCLUSAO', 'NOVA_VERSAO') NOT NULL DEFAULT 'INCLUSAO',
         status ENUM('PENDENTE', 'PROCESSANDO', 'SUCESSO', 'ERRO') NOT NULL DEFAULT 'PENDENTE',
         mensagem TEXT NULL,
@@ -434,8 +456,11 @@ CREATE TABLE IF NOT EXISTS catalogo (
         atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
         INDEX idx_transmissao_item_transmissao (transmissao_id),
+        INDEX idx_transmissao_item_bloco (bloco_id),
         INDEX idx_transmissao_item_produto (produto_id),
+        INDEX idx_transmissao_item_ordem (transmissao_id, ordem_execucao),
         CONSTRAINT fk_transmissao_item_transmissao FOREIGN KEY (transmissao_id) REFERENCES produto_transmissao(id) ON DELETE CASCADE,
+        CONSTRAINT fk_transmissao_item_bloco FOREIGN KEY (bloco_id) REFERENCES produto_transmissao_bloco(id) ON DELETE SET NULL,
         CONSTRAINT fk_transmissao_item_produto FOREIGN KEY (produto_id) REFERENCES produto(id)
     );
 

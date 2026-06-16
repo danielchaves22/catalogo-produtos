@@ -29,6 +29,7 @@ type TransmissaoStatus =
   | 'AGUARDANDO_CONFIRMACAO'
   | 'EM_FILA'
   | 'PROCESSANDO'
+  | 'INTERROMPIDA'
   | 'CONCLUIDO'
   | 'FALHO'
   | 'PARCIAL'
@@ -39,6 +40,16 @@ type TransmissaoItemOperacao = 'INCLUSAO' | 'NOVA_VERSAO';
 interface CatalogoResumo {
   nome: string;
   numero: number | null;
+}
+
+interface ResumoBloco {
+  id: number;
+  ordem: number;
+  status: 'PENDENTE' | 'PROCESSANDO' | 'INTERROMPIDO' | 'CONCLUIDO' | 'FALHO' | 'PARCIAL';
+  totalItens: number;
+  totalSucesso: number;
+  totalErro: number;
+  mensagem?: string | null;
 }
 
 interface TransmissaoItem {
@@ -70,6 +81,9 @@ interface TransmissaoDetalhe {
   totalItens: number;
   totalSucesso: number;
   totalErro: number;
+  totalBlocos?: number;
+  filaCatalogoPosicao?: number | null;
+  blocos?: ResumoBloco[];
   criadoEm?: string | null;
   iniciadoEm?: string | null;
   concluidoEm?: string | null;
@@ -241,12 +255,16 @@ export default function ConfirmarTransmissaoProdutosPage() {
   }, [transmissao]);
 
   const aguardandoConfirmacao = transmissao?.status === 'AGUARDANDO_CONFIRMACAO';
+  const interrompida = transmissao?.status === 'INTERROMPIDA';
   const podeTransmitir = Boolean(
-    aguardandoConfirmacao &&
-      transmissao &&
+    transmissao &&
+      (aguardandoConfirmacao || interrompida) &&
       transmissao.itens.length > 0 &&
       inconsistencias.length === 0
   );
+  const totalBlocosEstimado =
+    transmissao?.totalBlocos ??
+    (transmissao ? Math.max(1, Math.ceil(transmissao.itens.length / 100)) : 0);
 
   const removerItem = async (itemId: number) => {
     if (!transmissaoId || !aguardandoConfirmacao) return;
@@ -267,14 +285,20 @@ export default function ConfirmarTransmissaoProdutosPage() {
     }
   };
 
-  const iniciarTransmissao = async () => {
+  const iniciarOuRetomarTransmissao = async () => {
     if (!transmissaoId || !podeTransmitir) return;
 
     setTransmitindo(true);
     try {
       const resposta = await api.post(`/siscomex/transmissoes/${transmissaoId}/iniciar`);
       const idDetalhe = resposta.data?.dados?.transmissaoId ?? transmissaoId;
-      addToast('Transmissão enfileirada. Acompanhe o progresso na tela de detalhes.', 'success');
+      addToast(
+        resposta.data?.mensagem ||
+          (interrompida
+            ? 'Transmissão recolocada na fila do catálogo.'
+            : 'Transmissão enfileirada.'),
+        'success'
+      );
       await router.push(`/automacao/transmissoes-siscomex/${idDetalhe}`);
     } catch (error) {
       console.error('Erro ao iniciar transmissão:', error);
@@ -353,8 +377,7 @@ export default function ConfirmarTransmissaoProdutosPage() {
           <div>
             <h1 className="text-2xl font-semibold text-white">Confirmar transmissão em lote</h1>
             <p className="text-sm text-gray-400">
-              Revise os produtos da transmissão antes de iniciar o envio individual, sequencial e
-              assíncrono.
+              Revise os produtos antes de enfileirar o envio individual, sequencial e assíncrono.
             </p>
           </div>
         </div>
@@ -369,14 +392,14 @@ export default function ConfirmarTransmissaoProdutosPage() {
             variant="accent"
             className="flex items-center gap-2"
             disabled={!podeTransmitir || transmitindo}
-            onClick={iniciarTransmissao}
+            onClick={iniciarOuRetomarTransmissao}
           >
             {transmitindo ? (
               <Loader2 size={16} className="animate-spin" />
             ) : (
               <CheckCircle2 size={16} />
             )}
-            Transmitir agora
+            {interrompida ? 'Continuar transmissão' : 'Transmitir agora'}
           </Button>
         </div>
       </div>
@@ -407,12 +430,24 @@ export default function ConfirmarTransmissaoProdutosPage() {
           <div>
             <div className="text-xs uppercase tracking-wide text-gray-500">Status</div>
             <div className="text-sm text-gray-100">
-              {transmissao.status === 'AGUARDANDO_CONFIRMACAO'
+              {aguardandoConfirmacao
                 ? 'Aguardando confirmação'
-                : transmissao.status === 'CANCELADA'
-                  ? 'Cancelada'
+                : interrompida
+                  ? 'Interrompida'
                   : 'Já iniciada'}
             </div>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 border-t border-slate-800 pt-4 md:grid-cols-3">
+          <div className="text-sm text-gray-300">
+            <span className="text-gray-500">Blocos previstos:</span> {totalBlocosEstimado}
+          </div>
+          <div className="text-sm text-gray-300">
+            <span className="text-gray-500">Tamanho máximo por bloco:</span> 100 produtos
+          </div>
+          <div className="text-sm text-gray-300">
+            <span className="text-gray-500">Posição atual na fila:</span>{' '}
+            {transmissao.filaCatalogoPosicao ?? 'a definir após o enfileiramento'}
           </div>
         </div>
         {detalhesOrigem.length > 0 && (
@@ -452,17 +487,25 @@ export default function ConfirmarTransmissaoProdutosPage() {
         </div>
       )}
 
-      {!aguardandoConfirmacao && (
+      {!aguardandoConfirmacao && !interrompida && (
         <Card className="mb-6 border-slate-600/60">
           <div className="text-sm text-gray-200">
-            {transmissao.status === 'CANCELADA'
-              ? 'Esta pré-transmissão foi cancelada e não pode mais ser iniciada.'
-              : 'Esta transmissão já saiu da etapa de confirmação. Abra o detalhe para acompanhar o progresso ou consultar o histórico.'}
+            Esta transmissão já saiu da etapa de confirmação. Abra o detalhe para acompanhar o
+            progresso ou consultar o histórico.
           </div>
         </Card>
       )}
 
-      {inconsistencias.length > 0 && aguardandoConfirmacao && (
+      {interrompida && (
+        <Card className="mb-6 border-orange-500/40">
+          <div className="text-sm text-orange-200">
+            Esta transmissão foi interrompida. Os itens já concluídos serão preservados e apenas os
+            pendentes voltarão para a fila quando você confirmar a continuação.
+          </div>
+        </Card>
+      )}
+
+      {inconsistencias.length > 0 && (aguardandoConfirmacao || interrompida) && (
         <Card className="mb-6 border-amber-500/40">
           <div className="flex items-start gap-3">
             <TriangleAlert size={18} className="mt-1 text-amber-300" />
@@ -484,7 +527,7 @@ export default function ConfirmarTransmissaoProdutosPage() {
         <Card className="mb-6">
           <div className="py-10 text-center text-gray-300">
             <PackageSearch className="mx-auto mb-3 text-gray-500" size={32} />
-            <p className="mb-4">Nenhum produto permanece nesta pré-transmissão.</p>
+            <p className="mb-4">Nenhum produto permanece nesta transmissão.</p>
           </div>
         </Card>
       ) : (
@@ -541,22 +584,26 @@ export default function ConfirmarTransmissaoProdutosPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => removerItem(item.id)}
-                          disabled={!aguardandoConfirmacao || removendoItemId === item.id}
-                          className="inline-flex items-center justify-center rounded-md bg-red-500/10 p-2 text-red-300 transition-colors hover:bg-red-500/20 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
-                          aria-label={`Remover produto ${
-                            item.produto?.codigo || item.produto?.denominacao || item.produtoId
-                          } da transmissão`}
-                          title="Remover da transmissão"
-                        >
-                          {removendoItemId === item.id ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <Trash2 size={16} />
-                          )}
-                        </button>
+                        {aguardandoConfirmacao ? (
+                          <button
+                            type="button"
+                            onClick={() => removerItem(item.id)}
+                            disabled={removendoItemId === item.id}
+                            className="inline-flex items-center justify-center rounded-md bg-red-500/10 p-2 text-red-300 transition-colors hover:bg-red-500/20 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label={`Remover produto ${
+                              item.produto?.codigo || item.produto?.denominacao || item.produtoId
+                            } da transmissão`}
+                            title="Remover da transmissão"
+                          >
+                            {removendoItemId === item.id ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={16} />
+                            )}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-500">Bloqueada</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -565,8 +612,9 @@ export default function ConfirmarTransmissaoProdutosPage() {
             </table>
           </div>
           <div className="mt-3 text-sm text-gray-400">
-            Remova os itens que não devem seguir para o SISCOMEX. O enfileiramento final usará
-            somente os produtos desta revisão.
+            {aguardandoConfirmacao
+              ? 'Remova os itens que não devem seguir para o SISCOMEX. O enfileiramento final usará somente os produtos desta revisão.'
+              : 'Os itens exibidos refletem o estado persistido da transmissão. Em retomadas, apenas os pendentes serão processados novamente.'}
           </div>
         </Card>
       )}

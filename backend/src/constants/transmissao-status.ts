@@ -5,9 +5,15 @@ export const STATUS_TRANSMISSAO_EXECUCAO: ProdutoTransmissaoStatus[] = [
   ProdutoTransmissaoStatus.PROCESSANDO,
 ];
 
+export const STATUS_TRANSMISSAO_FILA_CATALOGO: ProdutoTransmissaoStatus[] = [
+  ProdutoTransmissaoStatus.EM_FILA,
+  ProdutoTransmissaoStatus.PROCESSANDO,
+  ProdutoTransmissaoStatus.INTERROMPIDA,
+];
+
 export const STATUS_TRANSMISSAO_ABERTA: ProdutoTransmissaoStatus[] = [
   ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO,
-  ...STATUS_TRANSMISSAO_EXECUCAO,
+  ...STATUS_TRANSMISSAO_FILA_CATALOGO,
 ];
 
 export function transmissaoEmExecucao(status?: ProdutoTransmissaoStatus | null) {

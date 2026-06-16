@@ -20,6 +20,8 @@ beforeEach(() => {
 jest.mock('../../utils/prisma', () => ({
   catalogoPrisma: {
     produto: { findFirst: jest.fn(), findMany: jest.fn() },
+    atributoVersao: { findMany: jest.fn() },
+    asyncJob: { findFirst: jest.fn() },
     $transaction: jest.fn()
   }
 }))
@@ -687,6 +689,113 @@ describe('ProdutoService - ajuste de estrutura', () => {
       produtosIgnoradosDuplicidade: 1,
     })
     expect(transmissaoCreateSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('ProdutoService - saneamento de pendencias de ajuste de estrutura', () => {
+  it('normaliza automaticamente produtos ja alinhados com a versao vigente', async () => {
+    const service = criarService()
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 81,
+        denominacao: 'Produto alinhado',
+        ncmCodigo: '12345678',
+        modalidade: 'IMPORTACAO',
+        catalogoId: 3,
+        versaoEstruturaAtributos: 5,
+        versaoAtributoId: 77,
+        catalogo: { nome: 'Catalogo 3' }
+      }
+    ])
+    ;(catalogoPrisma.atributoVersao.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 77,
+        ncmCodigo: '12345678',
+        modalidade: 'IMPORTACAO',
+        versao: 5
+      }
+    ])
+
+    produtoResumoServiceMock.recalcularResumoProduto.mockResolvedValue({
+      atributosTotal: 0,
+      obrigatoriosPendentes: 0,
+      validosTransmissao: 0
+    })
+
+    const updateSpy = jest.fn().mockResolvedValue({})
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { update: updateSpy }
+      })
+    )
+
+    const total = await service.contarPendenciasAjusteEstrutura(99)
+
+    expect(total).toBe(0)
+    expect(updateSpy).toHaveBeenCalledWith({
+      where: { id: 81 },
+      data: { status: 'APROVADO' }
+    })
+  })
+
+  it('mantem a pendencia quando o produto ainda esta em versao anterior', async () => {
+    const service = criarService()
+    const resultadosSemDivergencia = Buffer.from(
+      JSON.stringify([
+        {
+          ncmCodigo: '12345678',
+          modalidade: 'IMPORTACAO',
+          divergente: false
+        }
+      ]),
+      'utf8'
+    ).toString('base64')
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 82,
+        denominacao: 'Produto pendente',
+        ncmCodigo: '12345678',
+        modalidade: 'IMPORTACAO',
+        catalogoId: 3,
+        versaoEstruturaAtributos: 4,
+        versaoAtributoId: 70,
+        catalogo: { nome: 'Catalogo 3' }
+      }
+    ])
+    ;(catalogoPrisma.atributoVersao.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 77,
+        ncmCodigo: '12345678',
+        modalidade: 'IMPORTACAO',
+        versao: 5
+      }
+    ])
+    ;(catalogoPrisma.asyncJob.findFirst as jest.Mock).mockResolvedValue({
+      arquivo: { conteudoBase64: resultadosSemDivergencia }
+    })
+
+    const resultado = await service.listarPendenciasAjusteEstruturaDetalhadas(99)
+
+    expect(catalogoPrisma.$transaction).not.toHaveBeenCalled()
+    expect(resultado).toEqual({
+      itens: [
+        {
+          ncmCodigo: '12345678',
+          modalidade: 'IMPORTACAO',
+          diferencas: undefined,
+          catalogos: [
+            {
+              catalogoId: 3,
+              catalogoNome: 'Catalogo 3',
+              produtos: [{ id: 82, denominacao: 'Produto pendente' }]
+            }
+          ]
+        }
+      ],
+      totalProdutos: 1
+    })
   })
 })
 

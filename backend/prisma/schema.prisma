@@ -226,6 +226,7 @@ model ProdutoTransmissao {
   totalSucesso         Int                         @default(0) @map("total_sucesso")
   totalErro            Int                         @default(0) @map("total_erro")
   selecaoJson          Json?                       @map("selecao_json")
+  enfileiradaEm        DateTime?                   @map("enfileirada_em")
   payloadEnvioPath     String?                     @map("payload_envio_path")
   payloadEnvioExpiraEm DateTime?                   @map("payload_envio_expira_em")
   payloadEnvioTamanho  Int?                        @map("payload_envio_tamanho")
@@ -241,6 +242,7 @@ model ProdutoTransmissao {
 
   catalogo  Catalogo  @relation(fields: [catalogoId], references: [id], onDelete: Cascade)
   asyncJob  AsyncJob? @relation(fields: [asyncJobId], references: [id])
+  blocos    ProdutoTransmissaoBloco[]
   itens     ProdutoTransmissaoItem[]
   historicoVersoes ProdutoHistoricoVersao[]
 
@@ -249,10 +251,34 @@ model ProdutoTransmissao {
   @@map("produto_transmissao")
 }
 
+model ProdutoTransmissaoBloco {
+  id           Int                           @id @default(autoincrement()) @map("id")
+  transmissaoId Int                          @map("transmissao_id")
+  ordem        Int                           @map("ordem")
+  status       ProdutoTransmissaoBlocoStatus @default(PENDENTE) @map("status")
+  totalItens   Int                           @default(0) @map("total_itens")
+  totalSucesso Int                           @default(0) @map("total_sucesso")
+  totalErro    Int                           @default(0) @map("total_erro")
+  mensagem     String?                       @map("mensagem") @db.Text
+  iniciadoEm   DateTime?                     @map("iniciado_em")
+  concluidoEm  DateTime?                     @map("concluido_em")
+  criadoEm     DateTime                      @default(now()) @map("criado_em")
+  atualizadoEm DateTime                      @updatedAt @map("atualizado_em")
+
+  transmissao ProdutoTransmissao     @relation(fields: [transmissaoId], references: [id], onDelete: Cascade)
+  itens       ProdutoTransmissaoItem[]
+
+  @@index([transmissaoId], map: "idx_transmissao_bloco_transmissao")
+  @@unique([transmissaoId, ordem], name: "uk_transmissao_bloco_ordem")
+  @@map("produto_transmissao_bloco")
+}
+
 model ProdutoTransmissaoItem {
   id             Int                          @id @default(autoincrement()) @map("id")
   transmissaoId  Int                          @map("transmissao_id")
+  blocoId        Int?                         @map("bloco_id")
   produtoId      Int                          @map("produto_id")
+  ordemExecucao  Int?                         @map("ordem_execucao")
   operacao       ProdutoTransmissaoItemOperacao @default(INCLUSAO) @map("operacao")
   status         ProdutoTransmissaoItemStatus @default(PENDENTE) @map("status")
   mensagem       String?                      @map("mensagem") @db.Text
@@ -263,10 +289,13 @@ model ProdutoTransmissaoItem {
   atualizadoEm   DateTime                     @updatedAt @map("atualizado_em")
 
   transmissao ProdutoTransmissao @relation(fields: [transmissaoId], references: [id], onDelete: Cascade)
+  bloco        ProdutoTransmissaoBloco? @relation(fields: [blocoId], references: [id], onDelete: SetNull)
   produto      Produto            @relation(fields: [produtoId], references: [id])
 
   @@index([transmissaoId], map: "idx_transmissao_item_transmissao")
+  @@index([blocoId], map: "idx_transmissao_item_bloco")
   @@index([produtoId], map: "idx_transmissao_item_produto")
+  @@index([transmissaoId, ordemExecucao], map: "idx_transmissao_item_ordem")
   @@map("produto_transmissao_item")
 }
 
@@ -427,6 +456,7 @@ enum ProdutoTransmissaoStatus {
   AGUARDANDO_CONFIRMACAO
   EM_FILA
   PROCESSANDO
+  INTERROMPIDA
   CONCLUIDO
   FALHO
   PARCIAL
@@ -443,6 +473,15 @@ enum ProdutoTransmissaoItemStatus {
   PROCESSANDO
   SUCESSO
   ERRO
+}
+
+enum ProdutoTransmissaoBlocoStatus {
+  PENDENTE
+  PROCESSANDO
+  INTERROMPIDO
+  CONCLUIDO
+  FALHO
+  PARCIAL
 }
 
 enum ProdutoTransmissaoItemOperacao {
