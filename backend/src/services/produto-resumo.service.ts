@@ -19,6 +19,30 @@ type ProdutoAtributoComValores = {
 export class ProdutoResumoService {
   constructor(private readonly atributoService = new AtributoLegacyService()) {}
 
+  async salvarResumoProduto(
+    produtoId: number,
+    catalogoId: number,
+    resumo: ProdutoResumoValores,
+    prisma: Prisma.TransactionClient | typeof catalogoPrisma = catalogoPrisma
+  ): Promise<void> {
+    await prisma.produtoResumoDashboard.upsert({
+      where: { produtoId },
+      update: {
+        catalogoId,
+        atributosTotal: resumo.atributosTotal,
+        obrigatoriosPendentes: resumo.obrigatoriosPendentes,
+        validosTransmissao: resumo.validosTransmissao
+      },
+      create: {
+        produtoId,
+        catalogoId,
+        atributosTotal: resumo.atributosTotal,
+        obrigatoriosPendentes: resumo.obrigatoriosPendentes,
+        validosTransmissao: resumo.validosTransmissao
+      }
+    });
+  }
+
   async recalcularResumoProduto(
     produtoId: number,
     prisma: Prisma.TransactionClient | typeof catalogoPrisma = catalogoPrisma
@@ -59,22 +83,7 @@ export class ProdutoResumoService {
     });
     const resumo = calcularResumoProduto(valores, estruturaLista);
 
-    await prisma.produtoResumoDashboard.upsert({
-      where: { produtoId: produto.id },
-      update: {
-        catalogoId: produto.catalogoId,
-        atributosTotal: resumo.atributosTotal,
-        obrigatoriosPendentes: resumo.obrigatoriosPendentes,
-        validosTransmissao: resumo.validosTransmissao
-      },
-      create: {
-        produtoId: produto.id,
-        catalogoId: produto.catalogoId,
-        atributosTotal: resumo.atributosTotal,
-        obrigatoriosPendentes: resumo.obrigatoriosPendentes,
-        validosTransmissao: resumo.validosTransmissao
-      }
-    });
+    await this.salvarResumoProduto(produto.id, produto.catalogoId, resumo, prisma);
 
     return resumo;
   }
@@ -211,7 +220,9 @@ export function calcularResumoProduto(
   return { atributosTotal, obrigatoriosPendentes, validosTransmissao };
 }
 
-function flattenEstrutura(estrutura: AtributoEstruturaDTO[] | undefined): AtributoEstruturaDTO[] {
+export function flattenEstrutura(
+  estrutura: AtributoEstruturaDTO[] | undefined
+): AtributoEstruturaDTO[] {
   if (!estrutura) return [];
   const resultado: AtributoEstruturaDTO[] = [];
   const stack = [...estrutura];

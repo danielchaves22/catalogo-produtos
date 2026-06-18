@@ -4,6 +4,7 @@ import { catalogoPrisma } from '../../utils/prisma'
 
 const produtoResumoServiceMock = {
   recalcularResumoProduto: jest.fn(),
+  salvarResumoProduto: jest.fn(),
   removerResumoProduto: jest.fn()
 }
 
@@ -14,6 +15,7 @@ function criarService() {
 beforeEach(() => {
   jest.clearAllMocks()
   produtoResumoServiceMock.recalcularResumoProduto.mockClear()
+  produtoResumoServiceMock.salvarResumoProduto.mockClear()
   produtoResumoServiceMock.removerResumoProduto.mockClear()
 })
 
@@ -278,12 +280,17 @@ describe('ProdutoService - ajuste de estrutura', () => {
     jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
       versaoId: 7,
       versaoNumero: 3,
-      estrutura: []
-    })
-    produtoResumoServiceMock.recalcularResumoProduto.mockResolvedValue({
-      atributosTotal: 1,
-      obrigatoriosPendentes: 1,
-      validosTransmissao: 0
+      estrutura: [
+        {
+          id: 70,
+          codigo: 'ATT_OBRIGATORIO',
+          nome: 'Obrigatorio',
+          tipo: 'TEXTO',
+          obrigatorio: true,
+          multivalorado: false,
+          validacoes: {}
+        }
+      ]
     })
 
     ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([

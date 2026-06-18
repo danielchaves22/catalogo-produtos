@@ -16,7 +16,11 @@ import {
   EstruturaComVersao
 } from './atributo-legacy.service';
 import { ValidationError } from '../types/validation-error';
-import { ProdutoResumoService } from './produto-resumo.service';
+import {
+  calcularResumoProduto,
+  flattenEstrutura,
+  ProdutoResumoService,
+} from './produto-resumo.service';
 import { ResultadoVerificacao } from '../jobs/handlers/verificacao-atributos-ncm.handler';
 import {
   DeltaHistoricoProduto,
@@ -209,6 +213,7 @@ export interface ProdutoHistoricoVersaoDTO {
 
 export class ProdutoService {
   private static readonly ESTRUTURA_CACHE_REVALIDACAO_MS = 30 * 1000; // 30 segundos
+  private static readonly AJUSTE_ESTRUTURA_TRANSACTION_TIMEOUT_MS = 30 * 1000;
   private static estruturaCache = new Map<
     string,
     { dados: EstruturaComVersao; proximaVerificacao: number }
@@ -1427,67 +1432,80 @@ export class ProdutoService {
 
     const estruturaInfo = await this.obterEstruturaAtributos(ncmCodigo, modalidade);
     const mapaEstrutura = this.mapearEstruturaPorCodigo(estruturaInfo.estrutura);
+    const estruturaLista = flattenEstrutura(estruturaInfo.estrutura);
 
-    const resultado = await catalogoPrisma.$transaction(async tx => {
-      const produtoIdsElegiveis: number[] = [];
+    const resultado = await catalogoPrisma.$transaction(
+      async tx => {
+        const produtoIdsElegiveis: number[] = [];
 
-      for (const produto of produtos) {
-        const valoresOriginais = this.montarValoresDosAtributos(produto.atributos, {
-          produtoId: produto.id,
-          versaoAtributoId: produto.versaoAtributoId,
-          origem: 'produto.ajustarEstruturaCatalogo',
-        });
-        const valoresFiltrados = Object.fromEntries(
-          Object.entries(valoresOriginais).filter(([codigo]) => mapaEstrutura.has(codigo))
-        );
+        for (const produto of produtos) {
+          const valoresOriginais = this.montarValoresDosAtributos(produto.atributos, {
+            produtoId: produto.id,
+            versaoAtributoId: produto.versaoAtributoId,
+            origem: 'produto.ajustarEstruturaCatalogo',
+          });
+          const valoresFiltrados = Object.fromEntries(
+            Object.entries(valoresOriginais).filter(([codigo]) => mapaEstrutura.has(codigo))
+          );
 
-        await tx.produtoAtributo.deleteMany({ where: { produtoId: produto.id } });
+          await tx.produtoAtributo.deleteMany({ where: { produtoId: produto.id } });
 
-        await tx.produto.update({
-          where: { id: produto.id },
-          data: {
-            versaoAtributoId: estruturaInfo.versaoId,
-            versaoEstruturaAtributos: estruturaInfo.versaoNumero,
-          },
-        });
+          await tx.produto.update({
+            where: { id: produto.id },
+            data: {
+              versaoAtributoId: estruturaInfo.versaoId,
+              versaoEstruturaAtributos: estruturaInfo.versaoNumero,
+            },
+          });
 
-        if (Object.keys(valoresFiltrados).length > 0) {
-          await this.salvarValoresProduto(tx, produto.id, estruturaInfo, valoresFiltrados);
+          if (Object.keys(valoresFiltrados).length > 0) {
+            await this.salvarValoresProduto(tx, produto.id, estruturaInfo, valoresFiltrados);
+          }
+
+          const resumo = calcularResumoProduto(valoresFiltrados, estruturaLista);
+          const statusAtual = produto.status ?? 'AJUSTAR_ESTRUTURA';
+          const novoStatus = resolverStatusProduto({
+            statusAtual,
+            possuiObrigatoriosPendentes: resumo.obrigatoriosPendentes > 0,
+          });
+
+          await this.produtoResumoService.salvarResumoProduto(
+            produto.id,
+            parametros.catalogoId,
+            resumo,
+            tx
+          );
+
+          await tx.produto.update({
+            where: { id: produto.id },
+            data: { status: novoStatus },
+          });
+
+          if (produto.situacao === 'ATIVADO' && novoStatus === 'APROVADO') {
+            produtoIdsElegiveis.push(produto.id);
+          }
         }
 
-        const resumo = await this.produtoResumoService.recalcularResumoProduto(produto.id, tx);
-        const statusAtual = produto.status ?? 'AJUSTAR_ESTRUTURA';
-        const novoStatus = resolverStatusProduto({
-          statusAtual,
-          possuiObrigatoriosPendentes: resumo ? resumo.obrigatoriosPendentes > 0 : true,
+        const preparoTransmissao = await this.prepararPreTransmissaoAutomaticaAjusteEstrutura(tx, {
+          catalogoId: parametros.catalogoId,
+          modalidade,
+          ncmCodigo,
+          produtoIdsElegiveis,
+          superUserId,
         });
 
-        await tx.produto.update({
-          where: { id: produto.id },
-          data: { status: novoStatus },
-        });
-
-        if (produto.situacao === 'ATIVADO' && novoStatus === 'APROVADO') {
-          produtoIdsElegiveis.push(produto.id);
-        }
+        return {
+          ajustados: produtos.length,
+          transmissaoGerada: preparoTransmissao.transmissaoGerada,
+          produtosElegiveis: produtoIdsElegiveis.length,
+          produtosIncluidos: preparoTransmissao.produtoIdsIncluidos.length,
+          produtosIgnoradosDuplicidade: preparoTransmissao.produtoIdsIgnoradosDuplicidade.length,
+        };
+      },
+      {
+        timeout: ProdutoService.AJUSTE_ESTRUTURA_TRANSACTION_TIMEOUT_MS,
       }
-
-      const preparoTransmissao = await this.prepararPreTransmissaoAutomaticaAjusteEstrutura(tx, {
-        catalogoId: parametros.catalogoId,
-        modalidade,
-        ncmCodigo,
-        produtoIdsElegiveis,
-        superUserId,
-      });
-
-      return {
-        ajustados: produtos.length,
-        transmissaoGerada: preparoTransmissao.transmissaoGerada,
-        produtosElegiveis: produtoIdsElegiveis.length,
-        produtosIncluidos: preparoTransmissao.produtoIdsIncluidos.length,
-        produtosIgnoradosDuplicidade: preparoTransmissao.produtoIdsIgnoradosDuplicidade.length,
-      };
-    });
+    );
 
     return resultado;
   }
