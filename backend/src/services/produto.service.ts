@@ -2,6 +2,7 @@
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import {
+  AsyncJobStatus,
   AsyncJobTipo,
   Prisma,
   ProdutoTransmissaoItemOperacao,
@@ -33,6 +34,7 @@ import {
   filtrarValoresAtributosVisiveis,
   valoresComoArrayCondicional
 } from '../utils/atributo-condicional';
+import { createAsyncJob } from '../jobs/async-job.repository';
 import { resolverStatusProduto } from '../utils/produto-status';
 import { normalizarAtributosProdutoPorVersao } from '../utils/produto-atributo-normalizacao';
 import { STATUS_TRANSMISSAO_ABERTA } from '../constants/transmissao-status';
@@ -188,6 +190,19 @@ export interface AjusteEstruturaCatalogoResultadoDTO {
   produtosIgnoradosDuplicidade: number;
 }
 
+export interface AjusteEstruturaCatalogoJobPayload {
+  superUserId: number;
+  catalogoId: number;
+  ncmCodigo: string;
+  modalidade: string;
+}
+
+export interface SolicitarAjusteEstruturaCatalogoResultadoDTO {
+  jobId: number;
+  reutilizado: boolean;
+  status: AsyncJobStatus;
+}
+
 interface OrigemTransmissaoAjusteEstruturaContexto {
   ncmCodigo: string;
   modalidade: string;
@@ -213,7 +228,7 @@ export interface ProdutoHistoricoVersaoDTO {
 
 export class ProdutoService {
   private static readonly ESTRUTURA_CACHE_REVALIDACAO_MS = 30 * 1000; // 30 segundos
-  private static readonly AJUSTE_ESTRUTURA_TRANSACTION_TIMEOUT_MS = 30 * 1000;
+  private static readonly AJUSTE_ESTRUTURA_TRANSACTION_TIMEOUT_MS = 10 * 60 * 1000;
   private static estruturaCache = new Map<
     string,
     { dados: EstruturaComVersao; proximaVerificacao: number }
@@ -238,6 +253,39 @@ export class ProdutoService {
 
   private montarChaveNcmModalidade(ncmCodigo: string, modalidade?: string | null) {
     return `${ncmCodigo}|${modalidade?.trim() ?? ''}`;
+  }
+
+  private normalizarModalidadeAjusteEstrutura(modalidade?: string | null) {
+    return modalidade?.trim() ?? '';
+  }
+
+  private montarFiltroModalidadeAjusteEstrutura(modalidade: string): Prisma.ProdutoWhereInput {
+    return modalidade.length > 0
+      ? { modalidade }
+      : {
+          OR: [{ modalidade: null }, { modalidade: '' }],
+        };
+  }
+
+  private async encontrarJobAjusteEstruturaCatalogoAtivo(
+    payload: AjusteEstruturaCatalogoJobPayload
+  ): Promise<{ id: number; status: AsyncJobStatus } | null> {
+    return catalogoPrisma.asyncJob.findFirst({
+      where: {
+        tipo: AsyncJobTipo.AJUSTE_ESTRUTURA_CATALOGO,
+        status: { in: [AsyncJobStatus.PENDENTE, AsyncJobStatus.PROCESSANDO] },
+        AND: [
+          { payload: { path: '$.superUserId', equals: payload.superUserId } },
+          { payload: { path: '$.catalogoId', equals: payload.catalogoId } },
+          { payload: { path: '$.ncmCodigo', equals: payload.ncmCodigo } },
+          { payload: { path: '$.modalidade', equals: payload.modalidade } },
+        ],
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
   }
 
   private async carregarProdutosPendentesAjusteEstrutura(
@@ -1395,18 +1443,66 @@ export class ProdutoService {
     return { itens, totalProdutos: produtos.length };
   }
 
-  async ajustarEstruturaCatalogo(
+  async solicitarAjusteEstruturaCatalogo(
     parametros: { ncmCodigo: string; modalidade: string; catalogoId: number },
     superUserId: number
+  ): Promise<SolicitarAjusteEstruturaCatalogoResultadoDTO> {
+    const ncmCodigo = String(parametros.ncmCodigo ?? '').trim();
+    const modalidade = this.normalizarModalidadeAjusteEstrutura(parametros.modalidade);
+    const filtroModalidade = this.montarFiltroModalidadeAjusteEstrutura(modalidade);
+
+    const produtoPendente = await catalogoPrisma.produto.findFirst({
+      where: {
+        ncmCodigo,
+        ...filtroModalidade,
+        catalogoId: parametros.catalogoId,
+        catalogo: { superUserId },
+        status: 'AJUSTAR_ESTRUTURA',
+      },
+      select: { id: true },
+    });
+
+    if (!produtoPendente) {
+      throw new Error('Nenhum produto pendente encontrado para o catálogo informado.');
+    }
+
+    const payload: AjusteEstruturaCatalogoJobPayload = {
+      superUserId,
+      catalogoId: parametros.catalogoId,
+      ncmCodigo,
+      modalidade,
+    };
+
+    const jobAtivo = await this.encontrarJobAjusteEstruturaCatalogoAtivo(payload);
+    if (jobAtivo) {
+      return {
+        jobId: jobAtivo.id,
+        reutilizado: true,
+        status: jobAtivo.status,
+      };
+    }
+
+    const job = await createAsyncJob({
+      tipo: AsyncJobTipo.AJUSTE_ESTRUTURA_CATALOGO,
+      payload: payload as unknown as Prisma.InputJsonValue,
+      prioridade: 1,
+    });
+
+    return {
+      jobId: job.id,
+      reutilizado: false,
+      status: job.status,
+    };
+  }
+
+  async ajustarEstruturaCatalogo(
+    parametros: { ncmCodigo: string; modalidade: string; catalogoId: number },
+    superUserId: number,
+    opcoes?: { onHeartbeat?: () => Promise<void> }
   ): Promise<AjusteEstruturaCatalogoResultadoDTO> {
     const ncmCodigo = parametros.ncmCodigo;
-    const modalidade = parametros.modalidade || '';
-    const filtroModalidade =
-      modalidade.trim().length > 0
-        ? { modalidade }
-        : {
-            OR: [{ modalidade: null }, { modalidade: '' }],
-          };
+    const modalidade = this.normalizarModalidadeAjusteEstrutura(parametros.modalidade);
+    const filtroModalidade = this.montarFiltroModalidadeAjusteEstrutura(modalidade);
 
     const produtos = await catalogoPrisma.produto.findMany({
       where: {
@@ -1438,7 +1534,11 @@ export class ProdutoService {
       async tx => {
         const produtoIdsElegiveis: number[] = [];
 
-        for (const produto of produtos) {
+        for (const [indice, produto] of produtos.entries()) {
+          if (opcoes?.onHeartbeat && indice % 10 === 0) {
+            await opcoes.onHeartbeat();
+          }
+
           const valoresOriginais = this.montarValoresDosAtributos(produto.atributos, {
             produtoId: produto.id,
             versaoAtributoId: produto.versaoAtributoId,
@@ -1484,6 +1584,10 @@ export class ProdutoService {
           if (produto.situacao === 'ATIVADO' && novoStatus === 'APROVADO') {
             produtoIdsElegiveis.push(produto.id);
           }
+        }
+
+        if (opcoes?.onHeartbeat) {
+          await opcoes.onHeartbeat();
         }
 
         const preparoTransmissao = await this.prepararPreTransmissaoAutomaticaAjusteEstrutura(tx, {

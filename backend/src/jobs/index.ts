@@ -8,6 +8,7 @@ import { exportacaoFabricanteJobHandler } from './handlers/exportacao-fabricante
 import { verificacaoAtributosNcmHandler } from './handlers/verificacao-atributos-ncm.handler';
 import { transmissaoProdutoJobHandler } from './handlers/transmissao-produto.handler';
 import { aplicacaoAjusteAtributosHandler } from './handlers/aplicacao-ajuste-atributos.handler';
+import { ajusteEstruturaCatalogoJobHandler } from './handlers/ajuste-estrutura-catalogo.handler';
 
 registerAsyncJobHandler(AsyncJobTipo.IMPORTACAO_PRODUTO, produtoImportacaoJobHandler);
 registerAsyncJobHandler(AsyncJobTipo.ALTERACAO_ATRIBUTOS, atributoPreenchimentoMassaJobHandler);
@@ -15,6 +16,7 @@ registerAsyncJobHandler(AsyncJobTipo.EXPORTACAO_PRODUTO, exportacaoProdutoJobHan
 registerAsyncJobHandler(AsyncJobTipo.EXPORTACAO_FABRICANTE, exportacaoFabricanteJobHandler);
 registerAsyncJobHandler(AsyncJobTipo.AJUSTE_ESTRUTURA, verificacaoAtributosNcmHandler);
 registerAsyncJobHandler(AsyncJobTipo.APLICACAO_AJUSTE_ESTRUTURA, aplicacaoAjusteAtributosHandler);
+registerAsyncJobHandler(AsyncJobTipo.AJUSTE_ESTRUTURA_CATALOGO, ajusteEstruturaCatalogoJobHandler);
 registerAsyncJobHandler(AsyncJobTipo.TRANSMISSAO_PRODUTO, transmissaoProdutoJobHandler);
 
 startAsyncJobWorker();

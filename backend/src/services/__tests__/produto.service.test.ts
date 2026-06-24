@@ -1,6 +1,7 @@
 import { ProdutoService } from '../produto.service'
 import { AtributoEstruturaDTO } from '../atributo-legacy.service'
 import { catalogoPrisma } from '../../utils/prisma'
+import { createAsyncJob } from '../../jobs/async-job.repository'
 
 const produtoResumoServiceMock = {
   recalcularResumoProduto: jest.fn(),
@@ -26,6 +27,10 @@ jest.mock('../../utils/prisma', () => ({
     asyncJob: { findFirst: jest.fn() },
     $transaction: jest.fn()
   }
+}))
+
+jest.mock('../../jobs/async-job.repository', () => ({
+  createAsyncJob: jest.fn()
 }))
 
 describe('ProdutoService - atributos obrigatórios', () => {
@@ -220,6 +225,59 @@ describe('ProdutoService - atualização de status', () => {
   })
 })
 
+describe('ProdutoService - solicitacao de ajuste assincrono', () => {
+  it('cria um novo job para ajuste por catalogo quando nao ha processo ativo equivalente', async () => {
+    const service = criarService()
+
+    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({ id: 10 })
+    ;(catalogoPrisma.asyncJob.findFirst as jest.Mock).mockResolvedValue(null)
+    ;(createAsyncJob as jest.Mock).mockResolvedValue({ id: 321, status: 'PENDENTE' })
+
+    const resultado = await service.solicitarAjusteEstruturaCatalogo(
+      { ncmCodigo: '12345678', modalidade: '', catalogoId: 7 },
+      99
+    )
+
+    expect(createAsyncJob).toHaveBeenCalledWith({
+      tipo: 'AJUSTE_ESTRUTURA_CATALOGO',
+      payload: {
+        superUserId: 99,
+        catalogoId: 7,
+        ncmCodigo: '12345678',
+        modalidade: '',
+      },
+      prioridade: 1,
+    })
+    expect(resultado).toEqual({
+      jobId: 321,
+      reutilizado: false,
+      status: 'PENDENTE',
+    })
+  })
+
+  it('reutiliza job ativo equivalente para evitar duplicidade na fila', async () => {
+    const service = criarService()
+
+    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({ id: 10 })
+    ;(catalogoPrisma.asyncJob.findFirst as jest.Mock).mockResolvedValue({
+      id: 654,
+      status: 'PROCESSANDO',
+    })
+
+    const resultado = await service.solicitarAjusteEstruturaCatalogo(
+      { ncmCodigo: '12345678', modalidade: '', catalogoId: 7 },
+      99
+    )
+
+    expect(createAsyncJob).not.toHaveBeenCalled()
+    expect(resultado).toEqual({
+      jobId: 654,
+      reutilizado: true,
+      status: 'PROCESSANDO',
+    })
+  })
+})
+
 describe('ProdutoService - ajuste de estrutura', () => {
   it('promove para APROVADO quando nao ha obrigatorios pendentes apos ajustar', async () => {
     const service = criarService()
@@ -272,6 +330,49 @@ describe('ProdutoService - ajuste de estrutura', () => {
         data: { status: 'APROVADO' }
       })
     )
+  })
+
+  it('emite heartbeat durante o ajuste quando executado por job assincrono', async () => {
+    const service = criarService()
+    const heartbeat = jest.fn().mockResolvedValue(undefined)
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 7,
+      versaoNumero: 3,
+      estrutura: []
+    })
+    produtoResumoServiceMock.recalcularResumoProduto.mockResolvedValue({
+      atributosTotal: 0,
+      obrigatoriosPendentes: 0,
+      validosTransmissao: 0
+    })
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 10,
+        status: 'AJUSTAR_ESTRUTURA',
+        situacao: 'RASCUNHO',
+        ncmCodigo: '12345678',
+        modalidade: '',
+        denominacao: 'Produto teste',
+        atributos: []
+      }
+    ])
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { update: jest.fn().mockResolvedValue({}) },
+        produtoAtributo: { deleteMany: jest.fn(), create: jest.fn() }
+      })
+    )
+
+    await service.ajustarEstruturaCatalogo(
+      { ncmCodigo: '12345678', modalidade: '', catalogoId: 1 },
+      99,
+      { onHeartbeat: heartbeat }
+    )
+
+    expect(heartbeat).toHaveBeenCalledTimes(2)
   })
 
   it('mantem PENDENTE quando ainda faltam obrigatorios apos ajustar', async () => {

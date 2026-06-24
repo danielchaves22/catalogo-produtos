@@ -242,7 +242,7 @@ export async function ajustarEstruturaCatalogo(req: Request, res: Response) {
       return res.status(400).json({ error: 'NCM e catálogo são obrigatórios para o ajuste.' });
     }
 
-    const resultado = await produtoService.ajustarEstruturaCatalogo(
+    const resultado = await produtoService.solicitarAjusteEstruturaCatalogo(
       {
         ncmCodigo,
         modalidade: modalidade ?? '',
@@ -251,7 +251,12 @@ export async function ajustarEstruturaCatalogo(req: Request, res: Response) {
       req.user!.superUserId
     );
 
-    return res.json(resultado);
+    return res.status(202).json({
+      ...resultado,
+      mensagem: resultado.reutilizado
+        ? `Já existe um ajuste em processamento para o catálogo ${catalogoId} e a NCM ${ncmCodigo}.`
+        : `Ajuste de estrutura enfileirado para o catálogo ${catalogoId} e a NCM ${ncmCodigo}.`,
+    });
   } catch (error: any) {
     if (error instanceof ValidationError) {
       return res.status(400).json({ error: error.message, details: error.details });

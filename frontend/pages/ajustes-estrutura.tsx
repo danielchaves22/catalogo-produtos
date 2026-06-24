@@ -37,11 +37,10 @@ interface PendenciasResponse {
 }
 
 interface AjusteCatalogoResponse {
-  ajustados: number;
-  transmissaoGerada: { id: number; totalItens: number } | null;
-  produtosElegiveis: number;
-  produtosIncluidos: number;
-  produtosIgnoradosDuplicidade: number;
+  jobId: number;
+  reutilizado: boolean;
+  status: 'PENDENTE' | 'PROCESSANDO';
+  mensagem: string;
 }
 
 export default function AjustesEstruturaPage() {
@@ -62,8 +61,8 @@ export default function AjustesEstruturaPage() {
         setPendencias(resposta.data.itens);
         setTotal(resposta.data.totalProdutos);
       } catch (error) {
-        console.error('Erro ao buscar pendências de ajuste', error);
-        addToast('Não foi possível carregar os ajustes pendentes.', 'error');
+        console.error('Erro ao buscar pendencias de ajuste', error);
+        addToast('Nao foi possivel carregar os ajustes pendentes.', 'error');
       } finally {
         setCarregando(false);
       }
@@ -90,33 +89,15 @@ export default function AjustesEstruturaPage() {
           catalogoId,
         }
       );
-      const resumo = respostaAjuste.data;
 
-      if (resumo?.transmissaoGerada) {
-        addToast(
-          `Estrutura ajustada com sucesso. Pré-transmissão #${resumo.transmissaoGerada.id} criada com ${resumo.transmissaoGerada.totalItens} produto(s).`,
-          'success'
-        );
-      } else if (
-        (resumo?.produtosElegiveis ?? 0) > 0 &&
-        resumo.produtosElegiveis === resumo.produtosIgnoradosDuplicidade
-      ) {
-        addToast(
-          'Estrutura ajustada com sucesso. Os produtos prontos para retransmissão já estavam pendentes em outra pré-transmissão.',
-          'success'
-        );
-      } else {
-        addToast('Estrutura ajustada com sucesso para o catálogo.', 'success');
-      }
-
-      const resposta = await api.get<PendenciasResponse>(
-        '/produtos/pendencias/ajuste-estrutura/detalhes'
+      addToast(
+        respostaAjuste.data?.mensagem ||
+          `Ajuste enfileirado no processo #${respostaAjuste.data.jobId}. Acompanhe em Processos Assincronos.`,
+        'success'
       );
-      setPendencias(resposta.data.itens);
-      setTotal(resposta.data.totalProdutos);
     } catch (error) {
-      console.error('Erro ao ajustar estrutura por catálogo', error);
-      addToast('Não foi possível ajustar as estruturas deste catálogo.', 'error');
+      console.error('Erro ao ajustar estrutura por catalogo', error);
+      addToast('Nao foi possivel ajustar as estruturas deste catalogo.', 'error');
     } finally {
       setAjustando(null);
     }
@@ -134,7 +115,7 @@ export default function AjustesEstruturaPage() {
   if (carregando) {
     return (
       <DashboardLayout title="Ajuste de Estrutura">
-        <PageLoader message="Carregando pendências" />
+        <PageLoader message="Carregando pendencias" />
       </DashboardLayout>
     );
   }
@@ -143,17 +124,17 @@ export default function AjustesEstruturaPage() {
     <DashboardLayout title="Ajuste de Estrutura">
       <Breadcrumb
         items={[
-          { label: 'Início', href: '/' },
+          { label: 'Inicio', href: '/' },
           { label: 'Ajuste de Estrutura', href: '/ajustes-estrutura' },
         ]}
       />
 
       <div className="mb-6 flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm text-slate-400">Pendências</p>
+          <p className="text-sm text-slate-400">Pendencias</p>
           <h1 className="text-2xl font-semibold text-slate-100">Ajuste de Estrutura</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Produtos marcados como &quot;AJUSTAR ESTRUTURA&quot; aguardando revisão.
+            Produtos marcados como &quot;AJUSTAR ESTRUTURA&quot; aguardando revisao.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-slate-200">
@@ -163,7 +144,7 @@ export default function AjustesEstruturaPage() {
             </span>
           ) : (
             <span className="inline-flex items-center gap-2 rounded-full border border-emerald-700/50 bg-emerald-500/10 px-3 py-1 text-emerald-200">
-              <CheckCircle2 className="h-4 w-4" /> Nenhuma pendência
+              <CheckCircle2 className="h-4 w-4" /> Nenhuma pendencia
             </span>
           )}
         </div>
@@ -171,7 +152,7 @@ export default function AjustesEstruturaPage() {
 
       {total === 0 ? (
         <Card className="p-6 text-center text-slate-300">
-          Não há produtos aguardando ajuste de estrutura.
+          Nao ha produtos aguardando ajuste de estrutura.
         </Card>
       ) : (
         <div className="space-y-4">
@@ -207,7 +188,7 @@ export default function AjustesEstruturaPage() {
                   <div className="mt-4 space-y-4">
                     <div className="rounded border border-slate-800 bg-slate-900 p-3">
                       <p className="mb-2 text-sm font-semibold text-slate-300">
-                        Diferenças na estrutura
+                        Diferencas na estrutura
                       </p>
                       {grupo.diferencas && grupo.diferencas.length > 0 ? (
                         <ul className="space-y-2 text-sm text-slate-200">
@@ -248,8 +229,8 @@ export default function AjustesEstruturaPage() {
                         </ul>
                       ) : (
                         <p className="text-sm text-slate-400">
-                          A verificação mais recente não registrou diferenças para esta NCM, mas
-                          os produtos abaixo ainda aguardam a reaplicação da estrutura já
+                          A verificacao mais recente nao registrou diferencas para esta NCM, mas
+                          os produtos abaixo ainda aguardam a reaplicacao da estrutura ja
                           sincronizada.
                         </p>
                       )}
@@ -261,10 +242,10 @@ export default function AjustesEstruturaPage() {
                           <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-2">
                             <div>
                               <p className="font-semibold text-slate-100">
-                                Catálogo #{catalogo.catalogoId}
+                                Catalogo #{catalogo.catalogoId}
                               </p>
                               <p className="text-xs text-slate-400">
-                                {catalogo.catalogoNome || 'Sem descrição'}
+                                {catalogo.catalogoNome || 'Sem descricao'}
                               </p>
                             </div>
                             <button
@@ -278,7 +259,7 @@ export default function AjustesEstruturaPage() {
                               }
                               disabled={ajustando === catalogo.catalogoId}
                             >
-                              {ajustando === catalogo.catalogoId ? 'Ajustando...' : 'Ajustar'}
+                              {ajustando === catalogo.catalogoId ? 'Enfileirando...' : 'Ajustar'}
                             </button>
                           </div>
                           <div className="divide-y divide-slate-800">
