@@ -18,6 +18,16 @@ import { ValidationError } from '../types/validation-error';
 import { createAsyncJob } from '../jobs/async-job.repository';
 import { NcmValoresPadraoService } from './ncm-valores-padrao.service';
 import { NcmLegacyService } from './ncm-legacy.service';
+import { storageFactory } from './storage.factory';
+import {
+  ProdutoImportacaoSiscomexArquivoService,
+  ProdutoSiscomexArquivoBundle,
+  SiscomexArquivoImportacaoArtefatos,
+  criarBundleSiscomexArquivo,
+  atualizarBundleSiscomexArquivo,
+  desserializarBundleSiscomexArquivo,
+  serializarBundleSiscomexArquivo,
+} from './produto-importacao-siscomex-arquivo.service';
 
 const execFileAsync = promisify(execFile);
 
@@ -26,12 +36,15 @@ export interface ArquivoImportacao {
   conteudoBase64: string;
 }
 
+export type OrigemImportacaoProduto = 'PLANILHA' | 'SISCOMEX_ARQUIVO';
+
 export interface ProdutoImportacaoJobData {
   importacaoId: number;
   superUserId: number;
   usuarioCatalogoId: number | null;
   catalogoId: number;
   modalidade: string;
+  origem?: OrigemImportacaoProduto;
   arquivo: ArquivoImportacao;
 }
 
@@ -39,6 +52,15 @@ export interface NovaImportacaoPlanilhaInput {
   catalogoId: number;
   modalidade?: string;
   arquivo: ArquivoImportacao;
+}
+
+export interface NovaImportacaoSiscomexArquivoInput {
+  catalogoId: number;
+  arquivos: {
+    produtos: ArquivoImportacao;
+    operadores?: ArquivoImportacao | null;
+    fabricantes?: ArquivoImportacao | null;
+  };
 }
 
 interface MensagensItemImportacao {
@@ -50,6 +72,7 @@ export class ProdutoImportacaoService {
   private produtoService = new ProdutoService();
   private valoresPadraoService = new NcmValoresPadraoService();
   private ncmLegacyService = new NcmLegacyService();
+  private siscomexArquivoService = new ProdutoImportacaoSiscomexArquivoService();
 
   async importarPlanilhaExcel(
     dados: NovaImportacaoPlanilhaInput,
@@ -105,6 +128,7 @@ export class ProdutoImportacaoService {
               usuarioCatalogoId,
               catalogoId: dados.catalogoId,
               modalidade,
+              origem: 'PLANILHA',
             },
             arquivo: {
               nome: dados.arquivo.nome,
@@ -143,6 +167,105 @@ export class ProdutoImportacaoService {
     return importacao;
   }
 
+  async importarArquivoSiscomex(
+    dados: NovaImportacaoSiscomexArquivoInput,
+    superUserId: number,
+    usuarioLegacyId?: number
+  ) {
+    const catalogoExiste = await catalogoPrisma.catalogo.findFirst({
+      where: { id: dados.catalogoId, superUserId },
+      select: { id: true }
+    });
+
+    if (!catalogoExiste) {
+      throw new Error('Catalogo nao encontrado para o superusuario informado');
+    }
+
+    const usuarioCatalogoId = await this.obterUsuarioCatalogoId(superUserId, usuarioLegacyId);
+
+    this.validarArquivoJson(dados.arquivos?.produtos, 'Arquivo JSON de produtos');
+    if (dados.arquivos?.operadores) {
+      this.validarArquivoJson(
+        dados.arquivos.operadores,
+        'Arquivo JSON de operadores estrangeiros'
+      );
+    }
+    if (dados.arquivos?.fabricantes) {
+      this.validarArquivoJson(
+        dados.arquivos.fabricantes,
+        'Arquivo JSON de vinculos de fabricante/produtor'
+      );
+    }
+
+    const bundle = criarBundleSiscomexArquivo({
+      produtos: dados.arquivos.produtos,
+      operadores: dados.arquivos.operadores ?? null,
+      fabricantes: dados.arquivos.fabricantes ?? null,
+    });
+
+    const importacao = await catalogoPrisma.importacaoProduto.create({
+      data: {
+        superUserId,
+        usuarioCatalogoId,
+        catalogoId: dados.catalogoId,
+        modalidade: 'IMPORTACAO',
+        nomeArquivo: dados.arquivos.produtos.nome,
+        situacao: 'EM_ANDAMENTO',
+        resultado: 'PENDENTE'
+      }
+    });
+
+    try {
+      await catalogoPrisma.$transaction(async tx => {
+        const job = await createAsyncJob(
+          {
+            tipo: AsyncJobTipo.IMPORTACAO_PRODUTO,
+            payload: {
+              importacaoId: importacao.id,
+              superUserId,
+              usuarioCatalogoId,
+              catalogoId: dados.catalogoId,
+              modalidade: 'IMPORTACAO',
+              origem: 'SISCOMEX_ARQUIVO',
+            },
+            maxTentativas: 1,
+            arquivo: {
+              nome: 'siscomex-importacao-arquivo.json',
+              conteudoBase64: serializarBundleSiscomexArquivo(bundle),
+            },
+          },
+          tx
+        );
+
+        await tx.importacaoProduto.update({
+          where: { id: importacao.id },
+          data: {
+            asyncJobId: job.id,
+          },
+        });
+      });
+    } catch (error) {
+      logger.error('Falha ao registrar job de importacao SISCOMEX por arquivo:', error);
+
+      await catalogoPrisma.importacaoProduto.update({
+        where: { id: importacao.id },
+        data: {
+          situacao: 'CONCLUIDA_INCOMPLETA',
+          resultado: 'ATENCAO',
+          totalRegistros: 0,
+          totalCriados: 0,
+          totalComAtencao: 0,
+          totalComErro: 0,
+          finalizadoEm: new Date()
+        }
+      });
+
+      throw new Error('Nao foi possivel iniciar o processamento do arquivo JSON do SISCOMEX.');
+    }
+
+    return importacao;
+  }
+
   async processarImportacaoJob(
     dados: ProdutoImportacaoJobData,
     onHeartbeat?: () => Promise<void>
@@ -169,6 +292,15 @@ export class ProdutoImportacaoService {
     };
 
     await emitirHeartbeat();
+
+    if ((dados.origem ?? 'PLANILHA') === 'SISCOMEX_ARQUIVO') {
+      return this.processarImportacaoSiscomexJob(
+        dados,
+        catalogo ?? null,
+        buffer,
+        emitirHeartbeat
+      );
+    }
 
     let totalRegistros = 0;
     let totalCriados = 0;
@@ -583,6 +715,121 @@ export class ProdutoImportacaoService {
     }
   }
 
+  private async processarImportacaoSiscomexJob(
+    dados: ProdutoImportacaoJobData,
+    catalogo: {
+      id: number;
+      nome: string;
+      numero: number;
+      cpf_cnpj: string | null;
+    } | null,
+    buffer: Buffer,
+    emitirHeartbeat: () => Promise<void>
+  ) {
+    if (!catalogo) {
+      throw new Error('Catalogo nao encontrado para o superusuario informado');
+    }
+
+    const bundle = this.lerBundleSiscomex(buffer);
+
+    try {
+      const processamento = await this.siscomexArquivoService.processar({
+        importacaoId: dados.importacaoId,
+        superUserId: dados.superUserId,
+        catalogo,
+        bundle,
+        onHeartbeat: emitirHeartbeat,
+      });
+
+      const bundleAtualizado = atualizarBundleSiscomexArquivo(bundle, {
+        resumo: processamento.resumo,
+        artefatosReversao: processamento.artefatosReversao,
+        modalidadeDetectada: processamento.modalidadeDetectada,
+      });
+
+      await this.atualizarBundleSiscomexImportacao(
+        dados.importacaoId,
+        bundleAtualizado
+      );
+
+      await catalogoPrisma.importacaoProduto.update({
+        where: { id: dados.importacaoId },
+        data: {
+          modalidade: processamento.modalidadeDetectada === 'MISTA'
+            ? 'MISTA'
+            : processamento.modalidadeDetectada,
+          situacao: 'CONCLUIDA',
+          resultado: processamento.resultadoFinal,
+          totalRegistros: processamento.totalRegistros,
+          totalCriados: processamento.totalCriados,
+          totalComAtencao: processamento.totalComAtencao,
+          totalComErro: processamento.totalComErro,
+          finalizadoEm: new Date()
+        }
+      });
+
+      await emitirHeartbeat();
+
+      await this.registrarConclusaoImportacao({
+        importacaoId: dados.importacaoId,
+        superUserId: dados.superUserId,
+        catalogo,
+        usuarioCatalogoId: dados.usuarioCatalogoId,
+        totais: {
+          totalRegistros: processamento.totalRegistros,
+          totalCriados: processamento.totalCriados,
+          totalComAtencao: processamento.totalComAtencao,
+          totalComErro: processamento.totalComErro,
+        },
+        resultado: processamento.resultadoFinal,
+        linhasExtras: [
+          'Origem: SISCOMEX por arquivo',
+          `Operadores criados: ${processamento.resumo.operadores.criados}`,
+          `Vinculos criados: ${processamento.resumo.vinculos.criados}`,
+          `Vinculos com erro: ${processamento.resumo.vinculos.comErro}`,
+        ],
+      });
+    } catch (error) {
+      logger.error('Falha ao processar importacao SISCOMEX por arquivo:', error);
+
+      await emitirHeartbeat();
+
+      const totaisParciais = await this.calcularTotaisPersistidosImportacao(
+        dados.importacaoId
+      );
+
+      await catalogoPrisma.importacaoProduto.update({
+        where: { id: dados.importacaoId },
+        data: {
+          situacao: 'CONCLUIDA_INCOMPLETA',
+          resultado: 'ATENCAO',
+          totalRegistros: totaisParciais.totalRegistros,
+          totalCriados: totaisParciais.totalCriados,
+          totalComAtencao: totaisParciais.totalComAtencao,
+          totalComErro: totaisParciais.totalComErro,
+          finalizadoEm: new Date()
+        }
+      });
+
+      await this.registrarConclusaoImportacao({
+        importacaoId: dados.importacaoId,
+        superUserId: dados.superUserId,
+        catalogo,
+        usuarioCatalogoId: dados.usuarioCatalogoId,
+        totais: {
+          totalRegistros: totaisParciais.totalRegistros,
+          totalCriados: totaisParciais.totalCriados,
+          totalComAtencao: totaisParciais.totalComAtencao,
+          totalComErro: totaisParciais.totalComErro,
+        },
+        resultado: 'ATENCAO',
+        linhasExtras: ['Origem: SISCOMEX por arquivo', 'Resultado: processamento interrompido.'],
+      });
+
+      throw error;
+    }
+  }
+
   async listarImportacoes(superUserId: number) {
     return catalogoPrisma.importacaoProduto.findMany({
       where: { superUserId },
@@ -601,7 +848,7 @@ export class ProdutoImportacaoService {
   }
 
   async obterImportacao(id: number, superUserId: number) {
-    return catalogoPrisma.importacaoProduto.findFirst({
+    const importacao = await catalogoPrisma.importacaoProduto.findFirst({
       where: { id, superUserId },
       include: {
         catalogo: {
@@ -614,9 +861,36 @@ export class ProdutoImportacaoService {
         },
         itens: {
           orderBy: { linhaPlanilha: 'asc' }
+        },
+        asyncJob: {
+          select: {
+            payload: true,
+            arquivo: {
+              select: {
+                conteudoBase64: true
+              }
+            }
+          }
         }
       }
     });
+
+    if (!importacao) {
+      return null;
+    }
+
+    const origemImportacao = this.obterOrigemImportacao(importacao.asyncJob?.payload);
+    const resumoSiscomex =
+      origemImportacao === 'SISCOMEX_ARQUIVO'
+        ? this.extrairResumoSiscomexImportacao(importacao.asyncJob?.arquivo?.conteudoBase64)
+        : null;
+
+    const { asyncJob, ...dadosImportacao } = importacao;
+    return {
+      ...dadosImportacao,
+      origemImportacao,
+      resumoSiscomex,
+    };
   }
 
   async reverterImportacao(id: number, superUserId: number) {
@@ -627,6 +901,16 @@ export class ProdutoImportacaoService {
           select: {
             id: true,
             produtoId: true
+          }
+        },
+        asyncJob: {
+          select: {
+            payload: true,
+            arquivo: {
+              select: {
+                conteudoBase64: true
+              }
+            }
           }
         }
       }
@@ -648,8 +932,21 @@ export class ProdutoImportacaoService {
       item => typeof item.produtoId === 'number'
     );
     const produtoIds = [...new Set(itensComProduto.map(item => item.produtoId!))];
+    const origemImportacao = this.obterOrigemImportacao(importacao.asyncJob?.payload);
+    const artefatosSiscomex =
+      origemImportacao === 'SISCOMEX_ARQUIVO'
+        ? this.extrairArtefatosSiscomexImportacao(importacao.asyncJob?.arquivo?.conteudoBase64)
+        : null;
+    const vinculoIds = artefatosSiscomex?.vinculoIdsCriados ?? [];
+    const operadorIds = artefatosSiscomex?.operadorIdsCriados ?? [];
 
     await catalogoPrisma.$transaction(async tx => {
+      if (vinculoIds.length > 0) {
+        await tx.operadorEstrangeiroProduto.deleteMany({
+          where: { id: { in: vinculoIds } }
+        });
+      }
+
       if (produtoIds.length > 0) {
         await tx.importacaoProdutoItem.updateMany({
           where: {
@@ -671,6 +968,18 @@ export class ProdutoImportacaoService {
         });
       }
 
+      if (operadorIds.length > 0) {
+        await tx.operadorEstrangeiro.deleteMany({
+          where: {
+            id: { in: operadorIds },
+            catalogo: { superUserId },
+            operadorEstrangeiroProdutos: {
+              none: {}
+            }
+          }
+        });
+      }
+
       await tx.importacaoProduto.update({
         where: { id: importacao.id },
         data: {
@@ -684,21 +993,234 @@ export class ProdutoImportacaoService {
   async removerImportacao(id: number, superUserId: number) {
     const existente = await catalogoPrisma.importacaoProduto.findFirst({
       where: { id, superUserId },
-      select: { id: true }
+      select: {
+        id: true,
+        situacao: true,
+        asyncJobId: true,
+        asyncJob: {
+          select: {
+            arquivo: {
+              select: {
+                storagePath: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!existente) {
       return false;
     }
 
-    await catalogoPrisma.importacaoProduto.delete({ where: { id: existente.id } });
+    this.validarSituacaoExclusaoImportacao(existente.situacao);
+    await this.excluirImportacaoPersistida(existente, superUserId);
     return true;
   }
 
   async limparHistorico(superUserId: number) {
-    await catalogoPrisma.importacaoProduto.deleteMany({
-      where: { superUserId }
+    const importacoesElegiveis = await catalogoPrisma.importacaoProduto.findMany({
+      where: {
+        superUserId,
+        situacao: {
+          in: ['CONCLUIDA', 'REVERTIDA'],
+        },
+      },
+      select: {
+        id: true,
+        situacao: true,
+        asyncJobId: true,
+        asyncJob: {
+          select: {
+            arquivo: {
+              select: {
+                storagePath: true,
+              },
+            },
+          },
+        },
+      },
     });
+
+    for (const importacao of importacoesElegiveis) {
+      await this.excluirImportacaoPersistida(importacao, superUserId);
+    }
+  }
+
+  private validarArquivoJson(arquivo?: ArquivoImportacao | null, descricao = 'Arquivo JSON') {
+    if (!arquivo?.conteudoBase64 || !arquivo?.nome) {
+      throw new Error(`${descricao} nao foi enviado`);
+    }
+
+    if (!arquivo.nome.toLowerCase().endsWith('.json')) {
+      throw new Error(`Formato invalido para ${descricao.toLowerCase()}: envie um arquivo .json`);
+    }
+
+    const buffer = this.converterBase64(arquivo.conteudoBase64);
+    if (!buffer?.length) {
+      throw new Error(`Conteudo invalido para ${descricao.toLowerCase()}`);
+    }
+  }
+
+  private lerBundleSiscomex(buffer: Buffer): ProdutoSiscomexArquivoBundle {
+    return desserializarBundleSiscomexArquivo(buffer.toString('base64'));
+  }
+
+  private async atualizarBundleSiscomexImportacao(
+    importacaoId: number,
+    bundle: ProdutoSiscomexArquivoBundle
+  ) {
+    const importacao = await catalogoPrisma.importacaoProduto.findUnique({
+      where: { id: importacaoId },
+      select: { asyncJobId: true }
+    });
+
+    if (!importacao?.asyncJobId) {
+      return;
+    }
+
+    await catalogoPrisma.asyncJobFile.update({
+      where: { jobId: importacao.asyncJobId },
+      data: {
+        conteudoBase64: serializarBundleSiscomexArquivo(bundle)
+      }
+    });
+  }
+
+  private validarSituacaoExclusaoImportacao(situacao: string) {
+    if (situacao === 'EM_ANDAMENTO') {
+      throw new Error('IMPORTACAO_EXCLUSAO_EM_ANDAMENTO');
+    }
+
+    if (situacao === 'CONCLUIDA_INCOMPLETA') {
+      throw new Error('IMPORTACAO_EXCLUSAO_REQUER_REVERSAO');
+    }
+
+    if (situacao !== 'CONCLUIDA' && situacao !== 'REVERTIDA') {
+      throw new Error('IMPORTACAO_EXCLUSAO_NAO_PERMITIDA');
+    }
+  }
+
+  private async excluirImportacaoPersistida(
+    importacao: {
+      id: number;
+      situacao: string;
+      asyncJobId: number | null;
+      asyncJob?: {
+        arquivo?: {
+          storagePath?: string | null;
+        } | null;
+      } | null;
+    },
+    superUserId: number
+  ) {
+    const storagePath = importacao.asyncJob?.arquivo?.storagePath ?? null;
+
+    await catalogoPrisma.$transaction(async tx => {
+      await tx.mensagem.deleteMany({
+        where: {
+          superUserId,
+          categoria: MensagemCategoria.IMPORTACAO_CONCLUIDA,
+          metadados: {
+            path: '$.importacaoId',
+            equals: importacao.id,
+          },
+        },
+      });
+
+      await tx.importacaoProduto.delete({
+        where: { id: importacao.id },
+      });
+
+      if (importacao.asyncJobId) {
+        await tx.asyncJob.deleteMany({
+          where: { id: importacao.asyncJobId },
+        });
+      }
+    });
+
+    if (!storagePath) {
+      return;
+    }
+
+    try {
+      await storageFactory().delete(storagePath);
+    } catch (error) {
+      logger.warn(`Nao foi possivel remover o artefato de storage da importacao ${importacao.id}.`, error);
+    }
+  }
+
+  private async calcularTotaisPersistidosImportacao(importacaoId: number) {
+    const itens = await catalogoPrisma.importacaoProdutoItem.findMany({
+      where: { importacaoId },
+      select: {
+        resultado: true,
+        produtoId: true,
+      },
+    });
+
+    return itens.reduce(
+      (acumulado, item) => {
+        acumulado.totalRegistros += 1;
+
+        if (item.produtoId !== null) {
+          acumulado.totalCriados += 1;
+        }
+
+        if (item.resultado === 'ATENCAO') {
+          acumulado.totalComAtencao += 1;
+        }
+
+        if (item.resultado === 'ERRO') {
+          acumulado.totalComErro += 1;
+        }
+
+        return acumulado;
+      },
+      {
+        totalRegistros: 0,
+        totalCriados: 0,
+        totalComAtencao: 0,
+        totalComErro: 0,
+      }
+    );
+  }
+
+  private obterOrigemImportacao(
+    payload: Prisma.JsonValue | null | undefined
+  ): OrigemImportacaoProduto {
+    if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+      const origem = (payload as Record<string, unknown>).origem;
+      if (origem === 'SISCOMEX_ARQUIVO') {
+        return 'SISCOMEX_ARQUIVO';
+      }
+    }
+
+    return 'PLANILHA';
+  }
+
+  private extrairResumoSiscomexImportacao(conteudoBase64?: string | null) {
+    try {
+      return conteudoBase64
+        ? desserializarBundleSiscomexArquivo(conteudoBase64).resumo ?? null
+        : null;
+    } catch (error) {
+      logger.warn('Nao foi possivel interpretar o resumo da importacao SISCOMEX.', error);
+      return null;
+    }
+  }
+
+  private extrairArtefatosSiscomexImportacao(
+    conteudoBase64?: string | null
+  ): SiscomexArquivoImportacaoArtefatos | null {
+    try {
+      return conteudoBase64
+        ? desserializarBundleSiscomexArquivo(conteudoBase64).artefatosReversao ?? null
+        : null;
+    } catch (error) {
+      logger.warn('Nao foi possivel interpretar os artefatos da importacao SISCOMEX.', error);
+      return null;
+    }
   }
 
   private async obterUsuarioCatalogoId(
@@ -826,6 +1348,7 @@ export class ProdutoImportacaoService {
       totalComErro: number;
     };
     resultado: ImportacaoResultado;
+    linhasExtras?: string[];
   }) {
     const {
       importacaoId,
@@ -834,6 +1357,7 @@ export class ProdutoImportacaoService {
       usuarioCatalogoId,
       totais: { totalRegistros, totalCriados, totalComAtencao, totalComErro },
       resultado,
+      linhasExtras = [],
     } = params;
 
     const tituloBase = catalogo?.nome ? `Importação do catálogo ${catalogo.nome} concluída` : 'Importação de produtos concluída';
@@ -845,6 +1369,7 @@ export class ProdutoImportacaoService {
       `Produtos criados: ${totalCriados}`,
       `Com atenção: ${totalComAtencao}`,
       `Com erro: ${totalComErro}`,
+      ...linhasExtras,
     ].join('\n');
 
     const metadados: Prisma.InputJsonValue = {
@@ -872,4 +1397,3 @@ export class ProdutoImportacaoService {
     });
   }
 }
-

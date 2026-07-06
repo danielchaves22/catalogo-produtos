@@ -8,6 +8,7 @@ interface ProdutoImportacaoJobPayload {
   usuarioCatalogoId: number | null;
   catalogoId: number;
   modalidade: string;
+  origem?: 'PLANILHA' | 'SISCOMEX_ARQUIVO';
 }
 
 const produtoImportacaoService = new ProdutoImportacaoService();
@@ -28,6 +29,7 @@ export async function produtoImportacaoJobHandler({
       usuarioCatalogoId: payload.usuarioCatalogoId,
       catalogoId: payload.catalogoId,
       modalidade: payload.modalidade,
+      origem: payload.origem,
       arquivo: {
         nome: arquivo.nome,
         conteudoBase64: arquivo.conteudoBase64,

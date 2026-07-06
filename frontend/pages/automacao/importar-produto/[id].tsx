@@ -8,7 +8,20 @@ import { PageLoader } from '@/components/ui/PageLoader';
 import api from '@/lib/api';
 import { formatCPFOrCNPJ } from '@/lib/validation';
 import { useToast } from '@/components/ui/ToastContext';
-import { AlertTriangle, ArrowLeft, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  RotateCcw,
+} from 'lucide-react';
+
+interface MensagensItem {
+  impeditivos?: string[];
+  atencao?: string[];
+}
 
 interface ImportacaoItem {
   id: number;
@@ -23,6 +36,55 @@ interface ImportacaoItem {
   produtoId?: number | null;
 }
 
+interface SiscomexResumoPendencia {
+  referencia: string;
+  motivo: string;
+}
+
+interface SiscomexResumoImportacao {
+  origem: 'SISCOMEX_ARQUIVO';
+  arquivos: {
+    produtos: string;
+    operadores: string | null;
+    fabricantes: string | null;
+  };
+  modalidadeDetectada: string;
+  produtos: {
+    totalArquivo: number;
+    criados: number;
+    criadosAprovados: number;
+    criadosPendentes: number;
+    existentesTransmitidos: number;
+    existentesNaoTransmitidos: number;
+    ambiguos: number;
+    divergenciaNcm: number;
+    comErro: number;
+  };
+  operadores: {
+    informado: boolean;
+    totalArquivo: number;
+    criados: number;
+    existentesTransmitidos: number;
+    existentesNaoTransmitidos: number;
+    ambiguos: number;
+    conflitos: number;
+    comErro: number;
+    pendencias: SiscomexResumoPendencia[];
+  };
+  vinculos: {
+    informado: boolean;
+    totalArquivo: number;
+    criados: number;
+    existentes: number;
+    criadosComOperador: number;
+    criadosSomentePais: number;
+    semProduto: number;
+    semOperador: number;
+    comErro: number;
+    pendencias: SiscomexResumoPendencia[];
+  };
+}
+
 interface ImportacaoDetalhe {
   id: number;
   catalogo: {
@@ -33,6 +95,8 @@ interface ImportacaoDetalhe {
   };
   nomeArquivo?: string | null;
   modalidade: string;
+  origemImportacao: 'PLANILHA' | 'SISCOMEX_ARQUIVO';
+  resumoSiscomex?: SiscomexResumoImportacao | null;
   situacao: 'EM_ANDAMENTO' | 'CONCLUIDA' | 'CONCLUIDA_INCOMPLETA' | 'REVERTIDA';
   resultado: 'PENDENTE' | 'SUCESSO' | 'ATENCAO';
   totalRegistros: number;
@@ -42,11 +106,6 @@ interface ImportacaoDetalhe {
   iniciadoEm: string;
   finalizadoEm?: string | null;
   itens: ImportacaoItem[];
-}
-
-interface MensagensItem {
-  impeditivos?: string[];
-  atencao?: string[];
 }
 
 type ImportacaoItemResposta = Omit<ImportacaoItem, 'mensagens'> & {
@@ -69,8 +128,8 @@ function traduzResultado(resultado: ImportacaoDetalhe['resultado']) {
     case 'SUCESSO':
       return 'Sucesso';
     case 'ATENCAO':
-      return 'Atenção';
-    case 'PENDENTE':
+      return 'Atencao';
+    default:
       return 'Pendente';
   }
 }
@@ -81,23 +140,23 @@ function obterClasseResultado(resultado: ImportacaoDetalhe['resultado']) {
       return 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40';
     case 'ATENCAO':
       return 'bg-amber-500/10 text-amber-300 border border-amber-500/40';
-    case 'PENDENTE':
-      return 'bg-slate-500/10 text-slate-300 border border-slate-500/40';
     default:
-      return 'bg-slate-700/40 text-slate-200 border border-slate-600/40';
+      return 'bg-slate-500/10 text-slate-300 border border-slate-500/40';
   }
 }
 
 function traduzModalidade(modalidade: string) {
-  return modalidade === 'EXPORTACAO' ? 'Exportação' : 'Importação';
+  if (modalidade === 'EXPORTACAO') return 'Exportacao';
+  if (modalidade === 'MISTA') return 'Mista';
+  return 'Importacao';
 }
 
 function traduzSituacao(situacao: ImportacaoDetalhe['situacao']) {
   switch (situacao) {
     case 'CONCLUIDA':
-      return 'Concluída';
+      return 'Concluida';
     case 'CONCLUIDA_INCOMPLETA':
-      return 'Concluída - Incompleta';
+      return 'Concluida - Incompleta';
     case 'REVERTIDA':
       return 'Revertida';
     default:
@@ -105,15 +164,8 @@ function traduzSituacao(situacao: ImportacaoDetalhe['situacao']) {
   }
 }
 
-function obterMensagem(lista?: string[]) {
-  if (!lista || lista.length === 0) return null;
-  return (
-    <ul className="mt-2 list-disc pl-5 text-sm text-gray-200">
-      {lista.map((mensagem, indice) => (
-        <li key={indice}>{mensagem}</li>
-      ))}
-    </ul>
-  );
+function traduzOrigem(origem: ImportacaoDetalhe['origemImportacao']) {
+  return origem === 'SISCOMEX_ARQUIVO' ? 'SISCOMEX por arquivo' : 'Planilha Excel';
 }
 
 function obterClasseSituacaoBadge(situacao: ImportacaoDetalhe['situacao']) {
@@ -137,30 +189,23 @@ function normalizarMensagens(mensagens: unknown): MensagensItem {
   if (typeof mensagens === 'string') {
     try {
       return normalizarMensagens(JSON.parse(mensagens));
-    } catch (error) {
-      console.warn('Falha ao interpretar mensagens de importação como JSON', error);
+    } catch {
       return {};
     }
   }
 
   if (Array.isArray(mensagens)) {
-    const itens = mensagens.filter(
-      (valor): valor is string => typeof valor === 'string'
-    );
+    const itens = mensagens.filter((valor): valor is string => typeof valor === 'string');
     return itens.length ? { impeditivos: itens } : {};
   }
 
   if (typeof mensagens === 'object') {
     const objeto = mensagens as Record<string, unknown>;
     const impeditivos = Array.isArray(objeto.impeditivos)
-      ? objeto.impeditivos.filter(
-          (valor): valor is string => typeof valor === 'string'
-        )
+      ? objeto.impeditivos.filter((valor): valor is string => typeof valor === 'string')
       : [];
     const atencao = Array.isArray(objeto.atencao)
-      ? objeto.atencao.filter(
-          (valor): valor is string => typeof valor === 'string'
-        )
+      ? objeto.atencao.filter((valor): valor is string => typeof valor === 'string')
       : [];
 
     const resultado: MensagensItem = {};
@@ -175,15 +220,191 @@ function normalizarMensagens(mensagens: unknown): MensagensItem {
 function normalizarDetalheImportacao(
   dados: ImportacaoDetalheResposta
 ): ImportacaoDetalhe {
-  const itensNormalizados = (dados.itens ?? []).map(item => ({
-    ...item,
-    mensagens: normalizarMensagens(item.mensagens)
-  }));
-
   return {
     ...dados,
-    itens: itensNormalizados
+    itens: (dados.itens ?? []).map(item => ({
+      ...item,
+      mensagens: normalizarMensagens(item.mensagens),
+    })),
   };
+}
+
+function ListaMensagens({ itens }: { itens?: string[] }) {
+  if (!itens || itens.length === 0) {
+    return null;
+  }
+
+  return (
+    <ul className="mt-2 list-disc pl-5 text-sm text-gray-200">
+      {itens.map((mensagem, indice) => (
+        <li key={`${mensagem}-${indice}`}>{mensagem}</li>
+      ))}
+    </ul>
+  );
+}
+
+function ResumoSiscomexCard({
+  resumo,
+}: {
+  resumo: SiscomexResumoImportacao;
+}) {
+  return (
+    <Card className="mb-6 border border-sky-500/30 bg-sky-500/5">
+      <div className="flex items-start gap-3">
+        <Info size={18} className="mt-1 text-sky-300" />
+        <div className="w-full">
+          <h2 className="text-lg font-semibold text-white">Resumo SISCOMEX</h2>
+          <p className="mt-1 text-sm text-sky-100/80">
+            Modalidade detectada: <span className="font-medium text-white">{traduzModalidade(resumo.modalidadeDetectada)}</span>
+          </p>
+          <div className="mt-3 grid gap-2 text-sm text-gray-300 md:grid-cols-3">
+            <p>
+              <span className="font-semibold text-gray-200">Produtos:</span>{' '}
+              {resumo.arquivos.produtos}
+            </p>
+            <p>
+              <span className="font-semibold text-gray-200">Operadores:</span>{' '}
+              {resumo.arquivos.operadores || 'Nao informado'}
+            </p>
+            <p>
+              <span className="font-semibold text-gray-200">Vinculos:</span>{' '}
+              {resumo.arquivos.fabricantes || 'Nao informado'}
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-4 text-sm text-gray-300">
+              <p className="font-semibold text-white">Produtos</p>
+              <ul className="mt-3 space-y-1">
+                <li>Total no arquivo: {resumo.produtos.totalArquivo}</li>
+                <li>Criados: {resumo.produtos.criados}</li>
+                <li>Criados aprovados: {resumo.produtos.criadosAprovados}</li>
+                <li>Criados pendentes: {resumo.produtos.criadosPendentes}</li>
+                <li>Ja existentes e transmitidos: {resumo.produtos.existentesTransmitidos}</li>
+                <li>Ja existentes e nao transmitidos: {resumo.produtos.existentesNaoTransmitidos}</li>
+                <li>Ambiguos: {resumo.produtos.ambiguos}</li>
+                <li>Divergencia de NCM: {resumo.produtos.divergenciaNcm}</li>
+                <li>Com erro: {resumo.produtos.comErro}</li>
+              </ul>
+            </div>
+
+            <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-4 text-sm text-gray-300">
+              <p className="font-semibold text-white">Operadores estrangeiros</p>
+              <ul className="mt-3 space-y-1">
+                <li>Arquivo informado: {resumo.operadores.informado ? 'Sim' : 'Nao'}</li>
+                <li>Total no arquivo: {resumo.operadores.totalArquivo}</li>
+                <li>Criados: {resumo.operadores.criados}</li>
+                <li>Ja existentes e transmitidos: {resumo.operadores.existentesTransmitidos}</li>
+                <li>Ja existentes e nao transmitidos: {resumo.operadores.existentesNaoTransmitidos}</li>
+                <li>Ambiguos: {resumo.operadores.ambiguos}</li>
+                <li>Conflitos: {resumo.operadores.conflitos}</li>
+                <li>Com erro: {resumo.operadores.comErro}</li>
+              </ul>
+              {resumo.operadores.pendencias.length > 0 && (
+                <>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-amber-200">
+                    Pendencias
+                  </p>
+                  <ul className="mt-2 list-disc space-y-2 pl-5 text-xs text-gray-300">
+                    {resumo.operadores.pendencias.map(pendencia => (
+                      <li key={`${pendencia.referencia}-${pendencia.motivo}`}>
+                        <span className="font-medium text-white">{pendencia.referencia}:</span>{' '}
+                        {pendencia.motivo}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-4 text-sm text-gray-300">
+              <p className="font-semibold text-white">Vinculos</p>
+              <ul className="mt-3 space-y-1">
+                <li>Arquivo informado: {resumo.vinculos.informado ? 'Sim' : 'Nao'}</li>
+                <li>Total no arquivo: {resumo.vinculos.totalArquivo}</li>
+                <li>Criados: {resumo.vinculos.criados}</li>
+                <li>Ja existentes: {resumo.vinculos.existentes}</li>
+                <li>Criados com operador: {resumo.vinculos.criadosComOperador}</li>
+                <li>Criados somente por pais: {resumo.vinculos.criadosSomentePais}</li>
+                <li>Sem produto: {resumo.vinculos.semProduto}</li>
+                <li>Sem operador: {resumo.vinculos.semOperador}</li>
+                <li>Com erro: {resumo.vinculos.comErro}</li>
+              </ul>
+              {resumo.vinculos.pendencias.length > 0 && (
+                <>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-amber-200">
+                    Pendencias
+                  </p>
+                  <ul className="mt-2 list-disc space-y-2 pl-5 text-xs text-gray-300">
+                    {resumo.vinculos.pendencias.map(pendencia => (
+                      <li key={`${pendencia.referencia}-${pendencia.motivo}`}>
+                        <span className="font-medium text-white">{pendencia.referencia}:</span>{' '}
+                        {pendencia.motivo}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ItemImportacaoCard({
+  item,
+  cor,
+  referenciaLabel,
+  titulo,
+  chip,
+}: {
+  item: ImportacaoItem;
+  cor: 'erro' | 'atencao' | 'sucesso';
+  referenciaLabel: string;
+  titulo: string;
+  chip?: string | null;
+}) {
+  const mensagens = item.mensagens ?? {};
+  const classeCard =
+    cor === 'erro'
+      ? 'border-red-500/40 bg-red-500/5 text-gray-200'
+      : cor === 'atencao'
+        ? 'border-amber-500/40 bg-amber-500/10 text-amber-100'
+        : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100';
+
+  return (
+    <div className={`rounded-lg border p-4 text-sm ${classeCard}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-semibold text-white">
+            {referenciaLabel} {item.linhaPlanilha}
+          </p>
+          <p className="text-xs text-white/80">NCM {item.ncm || 'Nao informada'}</p>
+        </div>
+        {chip && (
+          <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs font-medium text-white">
+            {chip}
+          </span>
+        )}
+      </div>
+
+      <p className="mt-3 text-sm">
+        {titulo}:{' '}
+        <span className="font-semibold text-white">
+          {item.denominacao || 'Sem nome informado'}
+        </span>
+      </p>
+
+      {item.codigosInternos && (
+        <p className="mt-1 text-xs text-white/80">Codigos internos: {item.codigosInternos}</p>
+      )}
+
+      <ListaMensagens itens={mensagens.impeditivos} />
+      <ListaMensagens itens={mensagens.atencao} />
+    </div>
+  );
 }
 
 export default function ImportacaoDetalhePage() {
@@ -194,6 +415,7 @@ export default function ImportacaoDetalhePage() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [errosAbertos, setErrosAbertos] = useState(true);
+  const [atencoesAbertas, setAtencoesAbertas] = useState(true);
   const [sucessosAbertos, setSucessosAbertos] = useState(false);
   const [mostrarConfirmacaoReversao, setMostrarConfirmacaoReversao] = useState(false);
   const [revertendo, setRevertendo] = useState(false);
@@ -208,14 +430,16 @@ export default function ImportacaoDetalhePage() {
         if (!silencioso) {
           setCarregando(true);
         }
+
         const resposta = await api.get<ImportacaoDetalheResposta>(
           `/produtos/importacoes/${importacaoId}`
         );
         setDetalhe(normalizarDetalheImportacao(resposta.data));
         setErro(null);
       } catch (error: any) {
-        console.error('Erro ao carregar importação', error);
-        const mensagem = error.response?.data?.error || 'Não foi possível carregar os detalhes.';
+        console.error('Erro ao carregar importacao', error);
+        const mensagem =
+          error.response?.data?.error || 'Nao foi possivel carregar os detalhes.';
         setErro(mensagem);
         if (!silencioso) {
           addToast(mensagem, 'error');
@@ -226,7 +450,7 @@ export default function ImportacaoDetalhePage() {
         }
       }
     },
-    [importacaoId, addToast]
+    [addToast, importacaoId]
   );
 
   useEffect(() => {
@@ -243,14 +467,18 @@ export default function ImportacaoDetalhePage() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [detalhe?.situacao, carregarDetalhes]);
+  }, [carregarDetalhes, detalhe]);
 
   const itensErro = useMemo(
     () => detalhe?.itens.filter(item => item.resultado === 'ERRO') ?? [],
     [detalhe]
   );
+  const itensAtencao = useMemo(
+    () => detalhe?.itens.filter(item => item.resultado === 'ATENCAO') ?? [],
+    [detalhe]
+  );
   const itensSucesso = useMemo(
-    () => detalhe?.itens.filter(item => item.resultado !== 'ERRO') ?? [],
+    () => detalhe?.itens.filter(item => item.resultado === 'SUCESSO') ?? [],
     [detalhe]
   );
 
@@ -260,118 +488,123 @@ export default function ImportacaoDetalhePage() {
         registrosAnalisados: 0,
         produtosCriados: 0,
         comAtencao: 0,
-        comErro: 0
+        comErro: 0,
       };
     }
 
-    if (detalhe.situacao !== 'EM_ANDAMENTO') {
-      return {
-        registrosAnalisados: detalhe.totalRegistros,
-        produtosCriados: detalhe.totalCriados,
-        comAtencao: detalhe.totalComAtencao,
-        comErro: detalhe.totalComErro
-      };
-    }
-
-    const itens = detalhe.itens ?? [];
-
-    return itens.reduce(
-      (
-        acumulado,
-        item
-      ) => {
-        const possuiErro = item.resultado === 'ERRO' || item.possuiErroImpeditivo;
-        const possuiAtencao = item.resultado === 'ATENCAO' || item.possuiAlerta;
-
-        if (!possuiErro) {
+    const totaisDerivados = (detalhe.itens ?? []).reduce(
+      (acumulado, item) => {
+        if (item.produtoId) {
           acumulado.produtosCriados += 1;
-        } else {
+        }
+
+        if (item.resultado === 'ERRO' || item.possuiErroImpeditivo) {
           acumulado.comErro += 1;
         }
 
-        if (possuiAtencao) {
+        if (item.resultado === 'ATENCAO' || item.possuiAlerta) {
           acumulado.comAtencao += 1;
         }
 
         acumulado.registrosAnalisados += 1;
-
         return acumulado;
       },
       {
         registrosAnalisados: 0,
         produtosCriados: 0,
         comAtencao: 0,
-        comErro: 0
+        comErro: 0,
       }
     );
+
+    if (detalhe.situacao !== 'EM_ANDAMENTO') {
+      const totaisPersistidosZerados =
+        detalhe.totalRegistros === 0 &&
+        detalhe.totalCriados === 0 &&
+        detalhe.totalComAtencao === 0 &&
+        detalhe.totalComErro === 0 &&
+        totaisDerivados.registrosAnalisados > 0;
+
+      if (totaisPersistidosZerados) {
+        return totaisDerivados;
+      }
+
+      return {
+        registrosAnalisados: detalhe.totalRegistros,
+        produtosCriados: detalhe.totalCriados,
+        comAtencao: detalhe.totalComAtencao,
+        comErro: detalhe.totalComErro,
+      };
+    }
+
+    return totaisDerivados;
   }, [detalhe]);
-
-  const abrirConfirmacaoReversao = useCallback(() => {
-    setMostrarConfirmacaoReversao(true);
-  }, []);
-
-  const cancelarConfirmacaoReversao = useCallback(() => {
-    if (revertendo) return;
-    setMostrarConfirmacaoReversao(false);
-  }, [revertendo]);
 
   const confirmarReversao = useCallback(async () => {
     if (!detalhe) return;
+
     try {
       setRevertendo(true);
       await api.post(`/produtos/importacoes/${detalhe.id}/reverter`);
-      addToast('Importação revertida com sucesso.', 'success');
+      addToast('Importacao revertida com sucesso.', 'success');
       await carregarDetalhes();
     } catch (error: any) {
-      console.error('Erro ao reverter importação', error);
+      console.error('Erro ao reverter importacao', error);
       const mensagem =
-        error.response?.data?.error || 'Não foi possível reverter a importação.';
+        error.response?.data?.error || 'Nao foi possivel reverter a importacao.';
       addToast(mensagem, 'error');
     } finally {
       setRevertendo(false);
       setMostrarConfirmacaoReversao(false);
     }
-  }, [detalhe, addToast, carregarDetalhes]);
+  }, [addToast, carregarDetalhes, detalhe]);
 
   if (carregando && !detalhe) {
     return (
-      <DashboardLayout title="Detalhes da Importação">
-        <PageLoader message="Carregando detalhes da importação..." />
+      <DashboardLayout title="Detalhes da Importacao">
+        <PageLoader message="Carregando detalhes da importacao..." />
       </DashboardLayout>
     );
   }
 
   if (erro) {
     return (
-      <DashboardLayout title="Detalhes da Importação">
+      <DashboardLayout title="Detalhes da Importacao">
         <Breadcrumb
           items={[
-            { label: 'Início', href: '/' },
-            { label: 'Automação' },
+            { label: 'Inicio', href: '/' },
+            { label: 'Automacao' },
             { label: 'Importar Produto', href: '/automacao/importar-produto' },
-            { label: 'Detalhes' }
+            { label: 'Detalhes' },
           ]}
         />
         <Card className="border border-red-500/40 bg-red-500/5 text-red-300">
           <p>{erro}</p>
           <Button className="mt-4" onClick={() => router.push('/automacao/importar-produto')}>
-            Voltar para importações
+            Voltar para importacoes
           </Button>
         </Card>
       </DashboardLayout>
     );
   }
 
-  if (!detalhe) return null;
+  if (!detalhe) {
+    return null;
+  }
+
+  const referenciaLabel =
+    detalhe.origemImportacao === 'SISCOMEX_ARQUIVO' ? 'Registro' : 'Linha';
+  const modalidadeExibicao =
+    detalhe.resumoSiscomex?.modalidadeDetectada || detalhe.modalidade;
 
   return (
-    <DashboardLayout title="Detalhes da Importação">
+    <DashboardLayout title="Detalhes da Importacao">
       <Breadcrumb
         items={[
-          { label: 'Início', href: '/' },
-          { label: 'Automação' },
+          { label: 'Inicio', href: '/' },
+          { label: 'Automacao' },
           { label: 'Importar Produto', href: '/automacao/importar-produto' },
-          { label: `Importação #${detalhe.id}` }
+          { label: `Importacao #${detalhe.id}` },
         ]}
       />
 
@@ -381,24 +614,32 @@ export default function ImportacaoDetalhePage() {
             type="button"
             onClick={() => router.push('/automacao/importar-produto')}
             className="text-gray-400 transition-colors hover:text-white"
-            aria-label="Voltar para a listagem de importações"
+            aria-label="Voltar para a listagem de importacoes"
           >
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-2xl font-semibold text-white">Importação #{detalhe.id}</h1>
+          <h1 className="text-2xl font-semibold text-white">Importacao #{detalhe.id}</h1>
         </div>
-        <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${obterClasseResultado(detalhe.resultado)}`}>
+        <span
+          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${obterClasseResultado(
+            detalhe.resultado
+          )}`}
+        >
           Resultado: {traduzResultado(detalhe.resultado)}
         </span>
-        <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${obterClasseSituacaoBadge(detalhe.situacao)}`}>
-          Situação: {traduzSituacao(detalhe.situacao)}
+        <span
+          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${obterClasseSituacaoBadge(
+            detalhe.situacao
+          )}`}
+        >
+          Situacao: {traduzSituacao(detalhe.situacao)}
         </span>
       </div>
 
       {(detalhe.situacao === 'CONCLUIDA' || detalhe.situacao === 'CONCLUIDA_INCOMPLETA') && (
         <div className="mb-4">
-          <Button variant="danger" onClick={abrirConfirmacaoReversao}>
-            Reverter importação
+          <Button variant="danger" onClick={() => setMostrarConfirmacaoReversao(true)}>
+            Reverter importacao
           </Button>
         </div>
       )}
@@ -406,9 +647,7 @@ export default function ImportacaoDetalhePage() {
       {detalhe.situacao === 'CONCLUIDA_INCOMPLETA' && (
         <Card className="mb-4 border border-rose-500/40 bg-rose-500/10 text-rose-100">
           <p className="text-sm">
-            Esta importação foi concluída de forma incompleta após uma interrupção. Recomendamos
-            reverter o processo antes de iniciar uma nova importação para garantir consistência nos
-            dados do catálogo.
+            Esta importacao foi concluida de forma incompleta apos uma interrupcao. Recomendamos reverter o processo antes de iniciar uma nova importacao para garantir consistencia no catalogo.
           </p>
         </Card>
       )}
@@ -416,50 +655,72 @@ export default function ImportacaoDetalhePage() {
       <Card className="mb-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2 text-sm text-gray-300">
-            <p className="text-gray-300">
+            <p>
               <span className="font-semibold text-gray-200">Arquivo:</span>{' '}
-              {detalhe.nomeArquivo ? detalhe.nomeArquivo : 'Não informado'}
+              {detalhe.nomeArquivo || 'Nao informado'}
             </p>
-            <p className="text-gray-300">
-              <span className="font-semibold text-gray-200">Catálogo:</span>{' '}
+            <p>
+              <span className="font-semibold text-gray-200">Catalogo:</span>{' '}
               {detalhe.catalogo.nome} · Nº {detalhe.catalogo.numero} ·{' '}
               {formatCPFOrCNPJ(detalhe.catalogo.cpf_cnpj || '')}
             </p>
-            <p className="text-gray-300">
-              <span className="font-semibold text-gray-200">Modalidade:</span> {traduzModalidade(detalhe.modalidade)}
+            <p>
+              <span className="font-semibold text-gray-200">Origem:</span>{' '}
+              {traduzOrigem(detalhe.origemImportacao)}
             </p>
-            <p className="text-gray-300">
-              <span className="font-semibold text-gray-200">Situação:</span> {traduzSituacao(detalhe.situacao)}
+            <p>
+              <span className="font-semibold text-gray-200">Modalidade:</span>{' '}
+              {traduzModalidade(modalidadeExibicao)}
+            </p>
+            <p>
+              <span className="font-semibold text-gray-200">Situacao:</span>{' '}
+              {traduzSituacao(detalhe.situacao)}
             </p>
             <div className="flex flex-wrap gap-6 text-sm text-gray-400">
               <p>
-                <span className="font-semibold text-gray-300">Iniciado em:</span> {formatarData(detalhe.iniciadoEm)}
+                <span className="font-semibold text-gray-300">Iniciado em:</span>{' '}
+                {formatarData(detalhe.iniciadoEm)}
               </p>
               <p>
-                <span className="font-semibold text-gray-300">Finalizado em:</span> {formatarData(detalhe.finalizadoEm)}
+                <span className="font-semibold text-gray-300">Finalizado em:</span>{' '}
+                {formatarData(detalhe.finalizadoEm)}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-3 text-sm">
             <div className="min-w-[150px] rounded-lg border border-slate-700 bg-slate-800/40 p-3 text-gray-300">
-              <p className="text-xs uppercase tracking-wide text-gray-400">Registros analisados</p>
-              <p className="mt-1 text-xl font-semibold text-white">{totaisResumo.registrosAnalisados}</p>
+              <p className="text-xs uppercase tracking-wide text-gray-400">
+                Registros analisados
+              </p>
+              <p className="mt-1 text-xl font-semibold text-white">
+                {totaisResumo.registrosAnalisados}
+              </p>
             </div>
             <div className="min-w-[150px] rounded-lg border border-emerald-600/40 bg-emerald-600/10 p-3 text-emerald-100">
-              <p className="text-xs uppercase tracking-wide text-emerald-200">Produtos criados</p>
-              <p className="mt-1 text-xl font-semibold text-emerald-50">{totaisResumo.produtosCriados}</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-200">
+                Produtos criados
+              </p>
+              <p className="mt-1 text-xl font-semibold text-emerald-50">
+                {totaisResumo.produtosCriados}
+              </p>
             </div>
             <div className="min-w-[150px] rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-100">
-              <p className="text-xs uppercase tracking-wide text-amber-200">Com atenção</p>
-              <p className="mt-1 text-xl font-semibold text-amber-50">{totaisResumo.comAtencao}</p>
+              <p className="text-xs uppercase tracking-wide text-amber-200">Com atencao</p>
+              <p className="mt-1 text-xl font-semibold text-amber-50">
+                {totaisResumo.comAtencao}
+              </p>
             </div>
             <div className="min-w-[150px] rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-red-100">
               <p className="text-xs uppercase tracking-wide text-red-200">Com erro</p>
-              <p className="mt-1 text-xl font-semibold text-red-50">{totaisResumo.comErro}</p>
+              <p className="mt-1 text-xl font-semibold text-red-50">
+                {totaisResumo.comErro}
+              </p>
             </div>
           </div>
         </div>
       </Card>
+
+      {detalhe.resumoSiscomex && <ResumoSiscomexCard resumo={detalhe.resumoSiscomex} />}
 
       <Card className="mb-6">
         <button
@@ -474,41 +735,65 @@ export default function ImportacaoDetalhePage() {
               {itensErro.length}
             </span>
           </div>
-          {errosAbertos ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+          {errosAbertos ? (
+            <ChevronUp size={18} className="text-gray-400" />
+          ) : (
+            <ChevronDown size={18} className="text-gray-400" />
+          )}
         </button>
         {errosAbertos && (
           <div className="mt-4 space-y-4">
             {itensErro.length === 0 ? (
               <p className="text-sm text-gray-400">Nenhum registro com erro impeditivo.</p>
             ) : (
-              itensErro.map(item => {
-                const mensagens = item.mensagens ?? {};
-                return (
-                  <div
-                    key={item.id}
-                    className="rounded-lg border border-red-500/40 bg-red-500/5 p-4 text-sm text-gray-200"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="font-semibold text-white">Linha {item.linhaPlanilha}</p>
-                        <p className="text-xs text-gray-300">NCM {item.ncm || 'Não informada'}</p>
-                      </div>
-                    </div>
-                    <p className="mt-3 text-sm text-gray-200">
-                      Produto: <span className="font-medium text-white">{item.denominacao || 'Sem nome informado'}</span>
-                    </p>
-                    {item.codigosInternos && (
-                      <p className="mt-1 text-xs text-gray-300">SKUs informados: {item.codigosInternos}</p>
-                    )}
-                    <div className="mt-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-red-300">Problemas encontrados</p>
-                      {obterMensagem(mensagens.impeditivos) || (
-                        <p className="mt-2 text-sm text-gray-200">Erro não especificado.</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
+              itensErro.map(item => (
+                <ItemImportacaoCard
+                  key={item.id}
+                  item={item}
+                  cor="erro"
+                  referenciaLabel={referenciaLabel}
+                  titulo="Registro nao importado"
+                />
+              ))
+            )}
+          </div>
+        )}
+      </Card>
+
+      <Card className="mb-6">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between py-3 text-left"
+          onClick={() => setAtencoesAbertas(prev => !prev)}
+        >
+          <div className="flex items-center gap-2 text-amber-200">
+            <Info size={18} />
+            <span className="font-semibold">Itens com atencao</span>
+            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-200">
+              {itensAtencao.length}
+            </span>
+          </div>
+          {atencoesAbertas ? (
+            <ChevronUp size={18} className="text-gray-400" />
+          ) : (
+            <ChevronDown size={18} className="text-gray-400" />
+          )}
+        </button>
+        {atencoesAbertas && (
+          <div className="mt-4 space-y-4">
+            {itensAtencao.length === 0 ? (
+              <p className="text-sm text-gray-400">Nenhum item com atencao.</p>
+            ) : (
+              itensAtencao.map(item => (
+                <ItemImportacaoCard
+                  key={item.id}
+                  item={item}
+                  cor="atencao"
+                  referenciaLabel={referenciaLabel}
+                  titulo={item.produtoId ? 'Produto processado' : 'Registro nao importado'}
+                  chip={item.produtoId ? 'Criado com atencao' : 'Ja existente ou pendente de analise'}
+                />
+              ))
             )}
           </div>
         )}
@@ -522,51 +807,31 @@ export default function ImportacaoDetalhePage() {
         >
           <div className="flex items-center gap-2 text-emerald-200">
             <CheckCircle size={18} />
-            <span className="font-semibold">Itens importados com sucesso</span>
+            <span className="font-semibold">Produtos criados com sucesso</span>
             <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-200">
               {itensSucesso.length}
             </span>
           </div>
-          {sucessosAbertos ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+          {sucessosAbertos ? (
+            <ChevronUp size={18} className="text-gray-400" />
+          ) : (
+            <ChevronDown size={18} className="text-gray-400" />
+          )}
         </button>
         {sucessosAbertos && (
           <div className="mt-4 space-y-4">
             {itensSucesso.length === 0 ? (
-              <p className="text-sm text-gray-400">Nenhum item importado.</p>
+              <p className="text-sm text-gray-400">Nenhum item importado com sucesso.</p>
             ) : (
-              itensSucesso.map(item => {
-                const mensagens = item.mensagens ?? {};
-                const possuiAtencao = item.resultado === 'ATENCAO' || item.possuiAlerta;
-                return (
-                  <div
-                    key={item.id}
-                    className={`rounded-lg border p-4 text-sm ${
-                      possuiAtencao
-                        ? 'border-amber-500/40 bg-amber-500/10 text-amber-100'
-                        : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100'
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="font-semibold text-white">Linha {item.linhaPlanilha}</p>
-                        <p className="text-xs text-white/80">NCM {item.ncm || 'Não informada'}</p>
-                      </div>
-                      {possuiAtencao && (
-                        <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-100">
-                          Importado com atenção
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-2 text-sm text-white">
-                      Produto criado: <span className="font-semibold">{item.denominacao || 'Sem nome informado'}</span>
-                    </p>
-                    {item.codigosInternos && (
-                      <p className="mt-1 text-xs text-white/80">SKUs cadastrados: {item.codigosInternos}</p>
-                    )}
-                    {obterMensagem(mensagens.atencao)}
-                  </div>
-                );
-              })
+              itensSucesso.map(item => (
+                <ItemImportacaoCard
+                  key={item.id}
+                  item={item}
+                  cor="sucesso"
+                  referenciaLabel={referenciaLabel}
+                  titulo="Produto criado"
+                />
+              ))
             )}
           </div>
         )}
@@ -575,17 +840,26 @@ export default function ImportacaoDetalhePage() {
       {mostrarConfirmacaoReversao && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-lg border border-gray-700 bg-[#151921] p-6">
-            <h3 className="mb-4 text-xl font-semibold text-white">Confirmar reversão</h3>
+            <h3 className="mb-4 text-xl font-semibold text-white">Confirmar reversao</h3>
             <p className="mb-6 text-gray-300">
-              Esta ação irá remover todos os produtos criados por esta importação. Deseja
-              continuar?
+              Esta acao ira remover todos os produtos criados por esta importacao e, quando aplicavel, os operadores e vinculos criados por ela. Deseja continuar?
             </p>
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={cancelarConfirmacaoReversao} disabled={revertendo}>
+              <Button
+                variant="outline"
+                onClick={() => setMostrarConfirmacaoReversao(false)}
+                disabled={revertendo}
+              >
                 Cancelar
               </Button>
-              <Button variant="danger" onClick={confirmarReversao} disabled={revertendo}>
-                {revertendo ? 'Revertendo...' : 'Reverter' }
+              <Button
+                variant="danger"
+                onClick={confirmarReversao}
+                disabled={revertendo}
+                className="flex items-center gap-2"
+              >
+                <RotateCcw size={16} />
+                {revertendo ? 'Revertendo...' : 'Reverter'}
               </Button>
             </div>
           </div>

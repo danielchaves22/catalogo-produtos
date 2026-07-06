@@ -6,7 +6,7 @@ export const createProdutoSchema = z.object({
   ncmCodigo: z.string().length(8),
   modalidade: z.string().min(1),
   catalogoId: z.number().int(),
-  denominacao: z.string().max(100).min(1),
+  denominacao: z.string().max(120).min(1),
   descricao: z.string().min(1),
   valoresAtributos: z.record(z.any()).optional(),
   codigosInternos: z
@@ -30,7 +30,7 @@ export const updateProdutoSchema = z.object({
     .enum(['PENDENTE', 'APROVADO', 'PROCESSANDO', 'TRANSMITIDO', 'ERRO'])
     .optional(),
   situacao: z.enum(['RASCUNHO', 'ATIVADO', 'DESATIVADO']).optional(),
-  denominacao: z.string().max(100).optional(),
+  denominacao: z.string().max(120).optional(),
   descricao: z.string().optional(),
   valoresAtributos: z.record(z.any()).optional(),
   codigosInternos: z
@@ -49,7 +49,7 @@ export const updateProdutoSchema = z.object({
 
 export const cloneProdutoSchema = z.object({
   catalogoId: z.number().int(),
-  denominacao: z.string().max(100).min(1),
+  denominacao: z.string().max(120).min(1),
   codigosInternos: z
     .array(z.string().max(50))
     .optional()

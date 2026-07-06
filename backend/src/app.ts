@@ -29,13 +29,13 @@ const app = express();
 app.use(cors());
 app.use(
   json({
-    limit: '5mb'
+    limit: '35mb'
   })
 );
 app.use(
   urlencoded({
     extended: true,
-    limit: '5mb'
+    limit: '35mb'
   })
 );
 

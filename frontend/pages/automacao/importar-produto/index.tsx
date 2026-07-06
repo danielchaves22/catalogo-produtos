@@ -118,8 +118,13 @@ function traduzSituacao(situacao: ImportacaoResumo['situacao']) {
 }
 
 function traduzModalidade(modalidade: string) {
+  if (modalidade === 'MISTA') return 'Mista';
   if (modalidade === 'EXPORTACAO') return 'Exportacao';
   return 'Importacao';
+}
+
+function podeExcluirImportacao(importacao: ImportacaoResumo) {
+  return importacao.situacao === 'CONCLUIDA' || importacao.situacao === 'REVERTIDA';
 }
 
 export default function ImportacoesPage() {
@@ -128,7 +133,8 @@ export default function ImportacoesPage() {
   const [excluindoId, setExcluindoId] = useState<number | null>(null);
   const [revertendoId, setRevertendoId] = useState<number | null>(null);
   const [limpandoHistorico, setLimpandoHistorico] = useState(false);
-  const [importacaoParaExcluir, setImportacaoParaExcluir] = useState<number | null>(null);
+  const [importacaoParaExcluir, setImportacaoParaExcluir] = useState<ImportacaoResumo | null>(null);
+  const [etapaConfirmacaoExclusao, setEtapaConfirmacaoExclusao] = useState<1 | 2>(1);
   const [importacaoParaReverter, setImportacaoParaReverter] = useState<ImportacaoResumo | null>(null);
   const [mostrarConfirmacaoLimpeza, setMostrarConfirmacaoLimpeza] = useState(false);
 
@@ -144,8 +150,12 @@ export default function ImportacoesPage() {
     return () => clearInterval(interval);
   }, [possuiProcessando, recarregar]);
 
-  const removerImportacaoClick = useCallback((id: number) => {
-    setImportacaoParaExcluir(id);
+  const alertaExclusaoConclusao =
+    'As importacoes efetuadas no catalogo nao serao desfeitas. A exclusao removera o historico, detalhes, logs e arquivos desta importacao. Apos a exclusao, nao sera mais possivel reverter esta importacao.';
+
+  const removerImportacaoClick = useCallback((importacao: ImportacaoResumo) => {
+    setImportacaoParaExcluir(importacao);
+    setEtapaConfirmacaoExclusao(1);
   }, []);
 
   const reverterImportacaoClick = useCallback((importacao: ImportacaoResumo) => {
@@ -153,20 +163,39 @@ export default function ImportacoesPage() {
   }, []);
 
   const confirmarRemocaoImportacao = useCallback(async () => {
-    if (importacaoParaExcluir == null) return;
+    if (!importacaoParaExcluir) return;
     try {
-      setExcluindoId(importacaoParaExcluir);
-      await api.delete(`/produtos/importacoes/${importacaoParaExcluir}`);
+      setExcluindoId(importacaoParaExcluir.id);
+      await api.delete(`/produtos/importacoes/${importacaoParaExcluir.id}`);
       addToast('Importacao removida com sucesso.', 'success');
       await recarregar();
     } catch (error) {
       console.error('Erro ao remover importacao', error);
-      addToast('Nao foi possivel remover a importacao.', 'error');
+      const mensagem =
+        (error as any)?.response?.data?.error || 'Nao foi possivel remover a importacao.';
+      addToast(mensagem, 'error');
     } finally {
       setExcluindoId(null);
       setImportacaoParaExcluir(null);
+      setEtapaConfirmacaoExclusao(1);
     }
   }, [addToast, importacaoParaExcluir, recarregar]);
+
+  const avancarOuConfirmarRemocaoImportacao = useCallback(async () => {
+    if (!importacaoParaExcluir) return;
+
+    if (importacaoParaExcluir.situacao === 'CONCLUIDA' && etapaConfirmacaoExclusao === 1) {
+      setEtapaConfirmacaoExclusao(2);
+      return;
+    }
+
+    await confirmarRemocaoImportacao();
+  }, [confirmarRemocaoImportacao, etapaConfirmacaoExclusao, importacaoParaExcluir]);
+
+  const cancelarRemocaoImportacao = useCallback(() => {
+    setImportacaoParaExcluir(null);
+    setEtapaConfirmacaoExclusao(1);
+  }, []);
 
   const confirmarReversaoImportacao = useCallback(async () => {
     if (!importacaoParaReverter) return;
@@ -188,7 +217,7 @@ export default function ImportacoesPage() {
     try {
       setLimpandoHistorico(true);
       await api.delete('/produtos/importacoes');
-      addToast('Historico de importacoes limpo.', 'success');
+      addToast('Importacoes concluidas e revertidas removidas do historico.', 'success');
       await recarregar();
     } catch (error) {
       console.error('Erro ao limpar historico de importacoes', error);
@@ -287,7 +316,7 @@ export default function ImportacoesPage() {
           <div className="flex flex-col items-center justify-center py-16 text-center text-gray-400">
             <p className="text-lg font-medium">Nenhuma importacao realizada ate o momento.</p>
             <p className="mt-2 text-sm">
-              Utilize o botao <strong>Nova Importacao</strong> para iniciar o processo por planilha Excel.
+              Utilize o botao <strong>Nova Importacao</strong> para iniciar o processo por planilha Excel ou pelos arquivos exportados do SISCOMEX.
             </p>
           </div>
         ) : (
@@ -337,16 +366,18 @@ export default function ImportacoesPage() {
                             <RotateCcw size={16} />
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => removerImportacaoClick(importacao.id)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-500/40 bg-red-500/10 text-red-200 transition hover:bg-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-60"
-                          title="Excluir importacao"
-                          aria-label="Excluir importacao"
-                          disabled={excluindoId === importacao.id || limpandoHistorico}
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {podeExcluirImportacao(importacao) && (
+                          <button
+                            type="button"
+                            onClick={() => removerImportacaoClick(importacao)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-500/40 bg-red-500/10 text-red-200 transition hover:bg-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                            title="Excluir importacao"
+                            aria-label="Excluir importacao"
+                            disabled={excluindoId === importacao.id || limpandoHistorico}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-200">
@@ -385,16 +416,37 @@ export default function ImportacoesPage() {
       {importacaoParaExcluir !== null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
-            <h3 className="text-xl font-semibold text-white mb-4">Confirmar Exclusao</h3>
-            <p className="text-gray-300 mb-6">
-              Tem certeza que deseja excluir esta importacao? Esta acao nao pode ser desfeita.
-            </p>
+            <h3 className="text-xl font-semibold text-white mb-4">
+              {etapaConfirmacaoExclusao === 2
+                ? 'Confirmar Exclusao Definitiva'
+                : 'Confirmar Exclusao'}
+            </h3>
+            {etapaConfirmacaoExclusao === 2 ? (
+              <p className="text-gray-300 mb-6">{alertaExclusaoConclusao}</p>
+            ) : (
+              <>
+                <p className="text-gray-300 mb-4">
+                  Tem certeza que deseja excluir esta importacao? Esta acao nao pode ser desfeita.
+                </p>
+                {importacaoParaExcluir.situacao === 'CONCLUIDA' && (
+                  <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+                    {alertaExclusaoConclusao}
+                  </div>
+                )}
+              </>
+            )}
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setImportacaoParaExcluir(null)}>
+              <Button variant="outline" onClick={cancelarRemocaoImportacao}>
                 Cancelar
               </Button>
-              <Button variant="danger" onClick={confirmarRemocaoImportacao} disabled={excluindoId === importacaoParaExcluir}>
-                Excluir
+              <Button
+                variant="danger"
+                onClick={avancarOuConfirmarRemocaoImportacao}
+                disabled={excluindoId === importacaoParaExcluir.id}
+              >
+                {etapaConfirmacaoExclusao === 1 && importacaoParaExcluir.situacao === 'CONCLUIDA'
+                  ? 'Continuar'
+                  : 'Excluir'}
               </Button>
             </div>
           </div>
@@ -430,7 +482,8 @@ export default function ImportacoesPage() {
           <div className="bg-[#151921] rounded-lg max-w-md w-full p-6 border border-gray-700">
             <h3 className="text-xl font-semibold text-white mb-4">Limpar historico</h3>
             <p className="text-gray-300 mb-6">
-              Tem certeza que deseja remover todo o historico de importacoes? Esta acao nao pode ser desfeita.
+              Tem certeza que deseja remover do historico as importacoes concluidas e revertidas?
+              Importacoes em andamento ou concluidas de forma incompleta serao mantidas.
             </p>
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setMostrarConfirmacaoLimpeza(false)}>

@@ -502,7 +502,7 @@ model NcmCache {
   dataUltimaSincronizacao DateTime? @map("data_ultima_sincronizacao")
   hashEstrutura        String?  @map("hash_estrutura")
   versaoEstrutura      Int?     @map("versao_estrutura")
-  unidadeMedida        String?  @map("unidade_medida")
+  unidadeMedida        String?  @map("unidade_medida") @db.VarChar(20)
   aliquotaIi           Decimal? @map("aliquota_ii")
   atributos            AtributosCache[] @relation("NcmAtributos")
 
@@ -528,16 +528,16 @@ model AtributosCache {
 
 // Tabela de produtos
 model Produto {
-  id                       Int                    @id @default(autoincrement()) @map("id")
-  codigo                   String?                @unique @map("codigo")
-  versao                   Int                    @map("versao")
-  status                   ProdutoStatus          @map("status")
-  situacao                 ProdutoSituacao        @default(RASCUNHO) @map("situacao")
-  ncmCodigo                String                 @map("ncm_codigo")
-  modalidade               String?                @map("modalidade")
-  denominacao              String                 @map("denominacao")
-  descricao                String                 @map("descricao")
-  numero                   Int                    @unique @map("numero")
+    id                       Int                    @id @default(autoincrement()) @map("id")
+    codigo                   String?                @map("codigo") @db.VarChar(50)
+    versao                   Int                    @map("versao")
+    status                   ProdutoStatus          @map("status")
+    situacao                 ProdutoSituacao        @default(RASCUNHO) @map("situacao")
+    ncmCodigo                String                 @map("ncm_codigo")
+    modalidade               String?                @map("modalidade")
+    denominacao              String                 @map("denominacao") @db.VarChar(120)
+    descricao                String                 @map("descricao")
+    numero                   Int                    @unique @map("numero")
   catalogoId               Int                    @map("catalogo_id")
   catalogo                 Catalogo               @relation(fields: [catalogoId], references: [id])
   criadoEm                 DateTime               @default(now()) @map("criado_em")
@@ -554,11 +554,11 @@ model Produto {
   transmissoes             ProdutoTransmissaoItem[]
   historicoVersoes         ProdutoHistoricoVersao[]
 
-  @@index([ncmCodigo], name: "idx_ncm")
-  @@index([catalogoId], name: "idx_catalogo")
-  @@unique([codigo, versao], name: "uk_codigo_versao")
-  @@map("produto")
-}
+    @@index([ncmCodigo], name: "idx_ncm")
+    @@index([catalogoId], name: "idx_catalogo")
+    @@unique([catalogoId, codigo], name: "uk_catalogo_codigo")
+    @@map("produto")
+  }
 
 model ProdutoHistoricoVersao {
   id             Int      @id @default(autoincrement()) @map("id")
