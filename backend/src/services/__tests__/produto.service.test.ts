@@ -22,7 +22,8 @@ beforeEach(() => {
 
 jest.mock('../../utils/prisma', () => ({
   catalogoPrisma: {
-    produto: { findFirst: jest.fn(), findMany: jest.fn() },
+    produto: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn() },
+    catalogo: { findFirst: jest.fn() },
     atributoVersao: { findMany: jest.fn() },
     asyncJob: { findFirst: jest.fn() },
     $transaction: jest.fn()
@@ -52,6 +53,122 @@ describe('ProdutoService - atributos obrigatórios', () => {
     ]
     const resultado = (service as any).todosObrigatoriosPreenchidos({ A: '1' }, estrutura)
     expect(resultado).toBe(false)
+  })
+})
+
+describe('ProdutoService - criaÃ§Ã£o otimizada', () => {
+  it('cria produto com atributos em nested create sem abrir transaction extra', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 5,
+      versaoNumero: 2,
+      estrutura: [
+        {
+          id: 11,
+          codigo: 'ATT_TESTE',
+          nome: 'Teste',
+          tipo: 'TEXTO',
+          obrigatorio: false,
+          multivalorado: false,
+          validacoes: {}
+        }
+      ]
+    })
+    jest.spyOn(service, 'buscarPorId').mockResolvedValue({ id: 123 } as any)
+
+    ;(catalogoPrisma.catalogo.findFirst as jest.Mock).mockResolvedValue({ id: 9 })
+    ;(catalogoPrisma.produto.create as jest.Mock).mockResolvedValue({
+      id: 123,
+      codigo: 'SIS123',
+      ncmCodigo: '12345678',
+      modalidade: 'IMPORTACAO',
+      denominacao: 'Produto teste',
+      descricao: 'Produto teste',
+      status: 'APROVADO',
+      situacao: 'ATIVADO',
+      catalogoId: 9
+    })
+
+    await service.criar(
+      {
+        codigo: 'SIS123',
+        ncmCodigo: '12345678',
+        modalidade: 'IMPORTACAO',
+        catalogoId: 9,
+        denominacao: 'Produto teste',
+        descricao: 'Produto teste',
+        valoresAtributos: { ATT_TESTE: 'VALOR' },
+        codigosInternos: ['INT-1']
+      },
+      77
+    )
+
+    expect(catalogoPrisma.$transaction).not.toHaveBeenCalled()
+    expect(catalogoPrisma.produto.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          codigosInternos: {
+            create: [{ codigo: 'INT-1' }]
+          },
+          atributos: {
+            create: [
+              expect.objectContaining({
+                atributo: { connect: { id: 11 } },
+                versao: { connect: { id: 5 } },
+                valores: {
+                  create: [{ valorJson: 'VALOR', ordem: 0 }]
+                }
+              })
+            ]
+          }
+        })
+      })
+    )
+    expect(service.buscarPorId).toHaveBeenCalledWith(123, 77)
+  })
+
+  it('permite sobrescrever o status inicial para produtos importados do SISCOMEX', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 5,
+      versaoNumero: 2,
+      estrutura: []
+    })
+    jest.spyOn(service, 'buscarPorId').mockResolvedValue({ id: 456 } as any)
+
+    ;(catalogoPrisma.catalogo.findFirst as jest.Mock).mockResolvedValue({ id: 9 })
+    ;(catalogoPrisma.produto.create as jest.Mock).mockResolvedValue({
+      id: 456,
+      codigo: 'SIS456',
+      ncmCodigo: '12345678',
+      modalidade: 'IMPORTACAO',
+      denominacao: 'Produto SISCOMEX',
+      descricao: 'Produto SISCOMEX',
+      status: 'TRANSMITIDO',
+      situacao: 'ATIVADO',
+      catalogoId: 9
+    })
+
+    await service.criar(
+      {
+        codigo: 'SIS456',
+        ncmCodigo: '12345678',
+        modalidade: 'IMPORTACAO',
+        catalogoId: 9,
+        denominacao: 'Produto SISCOMEX',
+        descricao: 'Produto SISCOMEX',
+        status: 'TRANSMITIDO'
+      },
+      77
+    )
+
+    expect(catalogoPrisma.produto.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'TRANSMITIDO' })
+      })
+    )
   })
 })
 

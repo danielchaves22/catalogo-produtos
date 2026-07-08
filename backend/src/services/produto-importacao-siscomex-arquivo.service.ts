@@ -196,7 +196,6 @@ interface ProdutoNormalizado {
   ncm: string | null;
   situacao: ProdutoSituacao;
   codigosInternos: string[];
-  valoresAtributos: Record<string, unknown>;
 }
 
 type ProdutoMatchResultado =
@@ -578,6 +577,7 @@ export class ProdutoImportacaoSiscomexArquivoService {
       }
 
       try {
+        const valoresAtributos = this.montarValoresAtributos(registro);
         const criado = await catalogoPrisma.$transaction(async tx => {
           const produtoCriado = await this.produtoService.criar(
             {
@@ -587,10 +587,11 @@ export class ProdutoImportacaoSiscomexArquivoService {
               catalogoId: catalogo.id,
               denominacao: produto.denominacao,
               descricao: produto.descricao,
-              valoresAtributos: produto.valoresAtributos as Prisma.InputJsonValue,
+              valoresAtributos: valoresAtributos as Prisma.InputJsonValue,
               codigosInternos: produto.codigosInternos.length
                 ? produto.codigosInternos
                 : undefined,
+              status: 'TRANSMITIDO',
               situacao: produto.situacao,
             },
             superUserId,
@@ -601,29 +602,12 @@ export class ProdutoImportacaoSiscomexArquivoService {
             throw new Error('Produto criado nao encontrado para consolidacao da importacao.');
           }
 
-          const produtoPersistido = await tx.produto.findUnique({
-            where: { id: produtoCriado.id },
-            select: {
-              id: true,
-              codigo: true,
-              ncmCodigo: true,
-              modalidade: true,
-              denominacao: true,
-              situacao: true,
-              status: true,
-            },
-          });
-
-          if (!produtoPersistido) {
-            throw new Error('Produto criado nao encontrado para consolidacao da importacao.');
-          }
-
           const mensagensPersistencia: MensagensItemImportacao = {
             impeditivos: [],
             atencao: [...mensagens.atencao],
           };
 
-          if (produtoPersistido.status !== 'APROVADO') {
+          if (produtoCriado.status === 'PENDENTE') {
             mensagensPersistencia.atencao.push(
               'Produto criado com pendencias de atributos obrigatorios.'
             );
@@ -643,29 +627,28 @@ export class ProdutoImportacaoSiscomexArquivoService {
               mensagens: mensagensPersistencia as unknown as Prisma.InputJsonValue,
               possuiErroImpeditivo: false,
               possuiAlerta: mensagensPersistencia.atencao.length > 0,
-              produtoId: produtoPersistido.id,
+              produtoId: produtoCriado.id,
             },
           });
 
           return {
-            id: produtoPersistido.id,
-            codigo: this.normalizarCodigo(produtoPersistido.codigo),
-            ncmCodigo: produtoPersistido.ncmCodigo,
-            modalidade: this.normalizarModalidade(produtoPersistido.modalidade),
-            denominacao: produtoPersistido.denominacao,
-            situacao: produtoPersistido.situacao,
-            status: produtoPersistido.status,
+            id: produtoCriado.id,
+            codigo: this.normalizarCodigo(produtoCriado.codigo),
+            ncmCodigo: produtoCriado.ncmCodigo,
+            modalidade: this.normalizarModalidade(produtoCriado.modalidade),
+            denominacao: produtoCriado.denominacao,
+            situacao: produtoCriado.situacao,
+            status: produtoCriado.status,
             resultadoItem,
           };
         });
 
         totalCriados += 1;
         resumo.produtos.criados += 1;
-        if (criado.status === 'APROVADO') {
-          resumo.produtos.criadosAprovados += 1;
-        } else {
+        if (criado.status === 'PENDENTE') {
           resumo.produtos.criadosPendentes += 1;
-          totalComAtencao += 1;
+        } else {
+          resumo.produtos.criadosAprovados += 1;
         }
 
         produtosResolvidosPorSeq.set(seqChave, {
@@ -684,7 +667,7 @@ export class ProdutoImportacaoSiscomexArquivoService {
           codigosInternos: produto.codigosInternos,
         });
 
-        if (criado.resultadoItem === 'ATENCAO' && criado.status === 'APROVADO') {
+        if (criado.resultadoItem === 'ATENCAO') {
           totalComAtencao += 1;
         }
       } catch (error) {
@@ -1145,7 +1128,6 @@ export class ProdutoImportacaoSiscomexArquivoService {
       ncm,
       situacao: this.normalizarSituacaoProduto(registro.situacao),
       codigosInternos,
-      valoresAtributos: this.montarValoresAtributos(registro),
     };
   }
 

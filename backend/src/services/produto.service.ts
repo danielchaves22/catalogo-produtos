@@ -50,6 +50,13 @@ export interface CreateProdutoDTO {
   codigosInternos?: string[];
   operadoresEstrangeiros?: OperadorEstrangeiroProdutoInput[];
   criadoPor?: string;
+  status?:
+    | 'PENDENTE'
+    | 'APROVADO'
+    | 'PROCESSANDO'
+    | 'TRANSMITIDO'
+    | 'ERRO'
+    | 'AJUSTAR_ESTRUTURA';
   situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
 }
 
@@ -945,12 +952,18 @@ export class ProdutoService {
       throw new Error('Catálogo não encontrado para o superusuário');
     }
 
-    const executarCriacao = async (tx: Prisma.TransactionClient) => {
-      const novoProduto = await tx.produto.create({
+    const atributosParaCriacao = this.montarAtributosParaCriacao(
+      estruturaInfo,
+      valores
+    );
+    const statusInicial = data.status ?? (preencheuObrigatorios ? 'APROVADO' : 'PENDENTE');
+
+    const executarCriacao = async (delegate: typeof catalogoPrisma.produto) => {
+      return delegate.create({
         data: {
           codigo: data.codigo ?? null,
           versao: 1,
-          status: preencheuObrigatorios ? 'APROVADO' : 'PENDENTE',
+          status: statusInicial,
           situacao: data.situacao ?? undefined,
           ncmCodigo: data.ncmCodigo,
           modalidade: data.modalidade,
@@ -972,31 +985,37 @@ export class ProdutoService {
                   conhecido: o.conhecido,
                   operadorEstrangeiroId: o.operadorEstrangeiroId ?? null
                 }))
-            }
-          : undefined
+              }
+            : undefined,
+          atributos: atributosParaCriacao.length > 0
+            ? {
+                create: atributosParaCriacao,
+              }
+            : undefined
         },
-        include: { codigosInternos: true, operadoresEstrangeiros: true }
+        select: {
+          id: true,
+          codigo: true,
+          ncmCodigo: true,
+          modalidade: true,
+          denominacao: true,
+          descricao: true,
+          status: true,
+          situacao: true,
+          catalogoId: true,
+        }
       });
-
-      await this.salvarValoresProduto(
-        tx,
-        novoProduto.id,
-        estruturaInfo,
-        valores
-      );
-
-      return novoProduto.id;
     };
 
-    const produtoId = transacao
-      ? await executarCriacao(transacao)
-      : await catalogoPrisma.$transaction(executarCriacao);
+    const produtoCriado = transacao
+      ? await executarCriacao(transacao.produto)
+      : await executarCriacao(catalogoPrisma.produto);
 
     if (transacao) {
-      return { id: produtoId } as { id: number };
+      return produtoCriado;
     }
 
-    return this.buscarPorId(produtoId, superUserId);
+    return this.buscarPorId(produtoCriado.id, superUserId);
   }
 
   async atualizar(id: number, data: UpdateProdutoDTO, superUserId: number) {
@@ -1952,6 +1971,39 @@ export class ProdutoService {
         }
       });
     }
+  }
+
+  private montarAtributosParaCriacao(
+    estruturaInfo: EstruturaComVersao,
+    valores: Record<string, any>
+  ): Prisma.ProdutoAtributoCreateWithoutProdutoInput[] {
+    const mapa = this.mapearEstruturaPorCodigo(estruturaInfo.estrutura);
+    const atributos: Prisma.ProdutoAtributoCreateWithoutProdutoInput[] = [];
+
+    for (const [codigo, valor] of Object.entries(valores)) {
+      const atributo = mapa.get(codigo);
+      if (!atributo?.id) continue;
+
+      const valoresNormalizados = this.normalizarValorEntrada(valor);
+      if (!valoresNormalizados.length) continue;
+
+      atributos.push({
+        atributo: {
+          connect: { id: atributo.id },
+        },
+        versao: {
+          connect: { id: estruturaInfo.versaoId },
+        },
+        valores: {
+          create: valoresNormalizados.map((item, ordem) => ({
+            valorJson: item as Prisma.InputJsonValue,
+            ordem,
+          })),
+        },
+      });
+    }
+
+    return atributos;
   }
 
   private todosObrigatoriosPreenchidos(

@@ -278,8 +278,8 @@ function ResumoSiscomexCard({
               <ul className="mt-3 space-y-1">
                 <li>Total no arquivo: {resumo.produtos.totalArquivo}</li>
                 <li>Criados: {resumo.produtos.criados}</li>
-                <li>Criados aprovados: {resumo.produtos.criadosAprovados}</li>
-                <li>Criados pendentes: {resumo.produtos.criadosPendentes}</li>
+                <li>Criados transmitidos: {resumo.produtos.criadosAprovados}</li>
+                <li>Criados com pendencias locais: {resumo.produtos.criadosPendentes}</li>
                 <li>Ja existentes e transmitidos: {resumo.produtos.existentesTransmitidos}</li>
                 <li>Ja existentes e nao transmitidos: {resumo.produtos.existentesNaoTransmitidos}</li>
                 <li>Ambiguos: {resumo.produtos.ambiguos}</li>

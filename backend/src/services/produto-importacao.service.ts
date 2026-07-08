@@ -590,6 +590,9 @@ export class ProdutoImportacaoService {
               }
 
               produtoId = produto.id;
+              if (produto.status === 'PENDENTE') {
+                mensagens.atencao.push('Produto criado com pendencias de atributos obrigatorios.');
+              }
               resultadoItem = mensagens.atencao.length > 0 ? 'ATENCAO' : 'SUCESSO';
 
               await tx.importacaoProdutoItem.create({
