@@ -63,9 +63,41 @@ export interface SiscomexErroDetalhado {
   metodo?: string;
 }
 
-type SiscomexProdutoInclusao = Omit<SiscomexProduto, 'codigo' | 'versao'>;
+type SiscomexProdutoCampoSimples = {
+  atributo: string;
+  valor: unknown;
+};
 
-type SiscomexProdutoAtualizacao = Partial<SiscomexProduto> & { versao?: number };
+type SiscomexProdutoCampoMultivalorado = {
+  atributo: string;
+  valores: unknown[];
+};
+
+type SiscomexProdutoCampoComposto = {
+  atributo: string;
+  valores: Array<{ atributo: string; valor: unknown }>;
+};
+
+type SiscomexProdutoCampoCompostoMultivalorado = {
+  atributo: string;
+  valores: Array<Array<{ atributo: string; valor: unknown }>>;
+};
+
+type SiscomexProdutoRequestPayload = {
+  descricao?: string;
+  denominacao?: string;
+  modalidade?: 'IMPORTACAO' | 'EXPORTACAO' | null;
+  ncm?: string;
+  atributos?: SiscomexProdutoCampoSimples[];
+  atributosMultivalorados?: SiscomexProdutoCampoMultivalorado[];
+  atributosCompostos?: SiscomexProdutoCampoComposto[];
+  atributosCompostosMultivalorados?: SiscomexProdutoCampoCompostoMultivalorado[];
+  codigosInterno?: string[];
+};
+
+type SiscomexProdutoInclusao = SiscomexProdutoRequestPayload;
+
+type SiscomexProdutoAtualizacao = SiscomexProdutoRequestPayload;
 
 export type SiscomexCertificado = {
   pfx: Buffer;
@@ -93,7 +125,7 @@ export class SiscomexService {
   private autenticacaoPromise: Promise<void> | null = null;
   constructor(opcoes?: SiscomexServiceOptions) {
     // URLs da API SISCOMEX conforme documentação
-    this.baseUrl = process.env.SISCOMEX_API_URL || 'https://api.portalunico.siscomex.gov.br/catp/api';
+    this.baseUrl = process.env.SISCOMEX_API_URL || 'https://portalunico.siscomex.gov.br/catp/api';
     this.authUrl = this.resolverAuthUrl(process.env.SISCOMEX_AUTH_URL);
     this.roleType = process.env.SISCOMEX_ROLE_TYPE || 'IMPEXP';
     this.carregarCertificado = opcoes?.carregarCertificado;
@@ -134,7 +166,7 @@ export class SiscomexService {
 
   /**
    * Obtém a URL de autenticação conforme a documentação PLAT (https://docs.portalunico.siscomex.gov.br/api/plat/).
-   * Caso a variável não seja informada, utilizamos o host do SISCOMEX_API_URL e trocamos o serviço para o /platp.
+   * Caso a variável não seja informada, utilizamos o host do SISCOMEX_API_URL e o endpoint /portal/api/autenticar.
    */
   private resolverAuthUrl(authUrl?: string): string | undefined {
     if (authUrl?.trim()) {
@@ -144,7 +176,7 @@ export class SiscomexService {
     try {
       const base = new URL(this.baseUrl);
       const hostBase = `${base.protocol}//${base.host}`;
-      const urlPadrao = `${hostBase}/platp/api/autenticar`;
+      const urlPadrao = `${hostBase}/portal/api/autenticar`;
 
       logger.info('SISCOMEX_AUTH_URL não configurado; aplicando URL padrão do PLAT', {
         baseUrl: this.baseUrl,

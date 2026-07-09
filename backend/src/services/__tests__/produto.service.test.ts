@@ -172,6 +172,61 @@ describe('ProdutoService - criaÃ§Ã£o otimizada', () => {
   })
 })
 
+describe('ProdutoService - detalhe do produto', () => {
+  it('preserva o catalogo do operador estrangeiro no payload de edicao', async () => {
+    const service = criarService()
+
+    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
+      id: 123,
+      numero: 10,
+      versaoAtributoId: null,
+      versaoEstruturaAtributos: null,
+      catalogo: {
+        id: 5,
+        numero: 900,
+        nome: 'Catálogo Teste',
+        cpf_cnpj: '12.345.678/0001-99',
+        ambiente: 'PRODUCAO',
+      },
+      atributos: [],
+      codigosInternos: [],
+      operadoresEstrangeiros: [
+        {
+          id: 1,
+          paisCodigo: 'AR',
+          conhecido: true,
+          operadorEstrangeiroId: 77,
+          pais: { nome: 'Argentina' },
+          operadorEstrangeiro: {
+            id: 77,
+            nome: 'Fornecedor AR',
+            tin: null,
+            catalogo: {
+              id: 5,
+              cpf_cnpj: '12.345.678/0001-99',
+              nome: 'Catálogo Teste',
+              ambiente: 'PRODUCAO',
+            },
+          },
+        },
+      ],
+    })
+
+    const produto = await service.buscarPorId(123, 99)
+
+    expect(produto?.operadoresEstrangeiros).toEqual([
+      expect.objectContaining({
+        operadorEstrangeiro: expect.objectContaining({
+          id: 77,
+          catalogo: expect.objectContaining({
+            cpf_cnpj: '12.345.678/0001-99',
+          }),
+        }),
+      }),
+    ])
+  })
+})
+
 describe('ProdutoService - atributos multivalorados', () => {
   it('considera arrays vazios como não preenchidos', () => {
     const service = criarService()

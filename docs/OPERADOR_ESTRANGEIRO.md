@@ -164,7 +164,8 @@ mysql -u usuario -p database < scripts_dados_iniciais_operador_estrangeiro.sql
 
 ```bash
 # Adicionar ao .env do backend
-SISCOMEX_API_URL=https://api.portalunico.siscomex.gov.br
+SISCOMEX_API_URL=https://portalunico.siscomex.gov.br/catp/api
+SISCOMEX_AUTH_URL=https://portalunico.siscomex.gov.br/portal/api/autenticar
 SISCOMEX_CERT_PATH=/path/to/certificado.pem
 SISCOMEX_KEY_PATH=/path/to/chave_privada.pem
 ```

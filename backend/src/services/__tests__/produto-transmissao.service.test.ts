@@ -609,6 +609,28 @@ describe('ProdutoTransmissaoService', () => {
 
     expect(siscomexClientMock.incluirProduto).toHaveBeenCalledTimes(1)
     expect(siscomexClientMock.atualizarProduto).toHaveBeenCalledTimes(1)
+    expect(siscomexClientMock.incluirProduto).toHaveBeenCalledWith('12345678', {
+      descricao: 'Produto 1',
+      denominacao: 'Produto 1',
+      modalidade: 'IMPORTACAO',
+      ncm: '01010101',
+      atributos: [],
+      atributosMultivalorados: [],
+      atributosCompostos: [],
+      atributosCompostosMultivalorados: [],
+      codigosInterno: [],
+    })
+    expect(siscomexClientMock.atualizarProduto).toHaveBeenCalledWith('12345678', 'COD-2', {
+      descricao: 'Produto 2',
+      denominacao: 'Produto 2',
+      modalidade: 'IMPORTACAO',
+      ncm: '02020202',
+      atributos: [],
+      atributosMultivalorados: [],
+      atributosCompostos: [],
+      atributosCompostosMultivalorados: [],
+      codigosInterno: [],
+    })
     expect(produtoServiceMock.marcarComoTransmitido).toHaveBeenNthCalledWith(
       1,
       1,

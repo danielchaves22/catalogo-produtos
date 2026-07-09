@@ -1616,7 +1616,9 @@ export default function ProdutoPage() {
                                         <td className="px-4 py-1">{op.operador?.pais?.nome || getPaisNome(op.paisCodigo)}</td>
                                         <td className="px-4 py-1">{op.conhecido === 'sim' ? 'Sim' : 'Não'}</td>
                                         <td className="px-4 py-1">
-                                          {op.conhecido === 'sim' ? (op.operador?.tin || formatCPFOrCNPJ(op.operador?.catalogo.cpf_cnpj || '')) : ''}
+                                          {op.conhecido === 'sim'
+                                            ? op.operador?.tin || formatCPFOrCNPJ(op.operador?.catalogo?.cpf_cnpj || '')
+                                            : ''}
                                         </td>
                                         <td className="px-4 py-1">{op.conhecido === 'sim' ? op.operador?.codigo || '' : ''}</td>
                                         <td className="px-4 py-1">{op.conhecido === 'sim' ? op.operador?.codigoInterno || '' : ''}</td>

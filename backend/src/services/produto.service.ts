@@ -752,7 +752,23 @@ export class ProdutoService {
         estruturaVersao: true,
         catalogo: true,
         codigosInternos: true,
-        operadoresEstrangeiros: { include: { pais: true, operadorEstrangeiro: true } }
+        operadoresEstrangeiros: {
+          include: {
+            pais: true,
+            operadorEstrangeiro: {
+              include: {
+                catalogo: {
+                  select: {
+                    id: true,
+                    cpf_cnpj: true,
+                    nome: true,
+                    ambiente: true
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     });
     if (!p) return null;

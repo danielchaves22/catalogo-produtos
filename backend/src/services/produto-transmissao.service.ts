@@ -10,7 +10,7 @@ import {
   ProdutoTransmissaoOrigemTipo,
   ProdutoTransmissaoStatus,
 } from '@prisma/client';
-import { ProdutoExportacaoService } from './produto-exportacao.service';
+import { ProdutoExportacaoProdutoDTO, ProdutoExportacaoService } from './produto-exportacao.service';
 import { SiscomexErroDetalhado, SiscomexService } from './siscomex.service';
 import { ProdutoService } from './produto.service';
 import { CertificadoService } from './certificado.service';
@@ -1449,7 +1449,7 @@ export class ProdutoTransmissaoService {
 
   private montarPlanejamentoItens(
     itensPersistidos: ItemTransmissaoPersistido[],
-    produtosExportadosPorId: Map<number, any>,
+    produtosExportadosPorId: Map<number, ProdutoExportacaoProdutoDTO>,
     cpfCnpjRaiz: string
   ): PlanejamentoItemTransmissao[] {
     return itensPersistidos
@@ -1459,17 +1459,11 @@ export class ProdutoTransmissaoService {
           return [];
         }
 
-        const { catalogoId: _catalogoId, ...payloadBase } = produtoExportado;
-        const payloadInclusao = { ...(payloadBase as Record<string, any>) };
-        const payloadAtualizacaoVersao = { ...(payloadBase as Record<string, any>) };
+        const payloadContratoAtual = this.montarPayloadProdutoSiscomex(produtoExportado);
+        const payloadInclusao = { ...payloadContratoAtual };
+        const payloadAtualizacaoVersao = { ...payloadContratoAtual };
 
-        delete payloadAtualizacaoVersao.seq;
-        delete payloadAtualizacaoVersao.codigo;
-        delete payloadAtualizacaoVersao.versao;
-        delete payloadAtualizacaoVersao.cpfCnpjRaiz;
-        delete payloadAtualizacaoVersao.situacao;
-
-        const codigoNormalizado = this.normalizarCodigoSiscomex((produtoExportado as any).codigo);
+        const codigoNormalizado = this.normalizarCodigoSiscomex(produtoExportado.codigo);
         const operacao = item.operacao;
 
         if (operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO && !codigoNormalizado) {
@@ -1495,6 +1489,21 @@ export class ProdutoTransmissaoService {
           },
         ];
       });
+  }
+
+  private montarPayloadProdutoSiscomex(produtoExportado: ProdutoExportacaoProdutoDTO) {
+    // O endpoint novo do CATP rejeita metadados do contrato legado, como seq e situacao.
+    const {
+      catalogoId: _catalogoId,
+      seq: _seq,
+      codigo: _codigo,
+      versao: _versao,
+      cpfCnpjRaiz: _cpfCnpjRaiz,
+      situacao: _situacao,
+      ...payload
+    } = produtoExportado;
+
+    return payload;
   }
 
   private async gerarPayloadEnvio(
