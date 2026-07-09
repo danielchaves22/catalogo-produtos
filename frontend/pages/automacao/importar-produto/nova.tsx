@@ -147,8 +147,8 @@ export default function NovaImportacaoPage() {
   const submitLabel = submetendo
     ? 'Iniciando...'
     : isPlanilha
-      ? 'Iniciar importacao'
-      : 'Iniciar importacao SISCOMEX';
+      ? 'Iniciar importação'
+      : 'Iniciar importação SISCOMEX';
 
   useEffect(() => {
     const carregarCatalogos = async () => {
@@ -156,8 +156,8 @@ export default function NovaImportacaoPage() {
         const resposta = await api.get<CatalogoResumo[]>('/catalogos');
         setCatalogos(resposta.data);
       } catch (error) {
-        console.error('Erro ao carregar catalogos', error);
-        addToast('Nao foi possivel carregar os catalogos.', 'error');
+        console.error('Erro ao carregar catálogos', error);
+        addToast('Não foi possível carregar os catálogos.', 'error');
       }
     };
 
@@ -212,7 +212,7 @@ export default function NovaImportacaoPage() {
     } catch (error) {
       console.error('Erro ao carregar planilha', error);
       setArquivoPlanilha(null);
-      atualizarErro('arquivo', 'Nao foi possivel processar a planilha selecionada.');
+      atualizarErro('arquivo', 'Não foi possível processar a planilha selecionada.');
     } finally {
       setCarregandoArquivo(false);
     }
@@ -248,7 +248,7 @@ export default function NovaImportacaoPage() {
       } catch (error) {
         console.error(`Erro ao carregar arquivo ${campo}`, error);
         setArquivosSiscomex(prev => ({ ...prev, [campo]: null }));
-        atualizarErro(campo, 'Nao foi possivel processar o arquivo selecionado.');
+        atualizarErro(campo, 'Não foi possível processar o arquivo selecionado.');
       } finally {
         setCarregandoArquivo(false);
       }
@@ -258,7 +258,7 @@ export default function NovaImportacaoPage() {
     const novosErros: Record<string, string> = {};
 
     if (!catalogoId) {
-      novosErros.catalogoId = 'Selecione um catalogo para realizar a importacao';
+      novosErros.catalogoId = 'Selecione um catálogo para realizar a importação';
     }
 
     if (isPlanilha && !arquivoPlanilha) {
@@ -285,7 +285,7 @@ export default function NovaImportacaoPage() {
           faltantes.push('Operadores estrangeiros');
         }
         if (!arquivosSiscomex.fabricantes) {
-          faltantes.push('Vinculos de fabricante/produtor');
+          faltantes.push('Vínculos de fabricante/produtor');
         }
 
         if (faltantes.length > 0 && !confirmadoSemArquivosComplementares) {
@@ -321,12 +321,12 @@ export default function NovaImportacaoPage() {
           );
         }
 
-        addToast('Importacao iniciada. Voce sera avisado quando terminar.', 'success');
+        addToast('Importação iniciada. Você será avisado quando terminar.', 'success');
         router.push('/automacao/importar-produto');
       } catch (error: any) {
-        console.error('Erro ao iniciar importacao', error);
+        console.error('Erro ao iniciar importação', error);
         const mensagem =
-          error.response?.data?.error || 'Falha ao iniciar a importacao.';
+          error.response?.data?.error || 'Falha ao iniciar a importação.';
         addToast(mensagem, 'error');
       } finally {
         setSubmetendo(false);
@@ -350,18 +350,18 @@ export default function NovaImportacaoPage() {
   };
 
   return (
-    <DashboardLayout title="Nova Importacao de Produtos">
+    <DashboardLayout title="Nova Importação de Produtos">
       <Breadcrumb
         items={[
-          { label: 'Inicio', href: '/' },
-          { label: 'Automacao' },
+          { label: 'Início', href: '/' },
+          { label: 'Automação' },
           { label: 'Importar Produto', href: '/automacao/importar-produto' },
-          { label: 'Nova Importacao' },
+          { label: 'Nova Importação' },
         ]}
       />
 
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-2xl font-semibold text-white">Nova Importacao de Produtos</h1>
+        <h1 className="text-2xl font-semibold text-white">Nova Importação de Produtos</h1>
         <div className="flex items-center gap-3 self-end md:self-auto">
           <Button
             type="button"
@@ -389,7 +389,7 @@ export default function NovaImportacaoPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Select
-                label="Catalogo"
+                label="Catálogo"
                 value={catalogoId}
                 onChange={event => setCatalogoId(event.target.value)}
                 options={catalogos.map(catalogo => ({
@@ -403,7 +403,7 @@ export default function NovaImportacaoPage() {
               />
               {workingCatalog && (
                 <p className="-mt-3 text-xs text-gray-400">
-                  O catalogo de trabalho foi sugerido automaticamente, mas voce pode escolher outro para esta importacao.
+                  O catálogo de trabalho foi sugerido automaticamente, mas você pode escolher outro para esta importação.
                 </p>
               )}
             </div>
@@ -416,15 +416,15 @@ export default function NovaImportacaoPage() {
                   setModalidadeProduto(event.target.value as ModalidadeProduto)
                 }
                 options={[
-                  { value: 'IMPORTACAO', label: 'Importacao' },
-                  { value: 'EXPORTACAO', label: 'Exportacao' },
+                  { value: 'IMPORTACAO', label: 'Importação' },
+                  { value: 'EXPORTACAO', label: 'Exportação' },
                 ]}
               />
             ) : (
               <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 text-sm text-gray-300">
-                <p className="font-medium text-white">Catalogo aplicado a qualquer fonte</p>
+                <p className="font-medium text-white">Catálogo aplicado a qualquer fonte</p>
                 <p className="mt-2 text-gray-400">
-                  O catalogo selecionado acima sera usado tanto na importacao por planilha quanto na importacao do SISCOMEX.
+                  O catálogo selecionado acima será usado tanto na importação por planilha quanto na importação do SISCOMEX.
                 </p>
               </div>
             )}
@@ -445,7 +445,7 @@ export default function NovaImportacaoPage() {
             <div>
               <p className="text-sm font-semibold">Planilha Excel</p>
               <p className="text-xs text-gray-400">
-                Importe produtos a partir de um arquivo .xlsx seguindo o layout padrao.
+                Importe produtos a partir de um arquivo .xlsx seguindo o layout padrão.
               </p>
             </div>
           </button>
@@ -462,7 +462,7 @@ export default function NovaImportacaoPage() {
             <div>
               <p className="text-sm font-semibold">Importar do SISCOMEX</p>
               <p className="text-xs text-gray-400">
-                Carregue os arquivos exportados do Catalogo de Produtos para criar apenas o que ainda nao existe localmente.
+                Carregue os arquivos exportados do Catálogo de Produtos para criar apenas o que ainda não existe localmente.
               </p>
             </div>
           </button>
@@ -473,7 +473,7 @@ export default function NovaImportacaoPage() {
             <Card>
               <div className="mb-3 flex flex-col gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100 md:flex-row md:items-center md:justify-between">
                 <p className="text-sm text-emerald-100/80">
-                  Baixe o modelo oficial, preencha os dados solicitados e depois selecione o arquivo atualizado para iniciar a importacao.
+                  Baixe o modelo oficial, preencha os dados solicitados e depois selecione o arquivo atualizado para iniciar a importação.
                 </p>
                 <a
                   href={modeloPlanilhaUrl}
@@ -497,28 +497,28 @@ export default function NovaImportacaoPage() {
             </Card>
 
             <Card className="border border-slate-700 bg-slate-800/40">
-              <h2 className="text-lg font-semibold text-white">Instrucoes do arquivo</h2>
+              <h2 className="text-lg font-semibold text-white">Instruções do arquivo</h2>
               <p className="mt-2 text-sm text-gray-300">
-                A planilha deve conter os seguintes campos na primeira linha (cabecalho):
+                A planilha deve conter os seguintes campos na primeira linha (cabeçalho):
               </p>
               <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-gray-300">
                 <li>
-                  <strong>Coluna A - Codigo Interno:</strong> informe um ou mais codigos internos separados por virgula. Sao aceitos apenas letras e numeros, sem espacos.
+                  <strong>Coluna A - Código Interno:</strong> informe um ou mais códigos internos separados por vírgula. São aceitos apenas letras e números, sem espaços.
                 </li>
                 <li>
-                  <strong>Coluna B - Descricao Curta Produto:</strong> nome curto do produto. Campo obrigatorio.
+                  <strong>Coluna B - Descrição Curta do Produto:</strong> nome curto do produto. Campo obrigatório.
                 </li>
                 <li>
-                  <strong>Coluna C - Descricao Longa Produto:</strong> detalhamento completo do item. Caso esteja vazio, sera utilizado o valor da descricao curta.
+                  <strong>Coluna C - Descrição Longa do Produto:</strong> detalhamento completo do item. Caso esteja vazio, será utilizado o valor da descrição curta.
                 </li>
                 <li>
-                  <strong>Coluna D - NCM:</strong> codigo numerico de 8 digitos, sem formatacao.
+                  <strong>Coluna D - NCM:</strong> código numérico de 8 dígitos, sem formatação.
                 </li>
                 <li>
-                  <strong>Coluna E - Fabricante:</strong> indique as siglas de paises (duas letras) correspondentes aos fabricantes separados por virgula.
+                  <strong>Coluna E - Fabricante:</strong> indique as siglas de países (duas letras) correspondentes aos fabricantes separados por vírgula.
                 </li>
                 <li>
-                  <strong>Coluna F - Operador Estrangeiro:</strong> informe os numeros dos operadores estrangeiros ja cadastrados na plataforma, separados por virgula.
+                  <strong>Coluna F - Operador Estrangeiro:</strong> informe os números dos operadores estrangeiros já cadastrados na plataforma, separados por vírgula.
                 </li>
               </ul>
             </Card>
@@ -540,7 +540,7 @@ export default function NovaImportacaoPage() {
                   <div>
                     <p className="text-sm font-semibold">Arquivo JSON</p>
                     <p className="text-xs text-gray-400">
-                      Use os arquivos exportados manualmente do Portal Unico.
+                      Use os arquivos exportados manualmente do Portal Único.
                     </p>
                   </div>
                 </button>
@@ -557,7 +557,7 @@ export default function NovaImportacaoPage() {
                   <div>
                     <p className="text-sm font-semibold">API direta</p>
                     <p className="text-xs text-gray-400">
-                      Reservado para a carga incremental automatica.
+                      Reservado para a carga incremental automática.
                     </p>
                   </div>
                 </button>
@@ -571,7 +571,7 @@ export default function NovaImportacaoPage() {
                     className="inline-flex items-center gap-2 text-sm font-medium text-sky-300 transition hover:text-sky-200"
                   >
                     <Info size={16} />
-                    Ver orientacoes desta importacao
+                    Ver orientações desta importação
                   </button>
 
                   <CampoArquivo
@@ -599,7 +599,7 @@ export default function NovaImportacaoPage() {
 
                   <CampoArquivo
                     id="arquivo-siscomex-fabricantes"
-                    label="Vinculos de fabricante/produtor (.json) - opcional"
+                    label="Vínculos de fabricante/produtor (.json) - opcional"
                     accept=".json"
                     onChange={handleArquivoSiscomexChange('fabricantes')}
                     error={erros.fabricantes}
@@ -613,9 +613,9 @@ export default function NovaImportacaoPage() {
                   <div className="flex items-start gap-3">
                     <Info size={18} className="mt-0.5 text-amber-300" />
                     <div>
-                      <p className="font-medium">Fluxo ainda nao liberado</p>
+                      <p className="font-medium">Fluxo ainda não liberado</p>
                       <p className="mt-1 text-amber-100/80">
-                        A carga direta pela API do SISCOMEX ficara nesta aba, mas por enquanto a importacao inicial deve ser feita pelos arquivos JSON exportados manualmente.
+                        A carga direta pela API do SISCOMEX ficará nesta aba, mas por enquanto a importação inicial deve ser feita pelos arquivos JSON exportados manualmente.
                       </p>
                     </div>
                   </div>
@@ -657,7 +657,7 @@ export default function NovaImportacaoPage() {
                   Continuar sem todos os arquivos?
                 </h3>
                 <p className="mt-2 text-gray-300">
-                  Os seguintes arquivos nao foram informados:
+                  Os seguintes arquivos não foram informados:
                 </p>
                 <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-gray-300">
                   {arquivosOpcionaisAusentes.map(item => (
@@ -665,7 +665,7 @@ export default function NovaImportacaoPage() {
                   ))}
                 </ul>
                 <p className="mt-4 text-sm text-gray-400">
-                  O resumo da importacao mostrara os operadores e vinculos que nao puderam ser tratados por falta desses arquivos. Deseja continuar mesmo assim?
+                  O resumo da importação mostrará os operadores e vínculos que não puderam ser tratados por falta desses arquivos. Deseja continuar mesmo assim?
                 </p>
               </div>
             </div>
@@ -700,41 +700,41 @@ export default function NovaImportacaoPage() {
               <Info className="mt-0.5 text-sky-300" size={20} />
               <div className="w-full">
                 <h3 className="text-xl font-semibold text-white">
-                  Orientacoes da importacao SISCOMEX
+                  Orientações da importação SISCOMEX
                 </h3>
 
                 <div className="mt-5">
                   <p className="text-sm font-medium text-white">Arquivos esperados</p>
                   <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-gray-300">
-                    <li>O arquivo de produtos e obrigatorio.</li>
+                    <li>O arquivo de produtos é obrigatório.</li>
                     <li>
-                      Os arquivos de operadores estrangeiros e de vinculos de
-                      fabricante/produtor sao opcionais.
+                      Os arquivos de operadores estrangeiros e de vínculos de
+                      fabricante/produtor são opcionais.
                     </li>
                     <li>
-                      Se algum arquivo opcional nao for informado, a aplicacao pedira
-                      confirmacao antes de continuar.
+                      Se algum arquivo opcional não for informado, a aplicação pedirá
+                      confirmação antes de continuar.
                     </li>
                   </ul>
                 </div>
 
                 <div className="mt-5">
                   <p className="text-sm font-medium text-white">
-                    Comportamento da importacao
+                    Comportamento da importação
                   </p>
                   <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-gray-300">
-                    <li>Somente o que ainda nao existir localmente sera criado automaticamente.</li>
+                    <li>Somente o que ainda não existir localmente será criado automaticamente.</li>
                     <li>
-                      Produtos ja existentes com codigo SISCOMEX ou codigo interno + NCM +
-                      modalidade serao apenas contabilizados no resumo.
+                      Produtos já existentes com código SISCOMEX ou código interno + NCM +
+                      modalidade serão apenas contabilizados no resumo.
                     </li>
                     <li>
-                      Divergencias e ambiguidades ficam no resumo como itens nao importados
-                      para analise manual.
+                      Divergências e ambiguidades ficam no resumo como itens não importados
+                      para análise manual.
                     </li>
                     <li>
-                      Quando os arquivos opcionais forem enviados, operadores e vinculos
-                      tambem entram no resumo da importacao.
+                      Quando os arquivos opcionais forem enviados, operadores e vínculos
+                      também entram no resumo da importação.
                     </li>
                   </ul>
                 </div>
