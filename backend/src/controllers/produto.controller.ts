@@ -267,6 +267,35 @@ export async function ajustarEstruturaCatalogo(req: Request, res: Response) {
   }
 }
 
+export async function corrigirStatusAjusteEstrutura(req: Request, res: Response) {
+  if (req.user?.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Apenas administradores podem corrigir ajustes de estrutura.' });
+  }
+
+  try {
+    const produtoIds = Array.isArray(req.body?.produtoIds)
+      ? req.body.produtoIds
+      : undefined;
+
+    const resultado = await produtoService.solicitarCorrecaoStatusAjusteEstrutura(
+      { produtoIds },
+      req.user!.superUserId
+    );
+
+    return res.status(202).json({
+      ...resultado,
+      mensagem: 'Correcao de status enfileirada. Acompanhe em Processos Assincronos.',
+    });
+  } catch (error: any) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, details: error.details });
+    }
+
+    logger.error('Erro ao enfileirar correcao de status de ajuste de estrutura:', error);
+    return res.status(500).json({ error: error.message ?? 'Falha ao corrigir status de ajuste de estrutura.' });
+  }
+}
+
 export async function removerProdutosEmMassa(req: Request, res: Response) {
   try {
     const dados = req.body as RemoverProdutosEmMassaDTO;

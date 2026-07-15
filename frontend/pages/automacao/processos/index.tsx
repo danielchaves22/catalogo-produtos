@@ -39,6 +39,7 @@ interface AsyncJobResumo {
     | 'AJUSTE_ESTRUTURA'
     | 'APLICACAO_AJUSTE_ESTRUTURA'
     | 'AJUSTE_ESTRUTURA_CATALOGO'
+    | 'CORRECAO_STATUS_AJUSTE_ESTRUTURA'
     | 'EXPORTACAO_PRODUTO'
     | 'EXPORTACAO_FABRICANTE'
     | 'TRANSMISSAO_PRODUTO';
@@ -117,6 +118,8 @@ function traduzirStatus(status: AsyncJobResumo['status']) {
 
 function traduzirTipo(tipo: AsyncJobResumo['tipo']) {
   switch (tipo) {
+    case 'CORRECAO_STATUS_AJUSTE_ESTRUTURA':
+      return 'Correcao de Status de Ajuste de Estrutura';
     case 'IMPORTACAO_PRODUTO':
       return 'Importação de Produto';
     case 'EXCLUSAO_MASSIVA':
@@ -183,6 +186,7 @@ export default function ProcessosAssincronosPage() {
       'AJUSTE_ESTRUTURA',
       'APLICACAO_AJUSTE_ESTRUTURA',
       'AJUSTE_ESTRUTURA_CATALOGO',
+      'CORRECAO_STATUS_AJUSTE_ESTRUTURA',
       'EXPORTACAO_PRODUTO',
       'EXPORTACAO_FABRICANTE',
       'TRANSMISSAO_PRODUTO',
@@ -513,6 +517,14 @@ export default function ProcessosAssincronosPage() {
                     job.tipo === 'APLICACAO_AJUSTE_ESTRUTURA' && job.payload && typeof job.payload === 'object'
                       ? (job.payload as { verificacaoJobId?: number })
                       : null;
+                  const payloadCorrecao =
+                    job.tipo === 'CORRECAO_STATUS_AJUSTE_ESTRUTURA' && job.payload && typeof job.payload === 'object'
+                      ? (job.payload as { produtoIds?: unknown })
+                      : null;
+                  const produtoIdsCorrecao = payloadCorrecao?.produtoIds;
+                  const quantidadeProdutosCorrecao = Array.isArray(produtoIdsCorrecao)
+                    ? produtoIdsCorrecao.length
+                    : null;
                   const desabilitarExclusao =
                     job.status === 'PENDENTE' ||
                     job.status === 'PROCESSANDO' ||
@@ -562,6 +574,17 @@ export default function ProcessosAssincronosPage() {
                               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 bg-slate-800/60 text-slate-200 transition hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                               title="Ver detalhes da aplicação de ajustes"
                               aria-label="Ver detalhes da aplicação de ajustes"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          )}
+                          {job.tipo === 'CORRECAO_STATUS_AJUSTE_ESTRUTURA' && (
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/automacao/correcao-ajuste-estrutura/${job.id}`)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 bg-slate-800/60 text-slate-200 transition hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                              title="Ver andamento da correcao de status"
+                              aria-label="Ver andamento da correcao de status"
                             >
                               <Eye size={16} />
                             </button>
@@ -683,6 +706,15 @@ export default function ProcessosAssincronosPage() {
                               {payloadAplicacao?.verificacaoJobId
                                 ? `Verificação vinculada #${payloadAplicacao.verificacaoJobId}`
                                 : 'Verificação vinculada não informada.'}
+                            </div>
+                          </div>
+                        ) : job.tipo === 'CORRECAO_STATUS_AJUSTE_ESTRUTURA' ? (
+                          <div className="space-y-1 text-xs">
+                            <div className="font-medium text-slate-100">Correcao de status</div>
+                            <div className="text-slate-300">
+                              {quantidadeProdutosCorrecao !== null
+                                ? `${quantidadeProdutosCorrecao} produto(s) informado(s)`
+                                : 'Todos os produtos em AJUSTAR_ESTRUTURA'}
                             </div>
                           </div>
                         ) : (

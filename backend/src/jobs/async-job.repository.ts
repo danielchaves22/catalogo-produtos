@@ -376,6 +376,12 @@ export async function listAsyncJobs(
           { payload: { path: '$.superUserId', equals: parametros.superUserId } },
         ],
       },
+      {
+        AND: [
+          { tipo: AsyncJobTipo.CORRECAO_STATUS_AJUSTE_ESTRUTURA },
+          { payload: { path: '$.superUserId', equals: parametros.superUserId } },
+        ],
+      },
     ],
   };
 
@@ -532,6 +538,12 @@ export async function obterAsyncJobDetalhado(
       {
         AND: [
           { tipo: AsyncJobTipo.AJUSTE_ESTRUTURA_CATALOGO },
+          { payload: { path: '$.superUserId', equals: superUserId } },
+        ],
+      },
+      {
+        AND: [
+          { tipo: AsyncJobTipo.CORRECAO_STATUS_AJUSTE_ESTRUTURA },
           { payload: { path: '$.superUserId', equals: superUserId } },
         ],
       },

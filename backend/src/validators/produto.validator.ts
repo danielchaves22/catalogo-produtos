@@ -13,7 +13,7 @@ export const createProdutoSchema = z.object({
     .array(z.string().max(50))
     .optional()
     .refine(arr => !arr || new Set(arr).size === arr.length, {
-      message: 'Códigos internos duplicados não são permitidos'
+      message: 'Codigos internos duplicados nao sao permitidos'
     }),
   operadoresEstrangeiros: z.array(z.object({
     paisCodigo: z.string().min(2),
@@ -37,7 +37,7 @@ export const updateProdutoSchema = z.object({
     .array(z.string().max(50))
     .optional()
     .refine(arr => !arr || new Set(arr).size === arr.length, {
-      message: 'Códigos internos duplicados não são permitidos'
+      message: 'Codigos internos duplicados nao sao permitidos'
     }),
   operadoresEstrangeiros: z.array(z.object({
     paisCodigo: z.string().min(2),
@@ -54,7 +54,7 @@ export const cloneProdutoSchema = z.object({
     .array(z.string().max(50))
     .optional()
     .refine(arr => !arr || new Set(arr).size === arr.length, {
-      message: 'Códigos internos duplicados não são permitidos'
+      message: 'Codigos internos duplicados nao sao permitidos'
     })
 });
 
@@ -92,5 +92,8 @@ function criarSelecaoSchema(mensagem: string) {
   );
 }
 
-export const deleteProdutosEmMassaSchema = criarSelecaoSchema('Informe ao menos um produto para exclusão');
-export const exportarProdutosSchema = criarSelecaoSchema('Informe ao menos um produto para exportação');
+export const deleteProdutosEmMassaSchema = criarSelecaoSchema('Informe ao menos um produto para exclusao');
+export const exportarProdutosSchema = criarSelecaoSchema('Informe ao menos um produto para exportacao');
+export const corrigirStatusAjusteEstruturaSchema = z.object({
+  produtoIds: z.array(z.number().int().positive()).optional()
+});

@@ -69,6 +69,7 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
     { label: 'Automação', hideWhenExpanded: true },
     { label: 'Processos Assíncronos', href: '/automacao/processos' },
     { label: 'Ajustes de Atributos', href: '/automacao/ajustes-atributos' },
+    { label: 'Correcao de Ajuste de Estrutura', href: '/automacao/correcao-ajuste-estrutura' },
     { label: 'Importar Produto', href: '/automacao/importar-produto' },
     { label: 'Definir Valor de Atributo Padrão', href: '/automacao/valores-padrao' },
     { label: 'Preencher Atributos em Massa', href: '/automacao/atributos-massa' },
@@ -76,12 +77,15 @@ export function Sidebar({ onToggle, isCollapsed }: SidebarProps) {
   ];
 
   if (user?.role !== 'ADMIN') {
-    const indiceAjustes = automacaoSubItems.findIndex(
-      (item) => item.href === '/automacao/ajustes-atributos'
-    );
-
-    if (indiceAjustes >= 0) {
-      automacaoSubItems.splice(indiceAjustes, 1);
+    const itensAdmin = new Set([
+      '/automacao/ajustes-atributos',
+      '/automacao/correcao-ajuste-estrutura',
+    ]);
+    for (let indice = automacaoSubItems.length - 1; indice >= 0; indice -= 1) {
+      const href = automacaoSubItems[indice].href;
+      if (href && itensAdmin.has(href)) {
+        automacaoSubItems.splice(indice, 1);
+      }
     }
   }
 

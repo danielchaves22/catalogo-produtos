@@ -22,7 +22,7 @@ beforeEach(() => {
 
 jest.mock('../../utils/prisma', () => ({
   catalogoPrisma: {
-    produto: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn() },
+    produto: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn() },
     catalogo: { findFirst: jest.fn() },
     atributoVersao: { findMany: jest.fn() },
     asyncJob: { findFirst: jest.fn() },
@@ -446,6 +446,199 @@ describe('ProdutoService - solicitacao de ajuste assincrono', () => {
       jobId: 654,
       reutilizado: true,
       status: 'PROCESSANDO',
+    })
+  })
+})
+
+describe('ProdutoService - correcao de status de ajuste de estrutura', () => {
+  it('enfileira o job administrativo de correcao quando existem produtos candidatos', async () => {
+    const service = criarService()
+
+    ;(catalogoPrisma.produto.count as jest.Mock).mockResolvedValue(2)
+    ;(createAsyncJob as jest.Mock).mockResolvedValue({ id: 777, status: 'PENDENTE' })
+
+    const resultado = await service.solicitarCorrecaoStatusAjusteEstrutura(
+      { produtoIds: [10, 11, 10] },
+      99
+    )
+
+    expect(createAsyncJob).toHaveBeenCalledWith({
+      tipo: 'CORRECAO_STATUS_AJUSTE_ESTRUTURA',
+      payload: {
+        superUserId: 99,
+        quantidadeInicialAjustarEstrutura: 2,
+        produtoIds: [10, 11],
+      },
+      prioridade: 1,
+    })
+    expect(resultado).toEqual({
+      jobId: 777,
+      status: 'PENDENTE',
+    })
+  })
+
+  it('restaura para TRANSMITIDO e sincroniza a versao quando nao ha impacto real', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 2,
+      versaoNumero: 2,
+      estrutura: [
+        {
+          id: 22,
+          codigo: 'A',
+          nome: 'Atributo A',
+          tipo: 'TEXTO',
+          obrigatorio: false,
+          multivalorado: false,
+          validacoes: {},
+        },
+      ],
+    })
+    jest.spyOn(service as any, 'buscarEstruturaPorVersaoComCache').mockResolvedValue({
+      versaoId: 1,
+      versaoNumero: 1,
+      estrutura: [
+        {
+          id: 11,
+          codigo: 'A',
+          nome: 'Atributo A',
+          tipo: 'TEXTO',
+          obrigatorio: false,
+          multivalorado: false,
+          validacoes: {},
+        },
+      ],
+    })
+    jest.spyOn(service as any, 'diagnosticarImpactoAjusteEstrutura').mockReturnValue({
+      impactado: false,
+      valoresProjetados: { A: 'VALOR' },
+      resumoProjetado: {
+        atributosTotal: 1,
+        obrigatoriosPendentes: 0,
+        validosTransmissao: 1,
+      },
+    })
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock)
+      .mockResolvedValueOnce([{ id: 10 }])
+      .mockResolvedValueOnce([
+        {
+          id: 10,
+          catalogoId: 7,
+          status: 'AJUSTAR_ESTRUTURA',
+          situacao: 'ATIVADO',
+          codigo: 'SIS123',
+          ncmCodigo: '12345678',
+          modalidade: 'IMPORTACAO',
+          versaoAtributoId: 1,
+          versaoEstruturaAtributos: 1,
+          atributos: [],
+        },
+      ])
+
+    const deleteManySpy = jest.fn().mockResolvedValue({ count: 0 })
+    const createSpy = jest.fn().mockResolvedValue({})
+    const updateSpy = jest.fn().mockResolvedValue({})
+    produtoResumoServiceMock.salvarResumoProduto.mockResolvedValue(undefined)
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { update: updateSpy },
+        produtoAtributo: { deleteMany: deleteManySpy, create: createSpy },
+      })
+    )
+
+    const resultado = await service.corrigirStatusAjusteEstruturaProdutos({}, 99)
+
+    expect(deleteManySpy).toHaveBeenCalledWith({ where: { produtoId: 10 } })
+    expect(createSpy).toHaveBeenCalledWith({
+      data: {
+        produtoId: 10,
+        atributoId: 22,
+        atributoVersaoId: 2,
+        valores: {
+          create: [{ valorJson: 'VALOR', ordem: 0 }],
+        },
+      },
+    })
+    expect(updateSpy).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: { id: 10 },
+        data: {
+          versaoAtributoId: 2,
+          versaoEstruturaAtributos: 2,
+        },
+      })
+    )
+    expect(updateSpy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: { id: 10 },
+        data: { status: 'TRANSMITIDO' },
+      })
+    )
+    expect(resultado).toEqual({
+      totalAnalisados: 1,
+      mantidosAjuste: 0,
+      restauradosPendente: 0,
+      restauradosAprovado: 0,
+      restauradosTransmitido: 1,
+      sincronizadosVersao: 1,
+    })
+  })
+
+  it('mantem AJUSTAR_ESTRUTURA quando a ultima mudanca realmente impacta o produto', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 2,
+      versaoNumero: 2,
+      estrutura: [],
+    })
+    jest.spyOn(service as any, 'buscarEstruturaPorVersaoComCache').mockResolvedValue({
+      versaoId: 1,
+      versaoNumero: 1,
+      estrutura: [],
+    })
+    jest.spyOn(service as any, 'diagnosticarImpactoAjusteEstrutura').mockReturnValue({
+      impactado: true,
+      valoresProjetados: {},
+      resumoProjetado: {
+        atributosTotal: 0,
+        obrigatoriosPendentes: 1,
+        validosTransmissao: 0,
+      },
+    })
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock)
+      .mockResolvedValueOnce([{ id: 10 }])
+      .mockResolvedValueOnce([
+        {
+          id: 10,
+          catalogoId: 7,
+          status: 'AJUSTAR_ESTRUTURA',
+          situacao: 'RASCUNHO',
+          codigo: null,
+          ncmCodigo: '12345678',
+          modalidade: 'IMPORTACAO',
+          versaoAtributoId: 1,
+          versaoEstruturaAtributos: 1,
+          atributos: [],
+        },
+      ])
+
+    const resultado = await service.corrigirStatusAjusteEstruturaProdutos({}, 99)
+
+    expect(catalogoPrisma.$transaction).not.toHaveBeenCalled()
+    expect(resultado).toEqual({
+      totalAnalisados: 1,
+      mantidosAjuste: 1,
+      restauradosPendente: 0,
+      restauradosAprovado: 0,
+      restauradosTransmitido: 0,
+      sincronizadosVersao: 0,
     })
   })
 })

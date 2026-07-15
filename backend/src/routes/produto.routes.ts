@@ -12,6 +12,7 @@ import {
   contarPendenciasAjusteEstrutura,
   listarPendenciasAjusteEstruturaDetalhadas,
   ajustarEstruturaCatalogo,
+  corrigirStatusAjusteEstrutura,
   removerProdutosEmMassa
 } from '../controllers/produto.controller';
 import { solicitarExportacaoFabricantes, solicitarExportacaoProdutos } from '../controllers/produto-exportacao.controller';
@@ -30,7 +31,8 @@ import {
   updateProdutoSchema,
   cloneProdutoSchema,
   deleteProdutosEmMassaSchema,
-  exportarProdutosSchema
+  exportarProdutosSchema,
+  corrigirStatusAjusteEstruturaSchema
 } from '../validators/produto.validator';
 
 const router = Router();
@@ -48,6 +50,11 @@ router.get('/', listarProdutos);
 router.get('/pendencias/ajuste-estrutura', contarPendenciasAjusteEstrutura);
 router.get('/pendencias/ajuste-estrutura/detalhes', listarPendenciasAjusteEstruturaDetalhadas);
 router.post('/ajuste-estrutura/ajustar-catalogo', ajustarEstruturaCatalogo);
+router.post(
+  '/ajuste-estrutura/corrigir-status',
+  validate(corrigirStatusAjusteEstruturaSchema),
+  corrigirStatusAjusteEstrutura
+);
 router.get('/:id', obterProduto);
 router.get('/:id/historico', obterHistoricoProduto);
 router.post('/', validate(createProdutoSchema), criarProduto);
