@@ -143,7 +143,7 @@ function obterBadge(status: AsyncJobStatus) {
     case 'CONCLUIDO':
       return {
         cor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/40',
-        texto: 'Concluido',
+        texto: 'Concluído',
         icone: <CheckCircle2 className="h-4 w-4" />,
       };
     case 'FALHO':
@@ -195,7 +195,7 @@ export default function CorrecaoAjusteEstruturaDetalhePage() {
       try {
         const resposta = await api.get<AsyncJobDetalhe>(`/automacao/jobs/${jobId}`);
         if (resposta.data.tipo !== 'CORRECAO_STATUS_AJUSTE_ESTRUTURA') {
-          throw new Error('Tipo de processo incompativel.');
+          throw new Error('Tipo de processo incompatível.');
         }
         setDados(resposta.data);
 
@@ -206,9 +206,9 @@ export default function CorrecaoAjusteEstruturaDetalhePage() {
           console.error('Erro ao carregar resumo atualizado do dashboard', dashboardError);
         }
       } catch (error) {
-        console.error('Erro ao carregar detalhes da correcao de ajuste de estrutura', error);
+        console.error('Erro ao carregar detalhes da correção de ajuste de estrutura', error);
         if (!silencioso) {
-          addToast('Nao foi possivel carregar os detalhes da correcao.', 'error');
+          addToast('Não foi possível carregar os detalhes da correção.', 'error');
         }
       } finally {
         if (silencioso) {
@@ -242,17 +242,17 @@ export default function CorrecaoAjusteEstruturaDetalhePage() {
 
   if (carregando) {
     return (
-      <DashboardLayout title="Correcao de Ajuste de Estrutura">
-        <PageLoader message="Carregando detalhes da correcao..." />
+      <DashboardLayout title="Correção de Ajuste de Estrutura">
+        <PageLoader message="Carregando detalhes da correção..." />
       </DashboardLayout>
     );
   }
 
   if (!dados) {
     return (
-      <DashboardLayout title="Correcao de Ajuste de Estrutura">
+      <DashboardLayout title="Correção de Ajuste de Estrutura">
         <div className="py-10 text-center text-slate-300">
-          Nao foi possivel localizar o processo solicitado.
+          Não foi possível localizar o processo solicitado.
         </div>
       </DashboardLayout>
     );
@@ -281,13 +281,13 @@ export default function CorrecaoAjusteEstruturaDetalhePage() {
   }));
 
   return (
-    <DashboardLayout title="Correcao de Ajuste de Estrutura">
+    <DashboardLayout title="Correção de Ajuste de Estrutura">
       <Breadcrumb
         items={[
-          { label: 'Inicio', href: '/' },
-          { label: 'Automacao', href: '/automacao/processos' },
+          { label: 'Início', href: '/' },
+          { label: 'Automação', href: '/automacao/processos' },
           {
-            label: 'Correcao de Ajuste de Estrutura',
+            label: 'Correção de Ajuste de Estrutura',
             href: `/automacao/correcao-ajuste-estrutura/${dados.id}`,
           },
         ]}
@@ -297,10 +297,10 @@ export default function CorrecaoAjusteEstruturaDetalhePage() {
         <div>
           <p className="mb-1 text-sm text-slate-400">Processo #{dados.id}</p>
           <h1 className="text-2xl font-semibold text-slate-100">
-            Correcao de Status de Ajuste de Estrutura
+            Correção de Status de Ajuste de Estrutura
           </h1>
           <p className="mt-1 text-sm text-slate-400">
-            Acompanhe os eventos registrados durante a reavaliacao dos produtos marcados como AJUSTAR_ESTRUTURA.
+            Acompanhe os eventos registrados durante a reavaliação dos produtos marcados como AJUSTAR_ESTRUTURA.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -340,7 +340,7 @@ export default function CorrecaoAjusteEstruturaDetalhePage() {
           </p>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
             <div className="rounded-md border border-slate-800 bg-slate-900/40 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Atributo divergente no inicio</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Atributo divergente no início</p>
               <p className="mt-1 text-xl font-semibold text-slate-100">
                 {formatarNumero(quantidadeInicialAjustar)}
               </p>
@@ -352,7 +352,7 @@ export default function CorrecaoAjusteEstruturaDetalhePage() {
               </p>
             </div>
             <div className="rounded-md border border-slate-800 bg-slate-900/40 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Diferenca atual</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Diferença atual</p>
               <p className={`mt-1 text-xl font-semibold ${diferencaAjustar !== null && diferencaAjustar <= 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
                 {diferencaAjustar === null
                   ? '-'
@@ -366,7 +366,7 @@ export default function CorrecaoAjusteEstruturaDetalhePage() {
           <div className="mb-3">
             <p className="font-semibold text-slate-200">Resumo atual por status</p>
             <p className="text-sm text-slate-400">
-              Mesmos numeros do box Total de Produtos do painel inicial.
+              Mesmos números do box Total de Produtos do painel inicial.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -395,7 +395,7 @@ export default function CorrecaoAjusteEstruturaDetalhePage() {
           </div>
         </Card>
         <Card className="p-4 border border-slate-800">
-          <p className="text-sm text-slate-400">Execucao</p>
+          <p className="text-sm text-slate-400">Execução</p>
           <p className="mt-1 font-semibold text-slate-100">Criado: {formatarData(dados.criadoEm)}</p>
           <p className="text-sm text-slate-400">Atualizado: {formatarData(dados.atualizadoEm)}</p>
           <p className="text-sm text-slate-400">Finalizado: {formatarData(dados.finalizadoEm)}</p>
@@ -439,7 +439,7 @@ export default function CorrecaoAjusteEstruturaDetalhePage() {
       <Card className="p-4 border border-slate-800">
         <p className="mb-3 font-semibold text-slate-200">Linha do tempo</p>
         {dados.logs.length === 0 ? (
-          <p className="text-sm text-slate-400">Nenhum log registrado ate o momento.</p>
+          <p className="text-sm text-slate-400">Nenhum log registrado até o momento.</p>
         ) : (
           <div className="space-y-3">
             {dados.logs.map(log => (
@@ -451,7 +451,7 @@ export default function CorrecaoAjusteEstruturaDetalhePage() {
                   <span className="text-xs text-slate-400">{formatarData(log.criadoEm)}</span>
                 </div>
                 <p className="text-sm font-medium text-slate-200">
-                  {log.mensagem || 'Atualizacao registrada.'}
+                  {log.mensagem || 'Atualização registrada.'}
                 </p>
               </div>
             ))}

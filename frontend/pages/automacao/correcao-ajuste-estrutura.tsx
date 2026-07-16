@@ -33,14 +33,14 @@ export default function CorrecaoAjusteEstruturaPage() {
 
       const jobId = resposta.data.jobId;
       addToast(
-        resposta.data.mensagem || `Correcao enfileirada no processo #${jobId}.`,
+        resposta.data.mensagem || `Correção enfileirada no processo #${jobId}.`,
         'success'
       );
       await router.push(`/automacao/correcao-ajuste-estrutura/${jobId}`);
     } catch (error: any) {
       const mensagem =
         error?.response?.data?.error ||
-        'Nao foi possivel enfileirar a correcao de ajuste de estrutura.';
+        'Não foi possível enfileirar a correção de ajuste de estrutura.';
       addToast(mensagem, 'error');
     } finally {
       setEnfileirando(false);
@@ -50,15 +50,15 @@ export default function CorrecaoAjusteEstruturaPage() {
 
   if (isLoading) {
     return (
-      <DashboardLayout title="Correcao de Ajuste de Estrutura">
-        <PageLoader message="Validando permissao" />
+      <DashboardLayout title="Correção de Ajuste de Estrutura">
+        <PageLoader message="Validando permissão" />
       </DashboardLayout>
     );
   }
 
   if (user?.role !== 'ADMIN') {
     return (
-      <DashboardLayout title="Correcao de Ajuste de Estrutura">
+      <DashboardLayout title="Correção de Ajuste de Estrutura">
         <div className="py-10 text-center text-slate-300">
           Apenas administradores podem acessar esta funcionalidade.
         </div>
@@ -67,13 +67,13 @@ export default function CorrecaoAjusteEstruturaPage() {
   }
 
   return (
-    <DashboardLayout title="Correcao de Ajuste de Estrutura">
+    <DashboardLayout title="Correção de Ajuste de Estrutura">
       <Breadcrumb
         items={[
-          { label: 'Inicio', href: '/' },
-          { label: 'Automacao', href: '/automacao/processos' },
+          { label: 'Início', href: '/' },
+          { label: 'Automação', href: '/automacao/processos' },
           {
-            label: 'Correcao de Ajuste de Estrutura',
+            label: 'Correção de Ajuste de Estrutura',
             href: '/automacao/correcao-ajuste-estrutura',
           },
         ]}
@@ -82,10 +82,10 @@ export default function CorrecaoAjusteEstruturaPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100">
-            Correcao de Ajuste de Estrutura
+            Correção de Ajuste de Estrutura
           </h1>
           <p className="mt-1 text-sm text-slate-400">
-            Reavalia produtos em AJUSTAR_ESTRUTURA e mantem esse status apenas nos itens impactados.
+            Reavalia produtos em AJUSTAR_ESTRUTURA e mantém esse status apenas nos itens impactados.
           </p>
         </div>
         <Button
@@ -109,8 +109,8 @@ export default function CorrecaoAjusteEstruturaPage() {
               Corrigir produtos marcados como AJUSTAR_ESTRUTURA
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              A rotina percorre os produtos atualmente marcados para ajuste e restaura o status dos que nao
-              foram afetados pela ultima mudanca de estrutura da NCM.
+              A rotina percorre os produtos atualmente marcados para ajuste e restaura o status dos que não
+              foram afetados pela última mudança de estrutura da NCM.
             </p>
             <div className="mt-5">
               <Button
@@ -126,7 +126,7 @@ export default function CorrecaoAjusteEstruturaPage() {
                 ) : (
                   <Play className="h-4 w-4" />
                 )}
-                Executar correcao
+                Executar correção
               </Button>
             </div>
           </div>
@@ -136,10 +136,10 @@ export default function CorrecaoAjusteEstruturaPage() {
       {confirmando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-lg border border-gray-700 bg-[#151921] p-6">
-            <h3 className="mb-3 text-xl font-semibold text-white">Executar correcao</h3>
+            <h3 className="mb-3 text-xl font-semibold text-white">Executar correção</h3>
             <p className="mb-6 text-sm leading-6 text-gray-300">
-              A rotina sera enfileirada e executada em segundo plano. O andamento ficara disponivel em
-              Processos Assincronos.
+              A rotina será enfileirada e executada em segundo plano. O andamento ficará disponível em
+              Processos Assíncronos.
             </p>
             <div className="flex justify-end gap-3">
               <Button

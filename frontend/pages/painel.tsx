@@ -86,6 +86,10 @@ function statusListaParaMapa(lista: StatusResumo[] | undefined): Record<(typeof 
   return mapa;
 }
 
+function formatarNumero(valor?: number | null) {
+  return new Intl.NumberFormat('pt-BR').format(valor ?? 0);
+}
+
 export default function PainelPage() {
   const [resumo, setResumo] = useState<ResumoDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -218,7 +222,7 @@ export default function PainelPage() {
     return (
       <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
         <tspan x="50%" dy="-0.5em" fontSize="14" fontWeight="bold" fill="#ffffff">
-          {hoverData.value}
+          {formatarNumero(hoverData.value)}
         </tspan>
         <tspan x="50%" dy="1.2em" fontSize="10" fill="#9ca3af">
           {hoverData.name}
@@ -234,7 +238,7 @@ export default function PainelPage() {
     return (
       <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
         <tspan x="50%" dy="-0.5em" fontSize="14" fontWeight="bold" fill="#ffffff">
-          {hoverDataCatalogos.value}
+          {formatarNumero(hoverDataCatalogos.value)}
         </tspan>
         <tspan x="50%" dy="1.2em" fontSize="10" fill="#9ca3af">
           {hoverDataCatalogos.name}
@@ -250,7 +254,7 @@ export default function PainelPage() {
     return (
       <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
         <tspan x="50%" dy="-0.5em" fontSize="14" fontWeight="bold" fill="#ffffff">
-          {hoverDataAtributos.value}
+          {formatarNumero(hoverDataAtributos.value)}
         </tspan>
         <tspan x="50%" dy="1.2em" fontSize="10" fill="#9ca3af">
           {hoverDataAtributos.name}
@@ -306,7 +310,7 @@ export default function PainelPage() {
                     <div className="flex flex-col justify-center">
                       <div className="mb-2">
                         <p className="text-2xl font-bold text-white mb-1">
-                          {resumo?.produtos.total ?? 0}
+                          {formatarNumero(resumo?.produtos.total)}
                         </p>
                         <p className="text-sm text-gray-400">Total de Produtos</p>
                       </div>
@@ -320,7 +324,7 @@ export default function PainelPage() {
                               style={{ backgroundColor: item.color }}
                             />
                             <span className="text-gray-300 text-xs">
-                              {item.name}: <span className="font-medium text-white">{item.value}</span>
+                              {item.name}: <span className="font-medium text-white">{formatarNumero(item.value)}</span>
                             </span>
                           </div>
                         ))}
@@ -359,7 +363,7 @@ export default function PainelPage() {
                 ) : (
                   <div className="flex flex-col items-center justify-center py-8 text-gray-400">
                     <p className="text-2xl font-bold text-white mb-2">
-                      {resumo?.produtos.total ?? 0}
+                      {formatarNumero(resumo?.produtos.total)}
                     </p>
                     <p className="text-sm">Nenhum produto cadastrado</p>
                   </div>
@@ -376,7 +380,7 @@ export default function PainelPage() {
                     <div className="flex flex-col justify-center">
                       <div className="mb-2">
                         <p className="text-2xl font-bold text-white mb-1">
-                          {resumo?.catalogos.total ?? 0}
+                          {formatarNumero(resumo?.catalogos.total)}
                         </p>
                         <p className="text-sm text-gray-400">Total de Catálogos</p>
                       </div>
@@ -390,7 +394,7 @@ export default function PainelPage() {
                               style={{ backgroundColor: item.color }}
                             />
                             <span className="text-gray-300 text-xs">
-                              {item.name}: <span className="font-medium text-white">{item.value}</span>
+                              {item.name}: <span className="font-medium text-white">{formatarNumero(item.value)}</span>
                             </span>
                           </div>
                         ))}
@@ -429,7 +433,7 @@ export default function PainelPage() {
                 ) : (
                   <div className="flex flex-col items-center justify-center py-8 text-gray-400">
                     <p className="text-2xl font-bold text-white mb-2">
-                      {resumo?.catalogos.total ?? 0}
+                      {formatarNumero(resumo?.catalogos.total)}
                     </p>
                     <p className="text-sm">Nenhum catálogo cadastrado</p>
                   </div>
@@ -446,7 +450,7 @@ export default function PainelPage() {
                     <div className="flex flex-col justify-center">
                       <div className="mb-2">
                         <p className="text-2xl font-bold text-white mb-1">
-                          {resumo?.atributos.total ?? 0}
+                          {formatarNumero(resumo?.atributos.total)}
                         </p>
                         <p className="text-sm text-gray-400">Total de Atributos</p>
                       </div>
@@ -460,7 +464,7 @@ export default function PainelPage() {
                               style={{ backgroundColor: item.color }}
                             />
                             <span className="text-gray-300 text-xs">
-                              {item.name}: <span className="font-medium text-white">{item.value}</span>
+                              {item.name}: <span className="font-medium text-white">{formatarNumero(item.value)}</span>
                             </span>
                           </div>
                         ))}
@@ -499,7 +503,7 @@ export default function PainelPage() {
                 ) : (
                   <div className="flex flex-col items-center justify-center py-8 text-gray-400">
                     <p className="text-2xl font-bold text-white mb-2">
-                      {resumo?.atributos.total ?? 0}
+                      {formatarNumero(resumo?.atributos.total)}
                     </p>
                     <p className="text-sm">Nenhum atributo cadastrado</p>
                   </div>
