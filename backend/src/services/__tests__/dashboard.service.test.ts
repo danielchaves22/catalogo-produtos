@@ -43,7 +43,8 @@ describe('obterResumoDashboardService', () => {
     prismaMock.$queryRaw
       .mockResolvedValueOnce([
         { status: 'PENDENTE', total: 2 },
-        { status: 'APROVADO', total: 1 }
+        { status: 'APROVADO', total: 1 },
+        { status: 'DESATIVADO', total: 2 }
       ])
       .mockResolvedValueOnce([
         { status: 'TRANSMITIDO', total: 1 }
@@ -66,14 +67,18 @@ describe('obterResumoDashboardService', () => {
       { status: 'APROVADO', total: 1 },
       { status: 'PROCESSANDO', total: 0 },
       { status: 'TRANSMITIDO', total: 0 },
-      { status: 'ERRO', total: 0 }
+      { status: 'ERRO', total: 0 },
+      { status: 'AJUSTAR_ESTRUTURA', total: 0 },
+      { status: 'DESATIVADO', total: 2 }
     ])
     expect(resumo.catalogos.porStatus).toEqual([
       { status: 'PENDENTE', total: 0 },
       { status: 'APROVADO', total: 0 },
       { status: 'PROCESSANDO', total: 0 },
       { status: 'TRANSMITIDO', total: 1 },
-      { status: 'ERRO', total: 0 }
+      { status: 'ERRO', total: 0 },
+      { status: 'AJUSTAR_ESTRUTURA', total: 0 },
+      { status: 'DESATIVADO', total: 0 }
     ])
     expect(resumo.atributos).toEqual({
       total: 120,
@@ -96,7 +101,12 @@ describe('obterResumoDashboardService', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           catalogo: { superUserId: 7 },
-          catalogoId: 33
+          catalogoId: 33,
+          produto: {
+            situacao: {
+              not: 'DESATIVADO'
+            }
+          }
         })
       })
     )

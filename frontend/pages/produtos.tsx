@@ -500,7 +500,7 @@ export default function ProdutosPage() {
 
   function obterMotivoBloqueioExclusao(produto: Produto) {
     if (produtoJaTransmitido(produto)) {
-      return 'Produto transmitido nao pode ser excluido. Use a opcao de inativacao na edicao.';
+      return 'Produto transmitido nao pode ser excluido. Use a opcao de desativacao na edicao.';
     }
     return '';
   }

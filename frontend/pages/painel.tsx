@@ -7,8 +7,17 @@ import { ListaProdutosPainel } from '@/components/dashboard/ListaProdutosPainel'
 import { useWorkingCatalog } from '@/contexts/WorkingCatalogContext';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
+type DashboardStatus =
+  | 'PENDENTE'
+  | 'APROVADO'
+  | 'PROCESSANDO'
+  | 'TRANSMITIDO'
+  | 'ERRO'
+  | 'AJUSTAR_ESTRUTURA'
+  | 'DESATIVADO';
+
 interface StatusResumo {
-  status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO' | 'AJUSTAR_ESTRUTURA';
+  status: DashboardStatus;
   total: number;
 }
 
@@ -35,7 +44,8 @@ const STATUS_COLORS = {
   PROCESSANDO: '#4c82d3',
   TRANSMITIDO: '#5e17eb',
   ERRO: '#ff3131',
-  AJUSTAR_ESTRUTURA: '#ff5757'
+  AJUSTAR_ESTRUTURA: '#ff5757',
+  DESATIVADO: '#f2545f'
 };
 
 const STATUS_LABELS = {
@@ -44,7 +54,8 @@ const STATUS_LABELS = {
   PROCESSANDO: 'Processando',
   TRANSMITIDO: 'Transmitido',
   ERRO: 'Erro',
-  AJUSTAR_ESTRUTURA: 'Atributo divergente'
+  AJUSTAR_ESTRUTURA: 'Atributo divergente',
+  DESATIVADO: 'Desativado'
 };
 
 // Cores para atributos
@@ -60,25 +71,36 @@ const ATRIBUTOS_LABELS = {
   TOTAL: 'Total de Atributos'
 };
 
-const TODOS_STATUS = [
+const STATUS_PRODUTOS_DASHBOARD = [
   'PENDENTE',
   'APROVADO',
-  'PROCESSANDO',
+  'TRANSMITIDO',
+  'ERRO',
+  'AJUSTAR_ESTRUTURA',
+  'DESATIVADO'
+] as const satisfies readonly DashboardStatus[];
+
+const STATUS_CATALOGOS_DASHBOARD = [
+  'PENDENTE',
+  'APROVADO',
   'TRANSMITIDO',
   'ERRO',
   'AJUSTAR_ESTRUTURA'
-] as const;
+] as const satisfies readonly DashboardStatus[];
 
-function statusListaParaMapa(lista: StatusResumo[] | undefined): Record<(typeof TODOS_STATUS)[number], number> {
-  const mapa = TODOS_STATUS.reduce((acc, status) => {
+function statusListaParaMapa(
+  lista: StatusResumo[] | undefined,
+  statusPermitidos: readonly DashboardStatus[]
+): Record<DashboardStatus, number> {
+  const mapa = statusPermitidos.reduce((acc, status) => {
     acc[status] = 0;
     return acc;
-  }, {} as Record<(typeof TODOS_STATUS)[number], number>);
+  }, {} as Record<DashboardStatus, number>);
 
   if (!lista) return mapa;
 
   for (const item of lista) {
-    if (TODOS_STATUS.includes(item.status)) {
+    if (statusPermitidos.includes(item.status)) {
       mapa[item.status] = item.total;
     }
   }
@@ -117,7 +139,7 @@ export default function PainelPage() {
   const dadosGraficoProdutos = React.useMemo(() => {
     if (!resumo?.produtos.porStatus) return [];
 
-    const mapa = statusListaParaMapa(resumo.produtos.porStatus);
+    const mapa = statusListaParaMapa(resumo.produtos.porStatus, STATUS_PRODUTOS_DASHBOARD);
 
     return Object.entries(mapa)
       .filter(([_, quantidade]) => quantidade > 0)
@@ -133,9 +155,9 @@ export default function PainelPage() {
   const dadosLegendaProdutos = React.useMemo(() => {
     if (!resumo?.produtos.porStatus) return [];
 
-    const mapa = statusListaParaMapa(resumo.produtos.porStatus);
+    const mapa = statusListaParaMapa(resumo.produtos.porStatus, STATUS_PRODUTOS_DASHBOARD);
 
-    return TODOS_STATUS.map(status => ({
+    return STATUS_PRODUTOS_DASHBOARD.map(status => ({
       name: STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status,
       value: mapa[status] || 0,
       status: status,
@@ -147,7 +169,7 @@ export default function PainelPage() {
   const dadosGraficoCatalogos = React.useMemo(() => {
     if (!resumo?.catalogos.porStatus) return [];
 
-    const mapa = statusListaParaMapa(resumo.catalogos.porStatus);
+    const mapa = statusListaParaMapa(resumo.catalogos.porStatus, STATUS_CATALOGOS_DASHBOARD);
 
     return Object.entries(mapa)
       .filter(([_, quantidade]) => quantidade > 0)
@@ -163,9 +185,9 @@ export default function PainelPage() {
   const dadosLegendaCatalogos = React.useMemo(() => {
     if (!resumo?.catalogos.porStatus) return [];
 
-    const mapa = statusListaParaMapa(resumo.catalogos.porStatus);
+    const mapa = statusListaParaMapa(resumo.catalogos.porStatus, STATUS_CATALOGOS_DASHBOARD);
 
-    return TODOS_STATUS.map(status => ({
+    return STATUS_CATALOGOS_DASHBOARD.map(status => ({
       name: STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status,
       value: mapa[status] || 0,
       status: status,

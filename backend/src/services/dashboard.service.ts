@@ -8,7 +8,8 @@ const PRODUTO_STATUS = [
   'PROCESSANDO',
   'TRANSMITIDO',
   'ERRO',
-  'AJUSTAR_ESTRUTURA'
+  'AJUSTAR_ESTRUTURA',
+  'DESATIVADO'
 ] as const;
 
 type ProdutoStatus = (typeof PRODUTO_STATUS)[number];
@@ -90,7 +91,12 @@ export async function obterResumoDashboardService(
   const produtoWhereSql = buildProdutoWhere(superUserId, catalogoId);
 
   const produtosPorStatusRaw = await catalogoPrisma.$queryRaw<Array<{ status: string | null; total: bigint }>>(Prisma.sql`
-    SELECT p.status AS status, COUNT(*) AS total
+    SELECT
+      CASE
+        WHEN p.situacao = 'DESATIVADO' THEN 'DESATIVADO'
+        ELSE p.status
+      END AS status,
+      COUNT(*) AS total
     FROM produto p
       INNER JOIN catalogo c ON c.id = p.catalogo_id
     WHERE ${produtoWhereSql}
@@ -156,7 +162,12 @@ export async function obterResumoDashboardService(
     },
     where: {
       catalogo: { superUserId },
-      ...(catalogoId ? { catalogoId } : {})
+      ...(catalogoId ? { catalogoId } : {}),
+      produto: {
+        situacao: {
+          not: 'DESATIVADO'
+        }
+      }
     }
   });
 

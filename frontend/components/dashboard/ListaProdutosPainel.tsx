@@ -20,7 +20,6 @@ interface Produto {
   ncmCodigo: string;
   status: 'PENDENTE' | 'APROVADO' | 'PROCESSANDO' | 'TRANSMITIDO' | 'ERRO' | 'AJUSTAR_ESTRUTURA';
   atualizadoEm: string;
-  catalogoNumero?: number | null;
   catalogoNome?: string | null;
   catalogoCpfCnpj?: string | null;
   denominacao?: string;
@@ -213,7 +212,7 @@ export function ListaProdutosPainel() {
 
   function obterMotivoBloqueioExclusao(produto: Produto) {
     if (produtoJaTransmitido(produto)) {
-      return 'Produto transmitido nao pode ser excluido. Use a opcao de inativacao na edicao.';
+      return 'Produto transmitido nao pode ser excluido. Use a opcao de desativacao na edicao.';
     }
     return '';
   }
@@ -411,7 +410,6 @@ export function ListaProdutosPainel() {
                 <thead className="text-gray-400 bg-[#0f1419] uppercase text-xs">
                   <tr>
                     <th className="w-16 px-4 py-3 text-center">Ações</th>
-                    <th className="px-4 py-3">Nº CATÁLOGO</th>
                     <th className="px-4 py-3">Catálogo</th>
                     <th className="px-4 py-3">Nome</th>
                     <th className="px-4 py-3">Cód. Int. (SKU/PN)</th>
@@ -470,7 +468,6 @@ export function ListaProdutosPainel() {
                           <Trash2 size={16} />
                         </button>
                       </td>
-                      <td className="px-4 py-3">{produto.catalogoNumero ?? '-'}</td>
                       <td className="px-4 py-3">{produto.catalogoNome ?? '-'}</td>
                       <td className="px-4 py-3">{produto.denominacao ?? produto.codigo ?? '-'}</td>
                       <td className="px-4 py-3">

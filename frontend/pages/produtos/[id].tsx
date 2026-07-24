@@ -161,6 +161,7 @@ export default function ProdutoPage() {
   const [catalogoNome, setCatalogoNome] = useState('');
   const [catalogoCnpj, setCatalogoCnpj] = useState('');
   const [codigo, setCodigo] = useState('');
+  const [versaoProduto, setVersaoProduto] = useState<number | null>(null);
   const [codigosInternos, setCodigosInternos] = useState<string[]>([]);
   const [novoCodigoInterno, setNovoCodigoInterno] = useState('');
   const [operadores, setOperadores] = useState<Array<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>>([]);
@@ -242,6 +243,17 @@ export default function ProdutoPage() {
     return digits.replace(/(\d{4})(\d{2})(\d{1,2})/, '$1.$2.$3');
   }
 
+  function formatarSituacaoProduto(situacao: typeof situacaoProduto) {
+    switch (situacao) {
+      case 'ATIVADO':
+        return 'Ativado';
+      case 'DESATIVADO':
+        return 'Desativado';
+      default:
+        return 'Rascunho';
+    }
+  }
+
   // Texto do cabeçalho removido conforme novo layout
 
   useEffect(() => {
@@ -258,6 +270,7 @@ export default function ProdutoPage() {
     setIaJaSolicitada(false);
     setLimpezaInicialIaRealizada(false);
     setSituacaoProduto('RASCUNHO');
+    setVersaoProduto(null);
     setAssinaturaInicialFormulario('');
     setInativacaoModalAberta(false);
     setInativandoProduto(false);
@@ -1010,6 +1023,7 @@ export default function ProdutoPage() {
       const valoresCarregados = (dados.atributos?.[0]?.valoresJson || {}) as Record<string, string | string[]>;
 
       setCodigo(codigoCarregado);
+      setVersaoProduto(typeof dados.versao === 'number' ? dados.versao : null);
       setSituacaoProduto((dados.situacao || 'RASCUNHO') as 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO');
       setCodigosInternos(codigosInternosCarregados);
       setOperadores(operadoresCarregados);
@@ -1127,7 +1141,7 @@ export default function ProdutoPage() {
     if (!podeInativarProduto) return;
 
     if (formularioAlterado) {
-      addToast('Salve as alteracoes pendentes antes de inativar o produto.', 'error');
+      addToast('Salve as alteracoes pendentes antes de desativar o produto.', 'error');
       return;
     }
 
@@ -1142,7 +1156,7 @@ export default function ProdutoPage() {
   async function confirmarInativacao() {
     if (typeof id !== 'string') return;
     if (formularioAlterado) {
-      addToast('Salve as alteracoes pendentes antes de inativar o produto.', 'error');
+      addToast('Salve as alteracoes pendentes antes de desativar o produto.', 'error');
       return;
     }
 
@@ -1152,15 +1166,15 @@ export default function ProdutoPage() {
       const reconciliado = resposta?.data?.reconciliado === true;
       addToast(
         reconciliado
-          ? 'Produto inativado com reconciliacao SISCOMEX concluida.'
-          : 'Produto inativado com sucesso.',
+          ? 'Produto desativado com reconciliacao SISCOMEX concluida.'
+          : 'Produto desativado com sucesso.',
         'success'
       );
       setInativacaoModalAberta(false);
       setHistoricoCarregado(false);
       await carregarProduto(id);
     } catch (error: any) {
-      const mensagem = error?.response?.data?.error || 'Nao foi possivel inativar o produto.';
+      const mensagem = error?.response?.data?.error || 'Nao foi possivel desativar o produto.';
       const retryable = error?.response?.data?.retryable === true;
       addToast(retryable ? `${mensagem} Tente novamente.` : mensagem, 'error');
     } finally {
@@ -1260,11 +1274,11 @@ export default function ProdutoPage() {
               disabled={inativandoProduto}
               title={
                 formularioAlterado
-                  ? 'Salve as alteracoes pendentes antes de inativar.'
-                  : 'Inativar produto no SISCOMEX'
+                  ? 'Salve as alteracoes pendentes antes de desativar.'
+                  : 'Desativar produto no SISCOMEX'
               }
             >
-              {inativandoProduto ? 'Inativando...' : 'Inativar'}
+              {inativandoProduto ? 'Desativando...' : 'Desativar'}
             </Button>
           )}
           <Button
@@ -1282,17 +1296,18 @@ export default function ProdutoPage() {
 
       {produtoSomenteLeitura && (
         <div className="mb-4 rounded-md border border-red-700 bg-red-900/20 px-4 py-3 text-sm text-red-200">
-          Produto inativado no SISCOMEX. Este registro esta em modo somente leitura.
+          Produto desativado no SISCOMEX. Este registro esta em modo somente leitura.
         </div>
       )}
 
       <Card className="mb-6 overflow-visible">
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
           {isNew && !workingCatalog ? (
             <Select
               label="Catálogo"
               options={catalogos.map(c => ({ value: String(c.id), label: `${c.nome} - ${formatCPFOrCNPJ(c.cpf_cnpj)}` }))}
               value={catalogoId}
+              className="mb-0 md:col-span-5"
               onChange={e => {
                 setCatalogoId(e.target.value);
                 const cat = catalogos.find(c => String(c.id) === e.target.value);
@@ -1309,7 +1324,12 @@ export default function ProdutoPage() {
               required
             />
           ) : (
-            <Input label="Catálogo" value={workingCatalog ? workingCatalog.nome : catalogoNome} disabled />
+            <Input
+              label="Catálogo"
+              value={workingCatalog ? workingCatalog.nome : catalogoNome}
+              className="mb-0 md:col-span-5"
+              disabled
+            />
           )}
           <Select
             label="Modalidade de operação:"
@@ -1319,11 +1339,14 @@ export default function ProdutoPage() {
             ]}
             value={modalidade}
             onChange={e => setModalidade(e.target.value)}
+            className="mb-0 md:col-span-2"
             disabled={produtoSomenteLeitura}
           />
           {estruturaCarregada && !loadingEstrutura && (
-              <div className="grid grid-cols-1 gap-4">
-                <Input label="Código do produto:" value={codigo || '-'} disabled />
+              <div className="grid grid-cols-1 gap-4 md:col-span-5 md:grid-cols-3">
+                <Input label="Código SISCOMEX:" value={codigo || '-'} className="mb-0" disabled />
+                <Input label="Versão:" value={versaoProduto !== null ? String(versaoProduto) : '-'} className="mb-0" disabled />
+                <Input label="Situação:" value={formatarSituacaoProduto(situacaoProduto)} className="mb-0" disabled />
               </div>
             )}
         </div>
@@ -1778,11 +1801,11 @@ export default function ProdutoPage() {
                     disabled={inativandoProduto}
                     title={
                       formularioAlterado
-                        ? 'Salve as alteracoes pendentes antes de inativar.'
-                        : 'Inativar produto no SISCOMEX'
+                        ? 'Salve as alteracoes pendentes antes de desativar.'
+                        : 'Desativar produto no SISCOMEX'
                     }
                   >
-                    {inativandoProduto ? 'Inativando...' : 'Inativar'}
+                    {inativandoProduto ? 'Desativando...' : 'Desativar'}
                   </Button>
                 )}
                 <Button
@@ -1819,14 +1842,14 @@ export default function ProdutoPage() {
       {inativacaoModalAberta && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="max-w-md w-full p-6">
-            <h3 className="text-xl font-semibold text-white mb-4">Confirmar inativação</h3>
+            <h3 className="text-xl font-semibold text-white mb-4">Confirmar desativação</h3>
             <p className="text-gray-300 mb-4">
-              A inativação será enviada ao SISCOMEX agora. O produto permanecerá visível em modo
+              A desativação será enviada ao SISCOMEX agora. O produto permanecerá visível em modo
               somente leitura após confirmação.
             </p>
             {formularioAlterado && (
               <p className="text-red-400 text-sm mb-4">
-                Existem alterações pendentes. Salve antes de inativar.
+                Existem alterações pendentes. Salve antes de desativar.
               </p>
             )}
             <div className="flex justify-end gap-3">
@@ -1838,7 +1861,7 @@ export default function ProdutoPage() {
                 onClick={confirmarInativacao}
                 disabled={inativandoProduto || formularioAlterado}
               >
-                {inativandoProduto ? 'Inativando...' : 'Confirmar inativação'}
+                {inativandoProduto ? 'Desativando...' : 'Confirmar desativação'}
               </Button>
             </div>
           </Card>
