@@ -66,6 +66,15 @@ function combinarClausulas(clauses: Prisma.Sql[]): Prisma.Sql {
   return clauses.slice(1).reduce<Prisma.Sql>((acc, clause) => Prisma.sql`${acc} AND ${clause}`, clauses[0]);
 }
 
+function buildProdutoStatusDashboardSql(): Prisma.Sql {
+  return Prisma.sql`
+    CASE
+      WHEN p.situacao = 'DESATIVADO' THEN 'DESATIVADO'
+      ELSE p.status
+    END
+  `;
+}
+
 export async function obterResumoDashboardService(
   superUserId: number,
   catalogoId?: number
@@ -89,18 +98,16 @@ export async function obterResumoDashboardService(
   }
 
   const produtoWhereSql = buildProdutoWhere(superUserId, catalogoId);
+  const produtoStatusDashboardSql = buildProdutoStatusDashboardSql();
 
   const produtosPorStatusRaw = await catalogoPrisma.$queryRaw<Array<{ status: string | null; total: bigint }>>(Prisma.sql`
     SELECT
-      CASE
-        WHEN p.situacao = 'DESATIVADO' THEN 'DESATIVADO'
-        ELSE p.status
-      END AS status,
+      ${produtoStatusDashboardSql} AS status,
       COUNT(*) AS total
     FROM produto p
       INNER JOIN catalogo c ON c.id = p.catalogo_id
     WHERE ${produtoWhereSql}
-    GROUP BY p.status
+    GROUP BY ${produtoStatusDashboardSql}
   `);
 
   const produtosStatusMap = createStatusMap();

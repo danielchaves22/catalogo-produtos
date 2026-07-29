@@ -3,6 +3,10 @@ import { catalogoPrisma } from '../../utils/prisma'
 
 const garantirResumosMock = jest.fn()
 
+function normalizarSql(sql: { strings?: string[] }) {
+  return (sql.strings ?? []).join(' ').replace(/\s+/g, ' ').trim()
+}
+
 jest.mock('../produto-resumo.service', () => ({
   ProdutoResumoService: jest.fn().mockImplementation(() => ({
     garantirResumos: garantirResumosMock
@@ -110,6 +114,26 @@ describe('obterResumoDashboardService', () => {
         })
       })
     )
+  })
+
+  it('agrupa produtos pela situacao efetiva exibida no dashboard', async () => {
+    prismaMock.catalogo.count.mockResolvedValue(1)
+    prismaMock.produto.count.mockResolvedValue(1)
+    prismaMock.produtoResumoDashboard.count.mockResolvedValue(1)
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+    prismaMock.produtoResumoDashboard.aggregate.mockResolvedValue({ _sum: {} })
+
+    await obterResumoDashboardService(7)
+
+    const produtosQuery = prismaMock.$queryRaw.mock.calls[0][0]
+    const sql = normalizarSql(produtosQuery)
+
+    expect(sql).toContain(
+      "GROUP BY CASE WHEN p.situacao = 'DESATIVADO' THEN 'DESATIVADO' ELSE p.status END"
+    )
+    expect(sql).not.toContain('GROUP BY p.status')
   })
 
   it('recalcula resumos faltantes antes de agregar', async () => {
