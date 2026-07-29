@@ -108,6 +108,8 @@ describe('ProdutoService - criaÃ§Ã£o otimizada', () => {
     expect(catalogoPrisma.produto.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          status: 'APROVADO',
+          situacao: undefined,
           codigosInternos: {
             create: [{ codigo: 'INT-1' }]
           },
@@ -169,6 +171,133 @@ describe('ProdutoService - criaÃ§Ã£o otimizada', () => {
         data: expect.objectContaining({ status: 'TRANSMITIDO' })
       })
     )
+  })
+})
+
+describe('ProdutoService - clonagem', () => {
+  const estruturaObrigatoria: AtributoEstruturaDTO[] = [
+    {
+      id: 11,
+      codigo: 'ATT_OBR',
+      nome: 'Obrigatorio',
+      tipo: 'TEXTO',
+      obrigatorio: true,
+      multivalorado: false,
+      validacoes: {}
+    }
+  ]
+
+  function produtoOriginal(overrides: Record<string, any> = {}) {
+    return {
+      id: 1,
+      codigo: 'SIS-1',
+      versao: 7,
+      status: 'TRANSMITIDO',
+      situacao: 'DESATIVADO',
+      ncmCodigo: '12345678',
+      modalidade: 'IMPORTACAO',
+      denominacao: 'Produto original',
+      descricao: 'Descricao original',
+      numero: 1,
+      catalogoId: 9,
+      versaoEstruturaAtributos: 2,
+      versaoAtributoId: null,
+      criadoPor: 'usuario',
+      atributos: [
+        {
+          atributo: { codigo: 'ATT_OBR', multivalorado: false },
+          valores: [{ valorJson: 'VALOR', ordem: 0 }]
+        }
+      ],
+      codigosInternos: [],
+      operadoresEstrangeiros: [],
+      ...overrides
+    }
+  }
+
+  function prepararClonagem(service: ProdutoService, original: Record<string, any>) {
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 5,
+      versaoNumero: 2,
+      estrutura: estruturaObrigatoria
+    })
+    jest.spyOn(service, 'buscarPorId').mockResolvedValue({ id: 999 } as any)
+
+    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue(original)
+    ;(catalogoPrisma.catalogo.findFirst as jest.Mock).mockResolvedValue({ id: 9 })
+
+    const produtoCreate = jest.fn().mockResolvedValue({ id: 999 })
+    const produtoAtributoCreate = jest.fn().mockResolvedValue({})
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { create: produtoCreate },
+        produtoAtributo: { create: produtoAtributoCreate }
+      })
+    )
+
+    return { produtoCreate, produtoAtributoCreate }
+  }
+
+  it('cria clone como rascunho aprovado quando obrigatorios estao preenchidos', async () => {
+    const service = criarService()
+    const { produtoCreate, produtoAtributoCreate } = prepararClonagem(
+      service,
+      produtoOriginal()
+    )
+
+    await service.clonar(
+      1,
+      { catalogoId: 9, denominacao: 'Produto clonado', codigosInternos: [' SKU-1 '] },
+      77
+    )
+
+    expect(produtoCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          codigo: null,
+          versao: 1,
+          status: 'APROVADO',
+          situacao: 'RASCUNHO',
+          denominacao: 'Produto clonado',
+          codigosInternos: {
+            create: [{ codigo: 'SKU-1' }]
+          }
+        })
+      })
+    )
+    expect(produtoAtributoCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          produtoId: 999,
+          atributoId: 11,
+          atributoVersaoId: 5,
+          valores: {
+            create: [{ valorJson: 'VALOR', ordem: 0 }]
+          }
+        })
+      })
+    )
+  })
+
+  it('cria clone como rascunho pendente quando faltam obrigatorios', async () => {
+    const service = criarService()
+    const { produtoCreate, produtoAtributoCreate } = prepararClonagem(
+      service,
+      produtoOriginal({ atributos: [] })
+    )
+
+    await service.clonar(1, { catalogoId: 9, denominacao: 'Produto clonado' }, 77)
+
+    expect(produtoCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          versao: 1,
+          status: 'PENDENTE',
+          situacao: 'RASCUNHO'
+        })
+      })
+    )
+    expect(produtoAtributoCreate).not.toHaveBeenCalled()
   })
 })
 

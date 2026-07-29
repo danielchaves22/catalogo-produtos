@@ -13,6 +13,18 @@ interface ResolverStatusProdutoInput {
   houveAlteracaoDadosProduto?: boolean;
 }
 
+interface ResolverStatusInicialProdutoInput {
+  possuiObrigatoriosPendentes: boolean;
+  statusSolicitado?: ProdutoStatusRegra;
+}
+
+export function resolverStatusInicialProduto({
+  possuiObrigatoriosPendentes,
+  statusSolicitado,
+}: ResolverStatusInicialProdutoInput): ProdutoStatusRegra {
+  return statusSolicitado ?? (possuiObrigatoriosPendentes ? 'PENDENTE' : 'APROVADO');
+}
+
 export function resolverStatusProduto({
   statusAtual,
   possuiObrigatoriosPendentes,

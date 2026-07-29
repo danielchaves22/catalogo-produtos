@@ -36,7 +36,10 @@ import {
   valoresComoArrayCondicional
 } from '../utils/atributo-condicional';
 import { createAsyncJob } from '../jobs/async-job.repository';
-import { resolverStatusProduto } from '../utils/produto-status';
+import {
+  resolverStatusInicialProduto,
+  resolverStatusProduto
+} from '../utils/produto-status';
 import { normalizarAtributosProdutoPorVersao } from '../utils/produto-atributo-normalizacao';
 import { STATUS_TRANSMISSAO_ABERTA } from '../constants/transmissao-status';
 
@@ -1127,7 +1130,10 @@ export class ProdutoService {
       estruturaInfo,
       valores
     );
-    const statusInicial = data.status ?? (preencheuObrigatorios ? 'APROVADO' : 'PENDENTE');
+    const statusInicial = resolverStatusInicialProduto({
+      possuiObrigatoriosPendentes: !preencheuObrigatorios,
+      statusSolicitado: data.status
+    });
 
     const executarCriacao = async (delegate: typeof catalogoPrisma.produto) => {
       return delegate.create({
@@ -2110,14 +2116,25 @@ export class ProdutoService {
       versaoAtributoId: original.versaoAtributoId,
       origem: 'produto.clonar',
     });
+    const valoresParaStatus = filtrarValoresAtributosVisiveis(
+      valoresOriginais,
+      this.mapearEstruturaPorCodigo(estruturaInfo!.estrutura)
+    );
+    const preencheuObrigatorios = this.todosObrigatoriosPreenchidos(
+      valoresParaStatus,
+      estruturaInfo!.estrutura
+    );
+    const statusInicial = resolverStatusInicialProduto({
+      possuiObrigatoriosPendentes: !preencheuObrigatorios
+    });
 
     const novoId = await catalogoPrisma.$transaction(async (tx) => {
       const novo = await tx.produto.create({
         data: {
           codigo: null,
-          versao: original.versao,
-          status: original.status ?? 'PENDENTE',
-          situacao: original.situacao,
+          versao: 1,
+          status: statusInicial,
+          situacao: 'RASCUNHO',
           ncmCodigo: original.ncmCodigo,
           modalidade: original.modalidade,
           denominacao: data.denominacao.trim(),
