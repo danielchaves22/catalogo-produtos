@@ -5,6 +5,7 @@ networks:
 services:
   # === Backend (API Node/Express + Prisma) ===
   backend:
+    restart: unless-stopped
     build:
       context: ./backend
     container_name: catalogo-backend
@@ -18,6 +19,7 @@ services:
       - app-network
   
   backend-hml:
+    restart: unless-stopped
     build:
       context: ./backend
     container_name: catalogo-backend-hml
