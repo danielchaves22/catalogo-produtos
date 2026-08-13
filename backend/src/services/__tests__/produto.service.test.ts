@@ -1469,6 +1469,10 @@ describe('ProdutoService - exclusao com elegibilidade', () => {
       produtoAtributo: {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
+      produtoTransmissaoItem: {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
     }
 
     ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => callback(tx))
@@ -1477,6 +1481,97 @@ describe('ProdutoService - exclusao com elegibilidade', () => {
 
     expect(tx.produto.delete).toHaveBeenCalledWith({ where: { id: 10 } })
     expect(produtoResumoServiceMock.removerResumoProduto).toHaveBeenCalledWith(10, tx)
+  })
+
+  it('remove vinculo de transmissao com erro terminal antes de excluir produto rascunho', async () => {
+    const service = criarService()
+
+    const tx = {
+      produto: {
+        findFirst: jest.fn().mockResolvedValue({ id: 10, codigo: null, situacao: 'RASCUNHO' }),
+        delete: jest.fn().mockResolvedValue({}),
+      },
+      produtoAtributo: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      produtoTransmissaoItem: {
+        findMany: jest.fn()
+          .mockResolvedValueOnce([
+            {
+              id: 77,
+              produtoId: 10,
+              transmissaoId: 500,
+              blocoId: 300,
+              status: 'ERRO',
+              transmissao: { status: 'FALHO' },
+            },
+          ])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      produtoTransmissaoBloco: {
+        delete: jest.fn().mockResolvedValue({}),
+        update: jest.fn(),
+      },
+      produtoTransmissao: {
+        update: jest.fn().mockResolvedValue({}),
+      },
+    }
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => callback(tx))
+
+    await service.remover(10, 1)
+
+    expect(tx.produtoTransmissaoItem.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: [77] } },
+    })
+    expect(tx.produtoTransmissaoBloco.delete).toHaveBeenCalledWith({ where: { id: 300 } })
+    expect(tx.produtoTransmissao.update).toHaveBeenCalledWith({
+      where: { id: 500 },
+      data: {
+        totalItens: 0,
+        totalSucesso: 0,
+        totalErro: 0,
+        selecaoJson: [],
+      },
+    })
+    expect(tx.produto.delete).toHaveBeenCalledWith({ where: { id: 10 } })
+  })
+
+  it('bloqueia exclusao individual quando produto possui item de transmissao com sucesso', async () => {
+    const service = criarService()
+
+    const tx = {
+      produto: {
+        findFirst: jest.fn().mockResolvedValue({ id: 12, codigo: null, situacao: 'RASCUNHO' }),
+        delete: jest.fn().mockResolvedValue({}),
+      },
+      produtoAtributo: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      produtoTransmissaoItem: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 88,
+            produtoId: 12,
+            transmissaoId: 501,
+            blocoId: 301,
+            status: 'SUCESSO',
+            transmissao: { status: 'CONCLUIDO' },
+          },
+        ]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    }
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => callback(tx))
+
+    await expect(service.remover(12, 1)).rejects.toThrow(
+      'Produto possui item de transmissao em andamento ou concluido com sucesso e nao pode ser excluido.'
+    )
+    expect(tx.produtoTransmissaoItem.deleteMany).not.toHaveBeenCalled()
+    expect(tx.produto.delete).not.toHaveBeenCalled()
   })
 
   it('bloqueia exclusao individual de produto transmitido', async () => {
@@ -1515,6 +1610,10 @@ describe('ProdutoService - exclusao com elegibilidade', () => {
       produtoAtributo: { deleteMany: jest.fn().mockResolvedValue({ count: 2 }) },
       codigoInternoProduto: { deleteMany: jest.fn().mockResolvedValue({ count: 2 }) },
       operadorEstrangeiroProduto: { deleteMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      produtoTransmissaoItem: {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       produto: { deleteMany: jest.fn().mockResolvedValue({ count: 2 }) },
     }
 
@@ -1539,6 +1638,60 @@ describe('ProdutoService - exclusao com elegibilidade', () => {
       totalSolicitado: 3,
     })
     expect(tx.produto.deleteMany).toHaveBeenCalledWith({ where: { id: { in: [1, 3] } } })
+  })
+
+  it('retorna bloqueio em massa para produto com transmissao nao removivel', async () => {
+    const service = criarService()
+
+    ;(catalogoPrisma.produto.findMany as jest.Mock)
+      .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
+      .mockResolvedValueOnce([
+        { id: 1, codigo: null, situacao: 'RASCUNHO' },
+        { id: 2, codigo: null, situacao: 'RASCUNHO' },
+      ])
+
+    const tx = {
+      produtoAtributo: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      codigoInternoProduto: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      operadorEstrangeiroProduto: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      produtoTransmissaoItem: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 90,
+            produtoId: 2,
+            transmissaoId: 600,
+            blocoId: 400,
+            status: 'SUCESSO',
+            transmissao: { status: 'CONCLUIDO' },
+          },
+        ]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      produto: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    }
+
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => callback(tx))
+
+    const resultado = await service.removerEmMassa(
+      {
+        todosFiltrados: false,
+        idsSelecionados: [1, 2],
+      },
+      1
+    )
+
+    expect(resultado).toEqual({
+      removidos: 1,
+      bloqueados: [
+        {
+          id: 2,
+          motivo: 'Produto possui item de transmissao em andamento ou concluido com sucesso e nao pode ser excluido.',
+        },
+      ],
+      totalSolicitado: 2,
+    })
+    expect(tx.produto.deleteMany).toHaveBeenCalledWith({ where: { id: { in: [1] } } })
+    expect(tx.produtoTransmissaoItem.deleteMany).not.toHaveBeenCalled()
   })
 
   it('retorna erro quando nenhum produto da selecao e elegivel', async () => {

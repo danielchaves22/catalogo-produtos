@@ -5,6 +5,7 @@ import {
   AsyncJobStatus,
   AsyncJobTipo,
   Prisma,
+  ProdutoTransmissaoBlocoStatus,
   ProdutoTransmissaoItemOperacao,
   ProdutoTransmissaoItemStatus,
   ProdutoTransmissaoModalidade,
@@ -509,6 +510,245 @@ export class ProdutoService {
     }
 
     return null;
+  }
+
+  private obterMotivoBloqueioTransmissaoExclusao() {
+    return 'Produto possui item de transmissao em andamento ou concluido com sucesso e nao pode ser excluido.';
+  }
+
+  private itemTransmissaoRemovivelNaExclusao(item: {
+    status: ProdutoTransmissaoItemStatus;
+    transmissao: { status: ProdutoTransmissaoStatus };
+  }) {
+    if (
+      item.transmissao.status === ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO &&
+      item.status === ProdutoTransmissaoItemStatus.PENDENTE
+    ) {
+      return true;
+    }
+
+    if (
+      item.transmissao.status === ProdutoTransmissaoStatus.CANCELADA &&
+      (item.status === ProdutoTransmissaoItemStatus.PENDENTE ||
+        item.status === ProdutoTransmissaoItemStatus.ERRO)
+    ) {
+      return true;
+    }
+
+    return (
+      this.transmissaoTerminalComRetorno(item.transmissao.status) &&
+      item.status === ProdutoTransmissaoItemStatus.ERRO
+    );
+  }
+
+  private transmissaoTerminalComRetorno(status: ProdutoTransmissaoStatus) {
+    return (
+      status === ProdutoTransmissaoStatus.CONCLUIDO ||
+      status === ProdutoTransmissaoStatus.FALHO ||
+      status === ProdutoTransmissaoStatus.PARCIAL
+    );
+  }
+
+  private determinarStatusTransmissaoAposExclusao(dados: {
+    totalItens: number;
+    totalSucesso: number;
+    totalErro: number;
+  }) {
+    if (dados.totalSucesso === dados.totalItens) {
+      return ProdutoTransmissaoStatus.CONCLUIDO;
+    }
+
+    if (dados.totalErro === dados.totalItens) {
+      return ProdutoTransmissaoStatus.FALHO;
+    }
+
+    return ProdutoTransmissaoStatus.PARCIAL;
+  }
+
+  private determinarStatusBlocoTransmissaoAposExclusao(dados: {
+    totalItens: number;
+    totalSucesso: number;
+    totalErro: number;
+    totalPendentes: number;
+    totalProcessando: number;
+  }) {
+    if (dados.totalProcessando > 0) {
+      return ProdutoTransmissaoBlocoStatus.PROCESSANDO;
+    }
+
+    if (dados.totalPendentes === dados.totalItens) {
+      return ProdutoTransmissaoBlocoStatus.PENDENTE;
+    }
+
+    if (dados.totalPendentes > 0) {
+      return ProdutoTransmissaoBlocoStatus.INTERROMPIDO;
+    }
+
+    if (dados.totalSucesso === dados.totalItens) {
+      return ProdutoTransmissaoBlocoStatus.CONCLUIDO;
+    }
+
+    if (dados.totalErro === dados.totalItens) {
+      return ProdutoTransmissaoBlocoStatus.FALHO;
+    }
+
+    return ProdutoTransmissaoBlocoStatus.PARCIAL;
+  }
+
+  private blocoTransmissaoConcluidoAposExclusao(status: ProdutoTransmissaoBlocoStatus) {
+    return (
+      status === ProdutoTransmissaoBlocoStatus.CONCLUIDO ||
+      status === ProdutoTransmissaoBlocoStatus.FALHO ||
+      status === ProdutoTransmissaoBlocoStatus.PARCIAL
+    );
+  }
+
+  private async sincronizarBlocosAposRemoverItensTransmissao(
+    tx: Prisma.TransactionClient,
+    blocoIds: number[]
+  ) {
+    const idsUnicos = Array.from(new Set(blocoIds));
+
+    for (const blocoId of idsUnicos) {
+      const itens = await tx.produtoTransmissaoItem.findMany({
+        where: { blocoId },
+        select: { status: true },
+      });
+
+      if (itens.length === 0) {
+        await tx.produtoTransmissaoBloco.delete({ where: { id: blocoId } });
+        continue;
+      }
+
+      const totalItens = itens.length;
+      const totalSucesso = itens.filter(item => item.status === ProdutoTransmissaoItemStatus.SUCESSO).length;
+      const totalErro = itens.filter(item => item.status === ProdutoTransmissaoItemStatus.ERRO).length;
+      const totalProcessando = itens.filter(item => item.status === ProdutoTransmissaoItemStatus.PROCESSANDO).length;
+      const totalPendentes = totalItens - totalSucesso - totalErro - totalProcessando;
+      const status = this.determinarStatusBlocoTransmissaoAposExclusao({
+        totalItens,
+        totalSucesso,
+        totalErro,
+        totalPendentes,
+        totalProcessando,
+      });
+
+      await tx.produtoTransmissaoBloco.update({
+        where: { id: blocoId },
+        data: {
+          status,
+          totalItens,
+          totalSucesso,
+          totalErro,
+          concluidoEm: this.blocoTransmissaoConcluidoAposExclusao(status) ? new Date() : null,
+        },
+      });
+    }
+  }
+
+  private async sincronizarTransmissoesAposRemoverItensTransmissao(
+    tx: Prisma.TransactionClient,
+    transmissaoIds: number[]
+  ) {
+    const idsUnicos = Array.from(new Set(transmissaoIds));
+
+    for (const transmissaoId of idsUnicos) {
+      const itens = await tx.produtoTransmissaoItem.findMany({
+        where: { transmissaoId },
+        select: { id: true, produtoId: true, status: true, ordemExecucao: true },
+        orderBy: [{ ordemExecucao: 'asc' }, { id: 'asc' }],
+      });
+
+      const totalSucesso = itens.filter(item => item.status === ProdutoTransmissaoItemStatus.SUCESSO).length;
+      const totalErro = itens.filter(item => item.status === ProdutoTransmissaoItemStatus.ERRO).length;
+      const data: Prisma.ProdutoTransmissaoUpdateInput = {
+        totalItens: itens.length,
+        totalSucesso,
+        totalErro,
+        selecaoJson: itens.map(item => item.produtoId) as Prisma.InputJsonValue,
+      };
+
+      if (itens.length > 0) {
+        const transmissao = await tx.produtoTransmissao.findUnique({
+          where: { id: transmissaoId },
+          select: { status: true },
+        });
+
+        if (transmissao && this.transmissaoTerminalComRetorno(transmissao.status)) {
+          data.status = this.determinarStatusTransmissaoAposExclusao({
+            totalItens: itens.length,
+            totalSucesso,
+            totalErro,
+          });
+        }
+      }
+
+      await tx.produtoTransmissao.update({
+        where: { id: transmissaoId },
+        data,
+      });
+    }
+  }
+
+  private async prepararVinculosTransmissaoParaExclusao(
+    tx: Prisma.TransactionClient,
+    produtoIds: number[]
+  ): Promise<{
+    idsLiberados: number[];
+    bloqueados: ProdutoBloqueioExclusaoDTO[];
+  }> {
+    const idsUnicos = Array.from(new Set(produtoIds));
+
+    if (idsUnicos.length === 0) {
+      return { idsLiberados: [], bloqueados: [] };
+    }
+
+    const itens = await tx.produtoTransmissaoItem.findMany({
+      where: { produtoId: { in: idsUnicos } },
+      select: {
+        id: true,
+        produtoId: true,
+        transmissaoId: true,
+        blocoId: true,
+        status: true,
+        transmissao: {
+          select: { status: true },
+        },
+      },
+    });
+
+    const idsBloqueados = new Set<number>();
+    for (const item of itens) {
+      if (!this.itemTransmissaoRemovivelNaExclusao(item)) {
+        idsBloqueados.add(item.produtoId);
+      }
+    }
+
+    const motivoBloqueio = this.obterMotivoBloqueioTransmissaoExclusao();
+    const bloqueados = idsUnicos
+      .filter(id => idsBloqueados.has(id))
+      .map(id => ({ id, motivo: motivoBloqueio }));
+    const idsLiberados = idsUnicos.filter(id => !idsBloqueados.has(id));
+
+    const idsLiberadosSet = new Set(idsLiberados);
+    const itensRemoviveis = itens.filter(item => idsLiberadosSet.has(item.produtoId));
+
+    if (itensRemoviveis.length > 0) {
+      const itemIds = itensRemoviveis.map(item => item.id);
+      const blocoIds = itensRemoviveis
+        .map(item => item.blocoId)
+        .filter((id): id is number => id !== null);
+      const transmissaoIds = itensRemoviveis.map(item => item.transmissaoId);
+
+      await tx.produtoTransmissaoItem.deleteMany({
+        where: { id: { in: itemIds } },
+      });
+
+      await this.sincronizarBlocosAposRemoverItensTransmissao(tx, blocoIds);
+      await this.sincronizarTransmissoesAposRemoverItensTransmissao(tx, transmissaoIds);
+    }
+
+    return { idsLiberados, bloqueados };
   }
 
   private resolverStatusRestauradoAjusteEstrutura(produto: {
@@ -1479,6 +1719,12 @@ export class ProdutoService {
         throw new ValidationError({ produto: motivoBloqueio }, motivoBloqueio);
       }
 
+      const preparoTransmissao = await this.prepararVinculosTransmissaoParaExclusao(tx, [produto.id]);
+      if (preparoTransmissao.bloqueados.length > 0) {
+        const motivoTransmissao = preparoTransmissao.bloqueados[0].motivo;
+        throw new ValidationError({ produto: motivoTransmissao }, motivoTransmissao);
+      }
+
       await tx.produtoAtributo.deleteMany({
         where: { produtoId: produto.id, produto: { catalogo: { superUserId } } }
       });
@@ -1535,25 +1781,34 @@ export class ProdutoService {
       );
     }
 
-    const removidos = await catalogoPrisma.$transaction(async tx => {
-      await tx.produtoAtributo.deleteMany({ where: { produtoId: { in: idsElegiveis } } });
-      await tx.codigoInternoProduto.deleteMany({ where: { produtoId: { in: idsElegiveis } } });
-      await tx.operadorEstrangeiroProduto.deleteMany({ where: { produtoId: { in: idsElegiveis } } });
+    const resultadoExclusao = await catalogoPrisma.$transaction(async tx => {
+      const preparoTransmissao = await this.prepararVinculosTransmissaoParaExclusao(tx, idsElegiveis);
+      const idsParaRemover = preparoTransmissao.idsLiberados;
 
-      for (const idProduto of idsElegiveis) {
+      if (idsParaRemover.length === 0) {
+        return { removidos: 0, bloqueados: preparoTransmissao.bloqueados };
+      }
+
+      await tx.produtoAtributo.deleteMany({ where: { produtoId: { in: idsParaRemover } } });
+      await tx.codigoInternoProduto.deleteMany({ where: { produtoId: { in: idsParaRemover } } });
+      await tx.operadorEstrangeiroProduto.deleteMany({ where: { produtoId: { in: idsParaRemover } } });
+
+      for (const idProduto of idsParaRemover) {
         await this.produtoResumoService.removerResumoProduto(idProduto, tx);
       }
 
-      const resultado = await tx.produto.deleteMany({ where: { id: { in: idsElegiveis } } });
-      return resultado.count;
+      const resultado = await tx.produto.deleteMany({ where: { id: { in: idsParaRemover } } });
+      return { removidos: resultado.count, bloqueados: preparoTransmissao.bloqueados };
     });
 
-    if (removidos === 0) {
+    bloqueados.push(...resultadoExclusao.bloqueados);
+
+    if (resultadoExclusao.removidos === 0) {
       throw new Error('Nenhum produto foi excluído');
     }
 
     return {
-      removidos,
+      removidos: resultadoExclusao.removidos,
       bloqueados,
       totalSolicitado: produtosSelecionados.length,
     };
