@@ -44,7 +44,7 @@ type TransmissaoStatus =
   | 'PARCIAL'
   | 'CANCELADA';
 type TransmissaoItemStatus = 'PENDENTE' | 'PROCESSANDO' | 'SUCESSO' | 'ERRO';
-type TransmissaoItemOperacao = 'INCLUSAO' | 'NOVA_VERSAO';
+type TransmissaoItemOperacao = 'INCLUSAO' | 'NOVA_VERSAO' | 'RETIFICACAO';
 
 interface TransmissaoItem {
   id: number;
@@ -98,6 +98,12 @@ function obterClasseItem(status: TransmissaoItemStatus) {
     default:
       return 'border border-slate-600/60 bg-slate-700/40 text-gray-300';
   }
+}
+
+function formatarOperacaoItem(operacao: TransmissaoItemOperacao) {
+  if (operacao === 'NOVA_VERSAO') return 'Nova versão';
+  if (operacao === 'RETIFICACAO') return 'Retificação';
+  return 'Inclusão';
 }
 
 function obterClasseBloco(status: ResumoBloco['status']) {
@@ -607,7 +613,7 @@ export default function DetalheTransmissaoSiscomexPage() {
                     {item.blocoId ? blocosPorId.get(item.blocoId) || `Bloco #${item.blocoId}` : '-'}
                   </td>
                   <td className="px-4 py-3 text-gray-200">
-                    {item.operacao === 'NOVA_VERSAO' ? 'Nova versão' : 'Inclusão'}
+                    {formatarOperacaoItem(item.operacao)}
                   </td>
                   <td className="px-4 py-3">
                     <span

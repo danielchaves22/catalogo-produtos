@@ -35,7 +35,7 @@ type TransmissaoStatus =
   | 'PARCIAL'
   | 'CANCELADA';
 type TransmissaoItemStatus = 'PENDENTE' | 'PROCESSANDO' | 'SUCESSO' | 'ERRO';
-type TransmissaoItemOperacao = 'INCLUSAO' | 'NOVA_VERSAO';
+type TransmissaoItemOperacao = 'INCLUSAO' | 'NOVA_VERSAO' | 'RETIFICACAO';
 
 interface CatalogoResumo {
   nome: string;
@@ -65,7 +65,7 @@ interface TransmissaoItem {
     denominacao?: string | null;
     status?: string | null;
     situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO' | null;
-    versao?: number | null;
+    versao?: string | null;
     catalogoId?: number | null;
   } | null;
 }
@@ -117,6 +117,12 @@ function obterClasseSituacao(situacao?: string | null) {
     default:
       return 'border border-slate-600/60 bg-slate-700/40 text-gray-300';
   }
+}
+
+function formatarOperacaoItem(operacao: TransmissaoItemOperacao) {
+  if (operacao === 'NOVA_VERSAO') return 'Nova versão';
+  if (operacao === 'RETIFICACAO') return 'Retificação';
+  return 'Inclusão';
 }
 
 function extrairMensagemErro(error: unknown, padrao: string) {
@@ -185,19 +191,21 @@ export default function ConfirmarTransmissaoProdutosPage() {
 
   const resumo = useMemo(() => {
     if (!transmissao) {
-      return { total: 0, inclusoes: 0, novasVersoes: 0, ativados: 0, rascunhos: 0 };
+      return { total: 0, inclusoes: 0, novasVersoes: 0, retificacoes: 0, ativados: 0, rascunhos: 0, desativados: 0 };
     }
 
     return transmissao.itens.reduce(
       (acc, item) => {
         acc.total += 1;
         if (item.operacao === 'NOVA_VERSAO') acc.novasVersoes += 1;
+        else if (item.operacao === 'RETIFICACAO') acc.retificacoes += 1;
         else acc.inclusoes += 1;
         if (item.produto?.situacao === 'ATIVADO') acc.ativados += 1;
         if (item.produto?.situacao === 'RASCUNHO') acc.rascunhos += 1;
+        if (item.produto?.situacao === 'DESATIVADO') acc.desativados += 1;
         return acc;
       },
-      { total: 0, inclusoes: 0, novasVersoes: 0, ativados: 0, rascunhos: 0 }
+      { total: 0, inclusoes: 0, novasVersoes: 0, retificacoes: 0, ativados: 0, rascunhos: 0, desativados: 0 }
     );
   }, [transmissao]);
 
@@ -216,17 +224,28 @@ export default function ConfirmarTransmissaoProdutosPage() {
     const itensDeOutroCatalogo = transmissao.itens.filter(
       item => item.produto?.catalogoId && item.produto.catalogoId !== transmissao.catalogoId
     );
-    const itensNaoAprovados = transmissao.itens.filter(
-      item => item.produto?.status && item.produto.status !== 'APROVADO'
-    );
-    const itensSituacaoInvalida = transmissao.itens.filter(
-      item =>
-        item.produto?.situacao &&
-        item.produto.situacao !== 'RASCUNHO' &&
-        item.produto.situacao !== 'ATIVADO'
-    );
+    const itensNaoAprovados = transmissao.itens.filter(item => {
+      if (!item.produto?.status) return false;
+      if (item.operacao === 'RETIFICACAO') {
+        return item.produto.status !== 'APROVADO' && item.produto.status !== 'TRANSMITIDO';
+      }
+      return item.produto.status !== 'APROVADO';
+    });
+    const itensSituacaoInvalida = transmissao.itens.filter(item => {
+      if (!item.produto?.situacao) return false;
+      if (item.operacao === 'RETIFICACAO') {
+        return item.produto.situacao !== 'DESATIVADO';
+      }
+      return item.produto.situacao !== 'RASCUNHO' && item.produto.situacao !== 'ATIVADO';
+    });
     const itensAtivadosSemCodigo = transmissao.itens.filter(
       item => item.produto?.situacao === 'ATIVADO' && !String(item.produto?.codigo || '').trim()
+    );
+    const itensRetificacaoSemCodigo = transmissao.itens.filter(
+      item => item.operacao === 'RETIFICACAO' && !String(item.produto?.codigo || '').trim()
+    );
+    const itensRetificacaoSemVersao = transmissao.itens.filter(
+      item => item.operacao === 'RETIFICACAO' && !String(item.produto?.versao || '').trim()
     );
 
     if (itensSemProduto.length > 0) {
@@ -238,7 +257,7 @@ export default function ConfirmarTransmissaoProdutosPage() {
       mensagens.push(`${itensDeOutroCatalogo.length} produto(s) pertencem a outro catálogo.`);
     }
     if (itensNaoAprovados.length > 0) {
-      mensagens.push(`${itensNaoAprovados.length} produto(s) não estão com status APROVADO.`);
+      mensagens.push(`${itensNaoAprovados.length} produto(s) não estão com status permitido para a operação.`);
     }
     if (itensSituacaoInvalida.length > 0) {
       mensagens.push(
@@ -248,6 +267,16 @@ export default function ConfirmarTransmissaoProdutosPage() {
     if (itensAtivadosSemCodigo.length > 0) {
       mensagens.push(
         `${itensAtivadosSemCodigo.length} produto(s) ativados estão sem código SISCOMEX para nova versão.`
+      );
+    }
+    if (itensRetificacaoSemCodigo.length > 0) {
+      mensagens.push(
+        `${itensRetificacaoSemCodigo.length} produto(s) de retificação estão sem código SISCOMEX.`
+      );
+    }
+    if (itensRetificacaoSemVersao.length > 0) {
+      mensagens.push(
+        `${itensRetificacaoSemVersao.length} produto(s) de retificação estão sem versão SISCOMEX.`
       );
     }
 
@@ -459,7 +488,7 @@ export default function ConfirmarTransmissaoProdutosPage() {
         )}
       </Card>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-5">
         <Card>
           <div className="text-sm text-gray-400">Produtos selecionados</div>
           <div className="text-2xl font-semibold text-white">{resumo.total}</div>
@@ -473,9 +502,13 @@ export default function ConfirmarTransmissaoProdutosPage() {
           <div className="text-2xl font-semibold text-sky-300">{resumo.novasVersoes}</div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-400">Ativados / Rascunhos</div>
+          <div className="text-sm text-gray-400">Retificações</div>
+          <div className="text-2xl font-semibold text-violet-300">{resumo.retificacoes}</div>
+        </Card>
+        <Card>
+          <div className="text-sm text-gray-400">Ativados / Rascunhos / Desativados</div>
           <div className="text-2xl font-semibold text-white">
-            {resumo.ativados} / {resumo.rascunhos}
+            {resumo.ativados} / {resumo.rascunhos} / {resumo.desativados}
           </div>
         </Card>
       </div>
@@ -562,7 +595,7 @@ export default function ConfirmarTransmissaoProdutosPage() {
                         {item.produto?.denominacao || 'Produto indisponível'}
                       </td>
                       <td className="px-4 py-3 text-gray-200">
-                        {item.operacao === 'NOVA_VERSAO' ? 'Nova versão' : 'Inclusão'}
+                        {formatarOperacaoItem(item.operacao)}
                       </td>
                       <td className="px-4 py-3 text-gray-200">{item.produto?.versao ?? '-'}</td>
                       <td className="px-4 py-3">

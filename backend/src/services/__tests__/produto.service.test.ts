@@ -255,7 +255,7 @@ describe('ProdutoService - clonagem', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           codigo: null,
-          versao: 1,
+          versao: null,
           status: 'APROVADO',
           situacao: 'RASCUNHO',
           denominacao: 'Produto clonado',
@@ -291,7 +291,7 @@ describe('ProdutoService - clonagem', () => {
     expect(produtoCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          versao: 1,
+          versao: null,
           status: 'PENDENTE',
           situacao: 'RASCUNHO'
         })

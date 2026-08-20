@@ -32,6 +32,12 @@ import {
   normalizarProdutoParaHistorico
 } from '../utils/produto-historico-diff';
 import {
+  compararVersoesSiscomex,
+  normalizarVersaoSiscomex,
+  ProdutoHistoricoTipoEvento,
+  resolverTipoEventoHistoricoSiscomex,
+} from '../utils/versao-siscomex';
+import {
   condicaoAtributoAtendida,
   filtrarValoresAtributosVisiveis,
   valoresComoArrayCondicional
@@ -46,6 +52,7 @@ import { STATUS_TRANSMISSAO_ABERTA } from '../constants/transmissao-status';
 
 export interface CreateProdutoDTO {
   codigo?: string;
+  versao?: string | number | null;
   ncmCodigo: string;
   modalidade: string;
   catalogoId: number;
@@ -251,7 +258,7 @@ interface PreparacaoTransmissaoAutomaticaResultado {
 
 export interface ProdutoHistoricoVersaoDTO {
   id: number;
-  versaoSiscomex: number;
+  versaoSiscomex: string;
   tipoEvento: string;
   resumo: string | null;
   delta: DeltaHistoricoProduto | null;
@@ -1219,17 +1226,22 @@ export class ProdutoService {
 
     const historico = await catalogoPrisma.produtoHistoricoVersao.findMany({
       where: { produtoId: id },
-      orderBy: [{ versaoSiscomex: 'desc' }, { criadoEm: 'desc' }]
+      orderBy: [{ criadoEm: 'desc' }]
     });
 
-    return historico.map(item => ({
-      id: item.id,
-      versaoSiscomex: item.versaoSiscomex,
-      tipoEvento: item.tipoEvento,
-      resumo: item.resumo,
-      delta: (item.deltaJson as DeltaHistoricoProduto | null) ?? null,
-      criadoEm: item.criadoEm
-    }));
+    return historico
+      .sort((a, b) => {
+        const comparacaoVersao = compararVersoesSiscomex(b.versaoSiscomex, a.versaoSiscomex);
+        return comparacaoVersao !== 0 ? comparacaoVersao : b.criadoEm.getTime() - a.criadoEm.getTime();
+      })
+      .map(item => ({
+        id: item.id,
+        versaoSiscomex: item.versaoSiscomex,
+        tipoEvento: item.tipoEvento,
+        resumo: item.resumo,
+        delta: (item.deltaJson as DeltaHistoricoProduto | null) ?? null,
+        criadoEm: item.criadoEm
+      }));
   }
 
   async obterSnapshotParaHistorico(
@@ -1285,7 +1297,8 @@ export class ProdutoService {
   async registrarHistoricoVersao(params: {
     produtoId: number;
     superUserId: number;
-    versaoSiscomex: number;
+    versaoSiscomex: string;
+    tipoEvento?: ProdutoHistoricoTipoEvento;
     transmissaoId?: number;
     snapshotAnterior?: Record<string, unknown>;
     tx?: Prisma.TransactionClient;
@@ -1297,10 +1310,16 @@ export class ProdutoService {
       params.tx
     );
     const snapshotAnterior = params.snapshotAnterior ?? null;
+    const versaoSiscomex = normalizarVersaoSiscomex(params.versaoSiscomex);
+
+    if (!versaoSiscomex) {
+      throw new Error('Versão SISCOMEX inválida para histórico do produto.');
+    }
 
     const delta = gerarDeltaHistoricoProduto(snapshotAnterior, snapshotAtual);
-    const resumo = gerarResumoDelta(delta, params.versaoSiscomex);
-    const isCheckpoint = params.versaoSiscomex === 1 || params.versaoSiscomex % 10 === 0;
+    const tipoEvento = resolverTipoEventoHistoricoSiscomex(versaoSiscomex, params.tipoEvento);
+    const resumo = gerarResumoDelta(delta, versaoSiscomex, tipoEvento);
+    const isCheckpoint = this.isCheckpointHistoricoSiscomex(versaoSiscomex, tipoEvento);
     const deltaJson = delta as unknown as Prisma.InputJsonValue;
     const snapshotJson = isCheckpoint
       ? (snapshotAtual as unknown as Prisma.InputJsonValue)
@@ -1310,11 +1329,11 @@ export class ProdutoService {
       where: {
         uk_hist_produto_versao: {
           produtoId: params.produtoId,
-          versaoSiscomex: params.versaoSiscomex
+          versaoSiscomex
         }
       },
       update: {
-        tipoEvento: params.versaoSiscomex === 1 ? 'CRIACAO' : 'ATUALIZACAO',
+        tipoEvento,
         resumo,
         deltaJson,
         snapshotJson,
@@ -1323,8 +1342,8 @@ export class ProdutoService {
       },
       create: {
         produtoId: params.produtoId,
-        versaoSiscomex: params.versaoSiscomex,
-        tipoEvento: params.versaoSiscomex === 1 ? 'CRIACAO' : 'ATUALIZACAO',
+        versaoSiscomex,
+        tipoEvento,
         resumo,
         deltaJson,
         snapshotJson,
@@ -1332,6 +1351,18 @@ export class ProdutoService {
         transmissaoId: params.transmissaoId ?? null
       }
     });
+  }
+
+  private isCheckpointHistoricoSiscomex(
+    versaoSiscomex: string,
+    tipoEvento: ProdutoHistoricoTipoEvento
+  ) {
+    if (tipoEvento === 'CRIACAO') {
+      return true;
+    }
+
+    const [principal, retificacao] = versaoSiscomex.split('.').map(parte => Number(parte));
+    return Number.isInteger(principal) && (retificacao ?? 0) === 0 && principal > 0 && principal % 10 === 0;
   }
 
   async criar(
@@ -1379,7 +1410,7 @@ export class ProdutoService {
       return delegate.create({
         data: {
           codigo: data.codigo ?? null,
-          versao: 1,
+          versao: normalizarVersaoSiscomex(data.versao),
           status: statusInicial,
           situacao: data.situacao ?? undefined,
           ncmCodigo: data.ncmCodigo,
@@ -1648,11 +1679,12 @@ export class ProdutoService {
       situacao?: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
       atualizarCodigo?: boolean;
       transmissaoId?: number;
+      tipoEventoHistorico?: ProdutoHistoricoTipoEvento;
     }
   ) {
-    const versaoNumero = typeof dados.versao === 'string' ? Number(dados.versao) : dados.versao;
+    const versaoSiscomex = normalizarVersaoSiscomex(dados.versao);
 
-    if (!Number.isFinite(versaoNumero)) {
+    if (!versaoSiscomex) {
       throw new Error('Versão inválida retornada pelo SISCOMEX');
     }
 
@@ -1663,7 +1695,7 @@ export class ProdutoService {
         : String(dados.codigo);
 
     const dadosAtualizacao: Prisma.ProdutoUpdateManyMutationInput = {
-      versao: versaoNumero,
+      versao: versaoSiscomex,
       status: 'TRANSMITIDO',
       situacao: dados.situacao ?? 'ATIVADO'
     };
@@ -1687,7 +1719,8 @@ export class ProdutoService {
       await this.registrarHistoricoVersao({
         produtoId: id,
         superUserId,
-        versaoSiscomex: versaoNumero,
+        versaoSiscomex,
+        tipoEvento: dados.tipoEventoHistorico,
         transmissaoId: dados.transmissaoId,
         snapshotAnterior,
         tx
@@ -2387,7 +2420,7 @@ export class ProdutoService {
       const novo = await tx.produto.create({
         data: {
           codigo: null,
-          versao: 1,
+          versao: null,
           status: statusInicial,
           situacao: 'RASCUNHO',
           ncmCodigo: original.ncmCodigo,

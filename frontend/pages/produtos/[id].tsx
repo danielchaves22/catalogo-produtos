@@ -20,7 +20,7 @@ import {
   isValorPreenchido,
   normalizarValoresMultivalorados
 } from '@/lib/atributos';
-import { Trash2, BrainCog, ArrowLeft, Save } from 'lucide-react';
+import { Trash2, BrainCog, ArrowLeft, Save, RotateCcw } from 'lucide-react';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
@@ -77,7 +77,7 @@ interface HistoricoMudanca {
 
 interface HistoricoProdutoItem {
   id: number;
-  versaoSiscomex: number;
+  versaoSiscomex: string;
   tipoEvento: string;
   resumo: string | null;
   criadoEm: string;
@@ -91,6 +91,7 @@ function formatarTipoEvento(tipoEvento: string) {
   const tipoEventoLabelMap: Record<string, string> = {
     CRIACAO: 'CRIAÇÃO',
     ATUALIZACAO: 'ATUALIZAÇÃO',
+    RETIFICACAO: 'RETIFICAÇÃO',
   };
 
   return tipoEventoLabelMap[tipoEvento] ?? tipoEvento;
@@ -161,7 +162,7 @@ export default function ProdutoPage() {
   const [catalogoNome, setCatalogoNome] = useState('');
   const [catalogoCnpj, setCatalogoCnpj] = useState('');
   const [codigo, setCodigo] = useState('');
-  const [versaoProduto, setVersaoProduto] = useState<number | null>(null);
+  const [versaoProduto, setVersaoProduto] = useState<string | null>(null);
   const [codigosInternos, setCodigosInternos] = useState<string[]>([]);
   const [novoCodigoInterno, setNovoCodigoInterno] = useState('');
   const [operadores, setOperadores] = useState<Array<{ paisCodigo: string; conhecido: string; operador?: OperadorEstrangeiro | null }>>([]);
@@ -204,15 +205,28 @@ export default function ProdutoPage() {
   const [iaJaSolicitada, setIaJaSolicitada] = useState(false);
   const [limpezaInicialIaRealizada, setLimpezaInicialIaRealizada] = useState(false);
   const [situacaoProduto, setSituacaoProduto] = useState<'RASCUNHO' | 'ATIVADO' | 'DESATIVADO'>('RASCUNHO');
+  const [statusProduto, setStatusProduto] = useState<string | null>(null);
   const [assinaturaInicialFormulario, setAssinaturaInicialFormulario] = useState('');
   const [inativacaoModalAberta, setInativacaoModalAberta] = useState(false);
   const [inativandoProduto, setInativandoProduto] = useState(false);
+  const [retificacaoModalAberta, setRetificacaoModalAberta] = useState(false);
+  const [preparandoRetificacao, setPreparandoRetificacao] = useState(false);
+  const [retificacaoEnfileirada, setRetificacaoEnfileirada] = useState<{
+    transmissaoId: number;
+    mensagem: string;
+  } | null>(null);
   const { user } = useAuth();
 
   const podeSugerirComIa = Boolean(user);
   const produtoSomenteLeitura = !isNew && situacaoProduto === 'DESATIVADO';
   const produtoTransmitido = !isNew && situacaoProduto !== 'RASCUNHO' && codigo.trim().length > 0;
   const podeInativarProduto = produtoTransmitido && !produtoSomenteLeitura;
+  const podeRetificarProduto =
+    !isNew &&
+    situacaoProduto === 'DESATIVADO' &&
+    codigo.trim().length > 0 &&
+    Boolean(versaoProduto) &&
+    (statusProduto === 'APROVADO' || statusProduto === 'TRANSMITIDO');
 
   const assinaturaFormularioAtual = React.useMemo(
     () =>
@@ -270,9 +284,12 @@ export default function ProdutoPage() {
     setIaJaSolicitada(false);
     setLimpezaInicialIaRealizada(false);
     setSituacaoProduto('RASCUNHO');
+    setStatusProduto(null);
     setVersaoProduto(null);
     setAssinaturaInicialFormulario('');
     setInativacaoModalAberta(false);
+    setRetificacaoModalAberta(false);
+    setRetificacaoEnfileirada(null);
     setInativandoProduto(false);
     setHistorico([]);
     setHistoricoCarregado(false);
@@ -1021,10 +1038,15 @@ export default function ProdutoPage() {
         operador: o.operadorEstrangeiro || null
       }));
       const valoresCarregados = (dados.atributos?.[0]?.valoresJson || {}) as Record<string, string | string[]>;
+      const versaoCarregada =
+        dados.versao !== null && dados.versao !== undefined && String(dados.versao).trim()
+          ? String(dados.versao).trim()
+          : null;
 
       setCodigo(codigoCarregado);
-      setVersaoProduto(typeof dados.versao === 'number' ? dados.versao : null);
+      setVersaoProduto(versaoCarregada);
       setSituacaoProduto((dados.situacao || 'RASCUNHO') as 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO');
+      setStatusProduto(dados.status || null);
       setCodigosInternos(codigosInternosCarregados);
       setOperadores(operadoresCarregados);
       setDenominacao(dados.denominacao || '');
@@ -1153,6 +1175,24 @@ export default function ProdutoPage() {
     setInativacaoModalAberta(false);
   }
 
+  function solicitarRetificacao() {
+    if (!podeRetificarProduto) return;
+
+    if (formularioAlterado) {
+      addToast('Salve as alteracoes pendentes antes de retificar o produto.', 'error');
+      return;
+    }
+
+    setRetificacaoModalAberta(true);
+    setRetificacaoEnfileirada(null);
+  }
+
+  function cancelarRetificacao() {
+    if (preparandoRetificacao) return;
+    setRetificacaoModalAberta(false);
+    setRetificacaoEnfileirada(null);
+  }
+
   async function confirmarInativacao() {
     if (typeof id !== 'string') return;
     if (formularioAlterado) {
@@ -1179,6 +1219,43 @@ export default function ProdutoPage() {
       addToast(retryable ? `${mensagem} Tente novamente.` : mensagem, 'error');
     } finally {
       setInativandoProduto(false);
+    }
+  }
+
+  async function confirmarRetificacao() {
+    if (typeof id !== 'string') return;
+    if (formularioAlterado) {
+      addToast('Salve as alteracoes pendentes antes de retificar o produto.', 'error');
+      return;
+    }
+
+    try {
+      setPreparandoRetificacao(true);
+      const resposta = await api.post(`/produtos/${id}/retificar/transmitir`);
+      const transmissaoId = resposta?.data?.dados?.transmissaoId;
+
+      if (!transmissaoId) {
+        throw new Error('Resposta sem transmissão de retificação.');
+      }
+
+      setRetificacaoEnfileirada({
+        transmissaoId,
+        mensagem:
+          resposta?.data?.mensagem ||
+          'Retificação enfileirada para transmissão ao SISCOMEX.',
+      });
+      addToast('Retificação enfileirada para transmissão.', 'success');
+    } catch (error: any) {
+      const payload = error?.response?.data?.error;
+      const mensagem =
+        typeof payload === 'string'
+          ? payload
+          : payload && typeof payload === 'object'
+            ? Object.values(payload).join(' ')
+            : error?.message || 'Nao foi possivel transmitir a retificação do produto.';
+      addToast(mensagem, 'error');
+    } finally {
+      setPreparandoRetificacao(false);
     }
   }
 
@@ -1281,12 +1358,29 @@ export default function ProdutoPage() {
               {inativandoProduto ? 'Desativando...' : 'Desativar'}
             </Button>
           )}
+          {podeRetificarProduto && (
+            <Button
+              type="button"
+              variant="primary"
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+              onClick={solicitarRetificacao}
+              disabled={preparandoRetificacao}
+              title={
+                formularioAlterado
+                  ? 'Salve as alteracoes pendentes antes de retificar.'
+                  : 'Retificar produto no SISCOMEX'
+              }
+            >
+              <RotateCcw size={16} />
+              {preparandoRetificacao ? 'Transmitindo...' : 'Retificar'}
+            </Button>
+          )}
           <Button
             type="button"
             variant="accent"
             className="flex items-center gap-2"
             onClick={() => salvar()}
-            disabled={produtoSomenteLeitura || inativandoProduto}
+            disabled={produtoSomenteLeitura || inativandoProduto || preparandoRetificacao}
           >
             <Save size={16} />
             Salvar Produto
@@ -1808,12 +1902,29 @@ export default function ProdutoPage() {
                     {inativandoProduto ? 'Desativando...' : 'Desativar'}
                   </Button>
                 )}
+                {podeRetificarProduto && (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+                    onClick={solicitarRetificacao}
+                    disabled={preparandoRetificacao}
+                    title={
+                      formularioAlterado
+                        ? 'Salve as alteracoes pendentes antes de retificar.'
+                        : 'Retificar produto no SISCOMEX'
+                    }
+                  >
+                    <RotateCcw size={16} />
+                    {preparandoRetificacao ? 'Transmitindo...' : 'Retificar'}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="accent"
                   className="flex items-center gap-2"
                   onClick={() => salvar()}
-                  disabled={produtoSomenteLeitura || inativandoProduto}
+                  disabled={produtoSomenteLeitura || inativandoProduto || preparandoRetificacao}
                 >
                   <Save size={16} />
                   Salvar Produto
@@ -1864,6 +1975,76 @@ export default function ProdutoPage() {
                 {inativandoProduto ? 'Desativando...' : 'Confirmar desativação'}
               </Button>
             </div>
+          </Card>
+        </div>
+      )}
+
+      {retificacaoModalAberta && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="max-w-md w-full p-6">
+            {retificacaoEnfileirada ? (
+              <>
+                <h3 className="text-xl font-semibold text-white mb-4">Retificação enfileirada</h3>
+                <p className="text-gray-300 mb-4">
+                  {retificacaoEnfileirada.mensagem} Acompanhe o processamento pela tela de
+                  transmissão.
+                </p>
+                <div className="flex justify-end gap-3">
+                  <Button variant="outline" onClick={cancelarRetificacao}>
+                    Fechar
+                  </Button>
+                  <Button
+                    variant="accent"
+                    onClick={() =>
+                      router.push(
+                        `/automacao/transmissoes-siscomex/${retificacaoEnfileirada.transmissaoId}`
+                      )
+                    }
+                  >
+                    Acompanhar transmissão
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-xl font-semibold text-white mb-4">Confirmar retificação</h3>
+                <p className="text-gray-300 mb-4">
+                  A retificação será enviada ao SISCOMEX. A transmissão será criada e enfileirada
+                  automaticamente.
+                </p>
+                <dl className="mb-4 space-y-2 text-sm text-gray-300">
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-gray-400">Código SISCOMEX</dt>
+                    <dd className="font-medium text-white">{codigo || '-'}</dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-gray-400">Versão atual</dt>
+                    <dd className="font-medium text-white">{versaoProduto || '-'}</dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-gray-400">Situação</dt>
+                    <dd className="font-medium text-white">{formatarSituacaoProduto(situacaoProduto)}</dd>
+                  </div>
+                </dl>
+                {formularioAlterado && (
+                  <p className="text-red-400 text-sm mb-4">
+                    Existem alterações pendentes. Salve antes de retificar.
+                  </p>
+                )}
+                <div className="flex justify-end gap-3">
+                  <Button variant="outline" onClick={cancelarRetificacao} disabled={preparandoRetificacao}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="accent"
+                    onClick={confirmarRetificacao}
+                    disabled={preparandoRetificacao || formularioAlterado}
+                  >
+                    {preparandoRetificacao ? 'Transmitindo...' : 'Confirmar e transmitir'}
+                  </Button>
+                </div>
+              </>
+            )}
           </Card>
         </div>
       )}

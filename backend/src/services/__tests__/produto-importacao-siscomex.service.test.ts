@@ -83,7 +83,7 @@ describe('ProdutoImportacaoService - SISCOMEX por arquivo', () => {
     expect(mockCatalogoPrisma.mensagem.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          texto: expect.stringContaining('Registros analisados: 4'),
+          conteudo: expect.stringContaining('Total de registros: 4'),
         }),
       })
     );

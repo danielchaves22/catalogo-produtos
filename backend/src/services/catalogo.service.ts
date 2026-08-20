@@ -362,7 +362,7 @@ async clonar(id: number, nome: string, cpf_cnpj: string, superUserId: number) {
       const novoProduto = await tx.produto.create({
         data: {
           codigo: null,
-          versao: prod.versao,
+          versao: null,
           status: prod.status ?? 'PENDENTE',
           situacao: prod.situacao,
           ncmCodigo: prod.ncmCodigo,

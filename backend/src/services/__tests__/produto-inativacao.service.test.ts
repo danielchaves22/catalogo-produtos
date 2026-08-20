@@ -51,14 +51,14 @@ describe('ProdutoInativacaoService', () => {
       codigo: '999',
       catalogoId: 10,
       situacao: 'ATIVADO',
-      versao: 4,
+      versao: '4',
     })
     catalogoServiceMock.buscarPorId.mockResolvedValue({
       id: 10,
       cpf_cnpj: '12.345.678/0001-99',
     })
     produtoServiceMock.marcarComoTransmitido.mockResolvedValue({ id: 1, situacao: 'DESATIVADO' })
-    siscomexClientMock.desativarProduto.mockResolvedValue({ situacao: 'DESATIVADO', versao: 5 })
+    siscomexClientMock.desativarProduto.mockResolvedValue({ situacao: 'DESATIVADO', versao: '5' })
     siscomexClientMock.consultarProdutos.mockResolvedValue([])
   })
 
@@ -73,8 +73,9 @@ describe('ProdutoInativacaoService', () => {
       99,
       expect.objectContaining({
         situacao: 'DESATIVADO',
-        versao: 5,
+        versao: '5',
         atualizarCodigo: false,
+        tipoEventoHistorico: 'ATUALIZACAO',
       })
     )
   })
@@ -98,7 +99,7 @@ describe('ProdutoInativacaoService', () => {
       criarErroSiscomex('timeout na chamada', 504)
     )
     siscomexClientMock.consultarProdutos.mockResolvedValue([
-      { codigo: '999', situacao: 'DESATIVADO', versao: 7 },
+      { codigo: '999', situacao: 'DESATIVADO', versao: '7' },
     ])
 
     const resultado = await service.inativarProduto(1, 99)
@@ -109,7 +110,7 @@ describe('ProdutoInativacaoService', () => {
       99,
       expect.objectContaining({
         situacao: 'DESATIVADO',
-        versao: 7,
+        versao: '7',
       })
     )
   })
@@ -120,7 +121,7 @@ describe('ProdutoInativacaoService', () => {
       criarErroSiscomex('erro de rede', 503)
     )
     siscomexClientMock.consultarProdutos.mockResolvedValue([
-      { codigo: '999', situacao: 'ATIVADO', versao: 6 },
+      { codigo: '999', situacao: 'ATIVADO', versao: '6' },
     ])
 
     await expect(service.inativarProduto(1, 99)).rejects.toMatchObject({
@@ -151,7 +152,7 @@ describe('ProdutoInativacaoService', () => {
       codigo: '999',
       catalogoId: 10,
       situacao: 'DESATIVADO',
-      versao: 9,
+      versao: '9',
     })
 
     await expect(service.inativarProduto(1, 99)).rejects.toMatchObject({

@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { CatalogoService } from './catalogo.service';
 import { ProdutoService } from './produto.service';
 import { SiscomexErroDetalhado, SiscomexProduto, SiscomexService } from './siscomex.service';
+import { normalizarVersaoSiscomex } from '../utils/versao-siscomex';
 
 type ProdutoSituacao = 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
 
@@ -17,7 +18,7 @@ type CategoriaErroSiscomex = 'funcional' | 'autenticacao' | 'certificado' | 'tec
 
 type ResultadoConfirmacaoDesativacao = {
   confirmado: boolean;
-  versao?: number;
+  versao?: string;
 };
 
 export type ProdutoInativacaoErroCodigo =
@@ -267,16 +268,25 @@ export class ProdutoInativacaoService {
     produtoId: number,
     superUserId: number,
     codigoProduto: string,
-    versao?: number
+    versao?: string | null
   ) {
-    const versaoNumerica = Number(versao);
-    const versaoFinal = Number.isFinite(versaoNumerica) && versaoNumerica > 0 ? versaoNumerica : 1;
+    const versaoFinal = normalizarVersaoSiscomex(versao);
+
+    if (!versaoFinal) {
+      throw new ProdutoInativacaoError({
+        message: 'Nao foi possivel determinar a versao SISCOMEX do produto inativado.',
+        status: 503,
+        codigo: 'INTEGRACAO_RETRYAVEL',
+        retryable: true,
+      });
+    }
 
     return this.produtoService.marcarComoTransmitido(produtoId, superUserId, {
       codigo: codigoProduto,
       versao: versaoFinal,
       situacao: 'DESATIVADO',
       atualizarCodigo: false,
+      tipoEventoHistorico: 'ATUALIZACAO',
     });
   }
 
@@ -358,8 +368,7 @@ export class ProdutoInativacaoService {
       return undefined;
     }
 
-    const valor = Number(item.versao);
-    return Number.isFinite(valor) && valor > 0 ? valor : undefined;
+    return normalizarVersaoSiscomex(item.versao) ?? undefined;
   }
 
   private classificarErroSiscomex(error: unknown): CategoriaErroSiscomex {

@@ -283,7 +283,7 @@ model ProdutoTransmissaoItem {
   status         ProdutoTransmissaoItemStatus @default(PENDENTE) @map("status")
   mensagem       String?                      @map("mensagem") @db.Text
   retornoCodigo  String?                      @map("retorno_codigo")
-  retornoVersao  Int?                         @map("retorno_versao")
+  retornoVersao  String?                      @map("retorno_versao") @db.VarChar(8)
   retornoSituacao String?                     @map("retorno_situacao")
   criadoEm       DateTime                     @default(now()) @map("criado_em")
   atualizadoEm   DateTime                     @updatedAt @map("atualizado_em")
@@ -489,6 +489,7 @@ enum ProdutoTransmissaoBlocoStatus {
 enum ProdutoTransmissaoItemOperacao {
   INCLUSAO
   NOVA_VERSAO
+  RETIFICACAO
 }
 
 enum ProdutoTransmissaoModalidade {
@@ -531,7 +532,7 @@ model AtributosCache {
 model Produto {
     id                       Int                    @id @default(autoincrement()) @map("id")
     codigo                   String?                @map("codigo") @db.VarChar(50)
-    versao                   Int                    @map("versao")
+    versao                   String?                @map("versao") @db.VarChar(8)
     status                   ProdutoStatus          @map("status")
     situacao                 ProdutoSituacao        @default(RASCUNHO) @map("situacao")
     ncmCodigo                String                 @map("ncm_codigo")
@@ -564,7 +565,7 @@ model Produto {
 model ProdutoHistoricoVersao {
   id             Int      @id @default(autoincrement()) @map("id")
   produtoId      Int      @map("produto_id")
-  versaoSiscomex Int      @map("versao_siscomex")
+  versaoSiscomex String   @map("versao_siscomex") @db.VarChar(8)
   tipoEvento     String   @map("tipo_evento")
   resumo         String?  @map("resumo") @db.Text
   deltaJson      Json?    @map("delta_json")

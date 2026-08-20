@@ -130,9 +130,21 @@ export function gerarDeltaHistoricoProduto(anterior: unknown, atual: unknown): D
   };
 }
 
-export function gerarResumoDelta(delta: DeltaHistoricoProduto, versaoSiscomex: number) {
-  if (versaoSiscomex <= 1) {
+export function gerarResumoDelta(
+  delta: DeltaHistoricoProduto,
+  versaoSiscomex: string,
+  tipoEvento: 'CRIACAO' | 'ATUALIZACAO' | 'RETIFICACAO'
+) {
+  if (tipoEvento === 'CRIACAO') {
     return 'Produto criado no SISCOMEX.';
+  }
+
+  if (tipoEvento === 'RETIFICACAO' && !delta.changes.length) {
+    return `Retificação ${versaoSiscomex} sem alterações de conteúdo.`;
+  }
+
+  if (tipoEvento === 'RETIFICACAO') {
+    return `${delta.changes.length} alteração(ões) na retificação ${versaoSiscomex}.`;
   }
 
   if (!delta.changes.length) {

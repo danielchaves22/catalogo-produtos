@@ -24,7 +24,7 @@ interface ProdutoTransmissao {
   catalogoId?: number;
   catalogoNome?: string | null;
   catalogoNumero?: number | null;
-  versao?: number | null;
+  versao?: string | null;
 }
 
 interface CatalogoResumo {

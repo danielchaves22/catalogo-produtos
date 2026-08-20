@@ -59,7 +59,7 @@ type MockItem = {
   status: ProdutoTransmissaoItemStatus
   mensagem: string | null
   retornoCodigo: string | null
-  retornoVersao: number | null
+  retornoVersao: string | null
   retornoSituacao: string | null
   criadoEm: Date
   atualizadoEm: Date
@@ -285,6 +285,25 @@ jest.mock('../../utils/prisma', () => {
       }),
     },
     produtoTransmissaoItem: {
+      create: jest.fn(async ({ data }) => {
+        const item: MockItem = {
+          id: state.nextItemId++,
+          transmissaoId: data.transmissaoId,
+          blocoId: data.blocoId ?? null,
+          produtoId: data.produtoId,
+          ordemExecucao: data.ordemExecucao ?? null,
+          operacao: data.operacao,
+          status: data.status,
+          mensagem: data.mensagem ?? null,
+          retornoCodigo: data.retornoCodigo ?? null,
+          retornoVersao: data.retornoVersao ?? null,
+          retornoSituacao: data.retornoSituacao ?? null,
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+        }
+        state.itens.push(item)
+        return clonarItem(item)
+      }),
       count: jest.fn(async ({ where }) => {
         return state.itens.filter(item => {
           if (where?.transmissaoId !== undefined && item.transmissaoId !== where.transmissaoId) return false
@@ -333,6 +352,20 @@ jest.mock('../../utils/prisma', () => {
 
         return itens.map(item => selecionarCampos(item as any, select))
       }),
+      findFirst: jest.fn(async ({ where, select }) => {
+        const item =
+          state.itens.find(registro => {
+            if (where?.produtoId !== undefined && registro.produtoId !== where.produtoId) return false
+            if (where?.transmissao?.status?.in) {
+              const transmissao = localizarTransmissao(registro.transmissaoId)
+              if (!transmissao || !where.transmissao.status.in.includes(transmissao.status)) return false
+            }
+            return true
+          }) ?? null
+
+        if (!item) return null
+        return select ? selecionarCampos(clonarItem(item) as any, select) : clonarItem(item)
+      }),
       update: jest.fn(async ({ where, data }) => {
         const item = state.itens.find(registro => registro.id === where.id)
         if (!item) throw new Error('Item não encontrado')
@@ -357,6 +390,21 @@ jest.mock('../../utils/prisma', () => {
         if (indice < 0) throw new Error('Item nÃ£o encontrado')
         const [removido] = state.itens.splice(indice, 1)
         return clonarItem(removido)
+      }),
+    },
+    produto: {
+      findFirst: jest.fn(async ({ where, select }) => {
+        const produto = state.produtos.get(where?.id) ?? null
+        if (!produto) return null
+
+        const catalogo = localizarCatalogo(produto.catalogoId ?? 5)
+        const resposta = {
+          ...produto,
+          catalogoId: produto.catalogoId ?? 5,
+          catalogo: select?.catalogo ? { cpf_cnpj: catalogo?.cpf_cnpj ?? null } : undefined,
+        }
+
+        return select ? selecionarCampos(resposta, select) : resposta
       }),
     },
     produtoTransmissaoBloco: {
@@ -456,6 +504,7 @@ describe('ProdutoTransmissaoService', () => {
   const siscomexClientMock = {
     atualizarProduto: jest.fn(),
     incluirProduto: jest.fn(),
+    retificarProduto: jest.fn(),
   }
 
   let service: ProdutoTransmissaoService
@@ -602,8 +651,8 @@ describe('ProdutoTransmissaoService', () => {
       { seq: 1, codigo: null, descricao: 'Produto 1', denominacao: 'Produto 1', modalidade: 'IMPORTACAO', ncm: '01010101', atributos: [], atributosMultivalorados: [], atributosCompostos: [], atributosCompostosMultivalorados: [], codigosInterno: [] },
       { seq: 2, codigo: 'COD-2', descricao: 'Produto 2', denominacao: 'Produto 2', modalidade: 'IMPORTACAO', ncm: '02020202', atributos: [], atributosMultivalorados: [], atributosCompostos: [], atributosCompostosMultivalorados: [], codigosInterno: [] },
     ])
-    siscomexClientMock.incluirProduto.mockResolvedValue({ codigo: 'NOVO-1', versao: 1, situacao: 'ATIVADO' })
-    siscomexClientMock.atualizarProduto.mockResolvedValue({ versao: 4, situacao: 'ATIVADO' })
+    siscomexClientMock.incluirProduto.mockResolvedValue({ codigo: 'NOVO-1', versao: '1', situacao: 'ATIVADO' })
+    siscomexClientMock.atualizarProduto.mockResolvedValue({ versao: '4', situacao: 'ATIVADO' })
 
     await service.processarTransmissaoJob(1, 99, jest.fn(), 700)
 
@@ -635,13 +684,13 @@ describe('ProdutoTransmissaoService', () => {
       1,
       1,
       99,
-      expect.objectContaining({ codigo: 'NOVO-1', versao: 1, atualizarCodigo: true })
+      expect.objectContaining({ codigo: 'NOVO-1', versao: '1', atualizarCodigo: true, tipoEventoHistorico: 'CRIACAO' })
     )
     expect(produtoServiceMock.marcarComoTransmitido).toHaveBeenNthCalledWith(
       2,
       2,
       99,
-      expect.objectContaining({ codigo: 'COD-2', versao: 4, atualizarCodigo: false })
+      expect.objectContaining({ codigo: 'COD-2', versao: '4', atualizarCodigo: false, tipoEventoHistorico: 'ATUALIZACAO' })
     )
     expect(state.itens.map(item => item.status)).toEqual([
       ProdutoTransmissaoItemStatus.SUCESSO,
@@ -653,6 +702,177 @@ describe('ProdutoTransmissaoService', () => {
       totalErro: 0,
     })
     expect(storageMock.upload).toHaveBeenCalledTimes(2)
+  })
+
+  it('prepara retificação deliberada apenas para produto desativado com código e versão SISCOMEX', async () => {
+    state.produtos.set(3, {
+      id: 3,
+      catalogoId: 5,
+      codigo: 'COD-3',
+      versao: '1',
+      status: 'TRANSMITIDO',
+      situacao: 'DESATIVADO',
+      denominacao: 'Produto retificável',
+    })
+
+    const resultado = await service.prepararRetificacaoProduto(3, 99)
+
+    expect(resultado).toEqual({ transmissaoId: 1 })
+    expect(localizarTransmissao(1)).toMatchObject({
+      catalogoId: 5,
+      status: ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO,
+      totalItens: 1,
+    })
+    expect(state.itens).toHaveLength(1)
+    expect(state.itens[0]).toMatchObject({
+      produtoId: 3,
+      operacao: ProdutoTransmissaoItemOperacao.RETIFICACAO,
+      status: ProdutoTransmissaoItemStatus.PENDENTE,
+    })
+  })
+
+  it('transmite retificação criando pré-transmissão técnica e enfileirando em seguida', async () => {
+    state.produtos.set(3, {
+      id: 3,
+      catalogoId: 5,
+      codigo: 'COD-3',
+      versao: '1',
+      status: 'TRANSMITIDO',
+      situacao: 'DESATIVADO',
+      denominacao: 'Produto retificável',
+    })
+    exportacaoServiceMock.buscarProdutosComAtributos.mockResolvedValue([
+      { id: 3, status: 'TRANSMITIDO', situacao: 'DESATIVADO', codigo: 'COD-3', versao: '1' },
+    ])
+
+    const resultado = await service.transmitirRetificacaoProduto(3, 99)
+
+    expect(resultado).toEqual({ transmissaoId: 1, jobId: 700, posicaoFilaCatalogo: 1 })
+    expect(createAsyncJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tipo: 'TRANSMISSAO_PRODUTO',
+        payload: { transmissaoId: 1, superUserId: 99 },
+      }),
+      catalogoPrisma
+    )
+    expect(localizarTransmissao(1)).toMatchObject({
+      status: ProdutoTransmissaoStatus.EM_FILA,
+      asyncJobId: 700,
+      totalItens: 1,
+      selecaoJson: [3],
+    })
+    expect(state.blocos).toHaveLength(1)
+    expect(state.itens[0]).toMatchObject({
+      produtoId: 3,
+      operacao: ProdutoTransmissaoItemOperacao.RETIFICACAO,
+      status: ProdutoTransmissaoItemStatus.PENDENTE,
+      ordemExecucao: 1,
+    })
+  })
+
+  it('executa retificação preservando versão decimal retornada pelo SISCOMEX', async () => {
+    state.produtos.set(3, {
+      id: 3,
+      catalogoId: 5,
+      codigo: 'COD-3',
+      versao: '1',
+      status: 'TRANSMITIDO',
+      situacao: 'DESATIVADO',
+      denominacao: 'Produto retificável',
+    })
+    state.transmissoes.push({
+      id: 1,
+      superUserId: 99,
+      catalogoId: 5,
+      usuarioCatalogoId: null,
+      asyncJobId: 700,
+      modalidade: 'PRODUTOS',
+      status: ProdutoTransmissaoStatus.EM_FILA,
+      totalItens: 1,
+      totalSucesso: 0,
+      totalErro: 0,
+      selecaoJson: [3],
+      origemTipo: 'MANUAL',
+      origemContextoJson: { acao: 'RETIFICACAO_PRODUTO', produtoId: 3, codigo: 'COD-3', versao: '1' },
+      enfileiradaEm: new Date(),
+      payloadEnvioPath: null,
+      payloadEnvioExpiraEm: null,
+      payloadEnvioTamanho: null,
+      payloadEnvioProvider: null,
+      payloadRetornoPath: null,
+      payloadRetornoExpiraEm: null,
+      payloadRetornoTamanho: null,
+      payloadRetornoProvider: null,
+      iniciadoEm: null,
+      concluidoEm: null,
+      criadoEm: new Date(),
+    })
+    state.blocos.push({
+      id: 1,
+      transmissaoId: 1,
+      ordem: 1,
+      status: ProdutoTransmissaoBlocoStatus.PENDENTE,
+      totalItens: 1,
+      totalSucesso: 0,
+      totalErro: 0,
+      mensagem: null,
+      iniciadoEm: null,
+      concluidoEm: null,
+      criadoEm: new Date(),
+      atualizadoEm: new Date(),
+    })
+    state.itens.push({
+      id: 13,
+      transmissaoId: 1,
+      blocoId: 1,
+      produtoId: 3,
+      ordemExecucao: 1,
+      operacao: ProdutoTransmissaoItemOperacao.RETIFICACAO,
+      status: ProdutoTransmissaoItemStatus.PENDENTE,
+      mensagem: null,
+      retornoCodigo: null,
+      retornoVersao: null,
+      retornoSituacao: null,
+      criadoEm: new Date(),
+      atualizadoEm: new Date(),
+    })
+    exportacaoServiceMock.buscarProdutosComAtributos.mockResolvedValue([
+      { id: 3, status: 'TRANSMITIDO', situacao: 'DESATIVADO', codigo: 'COD-3', versao: '1' },
+    ])
+    exportacaoServiceMock.transformarParaSiscomex.mockReturnValue([
+      { seq: 3, codigo: 'COD-3', versao: '1', descricao: 'Produto 3', denominacao: 'Produto 3', modalidade: 'IMPORTACAO', ncm: '03030303', atributos: [], atributosMultivalorados: [], atributosCompostos: [], atributosCompostosMultivalorados: [], codigosInterno: [] },
+    ])
+    siscomexClientMock.retificarProduto.mockResolvedValue({
+      codigo: 'COD-3',
+      versao: '1.1',
+      situacao: 'DESATIVADO',
+    })
+
+    await service.processarTransmissaoJob(1, 99, jest.fn(), 700)
+
+    expect(siscomexClientMock.retificarProduto).toHaveBeenCalledWith('12345678', 'COD-3', '1', {
+      descricao: 'Produto 3',
+      denominacao: 'Produto 3',
+      modalidade: 'IMPORTACAO',
+      ncm: '03030303',
+      atributos: [],
+      atributosMultivalorados: [],
+      atributosCompostos: [],
+      atributosCompostosMultivalorados: [],
+      codigosInterno: [],
+    })
+    expect(produtoServiceMock.marcarComoTransmitido).toHaveBeenCalledWith(
+      3,
+      99,
+      expect.objectContaining({
+        codigo: 'COD-3',
+        versao: '1.1',
+        situacao: 'DESATIVADO',
+        atualizarCodigo: false,
+        tipoEventoHistorico: 'RETIFICACAO',
+      })
+    )
+    expect(state.itens[0].retornoVersao).toBe('1.1')
   })
 
   it('faz retry em erro técnico e conclui com sucesso', async () => {
@@ -718,7 +938,7 @@ describe('ProdutoTransmissaoService', () => {
     ])
     siscomexClientMock.incluirProduto
       .mockRejectedValueOnce(criarErroSiscomex('timeout na chamada', 503))
-      .mockResolvedValueOnce({ codigo: 'NOVO-1', versao: 1, situacao: 'ATIVADO' })
+      .mockResolvedValueOnce({ codigo: 'NOVO-1', versao: '1', situacao: 'ATIVADO' })
 
     await service.processarTransmissaoJob(1, 99, jest.fn(), 700)
 

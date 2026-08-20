@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { catalogoPrisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import { normalizarVersaoSiscomex } from '../utils/versao-siscomex';
 import { ProdutoService } from './produto.service';
 import { NcmLegacyService } from './ncm-legacy.service';
 
@@ -190,6 +191,7 @@ interface ProdutoNormalizado {
   referencia: number;
   seqChave: string;
   codigoSiscomex: string | null;
+  versao: string | null;
   denominacao: string;
   descricao: string;
   modalidade: string;
@@ -582,6 +584,7 @@ export class ProdutoImportacaoSiscomexArquivoService {
           const produtoCriado = await this.produtoService.criar(
             {
               codigo: produto.codigoSiscomex ?? undefined,
+              versao: produto.versao,
               ncmCodigo: produto.ncm!,
               modalidade: produto.modalidade,
               catalogoId: catalogo.id,
@@ -1117,11 +1120,17 @@ export class ProdutoImportacaoSiscomexArquivoService {
 
     const codigosInternos = this.normalizarListaCodigos(registro.codigosInterno);
     const codigoSiscomex = this.normalizarCodigo(registro.codigo);
+    const versao = normalizarVersaoSiscomex(registro.versao);
+
+    if (codigoSiscomex && !versao) {
+      mensagens.impeditivos.push('Versao SISCOMEX do produto nao informada ou mal formatada.');
+    }
 
     return {
       referencia,
       seqChave: String(referencia),
       codigoSiscomex,
+      versao,
       denominacao: denominacao ?? '',
       descricao,
       modalidade: modalidade ?? 'IMPORTACAO',

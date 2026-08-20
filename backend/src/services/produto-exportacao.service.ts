@@ -87,7 +87,7 @@ export interface ProdutoExportacaoProdutoDTO {
 interface ProdutoComAtributos {
   id: number;
   codigo: string | null;
-  versao: number | null;
+  versao: string | null;
   versaoAtributoId: number | null;
   status: string;
   situacao: string;
@@ -446,7 +446,8 @@ export class ProdutoExportacaoService {
       const cpfCnpjSemMascara = cpfCnpjBase ? cpfCnpjBase.replace(/\D/g, '') : '';
 
       const cpfCnpjRaiz = this.obterCpfCnpjRaiz(cpfCnpjSemMascara);
-      const versao = typeof produto.versao === 'number' && Number.isFinite(produto.versao) ? String(produto.versao) : '';
+      const versao =
+        produto.versao !== null && produto.versao !== undefined ? String(produto.versao).trim() : '';
 
       return {
         seq: produto.id,

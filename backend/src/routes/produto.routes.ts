@@ -8,6 +8,8 @@ import {
   atualizarProduto,
   removerProduto,
   inativarProduto,
+  prepararRetificacaoProduto,
+  transmitirRetificacaoProduto,
   clonarProduto,
   contarPendenciasAjusteEstrutura,
   listarPendenciasAjusteEstruturaDetalhadas,
@@ -63,6 +65,8 @@ router.post('/exportacoes', validate(exportarProdutosSchema), solicitarExportaca
 router.post('/exportacoes/fabricantes', validate(exportarProdutosSchema), solicitarExportacaoFabricantes);
 router.post('/:id/clonar', validate(cloneProdutoSchema), clonarProduto);
 router.post('/:id/inativar', inativarProduto);
+router.post('/:id/retificar/transmitir', transmitirRetificacaoProduto);
+router.post('/:id/retificar', prepararRetificacaoProduto);
 router.post('/excluir-em-massa', validate(deleteProdutosEmMassaSchema), removerProdutosEmMassa);
 router.delete('/:id', removerProduto);
 

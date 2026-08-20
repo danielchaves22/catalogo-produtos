@@ -6,7 +6,7 @@ import { logger } from '../utils/logger';
 // Interfaces baseadas na documentação SISCOMEX
 export interface SiscomexProduto {
   codigo: string;
-  versao: number;
+  versao: string;
   situacao: 'ATIVADO' | 'DESATIVADO' | 'RASCUNHO';
   modalidadeOperacao: 'IMPORTACAO' | 'EXPORTACAO' | 'AMBOS';
   ncm: string;
@@ -98,6 +98,8 @@ type SiscomexProdutoRequestPayload = {
 type SiscomexProdutoInclusao = SiscomexProdutoRequestPayload;
 
 type SiscomexProdutoAtualizacao = SiscomexProdutoRequestPayload;
+
+type SiscomexProdutoRetificacao = SiscomexProdutoRequestPayload;
 
 export type SiscomexCertificado = {
   pfx: Buffer;
@@ -501,7 +503,7 @@ export class SiscomexService {
   ): Promise<SiscomexProduto> {
     try {
       const response = await this.api.put<SiscomexProduto | SiscomexProduto[]>(
-        `/ext/produto/${cpfCnpjRaiz}/${codigoProduto}`,
+        `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}/${encodeURIComponent(codigoProduto)}`,
         produto
       );
 
@@ -509,6 +511,29 @@ export class SiscomexService {
       return dados;
     } catch (error) {
       logger.error('Erro ao atualizar produto SISCOMEX:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Retifica uma versão específica de produto no catálogo SISCOMEX
+   */
+  async retificarProduto(
+    cpfCnpjRaiz: string,
+    codigoProduto: string,
+    versao: string,
+    produto: SiscomexProdutoRetificacao
+  ): Promise<SiscomexProduto> {
+    try {
+      const response = await this.api.put<SiscomexProduto | SiscomexProduto[]>(
+        `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}/${encodeURIComponent(codigoProduto)}/${encodeURIComponent(versao)}`,
+        produto
+      );
+
+      const dados = Array.isArray(response.data) ? response.data[0] : response.data;
+      return dados;
+    } catch (error) {
+      logger.error('Erro ao retificar produto SISCOMEX:', error);
       throw error;
     }
   }

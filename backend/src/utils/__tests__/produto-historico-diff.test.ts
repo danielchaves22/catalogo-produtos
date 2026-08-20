@@ -25,7 +25,7 @@ describe('produto-historico-diff', () => {
 
   it('deve gerar resumo de criação na versão 1', () => {
     const delta = gerarDeltaHistoricoProduto(null, { denominacao: 'Produto novo' });
-    expect(gerarResumoDelta(delta, 1)).toBe('Produto criado no SISCOMEX.');
+    expect(gerarResumoDelta(delta, '1', 'CRIACAO')).toBe('Produto criado no SISCOMEX.');
   });
 
   it('deve preservar mudanças quando snapshot anterior é nulo', () => {
@@ -44,6 +44,6 @@ describe('produto-historico-diff', () => {
 
   it('deve priorizar resumo de criação mesmo sem mudanças na versão 1', () => {
     const deltaSemMudancas = gerarDeltaHistoricoProduto({ codigo: '1' }, { codigo: '1' });
-    expect(gerarResumoDelta(deltaSemMudancas, 1)).toBe('Produto criado no SISCOMEX.');
+    expect(gerarResumoDelta(deltaSemMudancas, '1', 'CRIACAO')).toBe('Produto criado no SISCOMEX.');
   });
 });

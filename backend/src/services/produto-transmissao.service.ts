@@ -21,9 +21,11 @@ import { createAsyncJob, registerJobLog } from '../jobs/async-job.repository';
 import { storageFactory } from './storage.factory';
 import { logger } from '../utils/logger';
 import {
+  STATUS_TRANSMISSAO_ABERTA,
   STATUS_TRANSMISSAO_EXECUCAO,
   STATUS_TRANSMISSAO_FILA_CATALOGO,
 } from '../constants/transmissao-status';
+import { normalizarVersaoSiscomex, ProdutoHistoricoTipoEvento } from '../utils/versao-siscomex';
 
 interface OpcaoSolicitarTransmissao {
   forcarAtualizacaoVersao?: boolean;
@@ -42,6 +44,7 @@ interface PlanejamentoItemTransmissao {
   produtoId: number;
   operacao: ProdutoTransmissaoItemOperacao;
   codigo: string | null;
+  versao: string | null;
   endpoint: string;
   payload: Record<string, any>;
 }
@@ -77,7 +80,7 @@ interface RetornoItemTransmissao {
   detalhes?: SiscomexErroDetalhado | null;
   retorno?: {
     codigo?: string | null;
-    versao?: number | null;
+    versao?: string | null;
     situacao?: string | null;
   };
 }
@@ -88,7 +91,7 @@ type ResultadoExecucaoItem =
       mensagem: null;
       retorno: RetornoItemTransmissao;
       codigoPersistencia: string | null;
-      versao: number;
+      versao: string;
       situacao: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
     }
   | {
@@ -133,7 +136,7 @@ type ItemTransmissaoPersistido = {
   status: ProdutoTransmissaoItemStatus;
   mensagem?: string | null;
   retornoCodigo?: string | null;
-  retornoVersao?: number | null;
+  retornoVersao?: string | null;
   retornoSituacao?: string | null;
 };
 
@@ -383,6 +386,126 @@ export class ProdutoTransmissaoService {
     });
   }
 
+  async prepararRetificacaoProduto(
+    produtoId: number,
+    superUserId: number,
+    usuarioCatalogoId?: number | null
+  ) {
+    if (!Number.isFinite(produtoId)) {
+      throw new ValidationError({ produtoId: 'Produto selecionado é inválido.' });
+    }
+
+    const produto = await catalogoPrisma.produto.findFirst({
+      where: { id: produtoId, catalogo: { superUserId } },
+      select: {
+        id: true,
+        catalogoId: true,
+        codigo: true,
+        versao: true,
+        status: true,
+        situacao: true,
+        catalogo: { select: { cpf_cnpj: true } },
+      },
+    });
+
+    if (!produto) {
+      throw new ValidationError({ produtoId: 'Produto não encontrado para retificação.' });
+    }
+
+    const codigoNormalizado = this.normalizarCodigoSiscomex(produto.codigo);
+    const versaoNormalizada = normalizarVersaoSiscomex(produto.versao);
+    const status = String(produto.status || '').toUpperCase();
+    const situacao = String(produto.situacao || '').toUpperCase();
+    const erros: Record<string, string> = {};
+
+    if (situacao !== 'DESATIVADO') {
+      erros.situacao = 'Somente produtos DESATIVADO podem ser retificados.';
+    }
+
+    if (status !== 'APROVADO' && status !== 'TRANSMITIDO') {
+      erros.status = 'Somente produtos aprovados ou já transmitidos podem ser retificados.';
+    }
+
+    if (!codigoNormalizado) {
+      erros.codigo = 'Produto sem código SISCOMEX para retificação.';
+    }
+
+    if (!versaoNormalizada) {
+      erros.versao = 'Produto sem versão SISCOMEX válida para retificação.';
+    }
+
+    const cpfCnpjRaiz = this.extrairCpfCnpjRaiz(produto.catalogo?.cpf_cnpj);
+    if (!cpfCnpjRaiz) {
+      erros.catalogoId = 'Catálogo do produto está sem CNPJ válido para retificação no SISCOMEX.';
+    }
+
+    const itemAberto = await catalogoPrisma.produtoTransmissaoItem.findFirst({
+      where: {
+        produtoId,
+        transmissao: {
+          status: { in: STATUS_TRANSMISSAO_ABERTA },
+        },
+      },
+      select: { transmissaoId: true },
+    });
+
+    if (itemAberto) {
+      erros.transmissao = `Produto já possui transmissão em aberto (#${itemAberto.transmissaoId}).`;
+    }
+
+    if (Object.keys(erros).length > 0) {
+      throw new ValidationError(erros);
+    }
+
+    return catalogoPrisma.$transaction(async tx => {
+      const transmissao = await tx.produtoTransmissao.create({
+        data: {
+          superUserId,
+          catalogoId: produto.catalogoId,
+          usuarioCatalogoId: usuarioCatalogoId ?? null,
+          modalidade: ProdutoTransmissaoModalidade.PRODUTOS,
+          origemTipo: ProdutoTransmissaoOrigemTipo.MANUAL,
+          origemContextoJson: {
+            acao: 'RETIFICACAO_PRODUTO',
+            produtoId,
+            codigo: codigoNormalizado,
+            versao: versaoNormalizada,
+          } as Prisma.InputJsonValue,
+          status: ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO,
+          totalItens: 1,
+          totalSucesso: 0,
+          totalErro: 0,
+          selecaoJson: [produtoId] as Prisma.InputJsonValue,
+        },
+      });
+
+      await tx.produtoTransmissaoItem.create({
+        data: {
+          transmissaoId: transmissao.id,
+          produtoId,
+          operacao: ProdutoTransmissaoItemOperacao.RETIFICACAO,
+          status: ProdutoTransmissaoItemStatus.PENDENTE,
+        },
+      });
+
+      return { transmissaoId: transmissao.id };
+    });
+  }
+
+  async transmitirRetificacaoProduto(
+    produtoId: number,
+    superUserId: number,
+    usuarioCatalogoId?: number | null
+  ) {
+    const { transmissaoId } = await this.prepararRetificacaoProduto(
+      produtoId,
+      superUserId,
+      usuarioCatalogoId
+    );
+
+    return this.iniciarTransmissao(transmissaoId, superUserId);
+  }
+
   async iniciarTransmissao(transmissaoId: number, superUserId: number) {
     if (!Number.isFinite(transmissaoId)) {
       throw new ValidationError({ transmissaoId: 'Transmissão selecionada é inválida.' });
@@ -424,11 +547,20 @@ export class ProdutoTransmissaoService {
 
     return catalogoPrisma.$transaction(async tx => {
       if (transmissao.status === ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO) {
-        const preparacao = await this.validarSelecaoParaTransmissao(
-          idsSelecionados,
-          transmissao.catalogoId,
-          superUserId
+        const possuiRetificacao = transmissao.itens.some(
+          item => item.operacao === ProdutoTransmissaoItemOperacao.RETIFICACAO
         );
+        const preparacao = possuiRetificacao
+          ? await this.validarItensPreTransmissaoSemInferirOperacao(
+              transmissao.itens,
+              transmissao.catalogoId,
+              superUserId
+            )
+          : await this.validarSelecaoParaTransmissao(
+              idsSelecionados,
+              transmissao.catalogoId,
+              superUserId
+            );
 
         await this.prepararItensEBlocosParaFila(
           tx,
@@ -860,7 +992,36 @@ export class ProdutoTransmissaoService {
         }
 
         const statusProduto = String(produtoAtual.status || '').toUpperCase();
-        if (statusProduto !== 'APROVADO') {
+        const situacaoProdutoAtual = String(produtoAtual.situacao || '').toUpperCase();
+        const isRetificacao = planejamento.operacao === ProdutoTransmissaoItemOperacao.RETIFICACAO;
+
+        if (
+          isRetificacao &&
+          statusProduto !== 'APROVADO' &&
+          statusProduto !== 'TRANSMITIDO'
+        ) {
+          await this.marcarItemComoErro(
+            transmissao.id,
+            item.blocoId,
+            item.id,
+            `Produto não está apto para retificação. Status atual: ${statusProduto || 'desconhecido'}.`
+          );
+          processadosNoCiclo += 1;
+          continue;
+        }
+
+        if (isRetificacao && situacaoProdutoAtual !== 'DESATIVADO') {
+          await this.marcarItemComoErro(
+            transmissao.id,
+            item.blocoId,
+            item.id,
+            `Produto não está desativado para retificação. Situação atual: ${situacaoProdutoAtual || 'desconhecida'}.`
+          );
+          processadosNoCiclo += 1;
+          continue;
+        }
+
+        if (!isRetificacao && statusProduto !== 'APROVADO') {
           await this.marcarItemComoErro(
             transmissao.id,
             item.blocoId,
@@ -895,7 +1056,8 @@ export class ProdutoTransmissaoService {
             codigo: resultado.codigoPersistencia,
             versao: resultado.versao,
             situacao: resultado.situacao,
-            atualizarCodigo: planejamento.operacao !== ProdutoTransmissaoItemOperacao.NOVA_VERSAO,
+            atualizarCodigo: planejamento.operacao === ProdutoTransmissaoItemOperacao.INCLUSAO,
+            tipoEventoHistorico: this.resolverTipoEventoHistoricoTransmissao(planejamento.operacao),
             transmissaoId: transmissao.id,
           });
 
@@ -1447,6 +1609,154 @@ export class ProdutoTransmissaoService {
     };
   }
 
+  private async validarItensPreTransmissaoSemInferirOperacao(
+    itensPersistidos: Array<{ produtoId: number; operacao: ProdutoTransmissaoItemOperacao }>,
+    catalogoId: number,
+    superUserId: number
+  ): Promise<PreparacaoTransmissaoValidada> {
+    if (!Number.isFinite(catalogoId)) {
+      throw new ValidationError({ catalogoId: 'Catálogo selecionado é obrigatório para transmitir ao SISCOMEX' });
+    }
+
+    const idsSelecionados = [
+      ...new Set(
+        itensPersistidos
+          .map(item => Number(item.produtoId))
+          .filter(Number.isFinite)
+      ),
+    ];
+
+    if (idsSelecionados.length === 0) {
+      throw new ValidationError({ produtos: 'Nenhum produto selecionado para transmissão' });
+    }
+
+    const catalogo = await this.catalogoService.buscarPorId(catalogoId, superUserId);
+    if (!catalogo) {
+      throw new ValidationError({ catalogoId: 'Catálogo selecionado não encontrado para transmissão' });
+    }
+
+    const cpfCnpjRaiz = this.extrairCpfCnpjRaiz(catalogo.cpf_cnpj);
+    if (!cpfCnpjRaiz) {
+      throw new ValidationError({
+        catalogoId: 'Catálogo selecionado está sem CNPJ válido para transmissão ao SISCOMEX',
+      });
+    }
+
+    const produtos = await this.exportacaoService.buscarProdutosComAtributos(
+      idsSelecionados,
+      superUserId,
+      catalogoId
+    );
+
+    if (produtos.length === 0) {
+      throw new ValidationError({ produtos: 'Nenhum produto encontrado para transmissão' });
+    }
+
+    const produtosPorId = new Map(produtos.map(produto => [produto.id, produto]));
+    const idsForaCatalogo = idsSelecionados.filter(id => !produtosPorId.has(id));
+
+    if (idsForaCatalogo.length > 0) {
+      throw new ValidationError({
+        produtos: 'Todos os produtos selecionados precisam pertencer ao catálogo informado para transmissão.',
+      });
+    }
+
+    const idsInclusaoInvalidos: number[] = [];
+    const idsNovaVersaoInvalidos: number[] = [];
+    const idsNaoAprovados: number[] = [];
+    const idsRetificacaoStatusInvalido: number[] = [];
+    const idsRetificacaoSituacaoInvalida: number[] = [];
+    const idsRetificacaoSemCodigo: number[] = [];
+    const idsRetificacaoSemVersao: number[] = [];
+
+    const itens = itensPersistidos.map(item => {
+      const produto = produtosPorId.get(item.produtoId)!;
+      const status = String(produto.status || '').toUpperCase();
+      const situacao = String(produto.situacao || '').toUpperCase();
+      const codigoNormalizado = this.normalizarCodigoSiscomex(produto.codigo);
+      const versaoNormalizada = normalizarVersaoSiscomex(produto.versao);
+
+      if (item.operacao === ProdutoTransmissaoItemOperacao.RETIFICACAO) {
+        if (status !== 'APROVADO' && status !== 'TRANSMITIDO') {
+          idsRetificacaoStatusInvalido.push(item.produtoId);
+        }
+
+        if (situacao !== 'DESATIVADO') {
+          idsRetificacaoSituacaoInvalida.push(item.produtoId);
+        }
+
+        if (!codigoNormalizado) {
+          idsRetificacaoSemCodigo.push(item.produtoId);
+        }
+
+        if (!versaoNormalizada) {
+          idsRetificacaoSemVersao.push(item.produtoId);
+        }
+      } else {
+        if (status !== 'APROVADO') {
+          idsNaoAprovados.push(item.produtoId);
+        }
+
+        if (item.operacao === ProdutoTransmissaoItemOperacao.INCLUSAO && situacao !== 'RASCUNHO') {
+          idsInclusaoInvalidos.push(item.produtoId);
+        }
+
+        if (
+          item.operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO &&
+          (situacao !== 'ATIVADO' || !codigoNormalizado)
+        ) {
+          idsNovaVersaoInvalidos.push(item.produtoId);
+        }
+      }
+
+      return {
+        produtoId: item.produtoId,
+        operacao: item.operacao,
+      };
+    });
+
+    const erros: Record<string, string> = {};
+
+    if (idsNaoAprovados.length > 0) {
+      erros.status = `Somente produtos aprovados podem ser transmitidos. IDs inválidos: ${idsNaoAprovados.join(', ')}.`;
+    }
+
+    if (idsInclusaoInvalidos.length > 0) {
+      erros.inclusao = `Produtos de inclusão precisam estar em situação RASCUNHO. IDs inválidos: ${idsInclusaoInvalidos.join(', ')}.`;
+    }
+
+    if (idsNovaVersaoInvalidos.length > 0) {
+      erros.novaVersao = `Produtos de nova versão precisam estar ATIVADO e com código SISCOMEX válido. IDs inválidos: ${idsNovaVersaoInvalidos.join(', ')}.`;
+    }
+
+    if (idsRetificacaoStatusInvalido.length > 0) {
+      erros.statusRetificacao = `Produtos de retificação precisam estar aprovados ou transmitidos. IDs inválidos: ${idsRetificacaoStatusInvalido.join(', ')}.`;
+    }
+
+    if (idsRetificacaoSituacaoInvalida.length > 0) {
+      erros.situacaoRetificacao = `Produtos de retificação precisam estar DESATIVADO. IDs inválidos: ${idsRetificacaoSituacaoInvalida.join(', ')}.`;
+    }
+
+    if (idsRetificacaoSemCodigo.length > 0) {
+      erros.codigoRetificacao = `Produtos de retificação precisam ter código SISCOMEX. IDs inválidos: ${idsRetificacaoSemCodigo.join(', ')}.`;
+    }
+
+    if (idsRetificacaoSemVersao.length > 0) {
+      erros.versaoRetificacao = `Produtos de retificação precisam ter versão SISCOMEX válida. IDs inválidos: ${idsRetificacaoSemVersao.join(', ')}.`;
+    }
+
+    if (Object.keys(erros).length > 0) {
+      throw new ValidationError(erros);
+    }
+
+    return {
+      catalogoId,
+      cpfCnpjRaiz,
+      idsSelecionados,
+      itens,
+    };
+  }
+
   private montarPlanejamentoItens(
     itensPersistidos: ItemTransmissaoPersistido[],
     produtosExportadosPorId: Map<number, ProdutoExportacaoProdutoDTO>,
@@ -1464,9 +1774,17 @@ export class ProdutoTransmissaoService {
         const payloadAtualizacaoVersao = { ...payloadContratoAtual };
 
         const codigoNormalizado = this.normalizarCodigoSiscomex(produtoExportado.codigo);
+        const versaoNormalizada = normalizarVersaoSiscomex(produtoExportado.versao);
         const operacao = item.operacao;
 
         if (operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO && !codigoNormalizado) {
+          return [];
+        }
+
+        if (
+          operacao === ProdutoTransmissaoItemOperacao.RETIFICACAO &&
+          (!codigoNormalizado || !versaoNormalizada)
+        ) {
           return [];
         }
 
@@ -1478,12 +1796,16 @@ export class ProdutoTransmissaoService {
             produtoId: item.produtoId,
             operacao,
             codigo: codigoNormalizado,
+            versao: versaoNormalizada,
             endpoint:
-              operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO
-                ? `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}/${encodeURIComponent(codigoNormalizado!)}`
-                : `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}`,
+              operacao === ProdutoTransmissaoItemOperacao.RETIFICACAO
+                ? `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}/${encodeURIComponent(codigoNormalizado!)}/${encodeURIComponent(versaoNormalizada!)}`
+                : operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO
+                  ? `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}/${encodeURIComponent(codigoNormalizado!)}`
+                  : `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}`,
             payload:
-              operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO
+              operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO ||
+              operacao === ProdutoTransmissaoItemOperacao.RETIFICACAO
                 ? payloadAtualizacaoVersao
                 : payloadInclusao,
           },
@@ -1554,16 +1876,23 @@ export class ProdutoTransmissaoService {
 
       try {
         const resposta =
-          params.item.operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO
-            ? await params.cliente.atualizarProduto(
+          params.item.operacao === ProdutoTransmissaoItemOperacao.RETIFICACAO
+            ? await params.cliente.retificarProduto(
                 params.cpfCnpjRaiz,
                 params.item.codigo!,
+                params.item.versao!,
                 params.item.payload as any
               )
-            : await params.cliente.incluirProduto(
-                params.cpfCnpjRaiz,
-                params.item.payload as any
-              );
+            : params.item.operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO
+              ? await params.cliente.atualizarProduto(
+                  params.cpfCnpjRaiz,
+                  params.item.codigo!,
+                  params.item.payload as any
+                )
+              : await params.cliente.incluirProduto(
+                  params.cpfCnpjRaiz,
+                  params.item.payload as any
+                );
 
         return this.normalizarRespostaItemSucesso(params.item, resposta);
       } catch (error) {
@@ -1689,10 +2018,9 @@ export class ProdutoTransmissaoService {
         : situacaoNormalizada === 'RASCUNHO'
           ? 'RASCUNHO'
           : 'ATIVADO';
-    const versaoNumero =
-      typeof payload.versao === 'string' ? Number(payload.versao) : (payload.versao as number);
+    const versaoSiscomex = normalizarVersaoSiscomex(payload.versao);
 
-    if (!Number.isFinite(versaoNumero)) {
+    if (!versaoSiscomex) {
       return {
         tipo: 'erro',
         mensagem: this.extrairMotivoSiscomex(payload),
@@ -1708,7 +2036,8 @@ export class ProdutoTransmissaoService {
 
     const codigoRetornado = this.normalizarCodigoSiscomex(payload.codigo);
     const codigoPersistencia =
-      item.operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO
+      item.operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO ||
+      item.operacao === ProdutoTransmissaoItemOperacao.RETIFICACAO
         ? item.codigo
         : codigoRetornado;
 
@@ -1716,7 +2045,7 @@ export class ProdutoTransmissaoService {
       tipo: 'sucesso',
       mensagem: null,
       codigoPersistencia,
-      versao: versaoNumero,
+      versao: versaoSiscomex,
       situacao: situacaoProduto,
       retorno: {
         produtoId: item.produtoId,
@@ -1726,11 +2055,25 @@ export class ProdutoTransmissaoService {
         mensagem: null,
         retorno: {
           codigo: codigoPersistencia,
-          versao: versaoNumero,
+          versao: versaoSiscomex,
           situacao: situacaoProduto,
         },
       },
     };
+  }
+
+  private resolverTipoEventoHistoricoTransmissao(
+    operacao: ProdutoTransmissaoItemOperacao
+  ): ProdutoHistoricoTipoEvento {
+    if (operacao === ProdutoTransmissaoItemOperacao.INCLUSAO) {
+      return 'CRIACAO';
+    }
+
+    if (operacao === ProdutoTransmissaoItemOperacao.RETIFICACAO) {
+      return 'RETIFICACAO';
+    }
+
+    return 'ATUALIZACAO';
   }
 
   private classificarErroTransmissao(error: unknown): ClassificacaoErroTransmissao {
@@ -1851,7 +2194,7 @@ export class ProdutoTransmissaoService {
     blocoId: number | null,
     itemId: number,
     codigo: string | null,
-    versao: number,
+    versao: string,
     situacao: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO'
   ) {
     await catalogoPrisma.$transaction(async tx => {
@@ -2005,11 +2348,15 @@ export class ProdutoTransmissaoService {
       operacao: item.operacao,
       status: item.status === ProdutoTransmissaoItemStatus.SUCESSO ? 'SUCESSO' : 'ERRO',
       endpoint:
-        item.operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO
-          ? this.normalizarCodigoSiscomex(item.retornoCodigo ?? item.produto?.codigo)
-            ? `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}/${encodeURIComponent(this.normalizarCodigoSiscomex(item.retornoCodigo ?? item.produto?.codigo)!)}`
+        item.operacao === ProdutoTransmissaoItemOperacao.RETIFICACAO
+          ? this.normalizarCodigoSiscomex(item.retornoCodigo ?? item.produto?.codigo) && item.retornoVersao
+            ? `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}/${encodeURIComponent(this.normalizarCodigoSiscomex(item.retornoCodigo ?? item.produto?.codigo)!)}/${encodeURIComponent(item.retornoVersao)}`
             : null
-          : `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}`,
+          : item.operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO
+            ? this.normalizarCodigoSiscomex(item.retornoCodigo ?? item.produto?.codigo)
+              ? `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}/${encodeURIComponent(this.normalizarCodigoSiscomex(item.retornoCodigo ?? item.produto?.codigo)!)}`
+              : null
+            : `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}`,
       mensagem: item.mensagem ?? null,
       retorno: {
         codigo: item.retornoCodigo ?? null,

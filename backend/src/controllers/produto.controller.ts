@@ -4,9 +4,11 @@ import { ProdutoService, RemoverProdutosEmMassaDTO } from '../services/produto.s
 import { ValidationError } from '../types/validation-error';
 import { logger } from '../utils/logger';
 import { ProdutoInativacaoError, ProdutoInativacaoService } from '../services/produto-inativacao.service';
+import { ProdutoTransmissaoService } from '../services/produto-transmissao.service';
 
 const produtoService = new ProdutoService();
 const produtoInativacaoService = new ProdutoInativacaoService();
+const produtoTransmissaoService = new ProdutoTransmissaoService();
 
 export async function listarProdutos(req: Request, res: Response) {
   try {
@@ -185,6 +187,68 @@ export async function inativarProduto(req: Request, res: Response) {
 
     logger.error('Erro ao inativar produto:', error);
     return res.status(500).json({ error: error?.message ?? 'Falha ao inativar produto.' });
+  }
+}
+
+export async function prepararRetificacaoProduto(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'Identificador de produto invalido.' });
+    }
+
+    const resultado = await produtoTransmissaoService.prepararRetificacaoProduto(
+      id,
+      req.user!.superUserId
+    );
+
+    return res.status(201).json({
+      sucesso: true,
+      mensagem: 'Pré-transmissão de retificação criada com sucesso. Revise antes de transmitir.',
+      dados: resultado,
+    });
+  } catch (error: any) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.details || error.message });
+    }
+
+    logger.error('Erro ao preparar retificação de produto:', error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Falha ao preparar retificação do produto.',
+    });
+  }
+}
+
+export async function transmitirRetificacaoProduto(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'Identificador de produto invalido.' });
+    }
+
+    const resultado = await produtoTransmissaoService.transmitirRetificacaoProduto(
+      id,
+      req.user!.superUserId
+    );
+    const mensagem =
+      resultado.posicaoFilaCatalogo > 1
+        ? `Retificação enfileirada. Há ${resultado.posicaoFilaCatalogo - 1} transmissão(ões) antes dela para este catálogo.`
+        : 'Retificação enfileirada para transmissão ao SISCOMEX.';
+
+    return res.status(202).json({
+      sucesso: true,
+      mensagem,
+      dados: resultado,
+    });
+  } catch (error: any) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.details || error.message });
+    }
+
+    logger.error('Erro ao transmitir retificação de produto:', error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Falha ao transmitir retificação do produto.',
+    });
   }
 }
 
