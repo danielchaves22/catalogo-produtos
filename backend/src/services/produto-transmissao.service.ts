@@ -1772,6 +1772,7 @@ export class ProdutoTransmissaoService {
         const payloadContratoAtual = this.montarPayloadProdutoSiscomex(produtoExportado);
         const payloadInclusao = { ...payloadContratoAtual };
         const payloadAtualizacaoVersao = { ...payloadContratoAtual };
+        const payloadRetificacao = this.aplicarEspacoTemporarioDescricaoRetificacao(payloadContratoAtual);
 
         const codigoNormalizado = this.normalizarCodigoSiscomex(produtoExportado.codigo);
         const versaoNormalizada = normalizarVersaoSiscomex(produtoExportado.versao);
@@ -1804,13 +1805,24 @@ export class ProdutoTransmissaoService {
                   ? `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}/${encodeURIComponent(codigoNormalizado!)}`
                   : `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}`,
             payload:
-              operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO ||
               operacao === ProdutoTransmissaoItemOperacao.RETIFICACAO
-                ? payloadAtualizacaoVersao
-                : payloadInclusao,
+                ? payloadRetificacao
+                : operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO
+                  ? payloadAtualizacaoVersao
+                  : payloadInclusao,
           },
         ];
       });
+  }
+
+  private aplicarEspacoTemporarioDescricaoRetificacao(payload: Record<string, any>) {
+    const descricao = typeof payload.descricao === 'string' ? payload.descricao : '';
+    const descricaoComEspacoExtra = descricao.replace(/(\S)(\s+)(?=\S)/, '$1$2 ');
+
+    return {
+      ...payload,
+      descricao: descricaoComEspacoExtra,
+    };
   }
 
   private montarPayloadProdutoSiscomex(produtoExportado: ProdutoExportacaoProdutoDTO) {

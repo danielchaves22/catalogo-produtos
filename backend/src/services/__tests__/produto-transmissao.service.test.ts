@@ -851,7 +851,7 @@ describe('ProdutoTransmissaoService', () => {
     await service.processarTransmissaoJob(1, 99, jest.fn(), 700)
 
     expect(siscomexClientMock.retificarProduto).toHaveBeenCalledWith('12345678', 'COD-3', '1', {
-      descricao: 'Produto 3',
+      descricao: 'Produto  3',
       denominacao: 'Produto 3',
       modalidade: 'IMPORTACAO',
       ncm: '03030303',
