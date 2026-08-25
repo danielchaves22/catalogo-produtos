@@ -90,6 +90,12 @@ export interface UpdateProdutoDTO {
   atualizadoPor?: string;
 }
 
+interface AtualizarProdutoOpcoes {
+  permitirProdutoDesativado?: boolean;
+  exigirDenominacaoAlterada?: boolean;
+  exigirStatusAprovadoAposAtualizacao?: boolean;
+}
+
 export interface OperadorEstrangeiroProdutoInput {
   paisCodigo: string;
   conhecido: boolean;
@@ -1466,7 +1472,12 @@ export class ProdutoService {
     return this.buscarPorId(produtoCriado.id, superUserId);
   }
 
-  async atualizar(id: number, data: UpdateProdutoDTO, superUserId: number) {
+  async atualizar(
+    id: number,
+    data: UpdateProdutoDTO,
+    superUserId: number,
+    opcoes: AtualizarProdutoOpcoes = {}
+  ) {
     const atual = await catalogoPrisma.produto.findFirst({
       where: { id, catalogo: { superUserId } },
       include: {
@@ -1490,8 +1501,19 @@ export class ProdutoService {
       throw new Error(`Produto ID ${id} não encontrado`);
     }
 
-    if (atual.situacao === 'DESATIVADO') {
+    if (atual.situacao === 'DESATIVADO' && !opcoes.permitirProdutoDesativado) {
       throw new Error('Produto desativado nao pode ser alterado');
+    }
+
+    if (opcoes.exigirDenominacaoAlterada) {
+      const denominacaoAtual = this.normalizarTextoComparacao(atual.denominacao);
+      const denominacaoNova = this.normalizarTextoComparacao(data.denominacao);
+
+      if (!denominacaoNova || denominacaoNova === denominacaoAtual) {
+        throw new ValidationError({
+          denominacao: 'Altere a denominação do produto para salvar e criar nova versão.',
+        });
+      }
     }
 
     const incoming: any = data as any;
@@ -1621,6 +1643,13 @@ export class ProdutoService {
         possuiObrigatoriosPendentes: !preencheuObrigatorios,
         houveAlteracaoDadosProduto,
       });
+
+      if (opcoes.exigirStatusAprovadoAposAtualizacao && status !== 'APROVADO') {
+        throw new ValidationError({
+          produto:
+            'Produto precisa estar aprovado após o salvamento para criar nova versão no SISCOMEX.',
+        });
+      }
 
       const updated = await tx.produto.updateMany({
         where: { id, catalogo: { superUserId } },
@@ -2485,6 +2514,10 @@ export class ProdutoService {
   private normalizarModalidade(modalidade: string) {
     const valor = (modalidade ?? '').trim();
     return valor ? valor : 'IMPORTACAO';
+  }
+
+  private normalizarTextoComparacao(valor: unknown) {
+    return String(valor ?? '').replace(/\s+/g, ' ').trim();
   }
 
   private async obterEstruturaAtributos(

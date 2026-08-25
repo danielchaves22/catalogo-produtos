@@ -47,6 +47,10 @@ export const updateProdutoSchema = z.object({
   atualizadoPor: z.string().optional()
 });
 
+export const reativarProdutoSchema = updateProdutoSchema.extend({
+  denominacao: z.string().max(120).min(1)
+});
+
 export const cloneProdutoSchema = z.object({
   catalogoId: z.number().int(),
   denominacao: z.string().max(120).min(1),

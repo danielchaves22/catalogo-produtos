@@ -252,6 +252,40 @@ export async function transmitirRetificacaoProduto(req: Request, res: Response) 
   }
 }
 
+export async function transmitirReativacaoProduto(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'Identificador de produto invalido.' });
+    }
+
+    const resultado = await produtoTransmissaoService.transmitirReativacaoProduto(
+      id,
+      req.body,
+      req.user!.superUserId
+    );
+    const mensagem =
+      resultado.posicaoFilaCatalogo > 1
+        ? `Reativação enfileirada. Há ${resultado.posicaoFilaCatalogo - 1} transmissão(ões) antes dela para este catálogo.`
+        : 'Reativação enfileirada para transmissão ao SISCOMEX.';
+
+    return res.status(202).json({
+      sucesso: true,
+      mensagem,
+      dados: resultado,
+    });
+  } catch (error: any) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.details || error.message });
+    }
+
+    logger.error('Erro ao transmitir reativação de produto:', error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Falha ao transmitir reativação do produto.',
+    });
+  }
+}
+
 export async function clonarProduto(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);

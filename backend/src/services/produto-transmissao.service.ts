@@ -12,7 +12,7 @@ import {
 } from '@prisma/client';
 import { ProdutoExportacaoProdutoDTO, ProdutoExportacaoService } from './produto-exportacao.service';
 import { SiscomexErroDetalhado, SiscomexService } from './siscomex.service';
-import { ProdutoService } from './produto.service';
+import { ProdutoService, UpdateProdutoDTO } from './produto.service';
 import { CertificadoService } from './certificado.service';
 import { CatalogoService } from './catalogo.service';
 import { catalogoPrisma } from '../utils/prisma';
@@ -504,6 +504,55 @@ export class ProdutoTransmissaoService {
     );
 
     return this.iniciarTransmissao(transmissaoId, superUserId);
+  }
+
+  async transmitirReativacaoProduto(
+    produtoId: number,
+    data: UpdateProdutoDTO,
+    superUserId: number,
+    usuarioCatalogoId?: number | null
+  ) {
+    const preparacao = await this.validarProdutoParaReativacaoNovaVersao(
+      produtoId,
+      data,
+      superUserId
+    );
+
+    const dadosAtualizacao: UpdateProdutoDTO = {
+      modalidade: data.modalidade,
+      denominacao: data.denominacao,
+      descricao: data.descricao,
+      valoresAtributos: data.valoresAtributos,
+      codigosInternos: data.codigosInternos,
+      operadoresEstrangeiros: data.operadoresEstrangeiros,
+      atualizadoPor: data.atualizadoPor,
+    };
+
+    const produtoAtualizado = await this.produtoService.atualizar(
+      produtoId,
+      dadosAtualizacao,
+      superUserId,
+      {
+        permitirProdutoDesativado: true,
+        exigirDenominacaoAlterada: true,
+        exigirStatusAprovadoAposAtualizacao: true,
+      }
+    );
+
+    const statusAtualizado = String(produtoAtualizado?.status || '').toUpperCase();
+    if (statusAtualizado !== 'APROVADO') {
+      throw new ValidationError({
+        produto:
+          'Produto salvo, mas ainda possui pendências. Corrija os dados obrigatórios antes de criar nova versão.',
+      });
+    }
+
+    return this.criarTransmissaoReativacaoNovaVersao(
+      produtoId,
+      preparacao,
+      superUserId,
+      usuarioCatalogoId
+    );
   }
 
   async iniciarTransmissao(transmissaoId: number, superUserId: number) {
@@ -1757,6 +1806,193 @@ export class ProdutoTransmissaoService {
     };
   }
 
+  private async validarProdutoParaReativacaoNovaVersao(
+    produtoId: number,
+    data: UpdateProdutoDTO,
+    superUserId: number
+  ): Promise<PreparacaoTransmissaoValidada> {
+    if (!Number.isFinite(produtoId)) {
+      throw new ValidationError({ produtoId: 'Produto selecionado é inválido.' });
+    }
+
+    const produto = await catalogoPrisma.produto.findFirst({
+      where: { id: produtoId, catalogo: { superUserId } },
+      select: {
+        id: true,
+        catalogoId: true,
+        codigo: true,
+        status: true,
+        situacao: true,
+        denominacao: true,
+        catalogo: { select: { cpf_cnpj: true } },
+      },
+    });
+
+    if (!produto) {
+      throw new ValidationError({ produtoId: 'Produto não encontrado para reativação.' });
+    }
+
+    const codigoNormalizado = this.normalizarCodigoSiscomex(produto.codigo);
+    const status = String(produto.status || '').toUpperCase();
+    const situacao = String(produto.situacao || '').toUpperCase();
+    const denominacaoAtual = this.normalizarTextoComparacao(produto.denominacao);
+    const denominacaoNova = this.normalizarTextoComparacao(data.denominacao);
+    const erros: Record<string, string> = {};
+
+    if (situacao !== 'DESATIVADO') {
+      erros.situacao = 'Somente produtos DESATIVADO podem ser reativados por nova versão.';
+    }
+
+    if (status !== 'APROVADO' && status !== 'TRANSMITIDO') {
+      erros.status = 'Somente produtos aprovados ou já transmitidos podem ser reativados por nova versão.';
+    }
+
+    if (!codigoNormalizado) {
+      erros.codigo = 'Produto sem código SISCOMEX para criar nova versão.';
+    }
+
+    if (!denominacaoNova || denominacaoNova === denominacaoAtual) {
+      erros.denominacao = 'Altere a denominação do produto para salvar e criar nova versão.';
+    }
+
+    const cpfCnpjRaiz = this.extrairCpfCnpjRaiz(produto.catalogo?.cpf_cnpj);
+    if (!cpfCnpjRaiz) {
+      erros.catalogoId = 'Catálogo do produto está sem CNPJ válido para transmissão ao SISCOMEX.';
+    }
+
+    const itemAberto = await catalogoPrisma.produtoTransmissaoItem.findFirst({
+      where: {
+        produtoId,
+        transmissao: {
+          status: { in: STATUS_TRANSMISSAO_ABERTA },
+        },
+      },
+      select: { transmissaoId: true },
+    });
+
+    if (itemAberto) {
+      erros.transmissao = `Produto já possui transmissão em aberto (#${itemAberto.transmissaoId}).`;
+    }
+
+    if (Object.keys(erros).length > 0) {
+      throw new ValidationError(erros);
+    }
+
+    return {
+      catalogoId: produto.catalogoId,
+      cpfCnpjRaiz: cpfCnpjRaiz!,
+      idsSelecionados: [produtoId],
+      itens: [
+        {
+          produtoId,
+          operacao: ProdutoTransmissaoItemOperacao.NOVA_VERSAO,
+        },
+      ],
+    };
+  }
+
+  private async criarTransmissaoReativacaoNovaVersao(
+    produtoId: number,
+    preparacao: PreparacaoTransmissaoValidada,
+    superUserId: number,
+    usuarioCatalogoId?: number | null
+  ) {
+    return catalogoPrisma.$transaction(async tx => {
+      const itemAberto = await tx.produtoTransmissaoItem.findFirst({
+        where: {
+          produtoId,
+          transmissao: {
+            status: { in: STATUS_TRANSMISSAO_ABERTA },
+          },
+        },
+        select: { transmissaoId: true },
+      });
+
+      if (itemAberto) {
+        throw new ValidationError({
+          transmissao: `Produto já possui transmissão em aberto (#${itemAberto.transmissaoId}).`,
+        });
+      }
+
+      const transmissao = await tx.produtoTransmissao.create({
+        data: {
+          superUserId,
+          catalogoId: preparacao.catalogoId,
+          usuarioCatalogoId: usuarioCatalogoId ?? null,
+          modalidade: ProdutoTransmissaoModalidade.PRODUTOS,
+          origemTipo: ProdutoTransmissaoOrigemTipo.MANUAL,
+          origemContextoJson: {
+            acao: 'REATIVACAO_PRODUTO',
+            produtoId,
+          } as Prisma.InputJsonValue,
+          status: ProdutoTransmissaoStatus.AGUARDANDO_CONFIRMACAO,
+          totalItens: 1,
+          totalSucesso: 0,
+          totalErro: 0,
+          selecaoJson: [produtoId] as Prisma.InputJsonValue,
+        },
+      });
+
+      const item = await tx.produtoTransmissaoItem.create({
+        data: {
+          transmissaoId: transmissao.id,
+          produtoId,
+          operacao: ProdutoTransmissaoItemOperacao.NOVA_VERSAO,
+          status: ProdutoTransmissaoItemStatus.PENDENTE,
+        },
+      });
+
+      await this.prepararItensEBlocosParaFila(
+        tx,
+        transmissao.id,
+        [{ id: item.id, produtoId }],
+        preparacao
+      );
+
+      await tx.produtoTransmissao.update({
+        where: { id: transmissao.id },
+        data: {
+          status: ProdutoTransmissaoStatus.EM_FILA,
+          totalItens: 1,
+          totalSucesso: 0,
+          totalErro: 0,
+          selecaoJson: preparacao.idsSelecionados as Prisma.InputJsonValue,
+          asyncJobId: null,
+          enfileiradaEm: new Date(),
+          iniciadoEm: null,
+          concluidoEm: null,
+          payloadEnvioPath: null,
+          payloadEnvioExpiraEm: null,
+          payloadEnvioTamanho: null,
+          payloadEnvioProvider: null,
+          payloadRetornoPath: null,
+          payloadRetornoExpiraEm: null,
+          payloadRetornoTamanho: null,
+          payloadRetornoProvider: null,
+        },
+      });
+
+      const job = await this.dispararTransmissaoSeCabecaDaFila(
+        tx,
+        transmissao.id,
+        preparacao.catalogoId,
+        superUserId
+      );
+
+      const posicaoFilaCatalogo = await this.calcularPosicaoFilaCatalogoTx(
+        tx,
+        preparacao.catalogoId,
+        transmissao.id
+      );
+
+      return {
+        transmissaoId: transmissao.id,
+        jobId: job?.id ?? null,
+        posicaoFilaCatalogo,
+      } satisfies ResultadoEnfileiramentoTransmissao;
+    });
+  }
+
   private montarPlanejamentoItens(
     itensPersistidos: ItemTransmissaoPersistido[],
     produtosExportadosPorId: Map<number, ProdutoExportacaoProdutoDTO>,
@@ -1772,8 +2008,6 @@ export class ProdutoTransmissaoService {
         const payloadContratoAtual = this.montarPayloadProdutoSiscomex(produtoExportado);
         const payloadInclusao = { ...payloadContratoAtual };
         const payloadAtualizacaoVersao = { ...payloadContratoAtual };
-        const payloadRetificacao = this.aplicarEspacoTemporarioDescricaoRetificacao(payloadContratoAtual);
-
         const codigoNormalizado = this.normalizarCodigoSiscomex(produtoExportado.codigo);
         const versaoNormalizada = normalizarVersaoSiscomex(produtoExportado.versao);
         const operacao = item.operacao;
@@ -1805,24 +2039,13 @@ export class ProdutoTransmissaoService {
                   ? `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}/${encodeURIComponent(codigoNormalizado!)}`
                   : `/ext/produto/${encodeURIComponent(cpfCnpjRaiz)}`,
             payload:
+              operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO ||
               operacao === ProdutoTransmissaoItemOperacao.RETIFICACAO
-                ? payloadRetificacao
-                : operacao === ProdutoTransmissaoItemOperacao.NOVA_VERSAO
-                  ? payloadAtualizacaoVersao
-                  : payloadInclusao,
+                ? payloadAtualizacaoVersao
+                : payloadInclusao,
           },
         ];
       });
-  }
-
-  private aplicarEspacoTemporarioDescricaoRetificacao(payload: Record<string, any>) {
-    const descricao = typeof payload.descricao === 'string' ? payload.descricao : '';
-    const descricaoComEspacoExtra = descricao.replace(/(\S)(\s+)(?=\S)/, '$1$2 ');
-
-    return {
-      ...payload,
-      descricao: descricaoComEspacoExtra,
-    };
   }
 
   private montarPayloadProdutoSiscomex(produtoExportado: ProdutoExportacaoProdutoDTO) {
@@ -2663,6 +2886,10 @@ export class ProdutoTransmissaoService {
 
     const valor = String(codigo).trim();
     return valor.length > 0 ? valor : null;
+  }
+
+  private normalizarTextoComparacao(valor: unknown) {
+    return String(valor ?? '').replace(/\s+/g, ' ').trim();
   }
 
   private converterSelecaoParaIds(selecaoJson: Prisma.JsonValue | null): number[] {

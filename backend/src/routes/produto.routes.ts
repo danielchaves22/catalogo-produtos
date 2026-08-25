@@ -9,6 +9,7 @@ import {
   removerProduto,
   inativarProduto,
   prepararRetificacaoProduto,
+  transmitirReativacaoProduto,
   transmitirRetificacaoProduto,
   clonarProduto,
   contarPendenciasAjusteEstrutura,
@@ -31,6 +32,7 @@ import { validate } from '../middlewares/validate.middleware';
 import {
   createProdutoSchema,
   updateProdutoSchema,
+  reativarProdutoSchema,
   cloneProdutoSchema,
   deleteProdutosEmMassaSchema,
   exportarProdutosSchema,
@@ -65,6 +67,52 @@ router.post('/exportacoes', validate(exportarProdutosSchema), solicitarExportaca
 router.post('/exportacoes/fabricantes', validate(exportarProdutosSchema), solicitarExportacaoFabricantes);
 router.post('/:id/clonar', validate(cloneProdutoSchema), clonarProduto);
 router.post('/:id/inativar', inativarProduto);
+/**
+ * @swagger
+ * /api/v1/produtos/{id}/reativar/transmitir:
+ *   post:
+ *     summary: Salva um produto desativado e enfileira uma nova versão para reativação no SISCOMEX
+ *     tags: [Produtos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [denominacao]
+ *             properties:
+ *               denominacao:
+ *                 type: string
+ *                 maxLength: 120
+ *               descricao:
+ *                 type: string
+ *               modalidade:
+ *                 type: string
+ *               valoresAtributos:
+ *                 type: object
+ *               codigosInternos:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               operadoresEstrangeiros:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *     responses:
+ *       202:
+ *         description: Reativação enfileirada para transmissão
+ *       400:
+ *         description: Produto não elegível ou denominação não alterada
+ */
+router.post('/:id/reativar/transmitir', validate(reativarProdutoSchema), transmitirReativacaoProduto);
 router.post('/:id/retificar/transmitir', transmitirRetificacaoProduto);
 router.post('/:id/retificar', prepararRetificacaoProduto);
 router.post('/excluir-em-massa', validate(deleteProdutosEmMassaSchema), removerProdutosEmMassa);

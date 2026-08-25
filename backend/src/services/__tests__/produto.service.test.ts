@@ -1455,6 +1455,166 @@ describe('ProdutoService - bloqueio de alteracao para produto desativado', () =>
       'Produto desativado nao pode ser alterado'
     )
   })
+
+  it('permite atualizacao controlada de desativado para reativacao por nova versao', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 2,
+      versaoNumero: 2,
+      estrutura: [],
+    })
+    jest.spyOn(service, 'buscarPorId').mockResolvedValue({ id: 1, status: 'APROVADO' } as any)
+
+    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
+      id: 1,
+      status: 'TRANSMITIDO',
+      situacao: 'DESATIVADO',
+      denominacao: 'Produto antigo',
+      descricao: 'Descricao',
+      ncmCodigo: '12345678',
+      catalogoId: 1,
+      modalidade: 'IMPORTACAO',
+      atributos: [],
+      codigosInternos: [],
+      operadoresEstrangeiros: [],
+      versaoAtributoId: null,
+      versaoEstruturaAtributos: null,
+    })
+
+    const updateSpy = jest.fn().mockResolvedValue({ count: 1 })
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { updateMany: updateSpy, findFirst: jest.fn().mockResolvedValue({}) },
+        produtoAtributo: { deleteMany: jest.fn(), create: jest.fn() },
+        produtoAtributoValor: { createMany: jest.fn() },
+        codigoInternoProduto: { deleteMany: jest.fn(), createMany: jest.fn() },
+        operadorEstrangeiroProduto: { deleteMany: jest.fn(), createMany: jest.fn() }
+      })
+    )
+
+    await service.atualizar(
+      1,
+      { denominacao: 'Produto novo' },
+      1,
+      {
+        permitirProdutoDesativado: true,
+        exigirDenominacaoAlterada: true,
+      }
+    )
+
+    expect(updateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          denominacao: 'Produto novo',
+          status: 'APROVADO',
+        })
+      })
+    )
+  })
+
+  it('rejeita reativacao controlada sem alteracao de denominacao', async () => {
+    const service = criarService()
+
+    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
+      id: 1,
+      status: 'TRANSMITIDO',
+      situacao: 'DESATIVADO',
+      denominacao: 'Produto antigo',
+      ncmCodigo: '12345678',
+      catalogoId: 1,
+      modalidade: 'IMPORTACAO',
+      atributos: [],
+      codigosInternos: [],
+      operadoresEstrangeiros: [],
+    })
+
+    await expect(
+      service.atualizar(
+        1,
+        { denominacao: '  Produto antigo  ' },
+        1,
+        {
+          permitirProdutoDesativado: true,
+          exigirDenominacaoAlterada: true,
+        }
+      )
+    ).rejects.toMatchObject({
+      details: expect.arrayContaining([
+        expect.objectContaining({
+          field: 'denominacao',
+          message: expect.stringContaining('Altere a denominação'),
+        }),
+      ]),
+    })
+  })
+
+  it('bloqueia reativacao controlada quando o salvamento deixaria produto pendente', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 2,
+      versaoNumero: 2,
+      estrutura: [
+        {
+          codigo: 'A',
+          nome: 'A',
+          tipo: 'TEXTO',
+          obrigatorio: true,
+          multivalorado: false,
+          validacoes: {},
+        }
+      ],
+    })
+
+    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
+      id: 1,
+      status: 'TRANSMITIDO',
+      situacao: 'DESATIVADO',
+      denominacao: 'Produto antigo',
+      descricao: 'Descricao',
+      ncmCodigo: '12345678',
+      catalogoId: 1,
+      modalidade: 'IMPORTACAO',
+      atributos: [],
+      codigosInternos: [],
+      operadoresEstrangeiros: [],
+      versaoAtributoId: null,
+      versaoEstruturaAtributos: null,
+    })
+
+    const updateSpy = jest.fn().mockResolvedValue({ count: 1 })
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { updateMany: updateSpy, findFirst: jest.fn().mockResolvedValue({}) },
+        produtoAtributo: { deleteMany: jest.fn(), create: jest.fn() },
+        produtoAtributoValor: { createMany: jest.fn() },
+        codigoInternoProduto: { deleteMany: jest.fn(), createMany: jest.fn() },
+        operadorEstrangeiroProduto: { deleteMany: jest.fn(), createMany: jest.fn() }
+      })
+    )
+
+    await expect(
+      service.atualizar(
+        1,
+        { denominacao: 'Produto novo', valoresAtributos: {} },
+        1,
+        {
+          permitirProdutoDesativado: true,
+          exigirDenominacaoAlterada: true,
+          exigirStatusAprovadoAposAtualizacao: true,
+        }
+      )
+    ).rejects.toMatchObject({
+      details: expect.arrayContaining([
+        expect.objectContaining({
+          field: 'produto',
+          message: expect.stringContaining('aprovado após o salvamento'),
+        }),
+      ]),
+    })
+    expect(updateSpy).not.toHaveBeenCalled()
+  })
 })
 
 describe('ProdutoService - exclusao com elegibilidade', () => {

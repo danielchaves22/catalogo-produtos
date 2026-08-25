@@ -490,6 +490,7 @@ describe('ProdutoTransmissaoService', () => {
   }
 
   const produtoServiceMock = {
+    atualizar: jest.fn(),
     marcarComoTransmitido: jest.fn(),
   }
 
@@ -514,6 +515,7 @@ describe('ProdutoTransmissaoService', () => {
     resetState()
     state.catalogos.set(5, { id: 5, cpf_cnpj: '12.345.678/0001-99', nome: 'Catálogo Teste', numero: 900 })
     ;(createAsyncJob as jest.Mock).mockResolvedValue({ id: 700 })
+    produtoServiceMock.atualizar.mockResolvedValue({ id: 1, status: 'APROVADO' })
     produtoServiceMock.marcarComoTransmitido.mockResolvedValue(undefined)
     catalogoServiceMock.buscarPorId.mockResolvedValue(localizarCatalogo(5))
     storageMock.upload.mockResolvedValue(undefined)
@@ -770,6 +772,93 @@ describe('ProdutoTransmissaoService', () => {
     })
   })
 
+  it('salva produto desativado e transmite reativação por nova versão', async () => {
+    state.produtos.set(4, {
+      id: 4,
+      catalogoId: 5,
+      codigo: 'COD-4',
+      versao: '1',
+      status: 'TRANSMITIDO',
+      situacao: 'DESATIVADO',
+      denominacao: 'Produto antigo',
+    })
+    produtoServiceMock.atualizar.mockResolvedValue({
+      id: 4,
+      status: 'APROVADO',
+      situacao: 'DESATIVADO',
+      denominacao: 'Produto novo',
+    })
+
+    const resultado = await service.transmitirReativacaoProduto(
+      4,
+      {
+        modalidade: 'IMPORTACAO',
+        denominacao: 'Produto novo',
+        descricao: 'Descricao nova',
+        valoresAtributos: { A: '1' } as any,
+        codigosInternos: ['SKU-4'],
+      },
+      99
+    )
+
+    expect(resultado).toEqual({ transmissaoId: 1, jobId: 700, posicaoFilaCatalogo: 1 })
+    expect(produtoServiceMock.atualizar).toHaveBeenCalledWith(
+      4,
+      expect.objectContaining({
+        modalidade: 'IMPORTACAO',
+        denominacao: 'Produto novo',
+        descricao: 'Descricao nova',
+        valoresAtributos: { A: '1' },
+        codigosInternos: ['SKU-4'],
+      }),
+      99,
+      {
+        permitirProdutoDesativado: true,
+        exigirDenominacaoAlterada: true,
+        exigirStatusAprovadoAposAtualizacao: true,
+      }
+    )
+    expect(localizarTransmissao(1)).toMatchObject({
+      catalogoId: 5,
+      status: ProdutoTransmissaoStatus.EM_FILA,
+      asyncJobId: 700,
+      totalItens: 1,
+      selecaoJson: [4],
+      origemContextoJson: { acao: 'REATIVACAO_PRODUTO', produtoId: 4 },
+    })
+    expect(state.blocos).toHaveLength(1)
+    expect(state.itens[0]).toMatchObject({
+      produtoId: 4,
+      operacao: ProdutoTransmissaoItemOperacao.NOVA_VERSAO,
+      status: ProdutoTransmissaoItemStatus.PENDENTE,
+      ordemExecucao: 1,
+    })
+  })
+
+  it('rejeita reativação quando denominação não foi alterada', async () => {
+    state.produtos.set(4, {
+      id: 4,
+      catalogoId: 5,
+      codigo: 'COD-4',
+      versao: '1',
+      status: 'TRANSMITIDO',
+      situacao: 'DESATIVADO',
+      denominacao: 'Produto igual',
+    })
+
+    await expect(
+      service.transmitirReativacaoProduto(4, { denominacao: '  Produto igual  ' }, 99)
+    ).rejects.toMatchObject({
+      details: expect.arrayContaining([
+        expect.objectContaining({
+          field: 'denominacao',
+          message: expect.stringContaining('Altere a denominação'),
+        }),
+      ]),
+    })
+    expect(produtoServiceMock.atualizar).not.toHaveBeenCalled()
+  })
+
   it('executa retificação preservando versão decimal retornada pelo SISCOMEX', async () => {
     state.produtos.set(3, {
       id: 3,
@@ -851,7 +940,7 @@ describe('ProdutoTransmissaoService', () => {
     await service.processarTransmissaoJob(1, 99, jest.fn(), 700)
 
     expect(siscomexClientMock.retificarProduto).toHaveBeenCalledWith('12345678', 'COD-3', '1', {
-      descricao: 'Produto  3',
+      descricao: 'Produto 3',
       denominacao: 'Produto 3',
       modalidade: 'IMPORTACAO',
       ncm: '03030303',
