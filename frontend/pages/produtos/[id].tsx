@@ -391,10 +391,13 @@ export default function ProdutoPage() {
     if (ncmCodigo.length < 8) return;
     setLoadingEstrutura(true);
     try {
-      const response = await api.get(
-        `/siscomex/atributos/ncm/${ncmCodigo}?modalidade=${modalidade}`,
-        { timeout: NCM_ATTRIBUTES_TIMEOUT_MS }
-      );
+      const response = await api.get(`/siscomex/atributos/ncm/${ncmCodigo}`, {
+        params: {
+          modalidade,
+          verificarAtualizacao: isNew ? 'true' : undefined
+        },
+        timeout: NCM_ATTRIBUTES_TIMEOUT_MS
+      });
 
       if (!response.data.descricaoNcm) {
         addToast('NCM não encontrada', 'error');

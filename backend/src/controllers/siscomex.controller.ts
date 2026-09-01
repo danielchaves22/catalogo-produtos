@@ -228,7 +228,11 @@ export async function consultarAtributosPorNcm(req: Request, res: Response) {
     }
 
     const modalidade = (req.query.modalidade as string) || 'IMPORTACAO';
-    const estruturaInfo = await atributoLegacyService.buscarEstrutura(ncm, modalidade);
+    const verificarAtualizacao =
+      String(req.query.verificarAtualizacao ?? '').toLowerCase() === 'true';
+    const estruturaInfo = verificarAtualizacao
+      ? await atributoLegacyService.buscarEstruturaAtualizada(ncm, modalidade)
+      : await atributoLegacyService.buscarEstrutura(ncm, modalidade);
     const atributos = estruturaInfo.estrutura;
     let info = await catalogoPrisma.ncmCache.findUnique({
       where: { codigo: ncm },

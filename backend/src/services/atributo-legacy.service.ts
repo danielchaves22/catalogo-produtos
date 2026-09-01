@@ -73,6 +73,32 @@ export class AtributoLegacyService {
     return this.sincronizarEstrutura(ncm, modalidade)
   }
 
+  async buscarEstruturaAtualizada(
+    ncm: string,
+    modalidade: string = 'IMPORTACAO'
+  ): Promise<EstruturaComVersao> {
+    const versaoExistente = await catalogoPrisma.atributoVersao.findFirst({
+      where: { ncmCodigo: ncm, modalidade },
+      orderBy: { versao: 'desc' }
+    })
+
+    if (!versaoExistente) {
+      return this.sincronizarEstrutura(ncm, modalidade)
+    }
+
+    const estruturaAtual = await this.montarEstrutura(
+      versaoExistente.id,
+      versaoExistente.versao
+    )
+    const estruturaLegada = await this.carregarEstruturaLegacy(ncm, modalidade)
+
+    if (this.estruturasEquivalentes(estruturaAtual.estrutura, estruturaLegada)) {
+      return estruturaAtual
+    }
+
+    return this.sincronizarEstrutura(ncm, modalidade, estruturaLegada)
+  }
+
   async buscarEstruturaPorVersao(versaoId: number): Promise<EstruturaComVersao | null> {
     const versao = await catalogoPrisma.atributoVersao.findFirst({
       where: { id: versaoId }
@@ -221,6 +247,63 @@ export class AtributoLegacyService {
     return roots
   }
 
+  private normalizarValorComparacao(valor: unknown): unknown {
+    if (Array.isArray(valor)) {
+      return valor.map(item => this.normalizarValorComparacao(item))
+    }
+
+    if (valor && typeof valor === 'object') {
+      const entradas = Object.entries(valor as Record<string, unknown>)
+        .sort(([chaveA], [chaveB]) => chaveA.localeCompare(chaveB))
+
+      return entradas.reduce<Record<string, unknown>>((acc, [chave, item]) => {
+        acc[chave] = this.normalizarValorComparacao(item)
+        return acc
+      }, {})
+    }
+
+    return valor ?? null
+  }
+
+  private normalizarEstruturaComparacao(
+    estrutura: AtributoEstruturaDTO[]
+  ): unknown[] {
+    return estrutura
+      .map(attr => ({
+        codigo: attr.codigo,
+        nome: attr.nome,
+        tipo: attr.tipo,
+        obrigatorio: attr.obrigatorio,
+        multivalorado: attr.multivalorado,
+        validacoes: this.normalizarValorComparacao(attr.validacoes ?? {}),
+        orientacaoPreenchimento: attr.orientacaoPreenchimento ?? null,
+        dominio: [...(attr.dominio ?? [])]
+          .map(dominio => ({
+            codigo: dominio.codigo,
+            descricao: dominio.descricao ?? null
+          }))
+          .sort((a, b) => a.codigo.localeCompare(b.codigo)),
+        descricaoCondicao: attr.descricaoCondicao ?? null,
+        condicao: this.normalizarValorComparacao(attr.condicao ?? null),
+        parentCodigo: attr.parentCodigo ?? null,
+        condicionanteCodigo: attr.condicionanteCodigo ?? null,
+        subAtributos: this.normalizarEstruturaComparacao(attr.subAtributos ?? [])
+      }))
+      .sort((a, b) => {
+        const codigoA = (a as { codigo: string }).codigo
+        const codigoB = (b as { codigo: string }).codigo
+        return codigoA.localeCompare(codigoB)
+      })
+  }
+
+  private estruturasEquivalentes(
+    estruturaAtual: AtributoEstruturaDTO[],
+    estruturaLegada: AtributoEstruturaDTO[]
+  ): boolean {
+    return JSON.stringify(this.normalizarEstruturaComparacao(estruturaAtual)) ===
+      JSON.stringify(this.normalizarEstruturaComparacao(estruturaLegada))
+  }
+
   private async montarEstrutura(
     versaoId: number,
     versaoNumero: number
@@ -298,9 +381,11 @@ export class AtributoLegacyService {
 
   async sincronizarEstrutura(
     ncm: string,
-    modalidade: string
+    modalidade: string,
+    estruturaLegadaPreCarregada?: AtributoEstruturaDTO[]
   ): Promise<EstruturaComVersao> {
-    const estruturaLegacy = await this.carregarEstruturaLegacy(ncm, modalidade)
+    const estruturaLegacy = estruturaLegadaPreCarregada ??
+      await this.carregarEstruturaLegacy(ncm, modalidade)
 
     const versaoCriada = await catalogoPrisma.$transaction(async tx => {
       const ultimaVersao = await tx.atributoVersao.findFirst({
@@ -382,4 +467,3 @@ export class AtributoLegacyService {
     }
   }
 }
-

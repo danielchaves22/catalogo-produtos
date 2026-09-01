@@ -1378,7 +1378,8 @@ export class ProdutoService {
   ) {
     const estruturaInfo = await this.obterEstruturaAtributos(
       data.ncmCodigo,
-      data.modalidade
+      data.modalidade,
+      { verificarAtualizacaoLegado: true }
     );
 
     const estrutura = estruturaInfo.estrutura;
@@ -2522,12 +2523,35 @@ export class ProdutoService {
 
   private async obterEstruturaAtributos(
     ncm: string,
-    modalidade: string
+    modalidade: string,
+    opcoes: { verificarAtualizacaoLegado?: boolean } = {}
   ): Promise<EstruturaComVersao> {
     const modalidadeNormalizada = this.normalizarModalidade(modalidade);
     const chave = ProdutoService.montarChaveEstrutura(ncm, modalidadeNormalizada);
     const emCache = ProdutoService.estruturaCache.get(chave);
     const agora = Date.now();
+
+    if (opcoes.verificarAtualizacaoLegado) {
+      try {
+        const estrutura = await this.atributosService.buscarEstruturaAtualizada(
+          ncm,
+          modalidadeNormalizada
+        );
+        ProdutoService.estruturaCache.set(chave, {
+          dados: estrutura,
+          proximaVerificacao:
+            Date.now() + ProdutoService.ESTRUTURA_CACHE_REVALIDACAO_MS
+        });
+        return estrutura;
+      } catch (error) {
+        logger.warn(
+          'Não foi possível verificar a estrutura atualizada no legacy, usando estrutura local',
+          error
+        );
+        return this.obterEstruturaAtributos(ncm, modalidadeNormalizada);
+      }
+    }
+
     if (emCache) {
       if (agora < emCache.proximaVerificacao) {
         return emCache.dados;
