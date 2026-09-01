@@ -22,7 +22,13 @@ beforeEach(() => {
 
 jest.mock('../../utils/prisma', () => ({
   catalogoPrisma: {
-    produto: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn() },
+    produto: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
+      create: jest.fn(),
+      updateMany: jest.fn(),
+    },
     catalogo: { findFirst: jest.fn() },
     atributoVersao: { findMany: jest.fn() },
     asyncJob: { findFirst: jest.fn() },
@@ -769,6 +775,182 @@ describe('ProdutoService - correcao de status de ajuste de estrutura', () => {
       restauradosTransmitido: 0,
       sincronizadosVersao: 0,
     })
+  })
+})
+
+describe('ProdutoService - verificacao de ajuste de estrutura por produto', () => {
+  it('atualiza automaticamente quando a estrutura nova apenas adiciona obrigatorio vazio', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 2,
+      versaoNumero: 2,
+      estrutura: [
+        {
+          id: 22,
+          codigo: 'A',
+          nome: 'Atributo A',
+          tipo: 'TEXTO',
+          obrigatorio: false,
+          multivalorado: false,
+          validacoes: {},
+        },
+        {
+          id: 23,
+          codigo: 'B',
+          nome: 'Atributo B',
+          tipo: 'TEXTO',
+          obrigatorio: true,
+          multivalorado: false,
+          validacoes: {},
+        },
+      ],
+    })
+    jest.spyOn((service as any).atributosService, 'buscarEstruturaPorVersao').mockResolvedValue({
+      versaoId: 1,
+      versaoNumero: 1,
+      estrutura: [
+        {
+          id: 11,
+          codigo: 'A',
+          nome: 'Atributo A',
+          tipo: 'TEXTO',
+          obrigatorio: false,
+          multivalorado: false,
+          validacoes: {},
+        },
+      ],
+    })
+
+    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
+      id: 10,
+      catalogoId: 7,
+      status: 'AJUSTAR_ESTRUTURA',
+      situacao: 'RASCUNHO',
+      codigo: null,
+      ncmCodigo: '12345678',
+      modalidade: 'IMPORTACAO',
+      versaoAtributoId: 1,
+      versaoEstruturaAtributos: 1,
+      atributos: [
+        {
+          atributoVersaoId: 1,
+          atributo: { codigo: 'A', nome: 'Atributo A', multivalorado: false },
+          valores: [{ valorJson: 'VALOR', ordem: 0 }],
+        },
+      ],
+    })
+
+    const deleteManySpy = jest.fn().mockResolvedValue({ count: 1 })
+    const updateSpy = jest.fn().mockResolvedValue({})
+    const createSpy = jest.fn().mockResolvedValue({})
+    produtoResumoServiceMock.salvarResumoProduto.mockResolvedValue(undefined)
+    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb({
+        produto: { update: updateSpy },
+        produtoAtributo: { deleteMany: deleteManySpy, create: createSpy },
+      })
+    )
+
+    const resultado = await service.verificarAjusteEstruturaProduto(10, 99)
+
+    expect(resultado.aplicado).toBe(true)
+    expect(resultado.requerAjusteManual).toBe(false)
+    expect(resultado.statusProjetado).toBe('PENDENTE')
+    expect(resultado.inconsistencias).toEqual([])
+    expect(updateSpy).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: {
+        versaoAtributoId: 2,
+        versaoEstruturaAtributos: 2,
+        status: 'PENDENTE',
+      },
+    })
+    expect(createSpy).toHaveBeenCalledWith({
+      data: {
+        produtoId: 10,
+        atributoId: 22,
+        atributoVersaoId: 2,
+        valores: {
+          create: [{ valorJson: 'VALOR', ordem: 0 }],
+        },
+      },
+    })
+  })
+
+  it('exige ajuste manual quando valor preenchido saiu do dominio atual', async () => {
+    const service = criarService()
+
+    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+      versaoId: 2,
+      versaoNumero: 2,
+      estrutura: [
+        {
+          id: 22,
+          codigo: 'A',
+          nome: 'Atributo A',
+          tipo: 'LISTA_ESTATICA',
+          obrigatorio: false,
+          multivalorado: false,
+          validacoes: {},
+          dominio: [{ codigo: '1', descricao: 'Atual' }],
+        },
+      ],
+    })
+    jest.spyOn((service as any).atributosService, 'buscarEstruturaPorVersao').mockResolvedValue({
+      versaoId: 1,
+      versaoNumero: 1,
+      estrutura: [
+        {
+          id: 11,
+          codigo: 'A',
+          nome: 'Atributo A',
+          tipo: 'LISTA_ESTATICA',
+          obrigatorio: false,
+          multivalorado: false,
+          validacoes: {},
+          dominio: [{ codigo: '2', descricao: 'Antigo' }],
+        },
+      ],
+    })
+
+    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
+      id: 10,
+      catalogoId: 7,
+      status: 'APROVADO',
+      situacao: 'RASCUNHO',
+      codigo: null,
+      ncmCodigo: '12345678',
+      modalidade: 'IMPORTACAO',
+      versaoAtributoId: 1,
+      versaoEstruturaAtributos: 1,
+      atributos: [
+        {
+          atributoVersaoId: 1,
+          atributo: { codigo: 'A', nome: 'Atributo A', multivalorado: false },
+          valores: [{ valorJson: '2', ordem: 0 }],
+        },
+      ],
+    })
+    ;(catalogoPrisma.produto.updateMany as jest.Mock).mockResolvedValue({ count: 1 })
+
+    const resultado = await service.verificarAjusteEstruturaProduto(10, 99)
+
+    expect(resultado.aplicado).toBe(false)
+    expect(resultado.requerAjusteManual).toBe(true)
+    expect(resultado.inconsistencias).toEqual([
+      expect.objectContaining({
+        codigo: 'A',
+        tipo: 'DOMINIO_REMOVIDO_COM_VALOR',
+        mensagem: 'Valor fora do domínio',
+        valoresInvalidos: ['2'],
+      }),
+    ])
+    expect(catalogoPrisma.produto.updateMany).toHaveBeenCalledWith({
+      where: { id: 10, catalogo: { superUserId: 99 } },
+      data: { status: 'AJUSTAR_ESTRUTURA' },
+    })
+    expect(catalogoPrisma.$transaction).not.toHaveBeenCalled()
   })
 })
 

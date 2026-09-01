@@ -20,7 +20,7 @@ import {
   isValorPreenchido,
   normalizarValoresMultivalorados
 } from '@/lib/atributos';
-import { Trash2, BrainCog, ArrowLeft, Save, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Trash2, BrainCog, ArrowLeft, Save, RefreshCw } from 'lucide-react';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { useOperadorEstrangeiro, OperadorEstrangeiro } from '@/hooks/useOperadorEstrangeiro';
 import { OperadorEstrangeiroSelector } from '@/components/operadores-estrangeriros/OperadorEstrangeiroSelector';
@@ -32,6 +32,11 @@ import useDebounce from '@/hooks/useDebounce';
 const DESCRICAO_MAX_LENGTH = 3700;
 const DENOMINACAO_MAX_LENGTH = 120;
 const MAX_TENTATIVAS_IA = 2;
+const APP_ENV_PUBLICO = (process.env.NEXT_PUBLIC_APP_ENV || process.env.NODE_ENV || '')
+  .trim()
+  .toLowerCase();
+const EXIBIR_CODIGO_ATRIBUTO =
+  APP_ENV_PUBLICO !== 'prod' && APP_ENV_PUBLICO !== 'production';
 
 interface AtributoEstrutura {
   codigo: string;
@@ -51,6 +56,39 @@ interface AtributoEstrutura {
   condicionanteCodigo?: string;
   orientacaoPreenchimento?: string;
   subAtributos?: AtributoEstrutura[];
+}
+
+type TipoInconsistenciaAjusteEstruturaProduto =
+  | 'ATRIBUTO_REMOVIDO_COM_VALOR'
+  | 'ATRIBUTO_OCULTO_COM_VALOR'
+  | 'DOMINIO_REMOVIDO_COM_VALOR'
+  | 'VALOR_INVALIDO_NA_NOVA_ESTRUTURA'
+  | 'VALOR_MULTIVALORADO_INCOMPATIVEL';
+
+interface InconsistenciaAjusteEstruturaProduto {
+  codigo: string;
+  nome: string;
+  tipo: TipoInconsistenciaAjusteEstruturaProduto;
+  mensagem: string;
+  detalhe?: string;
+  valorAtual?: unknown;
+  valoresInvalidos?: string[];
+}
+
+interface VerificacaoAjusteEstruturaProdutoResponse {
+  produtoId: number;
+  divergente: boolean;
+  aplicado: boolean;
+  requerAjusteManual: boolean;
+  mensagem: string;
+  estruturaNova: {
+    versaoId: number;
+    versaoNumero: number;
+    estrutura: AtributoEstrutura[];
+  };
+  valoresParaEdicao: Record<string, unknown>;
+  inconsistencias: InconsistenciaAjusteEstruturaProduto[];
+  statusProjetado: string;
 }
 
 interface AtributoParaIa {
@@ -200,6 +238,11 @@ export default function ProdutoPage() {
 
   const [attrsFaltando, setAttrsFaltando] = useState<string[] | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [verificandoEstrutura, setVerificandoEstrutura] = useState(false);
+  const [inconsistenciasEstrutura, setInconsistenciasEstrutura] = useState<
+    InconsistenciaAjusteEstruturaProduto[]
+  >([]);
+  const [mensagemAjusteEstrutura, setMensagemAjusteEstrutura] = useState<string | null>(null);
   const [ncmSugestoes, setNcmSugestoes] = useState<Array<{ codigo: string; descricao: string | null }>>([]);
   const [mostrarSugestoesNcm, setMostrarSugestoesNcm] = useState(false);
   const [carregandoSugestoesNcm, setCarregandoSugestoesNcm] = useState(false);
@@ -225,6 +268,7 @@ export default function ProdutoPage() {
   const podeSugerirComIa = Boolean(user);
   const produtoDesativado = !isNew && situacaoProduto === 'DESATIVADO';
   const produtoSomenteLeitura = produtoDesativado && !reativacaoEmEdicao;
+  const possuiAjusteEstruturaManualPendente = inconsistenciasEstrutura.length > 0;
   const produtoTransmitido = !isNew && situacaoProduto !== 'RASCUNHO' && codigo.trim().length > 0;
   const podeInativarProduto = produtoTransmitido && situacaoProduto === 'ATIVADO';
   const podeReativarProduto =
@@ -356,6 +400,91 @@ export default function ProdutoPage() {
     return map;
   }, [estrutura]);
 
+  const inconsistenciasPorCodigo = React.useMemo(() => {
+    const map = new Map<string, InconsistenciaAjusteEstruturaProduto>();
+    for (const inconsistencia of inconsistenciasEstrutura) {
+      if (!map.has(inconsistencia.codigo)) {
+        map.set(inconsistencia.codigo, inconsistencia);
+      }
+    }
+    return map;
+  }, [inconsistenciasEstrutura]);
+
+  const inconsistenciasSemCampoVisivel = React.useMemo(
+    () =>
+      inconsistenciasEstrutura.filter(
+        item =>
+          item.tipo === 'ATRIBUTO_REMOVIDO_COM_VALOR' ||
+          item.tipo === 'ATRIBUTO_OCULTO_COM_VALOR'
+      ),
+    [inconsistenciasEstrutura]
+  );
+
+  function normalizarValoresFormulario(
+    valoresApi: Record<string, unknown>
+  ): Record<string, string | string[]> {
+    return Object.entries(valoresApi || {}).reduce<Record<string, string | string[]>>(
+      (acc, [codigo, valor]) => {
+        if (Array.isArray(valor)) {
+          acc[codigo] = valor.map(item => String(item ?? ''));
+        } else if (valor !== null && valor !== undefined) {
+          acc[codigo] = String(valor);
+        }
+        return acc;
+      },
+      {}
+    );
+  }
+
+  function montarLabelAtributo(attr: AtributoEstrutura) {
+    return EXIBIR_CODIGO_ATRIBUTO ? `${attr.nome} (${attr.codigo})` : attr.nome;
+  }
+
+  function montarHintAtributo(attr: AtributoEstrutura) {
+    const partes: string[] = [];
+    const problema = inconsistenciasPorCodigo.get(attr.codigo);
+
+    if (problema) {
+      partes.push(`Problema de estrutura: ${problema.detalhe || problema.mensagem}`);
+    }
+    if (attr.orientacaoPreenchimento) {
+      partes.push(attr.orientacaoPreenchimento);
+    }
+
+    return partes.length ? partes.join(' ') : undefined;
+  }
+
+  function montarOpcoesDominio(attr: AtributoEstrutura, rawValue: string | string[] | undefined) {
+    const opcoes =
+      attr.dominio?.map(d => ({
+        value: d.codigo,
+        label: `${d.codigo} - ${d.descricao}`,
+      })) || [];
+    const codigosDominio = new Set(opcoes.map(opcao => opcao.value));
+    const valoresAtuais = normalizarValoresMultivalorados(rawValue);
+    const opcoesInvalidas = valoresAtuais
+      .filter(valor => valor && !codigosDominio.has(valor))
+      .map(valor => ({
+        value: valor,
+        label: `${valor} - valor atual fora do domínio`,
+      }));
+
+    return [...opcoesInvalidas, ...opcoes];
+  }
+
+  function formatarValorEstrutura(valor: unknown) {
+    if (Array.isArray(valor)) {
+      return valor.map(item => String(item ?? '')).filter(Boolean).join(', ');
+    }
+    if (valor === null || valor === undefined || valor === '') {
+      return '-';
+    }
+    if (typeof valor === 'object') {
+      return JSON.stringify(valor);
+    }
+    return String(valor);
+  }
+
   function ordenarAtributos(lista: AtributoEstrutura[]): AtributoEstrutura[] {
     const map = new Map(lista.map(a => [a.codigo, a]));
     const resultado: AtributoEstrutura[] = [];
@@ -414,6 +543,8 @@ export default function ProdutoPage() {
       const dados: AtributoEstrutura[] = response.data.dados || [];
       setNcmDescricao(response.data.descricaoNcm);
       setUnidadeMedida(response.data.unidadeMedida || '');
+      setInconsistenciasEstrutura([]);
+      setMensagemAjusteEstrutura(null);
       setEstrutura(ordenarAtributos(dados));
       if (isNew) {
         if (catalogoId) {
@@ -540,6 +671,7 @@ export default function ProdutoPage() {
   function handleValor(codigo: string, valor: string | string[]) {
     if (produtoSomenteLeitura) return;
 
+    setInconsistenciasEstrutura(prev => prev.filter(item => item.codigo !== codigo));
     setValores(prev => {
       const atualizados = { ...prev, [codigo]: valor };
       return removerValoresOcultos(atualizados);
@@ -860,22 +992,22 @@ export default function ProdutoPage() {
 
     const rawValue = valores[attr.codigo];
     const value = rawValue !== undefined && !Array.isArray(rawValue) ? String(rawValue) : '';
+    const label = montarLabelAtributo(attr);
+    const hint = montarHintAtributo(attr);
+    const error = inconsistenciasPorCodigo.get(attr.codigo)?.mensagem || errors[attr.codigo];
 
     switch (attr.tipo) {
       case 'LISTA_ESTATICA':
+        const opcoesDominio = montarOpcoesDominio(attr, rawValue);
         if (attr.multivalorado) {
           return (
             <MultiSelect
               key={attr.codigo}
-              label={attr.nome}
-              hint={attr.orientacaoPreenchimento}
+              label={label}
+              hint={hint}
+              error={error}
               required={attr.obrigatorio}
-              options={
-                attr.dominio?.map(d => ({
-                  value: d.codigo,
-                  label: `${d.codigo} - ${d.descricao}`
-                })) || []
-              }
+              options={opcoesDominio}
               placeholder="Selecione..."
               values={normalizarValoresMultivalorados(rawValue)}
               onChange={vals => handleValor(attr.codigo, vals)}
@@ -886,15 +1018,11 @@ export default function ProdutoPage() {
         return (
           <Select
             key={attr.codigo}
-            label={attr.nome}
-            hint={attr.orientacaoPreenchimento}
+            label={label}
+            hint={hint}
+            error={error}
             required={attr.obrigatorio}
-            options={
-              attr.dominio?.map(d => ({
-                value: d.codigo,
-                label: `${d.codigo} - ${d.descricao}`
-              })) || []
-            }
+            options={opcoesDominio}
             placeholder="Selecione..."
             value={value}
             onChange={e => handleValor(attr.codigo, e.target.value)}
@@ -905,8 +1033,9 @@ export default function ProdutoPage() {
         return (
           <RadioGroup
             key={attr.codigo}
-            label={attr.nome}
-            hint={attr.orientacaoPreenchimento}
+            label={label}
+            hint={hint}
+            error={error}
             required={attr.obrigatorio}
             options={[
               { value: 'true', label: 'Sim' },
@@ -921,8 +1050,9 @@ export default function ProdutoPage() {
         return (
           <Input
             key={attr.codigo}
-            label={attr.nome}
-            hint={attr.orientacaoPreenchimento}
+            label={label}
+            hint={hint}
+            error={error}
             type="number"
             required={attr.obrigatorio}
             value={value}
@@ -934,8 +1064,9 @@ export default function ProdutoPage() {
         return (
           <Input
             key={attr.codigo}
-            label={attr.nome}
-            hint={attr.orientacaoPreenchimento}
+            label={label}
+            hint={hint}
+            error={error}
             type="number"
             step="0.01"
             required={attr.obrigatorio}
@@ -947,7 +1078,10 @@ export default function ProdutoPage() {
       case 'COMPOSTO':
         return (
           <div key={attr.codigo} className="col-span-3">
-            <p className="font-medium mb-2 text-sm">{attr.nome}</p>
+            <p className="font-medium mb-2 text-sm text-gray-300">
+              {label}
+              {hint && <Hint text={hint} />}
+            </p>
             <div className="grid grid-cols-3 gap-4 pl-4">
               {attr.subAtributos?.map(sa => renderCampo(sa))}
             </div>
@@ -966,8 +1100,9 @@ export default function ProdutoPage() {
             return (
               <MaskedInput
                 key={attr.codigo}
-                label={attr.nome}
-                hint={attr.orientacaoPreenchimento}
+                label={label}
+                hint={hint}
+                error={error}
                 required={attr.obrigatorio}
                 value={value}
                 pattern={pattern}
@@ -985,22 +1120,29 @@ export default function ProdutoPage() {
                   htmlFor={attr.codigo}
                   className="block text-sm font-medium mb-1 text-gray-300"
                 >
-                  {attr.nome}
+                  {label}
                   {attr.obrigatorio && (
                     <span className="text-red-400 ml-1">*</span>
                   )}
-                  {attr.orientacaoPreenchimento && (
-                    <Hint text={attr.orientacaoPreenchimento} />
+                  {hint && (
+                    <Hint text={hint} />
                   )}
                 </label>
                 <textarea
                   id={attr.codigo}
                   rows={3}
-                  className="w-full px-2 py-1 text-sm bg-[#1e2126] border border-gray-700 text-white rounded-md focus:outline-none focus:ring focus:border-blue-500"
+                  className={`w-full px-2 py-1 text-sm bg-[#1e2126] border text-white rounded-md focus:outline-none focus:ring focus:border-blue-500 ${
+                    error ? 'border-red-500' : 'border-gray-700'
+                  }`}
                   value={value}
                   onChange={e => handleValor(attr.codigo, e.target.value)}
                   disabled={produtoSomenteLeitura}
                 />
+                {error && (
+                  <p className="mt-1 text-sm text-red-400">
+                    {error}
+                  </p>
+                )}
               </div>
             );
           }
@@ -1012,8 +1154,9 @@ export default function ProdutoPage() {
           return (
             <Input
               key={attr.codigo}
-              label={attr.nome}
-              hint={attr.orientacaoPreenchimento}
+              label={label}
+              hint={hint}
+              error={error}
               required={attr.obrigatorio}
               value={value}
               onChange={e => handleValor(attr.codigo, e.target.value)}
@@ -1026,8 +1169,9 @@ export default function ProdutoPage() {
         return (
           <Input
             key={attr.codigo}
-            label={attr.nome}
-            hint={attr.orientacaoPreenchimento}
+            label={label}
+            hint={hint}
+            error={error}
             required={attr.obrigatorio}
             value={value}
             onChange={e => handleValor(attr.codigo, e.target.value)}
@@ -1055,6 +1199,8 @@ export default function ProdutoPage() {
           ? String(dados.versao).trim()
           : null;
 
+      setInconsistenciasEstrutura([]);
+      setMensagemAjusteEstrutura(null);
       setReativacaoEmEdicao(false);
       setReativacaoEnfileirada(null);
       setCodigo(codigoCarregado);
@@ -1233,6 +1379,64 @@ export default function ProdutoPage() {
     }
   }
 
+  function descartarInconsistenciaEstrutura(codigo: string) {
+    setValores(prev => {
+      const proximo = { ...prev };
+      delete proximo[codigo];
+      return proximo;
+    });
+    setInconsistenciasEstrutura(prev => prev.filter(item => item.codigo !== codigo));
+  }
+
+  async function verificarAjusteEstruturaProduto() {
+    if (isNew || typeof id !== 'string') return;
+    if (produtoSomenteLeitura) {
+      addToast('Produto desativado está em modo somente leitura.', 'error');
+      return;
+    }
+
+    try {
+      setVerificandoEstrutura(true);
+      const resposta = await api.post<VerificacaoAjusteEstruturaProdutoResponse>(
+        `/produtos/${id}/ajuste-estrutura/verificar`
+      );
+      const dados = resposta.data;
+      const novaEstrutura = dados.estruturaNova?.estrutura || [];
+
+      if (novaEstrutura.length) {
+        setEstrutura(ordenarAtributos(novaEstrutura));
+        setEstruturaCarregada(true);
+      }
+
+      setMensagemAjusteEstrutura(dados.mensagem);
+
+      if (dados.requerAjusteManual) {
+        setValores(normalizarValoresFormulario(dados.valoresParaEdicao || {}));
+        setInconsistenciasEstrutura(dados.inconsistencias || []);
+        setStatusProduto('AJUSTAR_ESTRUTURA');
+        setActiveTab('dinamicos');
+        addToast('Ajuste manual necessário na estrutura de atributos.', 'error');
+        return;
+      }
+
+      setInconsistenciasEstrutura([]);
+
+      if (dados.aplicado) {
+        addToast(dados.mensagem || 'Estrutura atualizada automaticamente.', 'success');
+        await carregarProduto(id);
+        return;
+      }
+
+      addToast(dados.mensagem || 'Estrutura já atualizada.', 'success');
+    } catch (error: any) {
+      const mensagem =
+        error?.response?.data?.error || 'Não foi possível verificar a estrutura do produto.';
+      addToast(mensagem, 'error');
+    } finally {
+      setVerificandoEstrutura(false);
+    }
+  }
+
   function montarPayloadProdutoAtual(incluirDadosCriacao = false) {
     return {
       ...(incluirDadosCriacao
@@ -1287,6 +1491,12 @@ export default function ProdutoPage() {
     if (typeof id !== 'string') return;
 
     if (!validarFormulario()) return;
+
+    if (possuiAjusteEstruturaManualPendente) {
+      setActiveTab('dinamicos');
+      addToast('Resolva ou confirme os ajustes de estrutura antes de salvar.', 'error');
+      return;
+    }
 
     if (!denominacaoAlteradaParaReativacao) {
       setErrors(prev => ({
@@ -1348,6 +1558,11 @@ export default function ProdutoPage() {
     }
 
     if (!validarFormulario()) return;
+    if (possuiAjusteEstruturaManualPendente) {
+      setActiveTab('dinamicos');
+      addToast('Resolva ou confirme os ajustes de estrutura antes de salvar.', 'error');
+      return;
+    }
     if (!force) {
       const pendentes = coletarFaltantes(estrutura);
       if (pendentes.length > 0) {
@@ -1833,6 +2048,89 @@ export default function ProdutoPage() {
                       label: 'Atributos Dinâmicos',
                       content: (
                         <div className="flex flex-col gap-4">
+                          {!isNew && (
+                            <div className="flex flex-col gap-3 rounded border border-gray-700 bg-[#0f1419] p-3 md:flex-row md:items-center md:justify-between">
+                              <div className="text-sm text-gray-300">
+                                <p className="font-semibold text-white">Estrutura de atributos</p>
+                                <p className="text-xs md:text-sm text-gray-400">
+                                  Verifica a estrutura atual do produto contra a estrutura mais recente da NCM.
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="flex items-center gap-2 self-end md:self-auto"
+                                onClick={verificarAjusteEstruturaProduto}
+                                disabled={
+                                  verificandoEstrutura ||
+                                  produtoSomenteLeitura ||
+                                  inativandoProduto ||
+                                  reativandoProduto
+                                }
+                              >
+                                <RefreshCw
+                                  size={16}
+                                  className={verificandoEstrutura ? 'animate-spin' : ''}
+                                />
+                                {verificandoEstrutura ? 'Verificando...' : 'Verificar estrutura'}
+                              </Button>
+                            </div>
+                          )}
+                          {mensagemAjusteEstrutura && !possuiAjusteEstruturaManualPendente && (
+                            <div className="flex items-start gap-2 rounded border border-emerald-700/60 bg-emerald-950/30 p-3 text-sm text-emerald-100">
+                              <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-400" />
+                              <span>{mensagemAjusteEstrutura}</span>
+                            </div>
+                          )}
+                          {possuiAjusteEstruturaManualPendente && (
+                            <div className="rounded border border-red-700/70 bg-red-950/25 p-3 text-sm text-red-100">
+                              <div className="flex items-start gap-2">
+                                <AlertTriangle size={17} className="mt-0.5 shrink-0 text-red-400" />
+                                <div>
+                                  <p className="font-semibold text-white">
+                                    Ajuste manual necessário na estrutura de atributos
+                                  </p>
+                                  <p className="text-xs md:text-sm text-red-100/80">
+                                    Corrija os campos destacados ou confirme o descarte dos valores antigos antes de salvar.
+                                  </p>
+                                </div>
+                              </div>
+
+                              {inconsistenciasSemCampoVisivel.length > 0 && (
+                                <div className="mt-3 flex flex-col gap-2">
+                                  {inconsistenciasSemCampoVisivel.map(item => (
+                                    <div
+                                      key={`${item.tipo}-${item.codigo}`}
+                                      className="flex flex-col gap-2 rounded border border-red-800/70 bg-[#15191f] p-3 md:flex-row md:items-start md:justify-between"
+                                    >
+                                      <div>
+                                        <p className="font-medium text-white">
+                                          {EXIBIR_CODIGO_ATRIBUTO
+                                            ? `${item.nome} (${item.codigo})`
+                                            : item.nome}
+                                        </p>
+                                        <p className="text-xs text-red-100/80">
+                                          {item.detalhe || item.mensagem}
+                                        </p>
+                                        <p className="mt-1 text-xs text-gray-300">
+                                          Valor atual: {formatarValorEstrutura(item.valorAtual)}
+                                        </p>
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="xs"
+                                        className="self-end whitespace-nowrap md:self-start"
+                                        onClick={() => descartarInconsistenciaEstrutura(item.codigo)}
+                                      >
+                                        Descartar valor antigo
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {podeSugerirComIa && (
                             <div className="flex flex-col gap-2 rounded border border-gray-700 bg-[#0f1419] p-3 md:flex-row md:items-center md:justify-between">
                               <div className="text-sm text-gray-300">
