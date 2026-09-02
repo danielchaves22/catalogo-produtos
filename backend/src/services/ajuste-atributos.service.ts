@@ -3,6 +3,7 @@ import { catalogoPrisma } from '../utils/prisma';
 import { createAsyncJob, listAsyncJobs, registerJobLog } from '../jobs/async-job.repository';
 import { ResultadoVerificacao, VerificacaoAtributosPayload } from '../jobs/handlers/verificacao-atributos-ncm.handler';
 import { AtributoLegacyService } from './atributo-legacy.service';
+import { ProdutoService } from './produto.service';
 
 interface DetalheVerificacaoJob {
   id: number;
@@ -24,6 +25,7 @@ export interface AplicacaoAjustesPayload {
 }
 
 const atributoLegacyService = new AtributoLegacyService();
+const produtoService = new ProdutoService(atributoLegacyService);
 
 function inicioDoDiaAtual(): Date {
   const agora = new Date();
@@ -160,7 +162,7 @@ export async function aplicarAjustesVerificacao(
     jobId: number;
     onProgresso?: () => Promise<void>;
   }
-): Promise<{ ncmsAtualizadas: number; produtosMarcados: number }> {
+): Promise<{ ncmsAtualizadas: number; produtosMarcados: number; produtosSincronizados: number }> {
   const detalhe = await detalharVerificacao(dados.verificacaoJobId, dados.superUserId);
 
   if (!detalhe) {
@@ -179,6 +181,7 @@ export async function aplicarAjustesVerificacao(
 
   let ncmsAtualizadas = 0;
   let produtosMarcados = 0;
+  let produtosSincronizados = 0;
 
   for (const alvo of alvos) {
     const estruturaAtualizada = await atributoLegacyService.sincronizarEstrutura(
@@ -188,21 +191,21 @@ export async function aplicarAjustesVerificacao(
 
     ncmsAtualizadas += 1;
 
-    const atualizacao = await catalogoPrisma.produto.updateMany({
-      where: {
-        ncmCodigo: alvo.ncmCodigo,
-        modalidade: alvo.modalidade,
-        catalogo: { superUserId: dados.superUserId },
-      },
-      data: { status: 'AJUSTAR_ESTRUTURA' },
+    const atualizacao = await produtoService.aplicarAjusteEstruturaNcm({
+      ncmCodigo: alvo.ncmCodigo,
+      modalidade: alvo.modalidade,
+      superUserId: dados.superUserId,
+      estruturaAtualizada,
+      onProgresso: dados.onProgresso,
     });
 
-    produtosMarcados += atualizacao.count;
+    produtosMarcados += atualizacao.produtosMarcados;
+    produtosSincronizados += atualizacao.produtosSincronizados;
 
     await registerJobLog(
       dados.jobId,
       AsyncJobStatus.PROCESSANDO,
-      `NCM ${alvo.ncmCodigo} (${alvo.modalidade}) sincronizada para a versão ${estruturaAtualizada.versaoNumero}. Produtos impactados: ${atualizacao.count}.`
+      `NCM ${alvo.ncmCodigo} (${alvo.modalidade}) sincronizada para a versão ${estruturaAtualizada.versaoNumero}. ${atualizacao.produtosMarcados} produto(s) marcado(s) para ajuste e ${atualizacao.produtosSincronizados} sincronizado(s) automaticamente.`
     );
 
     if (dados.onProgresso) {
@@ -213,8 +216,8 @@ export async function aplicarAjustesVerificacao(
   await registerJobLog(
     dados.jobId,
     AsyncJobStatus.PROCESSANDO,
-    `Finalizada atualização de ${ncmsAtualizadas} NCM(s). ${produtosMarcados} produto(s) marcados para ajuste.`
+    `Finalizada atualização de ${ncmsAtualizadas} NCM(s). ${produtosMarcados} produto(s) marcados para ajuste e ${produtosSincronizados} sincronizado(s) automaticamente.`
   );
 
-  return { ncmsAtualizadas, produtosMarcados };
+  return { ncmsAtualizadas, produtosMarcados, produtosSincronizados };
 }

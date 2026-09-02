@@ -29,6 +29,6 @@ export async function aplicacaoAjusteAtributosHandler({
   await registerJobLog(
     job.id,
     AsyncJobStatus.PROCESSANDO,
-    `Aplicação concluída. ${resultado.ncmsAtualizadas} NCM(s) atualizadas e ${resultado.produtosMarcados} produto(s) marcados.`
+    `Aplicação concluída. ${resultado.ncmsAtualizadas} NCM(s) atualizadas, ${resultado.produtosMarcados} produto(s) marcados e ${resultado.produtosSincronizados} sincronizado(s) automaticamente.`
   );
 }

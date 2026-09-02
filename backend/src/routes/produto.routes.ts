@@ -14,7 +14,6 @@ import {
   clonarProduto,
   contarPendenciasAjusteEstrutura,
   listarPendenciasAjusteEstruturaDetalhadas,
-  verificarAjusteEstruturaProduto,
   ajustarEstruturaCatalogo,
   corrigirStatusAjusteEstrutura,
   removerProdutosEmMassa
@@ -60,7 +59,6 @@ router.post(
   validate(corrigirStatusAjusteEstruturaSchema),
   corrigirStatusAjusteEstrutura
 );
-router.post('/:id/ajuste-estrutura/verificar', verificarAjusteEstruturaProduto);
 router.get('/:id', obterProduto);
 router.get('/:id/historico', obterHistoricoProduto);
 router.post('/', validate(createProdutoSchema), criarProduto);

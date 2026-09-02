@@ -778,11 +778,10 @@ describe('ProdutoService - correcao de status de ajuste de estrutura', () => {
   })
 })
 
-describe('ProdutoService - verificacao de ajuste de estrutura por produto', () => {
-  it('atualiza automaticamente quando a estrutura nova apenas adiciona obrigatorio vazio', async () => {
+describe('ProdutoService - ajuste de estrutura', () => {
+  it('marca apenas produtos impactados e sincroniza automaticamente atributo removido sem valor', async () => {
     const service = criarService()
-
-    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
+    const estruturaAtualizada = {
       versaoId: 2,
       versaoNumero: 2,
       estrutura: [
@@ -795,18 +794,10 @@ describe('ProdutoService - verificacao de ajuste de estrutura por produto', () =
           multivalorado: false,
           validacoes: {},
         },
-        {
-          id: 23,
-          codigo: 'B',
-          nome: 'Atributo B',
-          tipo: 'TEXTO',
-          obrigatorio: true,
-          multivalorado: false,
-          validacoes: {},
-        },
       ],
-    })
-    jest.spyOn((service as any).atributosService, 'buscarEstruturaPorVersao').mockResolvedValue({
+    }
+
+    jest.spyOn(service as any, 'buscarEstruturaPorVersaoComCache').mockResolvedValue({
       versaoId: 1,
       versaoNumero: 1,
       estrutura: [
@@ -819,32 +810,75 @@ describe('ProdutoService - verificacao de ajuste de estrutura por produto', () =
           multivalorado: false,
           validacoes: {},
         },
-      ],
-    })
-
-    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
-      id: 10,
-      catalogoId: 7,
-      status: 'AJUSTAR_ESTRUTURA',
-      situacao: 'RASCUNHO',
-      codigo: null,
-      ncmCodigo: '12345678',
-      modalidade: 'IMPORTACAO',
-      versaoAtributoId: 1,
-      versaoEstruturaAtributos: 1,
-      atributos: [
         {
-          atributoVersaoId: 1,
-          atributo: { codigo: 'A', nome: 'Atributo A', multivalorado: false },
-          valores: [{ valorJson: 'VALOR', ordem: 0 }],
+          id: 12,
+          codigo: 'B',
+          nome: 'Atributo removido',
+          tipo: 'TEXTO',
+          obrigatorio: false,
+          multivalorado: false,
+          validacoes: {},
         },
       ],
     })
 
-    const deleteManySpy = jest.fn().mockResolvedValue({ count: 1 })
-    const updateSpy = jest.fn().mockResolvedValue({})
+    ;(catalogoPrisma.produto.findMany as jest.Mock)
+      .mockResolvedValueOnce([{ id: 10 }, { id: 11 }])
+      .mockResolvedValueOnce([
+        {
+          id: 10,
+          catalogoId: 7,
+          status: 'APROVADO',
+          situacao: 'RASCUNHO',
+          codigo: null,
+          ncmCodigo: '12345678',
+          modalidade: 'IMPORTACAO',
+          versaoAtributoId: 1,
+          versaoEstruturaAtributos: 1,
+          atributos: [
+            {
+              atributoVersaoId: 1,
+              atributo: { codigo: 'A', multivalorado: false },
+              valores: [{ valorJson: 'OK', ordem: 0 }],
+            },
+            {
+              atributoVersaoId: 1,
+              atributo: { codigo: 'B', multivalorado: false },
+              valores: [],
+            },
+          ],
+        },
+        {
+          id: 11,
+          catalogoId: 7,
+          status: 'APROVADO',
+          situacao: 'RASCUNHO',
+          codigo: null,
+          ncmCodigo: '12345678',
+          modalidade: 'IMPORTACAO',
+          versaoAtributoId: 1,
+          versaoEstruturaAtributos: 1,
+          atributos: [
+            {
+              atributoVersaoId: 1,
+              atributo: { codigo: 'A', multivalorado: false },
+              valores: [{ valorJson: 'OK', ordem: 0 }],
+            },
+            {
+              atributoVersaoId: 1,
+              atributo: { codigo: 'B', multivalorado: false },
+              valores: [{ valorJson: 'VALOR_REMOVIDO', ordem: 0 }],
+            },
+          ],
+        },
+      ])
+    ;(catalogoPrisma.produto.updateMany as jest.Mock).mockResolvedValue({ count: 1 })
+
+    const deleteManySpy = jest.fn().mockResolvedValue({ count: 2 })
     const createSpy = jest.fn().mockResolvedValue({})
+    const updateSpy = jest.fn().mockResolvedValue({})
     produtoResumoServiceMock.salvarResumoProduto.mockResolvedValue(undefined)
+
     ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
       cb({
         produto: { update: updateSpy },
@@ -852,109 +886,54 @@ describe('ProdutoService - verificacao de ajuste de estrutura por produto', () =
       })
     )
 
-    const resultado = await service.verificarAjusteEstruturaProduto(10, 99)
-
-    expect(resultado.aplicado).toBe(true)
-    expect(resultado.requerAjusteManual).toBe(false)
-    expect(resultado.statusProjetado).toBe('PENDENTE')
-    expect(resultado.inconsistencias).toEqual([])
-    expect(updateSpy).toHaveBeenCalledWith({
-      where: { id: 10 },
-      data: {
-        versaoAtributoId: 2,
-        versaoEstruturaAtributos: 2,
-        status: 'PENDENTE',
-      },
+    const resultado = await service.aplicarAjusteEstruturaNcm({
+      ncmCodigo: '12345678',
+      modalidade: 'IMPORTACAO',
+      superUserId: 99,
+      estruturaAtualizada,
     })
+
+    expect(resultado).toEqual({
+      produtosAnalisados: 2,
+      produtosMarcados: 1,
+      produtosSincronizados: 1,
+    })
+    expect(catalogoPrisma.produto.updateMany).toHaveBeenCalledTimes(1)
+    expect(catalogoPrisma.produto.updateMany).toHaveBeenCalledWith({
+      where: { id: 11, catalogo: { superUserId: 99 } },
+      data: { status: 'AJUSTAR_ESTRUTURA' },
+    })
+    expect(deleteManySpy).toHaveBeenCalledTimes(1)
+    expect(deleteManySpy).toHaveBeenCalledWith({ where: { produtoId: 10 } })
     expect(createSpy).toHaveBeenCalledWith({
       data: {
         produtoId: 10,
         atributoId: 22,
         atributoVersaoId: 2,
         valores: {
-          create: [{ valorJson: 'VALOR', ordem: 0 }],
+          create: [{ valorJson: 'OK', ordem: 0 }],
         },
       },
     })
+    expect(updateSpy).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: {
+        versaoAtributoId: 2,
+        versaoEstruturaAtributos: 2,
+      },
+    })
+    expect(produtoResumoServiceMock.salvarResumoProduto).toHaveBeenCalledWith(
+      10,
+      7,
+      {
+        atributosTotal: 1,
+        obrigatoriosPendentes: 0,
+        validosTransmissao: 1,
+      },
+      expect.anything()
+    )
   })
 
-  it('exige ajuste manual quando valor preenchido saiu do dominio atual', async () => {
-    const service = criarService()
-
-    jest.spyOn(service as any, 'obterEstruturaAtributos').mockResolvedValue({
-      versaoId: 2,
-      versaoNumero: 2,
-      estrutura: [
-        {
-          id: 22,
-          codigo: 'A',
-          nome: 'Atributo A',
-          tipo: 'LISTA_ESTATICA',
-          obrigatorio: false,
-          multivalorado: false,
-          validacoes: {},
-          dominio: [{ codigo: '1', descricao: 'Atual' }],
-        },
-      ],
-    })
-    jest.spyOn((service as any).atributosService, 'buscarEstruturaPorVersao').mockResolvedValue({
-      versaoId: 1,
-      versaoNumero: 1,
-      estrutura: [
-        {
-          id: 11,
-          codigo: 'A',
-          nome: 'Atributo A',
-          tipo: 'LISTA_ESTATICA',
-          obrigatorio: false,
-          multivalorado: false,
-          validacoes: {},
-          dominio: [{ codigo: '2', descricao: 'Antigo' }],
-        },
-      ],
-    })
-
-    ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
-      id: 10,
-      catalogoId: 7,
-      status: 'APROVADO',
-      situacao: 'RASCUNHO',
-      codigo: null,
-      ncmCodigo: '12345678',
-      modalidade: 'IMPORTACAO',
-      versaoAtributoId: 1,
-      versaoEstruturaAtributos: 1,
-      atributos: [
-        {
-          atributoVersaoId: 1,
-          atributo: { codigo: 'A', nome: 'Atributo A', multivalorado: false },
-          valores: [{ valorJson: '2', ordem: 0 }],
-        },
-      ],
-    })
-    ;(catalogoPrisma.produto.updateMany as jest.Mock).mockResolvedValue({ count: 1 })
-
-    const resultado = await service.verificarAjusteEstruturaProduto(10, 99)
-
-    expect(resultado.aplicado).toBe(false)
-    expect(resultado.requerAjusteManual).toBe(true)
-    expect(resultado.inconsistencias).toEqual([
-      expect.objectContaining({
-        codigo: 'A',
-        tipo: 'DOMINIO_REMOVIDO_COM_VALOR',
-        mensagem: 'Valor fora do domínio',
-        valoresInvalidos: ['2'],
-      }),
-    ])
-    expect(catalogoPrisma.produto.updateMany).toHaveBeenCalledWith({
-      where: { id: 10, catalogo: { superUserId: 99 } },
-      data: { status: 'AJUSTAR_ESTRUTURA' },
-    })
-    expect(catalogoPrisma.$transaction).not.toHaveBeenCalled()
-  })
-})
-
-describe('ProdutoService - ajuste de estrutura', () => {
   it('promove para APROVADO quando nao ha obrigatorios pendentes apos ajustar', async () => {
     const service = criarService()
 
@@ -1477,7 +1456,7 @@ describe('ProdutoService - ajuste de estrutura', () => {
 })
 
 describe('ProdutoService - saneamento de pendencias de ajuste de estrutura', () => {
-  it('normaliza automaticamente produtos ja alinhados com a versao vigente', async () => {
+  it('conta produtos pendentes sem normalizar status durante a leitura', async () => {
     const service = criarService()
 
     ;(catalogoPrisma.produto.findMany as jest.Mock).mockResolvedValue([
@@ -1492,35 +1471,12 @@ describe('ProdutoService - saneamento de pendencias de ajuste de estrutura', () 
         catalogo: { nome: 'Catalogo 3' }
       }
     ])
-    ;(catalogoPrisma.atributoVersao.findMany as jest.Mock).mockResolvedValue([
-      {
-        id: 77,
-        ncmCodigo: '12345678',
-        modalidade: 'IMPORTACAO',
-        versao: 5
-      }
-    ])
-
-    produtoResumoServiceMock.recalcularResumoProduto.mockResolvedValue({
-      atributosTotal: 0,
-      obrigatoriosPendentes: 0,
-      validosTransmissao: 0
-    })
-
-    const updateSpy = jest.fn().mockResolvedValue({})
-    ;(catalogoPrisma.$transaction as jest.Mock).mockImplementation(async (cb: any) =>
-      cb({
-        produto: { update: updateSpy }
-      })
-    )
-
     const total = await service.contarPendenciasAjusteEstrutura(99)
 
-    expect(total).toBe(0)
-    expect(updateSpy).toHaveBeenCalledWith({
-      where: { id: 81 },
-      data: { status: 'APROVADO' }
-    })
+    expect(total).toBe(1)
+    expect(catalogoPrisma.$transaction).not.toHaveBeenCalled()
+    expect(catalogoPrisma.atributoVersao.findMany).not.toHaveBeenCalled()
+    expect(produtoResumoServiceMock.recalcularResumoProduto).not.toHaveBeenCalled()
   })
 
   it('mantem a pendencia quando o produto ainda esta em versao anterior', async () => {
@@ -1546,14 +1502,6 @@ describe('ProdutoService - saneamento de pendencias de ajuste de estrutura', () 
         versaoEstruturaAtributos: 4,
         versaoAtributoId: 70,
         catalogo: { nome: 'Catalogo 3' }
-      }
-    ])
-    ;(catalogoPrisma.atributoVersao.findMany as jest.Mock).mockResolvedValue([
-      {
-        id: 77,
-        ncmCodigo: '12345678',
-        modalidade: 'IMPORTACAO',
-        versao: 5
       }
     ])
     ;(catalogoPrisma.asyncJob.findFirst as jest.Mock).mockResolvedValue({

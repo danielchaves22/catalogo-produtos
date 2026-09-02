@@ -198,11 +198,6 @@ interface ProdutoPendenciaAjusteEstruturaRow {
   catalogo: { nome: string | null } | null;
 }
 
-interface VersaoEstruturaAtualResumo {
-  id: number;
-  versao: number;
-}
-
 export interface TransmissaoGeradaAjusteEstruturaDTO {
   id: number;
   totalItens: number;
@@ -214,6 +209,12 @@ export interface AjusteEstruturaCatalogoResultadoDTO {
   produtosElegiveis: number;
   produtosIncluidos: number;
   produtosIgnoradosDuplicidade: number;
+}
+
+export interface AplicacaoAjusteEstruturaNcmResultadoDTO {
+  produtosAnalisados: number;
+  produtosMarcados: number;
+  produtosSincronizados: number;
 }
 
 export interface AjusteEstruturaCatalogoJobPayload {
@@ -247,52 +248,6 @@ export interface CorrecaoStatusAjusteEstruturaResultadoDTO {
   restauradosAprovado: number;
   restauradosTransmitido: number;
   sincronizadosVersao: number;
-}
-
-export type TipoInconsistenciaAjusteEstruturaProduto =
-  | 'ATRIBUTO_REMOVIDO_COM_VALOR'
-  | 'ATRIBUTO_OCULTO_COM_VALOR'
-  | 'DOMINIO_REMOVIDO_COM_VALOR'
-  | 'VALOR_INVALIDO_NA_NOVA_ESTRUTURA'
-  | 'VALOR_MULTIVALORADO_INCOMPATIVEL';
-
-export interface InconsistenciaAjusteEstruturaProdutoDTO {
-  codigo: string;
-  nome: string;
-  tipo: TipoInconsistenciaAjusteEstruturaProduto;
-  mensagem: string;
-  detalhe?: string;
-  valorAtual?: unknown;
-  valoresInvalidos?: string[];
-}
-
-export interface AjusteAutomaticoEstruturaProdutoDTO {
-  codigo?: string;
-  nome?: string;
-  tipo: 'VERSAO_ESTRUTURA_ATUALIZADA' | 'VALOR_NORMALIZADO';
-  mensagem: string;
-  valorAnterior?: unknown;
-  valorNovo?: unknown;
-}
-
-export interface VerificacaoAjusteEstruturaProdutoDTO {
-  produtoId: number;
-  divergente: boolean;
-  aplicado: boolean;
-  requerAjusteManual: boolean;
-  mensagem: string;
-  estruturaAtual: { versaoId: number | null; versaoNumero: number | null };
-  estruturaNova: {
-    versaoId: number;
-    versaoNumero: number;
-    estrutura: AtributoEstruturaDTO[];
-  };
-  valoresParaEdicao: Record<string, unknown>;
-  inconsistencias: InconsistenciaAjusteEstruturaProdutoDTO[];
-  ajustesAutomaticos: AjusteAutomaticoEstruturaProdutoDTO[];
-  resumoProjetado: ProdutoResumoValores;
-  statusProjetado: ProdutoStatusRegra;
-  transmissaoGerada: TransmissaoGeradaAjusteEstruturaDTO | null;
 }
 
 interface OrigemTransmissaoAjusteEstruturaContexto {
@@ -436,121 +391,10 @@ export class ProdutoService {
     });
   }
 
-  private async carregarMapaUltimaVersaoEstrutura(
-    produtos: ProdutoPendenciaAjusteEstruturaRow[]
-  ): Promise<Map<string, VersaoEstruturaAtualResumo>> {
-    const combinacoes = new Map<string, { ncmCodigo: string; modalidade: string }>();
-
-    for (const produto of produtos) {
-      const modalidade = produto.modalidade?.trim() ?? '';
-      const chave = this.montarChaveNcmModalidade(produto.ncmCodigo, modalidade);
-
-      if (!combinacoes.has(chave)) {
-        combinacoes.set(chave, { ncmCodigo: produto.ncmCodigo, modalidade });
-      }
-    }
-
-    if (combinacoes.size === 0) {
-      return new Map();
-    }
-
-    const where = Array.from(combinacoes.values()).map(combinacao =>
-      combinacao.modalidade
-        ? { ncmCodigo: combinacao.ncmCodigo, modalidade: combinacao.modalidade }
-        : {
-            ncmCodigo: combinacao.ncmCodigo,
-            OR: [{ modalidade: null }, { modalidade: '' }],
-          }
-    );
-
-    const versoes = await catalogoPrisma.atributoVersao.findMany({
-      where: { OR: where },
-      select: {
-        id: true,
-        ncmCodigo: true,
-        modalidade: true,
-        versao: true,
-      },
-      orderBy: [{ ncmCodigo: 'asc' }, { modalidade: 'asc' }, { versao: 'desc' }],
-    });
-
-    const mapa = new Map<string, VersaoEstruturaAtualResumo>();
-
-    for (const versao of versoes) {
-      const chave = this.montarChaveNcmModalidade(versao.ncmCodigo, versao.modalidade);
-
-      if (!mapa.has(chave)) {
-        mapa.set(chave, { id: versao.id, versao: versao.versao });
-      }
-    }
-
-    return mapa;
-  }
-
-  private async normalizarPendenciasAjusteEstruturaSemDivergencia(
-    produtos: ProdutoPendenciaAjusteEstruturaRow[]
-  ): Promise<Set<number>> {
-    if (produtos.length === 0) {
-      return new Set<number>();
-    }
-
-    const mapaVersoes = await this.carregarMapaUltimaVersaoEstrutura(produtos);
-    const produtosInconsistentes = produtos.filter(produto => {
-      const versaoAtual = mapaVersoes.get(
-        this.montarChaveNcmModalidade(produto.ncmCodigo, produto.modalidade)
-      );
-
-      if (!versaoAtual) {
-        return false;
-      }
-
-      return (
-        produto.versaoAtributoId === versaoAtual.id ||
-        produto.versaoEstruturaAtributos === versaoAtual.versao
-      );
-    });
-
-    if (produtosInconsistentes.length === 0) {
-      return new Set<number>();
-    }
-
-    const idsNormalizados = new Set<number>();
-
-    await catalogoPrisma.$transaction(async tx => {
-      for (const produto of produtosInconsistentes) {
-        const resumo = await this.produtoResumoService.recalcularResumoProduto(produto.id, tx);
-        const novoStatus = resolverStatusProduto({
-          statusAtual: 'AJUSTAR_ESTRUTURA',
-          possuiObrigatoriosPendentes: resumo ? resumo.obrigatoriosPendentes > 0 : true,
-        });
-
-        await tx.produto.update({
-          where: { id: produto.id },
-          data: { status: novoStatus },
-        });
-
-        idsNormalizados.add(produto.id);
-      }
-    });
-
-    logger.info(
-      `Ajuste de estrutura: ${idsNormalizados.size} produto(s) com status inconsistente foram normalizados automaticamente.`
-    );
-
-    return idsNormalizados;
-  }
-
   private async listarProdutosPendentesAjusteEstrutura(
     superUserId: number
   ): Promise<ProdutoPendenciaAjusteEstruturaRow[]> {
-    const produtos = await this.carregarProdutosPendentesAjusteEstrutura(superUserId);
-    const idsNormalizados = await this.normalizarPendenciasAjusteEstruturaSemDivergencia(produtos);
-
-    if (idsNormalizados.size === 0) {
-      return produtos;
-    }
-
-    return produtos.filter(produto => !idsNormalizados.has(produto.id));
+    return this.carregarProdutosPendentesAjusteEstrutura(superUserId);
   }
 
   private produtoJaTransmitidoParaRegras(produto: {
@@ -826,6 +670,22 @@ export class ProdutoService {
     return 'APROVADO' as const;
   }
 
+  private resolverStatusAposSincronizacaoAutomaticaAjusteEstrutura(produto: {
+    status?: ProdutoStatusRegra | null;
+    situacao: 'RASCUNHO' | 'ATIVADO' | 'DESATIVADO';
+    codigo?: string | null;
+  }, resumo: ProdutoResumoValores): ProdutoStatusRegra {
+    if (produto.status === 'AJUSTAR_ESTRUTURA') {
+      return this.resolverStatusRestauradoAjusteEstrutura(produto, resumo);
+    }
+
+    if (resumo.obrigatoriosPendentes > 0) {
+      return 'PENDENTE';
+    }
+
+    return produto.status ?? 'PENDENTE';
+  }
+
   private diagnosticarImpactoAjusteEstrutura(params: {
     produto: {
       id: number;
@@ -890,202 +750,6 @@ export class ProdutoService {
       impactado: houveMudancaValores || houveNovosErros,
       valoresProjetados,
       resumoProjetado,
-    };
-  }
-
-  private diagnosticarAjusteEstruturaProduto(params: {
-    produto: {
-      id: number;
-      status?: ProdutoStatusRegra | null;
-      versaoAtributoId?: number | null;
-      versaoEstruturaAtributos?: number | null;
-      atributos: Array<{
-        id?: number;
-        atributoVersaoId?: number | null;
-        atributo: {
-          codigo: string;
-          nome?: string | null;
-          multivalorado: boolean;
-        } | null;
-        valores: Array<{ valorJson: Prisma.JsonValue; ordem?: number | null }>;
-      }>;
-    };
-    estruturaAtual: EstruturaComVersao | null;
-    estruturaAtualizada: EstruturaComVersao;
-  }): {
-    divergente: boolean;
-    precisaAtualizarVersao: boolean;
-    valoresParaEdicao: Record<string, unknown>;
-    inconsistencias: InconsistenciaAjusteEstruturaProdutoDTO[];
-    ajustesAutomaticos: AjusteAutomaticoEstruturaProdutoDTO[];
-    resumoProjetado: ProdutoResumoValores;
-    statusProjetado: ProdutoStatusRegra;
-  } {
-    const { produto, estruturaAtual, estruturaAtualizada } = params;
-    const valoresOriginais = this.montarValoresDosAtributos(produto.atributos, {
-      produtoId: produto.id,
-      versaoAtributoId: produto.versaoAtributoId,
-      origem: 'produto.verificarAjusteEstruturaProduto',
-    });
-    const mapaAtual = estruturaAtual
-      ? this.mapearEstruturaPorCodigo(estruturaAtual.estrutura)
-      : new Map<string, AtributoEstruturaDTO>();
-    const mapaAtualizado = this.mapearEstruturaPorCodigo(estruturaAtualizada.estrutura);
-    const valoresAtuais = estruturaAtual
-      ? filtrarValoresAtributosVisiveis(valoresOriginais, mapaAtual)
-      : valoresOriginais;
-    const valoresParaEdicao: Record<string, unknown> = {};
-    const inconsistencias: InconsistenciaAjusteEstruturaProdutoDTO[] = [];
-    const ajustesAutomaticos: AjusteAutomaticoEstruturaProdutoDTO[] = [];
-    const codigosComInconsistencia = new Set<string>();
-
-    const registrarInconsistencia = (inconsistencia: InconsistenciaAjusteEstruturaProdutoDTO) => {
-      if (codigosComInconsistencia.has(inconsistencia.codigo)) return;
-      codigosComInconsistencia.add(inconsistencia.codigo);
-      inconsistencias.push(inconsistencia);
-    };
-
-    const obterNomeAtributo = (codigo: string, atributoAtualizado?: AtributoEstruturaDTO) => {
-      const atributoAtual = mapaAtual.get(codigo);
-      const atributoProduto = produto.atributos.find(
-        registro => registro.atributo?.codigo === codigo
-      )?.atributo;
-      return atributoAtualizado?.nome || atributoAtual?.nome || atributoProduto?.nome || codigo;
-    };
-
-    for (const [codigo, valor] of Object.entries(valoresOriginais)) {
-      const valoresPreenchidos = valoresComoArrayCondicional(valor);
-      if (!valoresPreenchidos.length) continue;
-
-      const atributoAtualizado = mapaAtualizado.get(codigo);
-      const nome = obterNomeAtributo(codigo, atributoAtualizado);
-
-      if (!atributoAtualizado) {
-        registrarInconsistencia({
-          codigo,
-          nome,
-          tipo: 'ATRIBUTO_REMOVIDO_COM_VALOR',
-          mensagem: 'Atributo removido da estrutura atual.',
-          detalhe:
-            'O atributo possui valor preenchido no produto, mas não existe mais na estrutura atual da NCM. Confirme o descarte deste valor para salvar o produto com a nova estrutura.',
-          valorAtual: valor,
-        });
-        continue;
-      }
-
-      if (!condicaoAtributoAtendida(atributoAtualizado, valoresOriginais, mapaAtualizado)) {
-        registrarInconsistencia({
-          codigo,
-          nome,
-          tipo: 'ATRIBUTO_OCULTO_COM_VALOR',
-          mensagem: 'Atributo não aplicável na estrutura atual.',
-          detalhe:
-            'O atributo possui valor preenchido, mas a condição da estrutura atual não deixa mais este campo aplicável ao produto. Confirme o descarte ou ajuste os campos condicionantes antes de salvar.',
-          valorAtual: valor,
-        });
-        continue;
-      }
-
-      if (
-        !atributoAtualizado.multivalorado &&
-        Array.isArray(valor) &&
-        valoresPreenchidos.length > 1
-      ) {
-        registrarInconsistencia({
-          codigo,
-          nome,
-          tipo: 'VALOR_MULTIVALORADO_INCOMPATIVEL',
-          mensagem: 'Campo não aceita mais múltiplos valores.',
-          detalhe:
-            'A estrutura atual define este atributo como valor único, mas o produto possui mais de um valor preenchido. Escolha um valor válido para prosseguir.',
-          valorAtual: valor,
-        });
-        valoresParaEdicao[codigo] = valor;
-        continue;
-      }
-
-      const valorNormalizado = atributoAtualizado.multivalorado
-        ? valoresPreenchidos
-        : valoresPreenchidos[0];
-      valoresParaEdicao[codigo] = valorNormalizado;
-
-      if (this.serializarJsonEstavel(valorNormalizado) !== this.serializarJsonEstavel(valor)) {
-        ajustesAutomaticos.push({
-          codigo,
-          nome,
-          tipo: 'VALOR_NORMALIZADO',
-          mensagem: 'Valor normalizado para o formato da estrutura atual.',
-          valorAnterior: valor,
-          valorNovo: valorNormalizado,
-        });
-      }
-    }
-
-    const errosProjetados = this.validarValores(
-      valoresParaEdicao,
-      estruturaAtualizada.estrutura
-    );
-
-    for (const [codigo, mensagem] of Object.entries(errosProjetados)) {
-      const atributoAtualizado = mapaAtualizado.get(codigo);
-      const nome = obterNomeAtributo(codigo, atributoAtualizado);
-      const valoresPreenchidos = valoresComoArrayCondicional(valoresParaEdicao[codigo]);
-      const valoresInvalidos =
-        atributoAtualizado?.tipo === 'LISTA_ESTATICA' && atributoAtualizado.dominio
-          ? valoresPreenchidos.filter(
-              valor =>
-                !atributoAtualizado.dominio!.some(
-                  dominio => String(dominio.codigo) === String(valor)
-                )
-            )
-          : [];
-
-      registrarInconsistencia({
-        codigo,
-        nome,
-        tipo:
-          mensagem === 'Valor fora do domínio'
-            ? 'DOMINIO_REMOVIDO_COM_VALOR'
-            : 'VALOR_INVALIDO_NA_NOVA_ESTRUTURA',
-        mensagem,
-        detalhe: valoresInvalidos.length
-          ? `O(s) valor(es) ${valoresInvalidos.join(', ')} não existem mais no domínio atual deste atributo. Selecione um domínio válido para salvar.`
-          : 'O valor preenchido não atende mais às regras da estrutura atual deste atributo.',
-        valorAtual: valoresParaEdicao[codigo],
-        valoresInvalidos: valoresInvalidos.length ? valoresInvalidos : undefined,
-      });
-    }
-
-    const precisaAtualizarVersao =
-      produto.versaoAtributoId !== estruturaAtualizada.versaoId ||
-      produto.versaoEstruturaAtributos !== estruturaAtualizada.versaoNumero;
-    const houveMudancaValores =
-      this.serializarMapaValores(valoresAtuais) !==
-      this.serializarMapaValores(valoresParaEdicao);
-    const estruturaLista = flattenEstrutura(estruturaAtualizada.estrutura);
-    const resumoProjetado = calcularResumoProduto(valoresParaEdicao, estruturaLista);
-    const statusAtual = produto.status ?? 'PENDENTE';
-    const statusProjetado = resolverStatusProduto({
-      statusAtual,
-      possuiObrigatoriosPendentes: resumoProjetado.obrigatoriosPendentes > 0,
-      houveAlteracaoDadosProduto: precisaAtualizarVersao || houveMudancaValores,
-    });
-
-    if (precisaAtualizarVersao) {
-      ajustesAutomaticos.unshift({
-        tipo: 'VERSAO_ESTRUTURA_ATUALIZADA',
-        mensagem: `Produto será vinculado à versão ${estruturaAtualizada.versaoNumero} da estrutura de atributos.`,
-      });
-    }
-
-    return {
-      divergente: precisaAtualizarVersao || houveMudancaValores || inconsistencias.length > 0,
-      precisaAtualizarVersao,
-      valoresParaEdicao,
-      inconsistencias,
-      ajustesAutomaticos,
-      resumoProjetado,
-      statusProjetado,
     };
   }
 
@@ -2197,159 +1861,156 @@ export class ProdutoService {
     return { itens, totalProdutos: produtos.length };
   }
 
-  async verificarAjusteEstruturaProduto(
-    id: number,
-    superUserId: number
-  ): Promise<VerificacaoAjusteEstruturaProdutoDTO> {
-    const produto = await catalogoPrisma.produto.findFirst({
-      where: { id, catalogo: { superUserId } },
-      include: {
-        atributos: {
-          include: {
-            atributo: {
-              select: {
-                codigo: true,
-                nome: true,
-                multivalorado: true,
-              },
+  async aplicarAjusteEstruturaNcm(
+    parametros: {
+      ncmCodigo: string;
+      modalidade: string;
+      superUserId: number;
+      estruturaAtualizada: EstruturaComVersao;
+      onProgresso?: () => Promise<void>;
+    }
+  ): Promise<AplicacaoAjusteEstruturaNcmResultadoDTO> {
+    const ncmCodigo = String(parametros.ncmCodigo ?? '').trim();
+    const modalidade = this.normalizarModalidadeAjusteEstrutura(parametros.modalidade);
+    const filtroModalidade = this.montarFiltroModalidadeAjusteEstrutura(modalidade);
+
+    const produtosBase = await catalogoPrisma.produto.findMany({
+      where: {
+        ncmCodigo,
+        ...filtroModalidade,
+        catalogo: { superUserId: parametros.superUserId },
+      },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    });
+
+    const resultado: AplicacaoAjusteEstruturaNcmResultadoDTO = {
+      produtosAnalisados: 0,
+      produtosMarcados: 0,
+      produtosSincronizados: 0,
+    };
+
+    const estruturaVersaoCache = new Map<number, EstruturaComVersao | null>();
+
+    for (
+      let indiceLote = 0;
+      indiceLote < produtosBase.length;
+      indiceLote += ProdutoService.CORRECAO_STATUS_AJUSTE_ESTRUTURA_BATCH_SIZE
+    ) {
+      const loteIds = produtosBase
+        .slice(indiceLote, indiceLote + ProdutoService.CORRECAO_STATUS_AJUSTE_ESTRUTURA_BATCH_SIZE)
+        .map(produto => produto.id);
+
+      const produtos = await catalogoPrisma.produto.findMany({
+        where: {
+          id: { in: loteIds },
+          catalogo: { superUserId: parametros.superUserId },
+        },
+        include: {
+          atributos: {
+            include: {
+              atributo: { select: { codigo: true, multivalorado: true } },
+              valores: { orderBy: { ordem: 'asc' } },
             },
-            valores: { select: { valorJson: true, ordem: true }, orderBy: { ordem: 'asc' } },
           },
         },
-      },
-    });
-
-    if (!produto) {
-      throw new Error('Produto não encontrado');
-    }
-
-    const modalidade = this.normalizarModalidade(produto.modalidade ?? '');
-    const estruturaAtual = produto.versaoAtributoId
-      ? await this.atributosService.buscarEstruturaPorVersao(produto.versaoAtributoId)
-      : null;
-    const estruturaAtualizada = await this.obterEstruturaAtributos(
-      produto.ncmCodigo,
-      modalidade,
-      { verificarAtualizacaoLegado: true }
-    );
-    const diagnostico = this.diagnosticarAjusteEstruturaProduto({
-      produto,
-      estruturaAtual,
-      estruturaAtualizada,
-    });
-    const estruturaAtualResumo = {
-      versaoId: estruturaAtual?.versaoId ?? produto.versaoAtributoId ?? null,
-      versaoNumero: estruturaAtual?.versaoNumero ?? produto.versaoEstruturaAtributos ?? null,
-    };
-    const estruturaNovaResumo = {
-      versaoId: estruturaAtualizada.versaoId,
-      versaoNumero: estruturaAtualizada.versaoNumero,
-      estrutura: estruturaAtualizada.estrutura,
-    };
-
-    if (!diagnostico.divergente && produto.status !== 'AJUSTAR_ESTRUTURA') {
-      return {
-        produtoId: produto.id,
-        divergente: false,
-        aplicado: false,
-        requerAjusteManual: false,
-        mensagem: 'A estrutura do produto já está atualizada.',
-        estruturaAtual: estruturaAtualResumo,
-        estruturaNova: estruturaNovaResumo,
-        valoresParaEdicao: diagnostico.valoresParaEdicao,
-        inconsistencias: [],
-        ajustesAutomaticos: [],
-        resumoProjetado: diagnostico.resumoProjetado,
-        statusProjetado: produto.status ?? diagnostico.statusProjetado,
-        transmissaoGerada: null,
-      };
-    }
-
-    if (diagnostico.inconsistencias.length > 0) {
-      if (produto.status !== 'AJUSTAR_ESTRUTURA' && produto.status !== 'PROCESSANDO') {
-        await catalogoPrisma.produto.updateMany({
-          where: { id: produto.id, catalogo: { superUserId } },
-          data: { status: 'AJUSTAR_ESTRUTURA' },
-        });
-      }
-
-      return {
-        produtoId: produto.id,
-        divergente: true,
-        aplicado: false,
-        requerAjusteManual: true,
-        mensagem: 'A estrutura atual exige ajuste manual antes de atualizar o produto.',
-        estruturaAtual: estruturaAtualResumo,
-        estruturaNova: estruturaNovaResumo,
-        valoresParaEdicao: diagnostico.valoresParaEdicao,
-        inconsistencias: diagnostico.inconsistencias,
-        ajustesAutomaticos: diagnostico.ajustesAutomaticos,
-        resumoProjetado: diagnostico.resumoProjetado,
-        statusProjetado: diagnostico.statusProjetado,
-        transmissaoGerada: null,
-      };
-    }
-
-    let transmissaoGerada: TransmissaoGeradaAjusteEstruturaDTO | null = null;
-
-    await catalogoPrisma.$transaction(async tx => {
-      await tx.produtoAtributo.deleteMany({ where: { produtoId: produto.id } });
-
-      await tx.produto.update({
-        where: { id: produto.id },
-        data: {
-          versaoAtributoId: estruturaAtualizada.versaoId,
-          versaoEstruturaAtributos: estruturaAtualizada.versaoNumero,
-          status: diagnostico.statusProjetado,
-        },
+        orderBy: { id: 'asc' },
       });
 
-      if (Object.keys(diagnostico.valoresParaEdicao).length > 0) {
-        await this.salvarValoresProduto(
-          tx,
-          produto.id,
-          estruturaAtualizada,
-          diagnostico.valoresParaEdicao
+      for (const [indiceProduto, produto] of produtos.entries()) {
+        if (parametros.onProgresso && indiceProduto % 10 === 0) {
+          await parametros.onProgresso();
+        }
+
+        const estruturaAtual = await this.buscarEstruturaPorVersaoComCache(
+          produto.versaoAtributoId,
+          estruturaVersaoCache
         );
-      }
+        const diagnostico = this.diagnosticarImpactoAjusteEstrutura({
+          produto,
+          estruturaAtual,
+          estruturaAtualizada: parametros.estruturaAtualizada,
+        });
 
-      await this.produtoResumoService.salvarResumoProduto(
-        produto.id,
-        produto.catalogoId,
-        diagnostico.resumoProjetado,
-        tx
-      );
+        resultado.produtosAnalisados += 1;
 
-      if (produto.situacao === 'ATIVADO' && diagnostico.statusProjetado === 'APROVADO') {
-        const preparoTransmissao = await this.prepararPreTransmissaoAutomaticaAjusteEstrutura(
-          tx,
-          {
-            catalogoId: produto.catalogoId,
-            modalidade,
-            ncmCodigo: produto.ncmCodigo,
-            produtoIdsElegiveis: [produto.id],
-            superUserId,
+        if (diagnostico.impactado) {
+          if (produto.status !== 'AJUSTAR_ESTRUTURA') {
+            await catalogoPrisma.produto.updateMany({
+              where: { id: produto.id, catalogo: { superUserId: parametros.superUserId } },
+              data: { status: 'AJUSTAR_ESTRUTURA' },
+            });
           }
-        );
-        transmissaoGerada = preparoTransmissao.transmissaoGerada;
-      }
-    });
 
-    return {
-      produtoId: produto.id,
-      divergente: true,
-      aplicado: true,
-      requerAjusteManual: false,
-      mensagem: 'Estrutura do produto atualizada automaticamente.',
-      estruturaAtual: estruturaAtualResumo,
-      estruturaNova: estruturaNovaResumo,
-      valoresParaEdicao: diagnostico.valoresParaEdicao,
-      inconsistencias: [],
-      ajustesAutomaticos: diagnostico.ajustesAutomaticos,
-      resumoProjetado: diagnostico.resumoProjetado,
-      statusProjetado: diagnostico.statusProjetado,
-      transmissaoGerada,
-    };
+          resultado.produtosMarcados += 1;
+          continue;
+        }
+
+        const precisaSincronizarVersao =
+          produto.versaoAtributoId !== parametros.estruturaAtualizada.versaoId ||
+          produto.versaoEstruturaAtributos !== parametros.estruturaAtualizada.versaoNumero;
+        const statusProjetado = this.resolverStatusAposSincronizacaoAutomaticaAjusteEstrutura(
+          {
+            status: produto.status as ProdutoStatusRegra,
+            situacao: produto.situacao,
+            codigo: produto.codigo,
+          },
+          diagnostico.resumoProjetado
+        );
+        const precisaAtualizarStatus = produto.status !== statusProjetado;
+
+        if (!precisaSincronizarVersao && !precisaAtualizarStatus) {
+          continue;
+        }
+
+        await catalogoPrisma.$transaction(async tx => {
+          if (precisaSincronizarVersao) {
+            await tx.produtoAtributo.deleteMany({ where: { produtoId: produto.id } });
+
+            if (Object.keys(diagnostico.valoresProjetados).length > 0) {
+              await this.salvarValoresProduto(
+                tx,
+                produto.id,
+                parametros.estruturaAtualizada,
+                diagnostico.valoresProjetados
+              );
+            }
+          }
+
+          await this.produtoResumoService.salvarResumoProduto(
+            produto.id,
+            produto.catalogoId,
+            diagnostico.resumoProjetado,
+            tx
+          );
+
+          const data = {
+            ...(precisaSincronizarVersao
+              ? {
+                  versaoAtributoId: parametros.estruturaAtualizada.versaoId,
+                  versaoEstruturaAtributos: parametros.estruturaAtualizada.versaoNumero,
+                }
+              : {}),
+            ...(precisaAtualizarStatus ? { status: statusProjetado } : {}),
+          };
+
+          if (Object.keys(data).length > 0) {
+            await tx.produto.update({
+              where: { id: produto.id },
+              data,
+            });
+          }
+        });
+
+        resultado.produtosSincronizados += 1;
+      }
+
+      if (parametros.onProgresso) {
+        await parametros.onProgresso();
+      }
+    }
+
+    return resultado;
   }
 
   async solicitarAjusteEstruturaCatalogo(

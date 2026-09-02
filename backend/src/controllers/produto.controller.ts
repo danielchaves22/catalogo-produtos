@@ -332,32 +332,6 @@ export async function listarPendenciasAjusteEstruturaDetalhadas(req: Request, re
   }
 }
 
-export async function verificarAjusteEstruturaProduto(req: Request, res: Response) {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id <= 0) {
-      return res.status(400).json({ error: 'Produto inválido.' });
-    }
-
-    const resultado = await produtoService.verificarAjusteEstruturaProduto(
-      id,
-      req.user!.superUserId
-    );
-
-    return res.json(resultado);
-  } catch (error: any) {
-    if (error instanceof ValidationError) {
-      return res.status(400).json({ error: error.message, details: error.details });
-    }
-    if (error.message?.includes('não encontrado')) {
-      return res.status(404).json({ error: error.message });
-    }
-
-    logger.error('Erro ao verificar ajuste de estrutura do produto:', error);
-    return res.status(500).json({ error: error.message ?? 'Falha ao verificar estrutura.' });
-  }
-}
-
 export async function ajustarEstruturaCatalogo(req: Request, res: Response) {
   try {
     const { ncmCodigo, modalidade, catalogoId } = req.body ?? {};
