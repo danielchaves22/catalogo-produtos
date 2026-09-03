@@ -748,6 +748,7 @@ model AtributoPreenchimentoMassa {
   asyncJob   AsyncJob? @relation(fields: [asyncJobId], references: [id])
 
   @@index([superUserId], map: "idx_attr_massa_super_user")
+  @@index([superUserId, criadoEm, id], map: "idx_attr_massa_super_user_criado")
   @@map("atributo_preenchimento_massa")
 }
 

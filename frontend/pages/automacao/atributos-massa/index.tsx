@@ -9,6 +9,7 @@ import api from '@/lib/api';
 import { Eye, Plus, Search } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { formatCPFOrCNPJ } from '@/lib/validation';
+import { PaginationControls } from '@/components/ui/PaginationControls';
 
 type AsyncJobStatus = 'PENDENTE' | 'PROCESSANDO' | 'CONCLUIDO' | 'FALHO' | 'CANCELADO';
 
@@ -42,6 +43,13 @@ interface RegistroPreenchimentoMassa {
   jobId: number | null;
   jobStatus: AsyncJobStatus | null;
   jobFinalizadoEm: string | null;
+}
+
+interface RegistrosPreenchimentoMassaResponse {
+  items: RegistroPreenchimentoMassa[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 function formatarNCM(ncm: string) {
@@ -121,23 +129,48 @@ function classeStatusProcesso(status?: AsyncJobStatus | null) {
 
 export default function PreenchimentoMassaListaPage() {
   const [registros, setRegistros] = useState<RegistroPreenchimentoMassa[]>([]);
+  const [totalRegistros, setTotalRegistros] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(false);
   const [erroCarregamento, setErroCarregamento] = useState(false);
   const [filtro, setFiltro] = useState('');
   const { addToast } = useToast();
   const router = useRouter();
-
-  useEffect(() => {
-    carregar();
-  }, []);
+  const pageSizeOptions = [10, 20, 50, 100];
+  const totalPages = Math.max(1, Math.ceil(totalRegistros / pageSize));
+  const paginaAtual = Math.min(page, totalPages);
+  const possuiItensNaPagina = totalRegistros > 0 && registros.length > 0;
+  const inicioExibicao = possuiItensNaPagina ? (paginaAtual - 1) * pageSize + 1 : 0;
+  const fimExibicao = possuiItensNaPagina
+    ? Math.min(totalRegistros, inicioExibicao + registros.length - 1)
+    : 0;
+  const exibicaoLabel = possuiItensNaPagina
+    ? `Exibindo ${inicioExibicao}-${fimExibicao} de ${totalRegistros} registros`
+    : undefined;
 
   async function carregar() {
     try {
       setLoading(true);
       setErroCarregamento(false);
-      const resposta = await api.get('/automacao/atributos-massa');
-      const dados = (resposta.data || []) as RegistroPreenchimentoMassa[];
-      setRegistros(dados);
+      const resposta = await api.get<RegistrosPreenchimentoMassaResponse | RegistroPreenchimentoMassa[]>(
+        '/automacao/atributos-massa',
+        { params: { page, pageSize } }
+      );
+      const payload = resposta.data;
+      if (Array.isArray(payload)) {
+        setRegistros(payload);
+        setTotalRegistros(payload.length);
+      } else {
+        setRegistros(payload.items || []);
+        setTotalRegistros(payload.total || 0);
+        if (payload.page && payload.page !== page) {
+          setPage(payload.page);
+        }
+        if (payload.pageSize && payload.pageSize !== pageSize) {
+          setPageSize(payload.pageSize);
+        }
+      }
     } catch (error) {
       console.error('Erro ao carregar histórico de preenchimento em massa:', error);
       setErroCarregamento(true);
@@ -146,6 +179,10 @@ export default function PreenchimentoMassaListaPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    carregar();
+  }, [page, pageSize]);
 
   const registrosFiltrados = useMemo(() => {
     const termo = filtro.trim().toLowerCase();
@@ -203,7 +240,7 @@ export default function PreenchimentoMassaListaPage() {
             <Input
               value={filtro}
               onChange={event => setFiltro(event.target.value)}
-              placeholder="Filtrar por NCM, modalidade ou catálogo"
+              placeholder="Filtrar nesta página por NCM, modalidade ou catálogo"
               className="border-none bg-transparent p-0 focus:ring-0"
             />
           </div>
@@ -218,8 +255,11 @@ export default function PreenchimentoMassaListaPage() {
         {!loading && erroCarregamento && (
           <p className="text-red-400">Não foi possível carregar o histórico. Tente novamente mais tarde.</p>
         )}
-        {!loading && !erroCarregamento && registrosFiltrados.length === 0 && (
+        {!loading && !erroCarregamento && totalRegistros === 0 && (
           <p className="text-gray-300">Nenhuma atribuição em massa registrada até o momento.</p>
+        )}
+        {!loading && !erroCarregamento && totalRegistros > 0 && registrosFiltrados.length === 0 && (
+          <p className="text-gray-300">Nenhum registro encontrado nesta página para o filtro informado.</p>
         )}
 
         {!loading && !erroCarregamento && registrosFiltrados.length > 0 && (
@@ -273,6 +313,22 @@ export default function PreenchimentoMassaListaPage() {
               </tbody>
             </table>
           </div>
+        )}
+
+        {!loading && !erroCarregamento && totalRegistros > 0 && (
+          <PaginationControls
+            page={paginaAtual}
+            pageSize={pageSize}
+            totalItems={totalRegistros}
+            onPageChange={novo => setPage(Math.max(1, Math.min(novo, totalPages)))}
+            onPageSizeChange={novo => {
+              setPageSize(novo);
+              setPage(1);
+            }}
+            pageSizeOptions={pageSizeOptions}
+            loading={loading}
+            displayLabel={exibicaoLabel}
+          />
         )}
       </Card>
     </DashboardLayout>

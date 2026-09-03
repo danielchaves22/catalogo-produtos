@@ -9,7 +9,7 @@ jest.mock('../../jobs/async-job.repository', () => ({
 jest.mock('../../utils/prisma', () => ({
   catalogoPrisma: {
     produto: { findMany: jest.fn() },
-    atributoPreenchimentoMassa: { update: jest.fn() },
+    atributoPreenchimentoMassa: { count: jest.fn(), findMany: jest.fn(), update: jest.fn() },
     $transaction: jest.fn(),
   }
 }))
@@ -19,6 +19,66 @@ describe('AtributoPreenchimentoMassaService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+  })
+
+  it('lista historico paginado sem carregar os jsons pesados do detalhe', async () => {
+    const criadoEm = new Date('2026-09-02T12:00:00.000Z')
+
+    ;(catalogoPrisma.atributoPreenchimentoMassa.count as jest.Mock).mockResolvedValue(35)
+    ;(catalogoPrisma.atributoPreenchimentoMassa.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 7,
+        superUserId: 99,
+        ncmCodigo: '12345678',
+        modalidade: 'IMPORTACAO',
+        modoAtribuicao: 'SELECIONADOS',
+        catalogoIdsJson: [3],
+        catalogosJson: [{ id: 3, nome: 'Catalogo teste', numero: 10, cpf_cnpj: '12345678000190' }],
+        produtosImpactados: 12,
+        criadoEm,
+        criadoPor: 'Usuario',
+        asyncJob: { id: 20, status: 'CONCLUIDO', finalizadoEm: criadoEm },
+      }
+    ])
+
+    const resultado = await service.listar(99, { page: 2, pageSize: 10 })
+
+    expect(catalogoPrisma.atributoPreenchimentoMassa.count).toHaveBeenCalledWith({
+      where: { superUserId: 99 }
+    })
+    expect(catalogoPrisma.atributoPreenchimentoMassa.findMany).toHaveBeenCalledWith({
+      where: { superUserId: 99 },
+      orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
+      skip: 10,
+      take: 10,
+      select: expect.objectContaining({
+        id: true,
+        superUserId: true,
+        catalogosJson: true,
+        produtosImpactados: true,
+        asyncJob: { select: { id: true, status: true, finalizadoEm: true } }
+      })
+    })
+    expect((catalogoPrisma.atributoPreenchimentoMassa.findMany as jest.Mock).mock.calls[0][0].select).not.toHaveProperty('valoresJson')
+    expect((catalogoPrisma.atributoPreenchimentoMassa.findMany as jest.Mock).mock.calls[0][0].select).not.toHaveProperty('estruturaSnapshotJson')
+    expect((catalogoPrisma.atributoPreenchimentoMassa.findMany as jest.Mock).mock.calls[0][0].select).not.toHaveProperty('produtosImpactadosDetalhesJson')
+    expect(resultado).toEqual({
+      items: [
+        expect.objectContaining({
+          id: 7,
+          catalogoIds: [3],
+          produtosImpactados: 12,
+          valoresAtributos: {},
+          estruturaSnapshot: null,
+          produtosImpactadosDetalhes: [],
+          jobId: 20,
+          jobStatus: 'CONCLUIDO',
+        })
+      ],
+      total: 35,
+      page: 2,
+      pageSize: 10,
+    })
   })
 
   it('remove vinculos antigos do mesmo codigo antes de gravar a versao atual', async () => {

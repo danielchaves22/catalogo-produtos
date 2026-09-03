@@ -6,7 +6,12 @@ const service = new AtributoPreenchimentoMassaService();
 
 export async function listarPreenchimentosMassa(req: Request, res: Response) {
   try {
-    const registros = await service.listar(req.user!.superUserId);
+    const pagina = Number(req.query.page);
+    const tamanhoPagina = Number(req.query.pageSize);
+    const registros = await service.listar(req.user!.superUserId, {
+      page: Number.isFinite(pagina) && pagina > 0 ? pagina : undefined,
+      pageSize: Number.isFinite(tamanhoPagina) && tamanhoPagina > 0 ? tamanhoPagina : undefined
+    });
     res.json(registros);
   } catch (error) {
     logger.error('Erro ao listar histórico de preenchimento de atributos em massa', error);

@@ -13,5 +13,6 @@ CREATE TABLE IF NOT EXISTS atributo_preenchimento_massa (
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     criado_por VARCHAR(255) NULL,
     PRIMARY KEY (id),
-    INDEX idx_attr_massa_super_user (super_user_id)
+    INDEX idx_attr_massa_super_user (super_user_id),
+    INDEX idx_attr_massa_super_user_criado (super_user_id, criado_em, id)
 );

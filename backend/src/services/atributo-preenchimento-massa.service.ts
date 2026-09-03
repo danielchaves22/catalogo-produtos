@@ -26,6 +26,22 @@ type RegistroMassaPayload = Prisma.AtributoPreenchimentoMassaGetPayload<{
   include: { asyncJob: { select: { id: true; status: true; finalizadoEm: true } } };
 }>;
 
+type RegistroMassaListaPayload = Prisma.AtributoPreenchimentoMassaGetPayload<{
+  select: {
+    id: true;
+    superUserId: true;
+    ncmCodigo: true;
+    modalidade: true;
+    modoAtribuicao: true;
+    catalogoIdsJson: true;
+    catalogosJson: true;
+    produtosImpactados: true;
+    criadoEm: true;
+    criadoPor: true;
+    asyncJob: { select: { id: true; status: true; finalizadoEm: true } };
+  };
+}>;
+
 export interface AtributoPreenchimentoMassaJobPayload {
   registroId: number;
   superUserId: number;
@@ -102,18 +118,59 @@ export interface AtributoPreenchimentoMassaResumo {
   jobFinalizadoEm: Date | null;
 }
 
+export interface ListarPreenchimentosMassaPaginacao {
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ListarPreenchimentosMassaResultado {
+  items: AtributoPreenchimentoMassaResumo[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export class AtributoPreenchimentoMassaService {
   private readonly atributosService = new AtributoLegacyService();
   private readonly produtoResumoService = new ProdutoResumoService();
 
-  async listar(superUserId: number): Promise<AtributoPreenchimentoMassaResumo[]> {
+  async listar(
+    superUserId: number,
+    paginacao: ListarPreenchimentosMassaPaginacao = {}
+  ): Promise<ListarPreenchimentosMassaResultado> {
+    const page = Math.max(1, paginacao.page ?? 1);
+    const pageSize = Math.max(1, Math.min(paginacao.pageSize ?? 20, 100));
+    const where = { superUserId };
+    const total = await catalogoPrisma.atributoPreenchimentoMassa.count({ where });
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const paginaAjustada = Math.min(page, totalPages);
+
     const registros = await catalogoPrisma.atributoPreenchimentoMassa.findMany({
-      where: { superUserId },
-      orderBy: { criadoEm: 'desc' },
-      include: { asyncJob: { select: { id: true, status: true, finalizadoEm: true } } }
+      where,
+      orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
+      skip: (paginaAjustada - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        superUserId: true,
+        ncmCodigo: true,
+        modalidade: true,
+        modoAtribuicao: true,
+        catalogoIdsJson: true,
+        catalogosJson: true,
+        produtosImpactados: true,
+        criadoEm: true,
+        criadoPor: true,
+        asyncJob: { select: { id: true, status: true, finalizadoEm: true } }
+      }
     });
 
-    return registros.map(registro => this.montarResposta(registro));
+    return {
+      items: registros.map(registro => this.montarRespostaLista(registro)),
+      total,
+      page: paginaAjustada,
+      pageSize
+    };
   }
 
   async buscarPorId(id: number, superUserId: number): Promise<AtributoPreenchimentoMassaResumo | null> {
@@ -633,6 +690,53 @@ export class AtributoPreenchimentoMassaService {
       produtosImpactadosDetalhes,
       criadoEm: registro.criadoEm,
       criadoPor: registro.criadoPor ?? null,
+      jobId: registro.asyncJob?.id ?? null,
+      jobStatus: registro.asyncJob?.status ?? null,
+      jobFinalizadoEm: registro.asyncJob?.finalizadoEm ?? null
+    };
+  }
+
+  private montarRespostaLista(registro: RegistroMassaListaPayload): AtributoPreenchimentoMassaResumo {
+    const catalogoIds = Array.isArray(registro.catalogoIdsJson)
+      ? (registro.catalogoIdsJson as unknown[])
+          .map(valor => Number(valor))
+          .filter(valor => Number.isInteger(valor))
+      : [];
+
+    const catalogos = Array.isArray(registro.catalogosJson)
+      ? (registro.catalogosJson as Array<{ id: number; nome?: string | null; numero?: number | null; cpf_cnpj?: string | null }>).map(
+          catalogo => ({
+            id: catalogo.id,
+            nome: catalogo.nome ?? null,
+            numero: catalogo.numero ?? null,
+            cpf_cnpj: catalogo.cpf_cnpj ?? null
+          })
+        )
+      : [];
+
+    const modoRegistro =
+      typeof registro.modoAtribuicao === 'string'
+        ? (registro.modoAtribuicao as string).toUpperCase()
+        : 'TODOS_COM_EXCECOES';
+    const modoAtribuicao: ModoAtribuicao =
+      modoRegistro === 'SELECIONADOS' ? 'SELECIONADOS' : 'TODOS_COM_EXCECOES';
+
+    return {
+      id: registro.id,
+      superUserId: registro.superUserId,
+      ncmCodigo: registro.ncmCodigo,
+      modalidade: registro.modalidade,
+      modoAtribuicao,
+      catalogoIds,
+      catalogos,
+      valoresAtributos: {},
+      estruturaSnapshot: null,
+      produtosExcecao: [],
+      produtosSelecionados: [],
+      produtosImpactados: registro.produtosImpactados,
+      produtosImpactadosDetalhes: [],
+      criadoEm: registro.criadoEm,
+      criadoPor: registro.criadoPor,
       jobId: registro.asyncJob?.id ?? null,
       jobStatus: registro.asyncJob?.status ?? null,
       jobFinalizadoEm: registro.asyncJob?.finalizadoEm ?? null
