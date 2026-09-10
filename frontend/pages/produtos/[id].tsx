@@ -236,7 +236,9 @@ export default function ProdutoPage() {
     produtoDesativado &&
     !reativacaoEmEdicao &&
     codigo.trim().length > 0 &&
-    (statusProduto === 'APROVADO' || statusProduto === 'TRANSMITIDO');
+    (statusProduto === 'PENDENTE' ||
+      statusProduto === 'APROVADO' ||
+      statusProduto === 'TRANSMITIDO');
   const denominacaoAlteradaParaReativacao =
     normalizarTextoComparacao(denominacao) !== normalizarTextoComparacao(denominacaoOriginal);
 

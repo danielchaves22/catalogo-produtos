@@ -1598,7 +1598,7 @@ describe('ProdutoService - bloqueio de alteracao para produto desativado', () =>
 
     ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
       id: 1,
-      status: 'TRANSMITIDO',
+      status: 'PENDENTE',
       situacao: 'DESATIVADO',
       denominacao: 'Produto antigo',
       descricao: 'Descricao',
@@ -1699,7 +1699,7 @@ describe('ProdutoService - bloqueio de alteracao para produto desativado', () =>
 
     ;(catalogoPrisma.produto.findFirst as jest.Mock).mockResolvedValue({
       id: 1,
-      status: 'TRANSMITIDO',
+      status: 'PENDENTE',
       situacao: 'DESATIVADO',
       denominacao: 'Produto antigo',
       descricao: 'Descricao',

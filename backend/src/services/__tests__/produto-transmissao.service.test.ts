@@ -835,6 +835,48 @@ describe('ProdutoTransmissaoService', () => {
     })
   })
 
+  it('permite reativar produto pendente quando o salvamento o deixa aprovado', async () => {
+    state.produtos.set(4, {
+      id: 4,
+      catalogoId: 5,
+      codigo: 'COD-4',
+      versao: '1',
+      status: 'PENDENTE',
+      situacao: 'DESATIVADO',
+      denominacao: 'Produto antigo',
+    })
+    produtoServiceMock.atualizar.mockResolvedValue({
+      id: 4,
+      status: 'APROVADO',
+      situacao: 'DESATIVADO',
+      denominacao: 'Produto novo',
+    })
+
+    const resultado = await service.transmitirReativacaoProduto(
+      4,
+      {
+        denominacao: 'Produto novo',
+        valoresAtributos: { A: '1' } as any,
+      },
+      99
+    )
+
+    expect(resultado).toEqual({ transmissaoId: 1, jobId: 700, posicaoFilaCatalogo: 1 })
+    expect(produtoServiceMock.atualizar).toHaveBeenCalledWith(
+      4,
+      expect.objectContaining({
+        denominacao: 'Produto novo',
+        valoresAtributos: { A: '1' },
+      }),
+      99,
+      expect.objectContaining({ exigirStatusAprovadoAposAtualizacao: true })
+    )
+    expect(state.itens[0]).toMatchObject({
+      produtoId: 4,
+      operacao: ProdutoTransmissaoItemOperacao.NOVA_VERSAO,
+    })
+  })
+
   it('rejeita reativação quando denominação não foi alterada', async () => {
     state.produtos.set(4, {
       id: 4,

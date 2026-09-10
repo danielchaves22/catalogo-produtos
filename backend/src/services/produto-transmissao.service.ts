@@ -1843,8 +1843,9 @@ export class ProdutoTransmissaoService {
       erros.situacao = 'Somente produtos DESATIVADO podem ser reativados por nova versão.';
     }
 
-    if (status !== 'APROVADO' && status !== 'TRANSMITIDO') {
-      erros.status = 'Somente produtos aprovados ou já transmitidos podem ser reativados por nova versão.';
+    if (status !== 'PENDENTE' && status !== 'APROVADO' && status !== 'TRANSMITIDO') {
+      erros.status =
+        'Somente produtos pendentes, aprovados ou já transmitidos podem ser reativados por nova versão.';
     }
 
     if (!codigoNormalizado) {
