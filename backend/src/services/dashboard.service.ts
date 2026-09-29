@@ -125,6 +125,7 @@ export async function obterResumoDashboardService(
     FROM (
       SELECT
         CASE
+          WHEN resumo.desativados = resumo.total_produtos AND resumo.total_produtos > 0 THEN 'DESATIVADO'
           WHEN resumo.nao_transmitidos = 0 AND resumo.transmitidos > 0 AND resumo.total_produtos > 0 THEN 'TRANSMITIDO'
           WHEN resumo.ajustar_estrutura > 0 THEN 'AJUSTAR_ESTRUTURA'
           WHEN resumo.erros > 0 THEN 'ERRO'
@@ -144,9 +145,13 @@ export async function obterResumoDashboardService(
           COALESCE(SUM(CASE WHEN p.status = 'APROVADO' THEN 1 ELSE 0 END), 0) AS aprovados,
           COALESCE(SUM(CASE WHEN p.status = 'PROCESSANDO' THEN 1 ELSE 0 END), 0) AS processando,
           COALESCE(SUM(CASE WHEN p.status = 'TRANSMITIDO' THEN 1 ELSE 0 END), 0) AS transmitidos,
-          COALESCE(SUM(CASE WHEN p.status IS NOT NULL AND p.status <> 'TRANSMITIDO' THEN 1 ELSE 0 END), 0) AS nao_transmitidos
+          COALESCE(SUM(CASE WHEN p.status = 'DESATIVADO' THEN 1 ELSE 0 END), 0) AS desativados,
+          COALESCE(SUM(CASE WHEN p.status IS NOT NULL AND p.status NOT IN ('TRANSMITIDO', 'DESATIVADO') THEN 1 ELSE 0 END), 0) AS nao_transmitidos
         FROM catalogo c
-          LEFT JOIN produto p ON p.catalogo_id = c.id
+          LEFT JOIN (
+            SELECT p.catalogo_id, ${produtoStatusDashboardSql} AS status
+            FROM produto p
+          ) p ON p.catalogo_id = c.id
         WHERE ${catalogoWhereSql}
         GROUP BY c.id
       ) AS resumo

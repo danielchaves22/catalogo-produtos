@@ -32,11 +32,6 @@ import useDebounce from '@/hooks/useDebounce';
 const DESCRICAO_MAX_LENGTH = 3700;
 const DENOMINACAO_MAX_LENGTH = 120;
 const MAX_TENTATIVAS_IA = 2;
-const APP_ENV_PUBLICO = (process.env.NEXT_PUBLIC_APP_ENV || process.env.NODE_ENV || '')
-  .trim()
-  .toLowerCase();
-const EXIBIR_CODIGO_ATRIBUTO =
-  APP_ENV_PUBLICO !== 'prod' && APP_ENV_PUBLICO !== 'production';
 
 interface AtributoEstrutura {
   codigo: string;
@@ -364,7 +359,7 @@ export default function ProdutoPage() {
   }, [estrutura]);
 
   function montarLabelAtributo(attr: AtributoEstrutura) {
-    return EXIBIR_CODIGO_ATRIBUTO ? `${attr.nome} (${attr.codigo})` : attr.nome;
+    return `${attr.nome} (${attr.codigo})`;
   }
 
   function montarHintAtributo(attr: AtributoEstrutura) {

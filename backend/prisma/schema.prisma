@@ -301,6 +301,7 @@ model ProdutoTransmissaoItem {
 
 model Pais {
   codigo String @id @map("codigo")
+  codigoSiscomex String? @map("codigo_siscomex") @db.Char(3)
   sigla  String @map("sigla")
   nome   String @map("nome")
   

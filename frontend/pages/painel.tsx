@@ -85,7 +85,8 @@ const STATUS_CATALOGOS_DASHBOARD = [
   'APROVADO',
   'TRANSMITIDO',
   'ERRO',
-  'AJUSTAR_ESTRUTURA'
+  'AJUSTAR_ESTRUTURA',
+  'DESATIVADO'
 ] as const satisfies readonly DashboardStatus[];
 
 function statusListaParaMapa(
