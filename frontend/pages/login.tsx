@@ -48,12 +48,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-md">
         <div className="flex flex-col items-center mb-8">
           <Image
-            src="/assets/images/logo_login.png"
-            alt="COMEXDEZ"
-            width={260}
-            height={110}
+            src="/assets/images/logo_login_23anos.png"
+            alt="COMEXDEZ 23 anos"
+            width={360}
+            height={150}
             priority
-            className="w-auto"
+            className="h-auto max-w-full"
           />
         </div>
 
