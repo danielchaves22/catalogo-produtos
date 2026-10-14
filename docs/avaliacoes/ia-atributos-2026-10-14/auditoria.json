@@ -1,0 +1,929 @@
+{
+  "method": "Análise secundária realizada após a execução, sem novas chamadas nem alteração do gabarito ou das respostas. Separa conteúdo de formato: ignora nós COMPOSTO (estruturais), trata null/undefined/string vazia como omissão e aceita array unitário em atributo de valor único. As duas últimas tolerâncias refletem normalizarValorSugerido/aplicarSugestoesIa da tela. Não é teste end-to-end do frontend. Mantidas em resultado.json as métricas estritas originais.",
+  "caveat": "O caso 06 envia a hierarquia diretamente ao compactador do serviço; a tela atual coleta somente atributos não compostos em lista plana. Esse caso é um teste adicional do serviço e não reproduz a coleta da tela.",
+  "frontendReference": "frontend/pages/produtos/[id].tsx:610-698",
+  "models": [
+    {
+      "model": "gpt-6-luna",
+      "calls": 48,
+      "correctValues": 159,
+      "emittedValues": 159,
+      "expectedValues": 159,
+      "exactProducts": 48,
+      "divergenceTypes": {
+        "unsupportedValue": 0,
+        "scalarAsArray": 0,
+        "structuralNode": 0,
+        "nullInsteadOfOmission": 0,
+        "other": 0
+      },
+      "cases": [
+        {
+          "caseId": "05",
+          "repetition": 1,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "08",
+          "repetition": 1,
+          "correct": 5,
+          "emitted": 5,
+          "expected": 5,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "11",
+          "repetition": 1,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "16",
+          "repetition": 1,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "15",
+          "repetition": 1,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "04",
+          "repetition": 1,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "09",
+          "repetition": 1,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "13",
+          "repetition": 1,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "01",
+          "repetition": 1,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "12",
+          "repetition": 1,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "07",
+          "repetition": 1,
+          "correct": 5,
+          "emitted": 5,
+          "expected": 5,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "06",
+          "repetition": 1,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "10",
+          "repetition": 1,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "02",
+          "repetition": 1,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "03",
+          "repetition": 1,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "14",
+          "repetition": 1,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "13",
+          "repetition": 2,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "04",
+          "repetition": 2,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "01",
+          "repetition": 2,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "14",
+          "repetition": 2,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "11",
+          "repetition": 2,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "10",
+          "repetition": 2,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "02",
+          "repetition": 2,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "16",
+          "repetition": 2,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "08",
+          "repetition": 2,
+          "correct": 5,
+          "emitted": 5,
+          "expected": 5,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "12",
+          "repetition": 2,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "15",
+          "repetition": 2,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "03",
+          "repetition": 2,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "09",
+          "repetition": 2,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "05",
+          "repetition": 2,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "06",
+          "repetition": 2,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "07",
+          "repetition": 2,
+          "correct": 5,
+          "emitted": 5,
+          "expected": 5,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "01",
+          "repetition": 3,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "14",
+          "repetition": 3,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "09",
+          "repetition": 3,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "12",
+          "repetition": 3,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "07",
+          "repetition": 3,
+          "correct": 5,
+          "emitted": 5,
+          "expected": 5,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "06",
+          "repetition": 3,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "05",
+          "repetition": 3,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "15",
+          "repetition": 3,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "13",
+          "repetition": 3,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "10",
+          "repetition": 3,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "16",
+          "repetition": 3,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "08",
+          "repetition": 3,
+          "correct": 5,
+          "emitted": 5,
+          "expected": 5,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "03",
+          "repetition": 3,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "02",
+          "repetition": 3,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "11",
+          "repetition": 3,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "04",
+          "repetition": 3,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        }
+      ],
+      "precision": 1,
+      "recall": 1,
+      "exactProductRate": 1
+    },
+    {
+      "model": "gpt-5.4-nano",
+      "calls": 48,
+      "correctValues": 159,
+      "emittedValues": 162,
+      "expectedValues": 159,
+      "exactProducts": 45,
+      "divergenceTypes": {
+        "unsupportedValue": 3,
+        "scalarAsArray": 3,
+        "structuralNode": 6,
+        "nullInsteadOfOmission": 1,
+        "other": 0
+      },
+      "cases": [
+        {
+          "caseId": "05",
+          "repetition": 1,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "08",
+          "repetition": 1,
+          "correct": 5,
+          "emitted": 5,
+          "expected": 5,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "11",
+          "repetition": 1,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "16",
+          "repetition": 1,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "15",
+          "repetition": 1,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "04",
+          "repetition": 1,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "09",
+          "repetition": 1,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "13",
+          "repetition": 1,
+          "correct": 2,
+          "emitted": 3,
+          "expected": 2,
+          "exact": false,
+          "issues": [
+            {
+              "atributo": "COR",
+              "esperado": "omitir",
+              "recebido": "AZ"
+            }
+          ]
+        },
+        {
+          "caseId": "01",
+          "repetition": 1,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "12",
+          "repetition": 1,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "07",
+          "repetition": 1,
+          "correct": 5,
+          "emitted": 5,
+          "expected": 5,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "06",
+          "repetition": 1,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "10",
+          "repetition": 1,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "02",
+          "repetition": 1,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "03",
+          "repetition": 1,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "14",
+          "repetition": 1,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "13",
+          "repetition": 2,
+          "correct": 2,
+          "emitted": 3,
+          "expected": 2,
+          "exact": false,
+          "issues": [
+            {
+              "atributo": "COR",
+              "esperado": "omitir",
+              "recebido": "AZ"
+            }
+          ]
+        },
+        {
+          "caseId": "04",
+          "repetition": 2,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "01",
+          "repetition": 2,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "14",
+          "repetition": 2,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "11",
+          "repetition": 2,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "10",
+          "repetition": 2,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "02",
+          "repetition": 2,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "16",
+          "repetition": 2,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "08",
+          "repetition": 2,
+          "correct": 5,
+          "emitted": 5,
+          "expected": 5,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "12",
+          "repetition": 2,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "15",
+          "repetition": 2,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "03",
+          "repetition": 2,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "09",
+          "repetition": 2,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "05",
+          "repetition": 2,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "06",
+          "repetition": 2,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "07",
+          "repetition": 2,
+          "correct": 5,
+          "emitted": 5,
+          "expected": 5,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "01",
+          "repetition": 3,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "14",
+          "repetition": 3,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "09",
+          "repetition": 3,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "12",
+          "repetition": 3,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "07",
+          "repetition": 3,
+          "correct": 5,
+          "emitted": 5,
+          "expected": 5,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "06",
+          "repetition": 3,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "05",
+          "repetition": 3,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "15",
+          "repetition": 3,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "13",
+          "repetition": 3,
+          "correct": 2,
+          "emitted": 3,
+          "expected": 2,
+          "exact": false,
+          "issues": [
+            {
+              "atributo": "COR",
+              "esperado": "omitir",
+              "recebido": "AZ"
+            }
+          ]
+        },
+        {
+          "caseId": "10",
+          "repetition": 3,
+          "correct": 3,
+          "emitted": 3,
+          "expected": 3,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "16",
+          "repetition": 3,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "08",
+          "repetition": 3,
+          "correct": 5,
+          "emitted": 5,
+          "expected": 5,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "03",
+          "repetition": 3,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "02",
+          "repetition": 3,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "11",
+          "repetition": 3,
+          "correct": 2,
+          "emitted": 2,
+          "expected": 2,
+          "exact": true,
+          "issues": []
+        },
+        {
+          "caseId": "04",
+          "repetition": 3,
+          "correct": 4,
+          "emitted": 4,
+          "expected": 4,
+          "exact": true,
+          "issues": []
+        }
+      ],
+      "precision": 0.9814814814814815,
+      "recall": 1,
+      "exactProductRate": 0.9375
+    }
+  ]
+}

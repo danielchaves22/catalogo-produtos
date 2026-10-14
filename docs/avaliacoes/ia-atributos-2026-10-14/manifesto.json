@@ -1,0 +1,42 @@
+{
+  "startedAt": "2026-10-14T17:27:01.991Z",
+  "timezone": "America/Sao_Paulo",
+  "configuredModel": "gpt-6-luna",
+  "sourceSha256": "63f2c0d697072a8a0665d29a14ccc6e3d402818885d7130b44afe7ab45651599",
+  "fixturesSha256": "3a9b61c7b5b628606163a7ba277b05046202e129fb5d0c03d14066b8c20e2f48",
+  "cases": 16,
+  "repetitions": 3,
+  "expectedCalls": 96,
+  "models": [
+    "gpt-6-luna",
+    "gpt-5.4-nano"
+  ],
+  "pricesPerMillion": {
+    "gpt-6-luna": {
+      "input": 0.1,
+      "cachedInput": 0.01,
+      "output": 0.5
+    },
+    "gpt-5.4-nano": {
+      "input": 0.2,
+      "cachedInput": 0.02,
+      "output": 1.25
+    }
+  },
+  "sources": [
+    "https://developers.openai.com/api/docs/models/gpt-6-luna",
+    "https://developers.openai.com/api/docs/models/gpt-5.4-nano"
+  ],
+  "method": "Mesmo prompt gerado pelas funções do serviço atual, mesmas descrições/domínios e parâmetros. Gabarito não enviado à API. Chamadas sequenciais sem retries; ordem dos casos embaralhada com semente fixa e ordem dos modelos alternada por par. Modelo informado apenas no payload de cada requisição.",
+  "parameters": {
+    "temperature": 0.2,
+    "reasoning_effort": "none",
+    "max_completion_tokens": 800,
+    "response_format": {
+      "type": "json_object"
+    },
+    "service_tier": "default",
+    "timeoutMs": 15000
+  },
+  "costMethod": "Estimativas pelos tokens reportados e tarifas Standard: custo sem cache e custo com desconto de leituras de cache. Não é leitura de fatura; eventual escrita de cache não discriminada não está incluída."
+}

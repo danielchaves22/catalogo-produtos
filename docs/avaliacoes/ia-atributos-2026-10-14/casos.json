@@ -1,0 +1,1464 @@
+{
+  "criadoEm": "2026-10-14T17:26:44.945Z",
+  "natureza": "Produtos e códigos de atributos fictícios; não são registros nem códigos oficiais do SISCOMEX.",
+  "criterio": "Gabarito definido antes da execução. Chaves não presentes no gabarito devem ser omitidas. Números aceitam string ou número e vírgula decimal; arrays são comparados como conjuntos sem ignorar duplicatas. Texto livre normaliza espaços, caixa e Unicode; códigos de domínio são exatos.",
+  "casos": [
+    {
+      "id": "01",
+      "nome": "Camiseta de algodão",
+      "categoria": "direto",
+      "request": {
+        "descricao": "Camiseta azul, composição 100% algodão. Tamanho M.",
+        "atributos": [
+          {
+            "codigo": "MATERIAL",
+            "nome": "Material",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "ALG",
+                "descricao": "Algodão"
+              },
+              {
+                "codigo": "POL",
+                "descricao": "Poliéster"
+              },
+              {
+                "codigo": "LA",
+                "descricao": "Lã"
+              }
+            ]
+          },
+          {
+            "codigo": "COR",
+            "nome": "Cor",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "AZ",
+                "descricao": "Azul"
+              },
+              {
+                "codigo": "PT",
+                "descricao": "Preto"
+              },
+              {
+                "codigo": "VM",
+                "descricao": "Vermelho"
+              }
+            ]
+          },
+          {
+            "codigo": "TAMANHO",
+            "nome": "Tamanho",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "P",
+                "descricao": "Pequeno (P)"
+              },
+              {
+                "codigo": "M",
+                "descricao": "Médio (M)"
+              },
+              {
+                "codigo": "G",
+                "descricao": "Grande (G)"
+              }
+            ]
+          },
+          {
+            "codigo": "MARCA",
+            "nome": "Marca",
+            "tipo": "TEXTO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {}
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "MATERIAL": "ALG",
+        "COR": "AZ",
+        "TAMANHO": "M"
+      },
+      "numericos": []
+    },
+    {
+      "id": "02",
+      "nome": "Tecido misto",
+      "categoria": "multivalorado",
+      "request": {
+        "descricao": "Tecido composto por 60% algodão e 40% poliéster, nas cores branca e azul. Não contém elastano.",
+        "atributos": [
+          {
+            "codigo": "FIBRAS",
+            "nome": "Fibras da composição",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": true,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "ALG",
+                "descricao": "Algodão"
+              },
+              {
+                "codigo": "POL",
+                "descricao": "Poliéster"
+              },
+              {
+                "codigo": "ELA",
+                "descricao": "Elastano"
+              }
+            ]
+          },
+          {
+            "codigo": "CORES",
+            "nome": "Cores",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": true,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "BR",
+                "descricao": "Branco"
+              },
+              {
+                "codigo": "AZ",
+                "descricao": "Azul"
+              },
+              {
+                "codigo": "PT",
+                "descricao": "Preto"
+              }
+            ]
+          },
+          {
+            "codigo": "GRAMATURA",
+            "nome": "Gramatura em g/m²",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "FIBRAS": [
+          "ALG",
+          "POL"
+        ],
+        "CORES": [
+          "BR",
+          "AZ"
+        ]
+      },
+      "numericos": []
+    },
+    {
+      "id": "03",
+      "nome": "Motor elétrico",
+      "categoria": "unidades",
+      "request": {
+        "descricao": "Motor elétrico monofásico, 220 V, 60 Hz e potência nominal de 1,5 kW. Rotação não informada.",
+        "atributos": [
+          {
+            "codigo": "FASES",
+            "nome": "Número de fases",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "MONO",
+                "descricao": "Monofásico"
+              },
+              {
+                "codigo": "TRI",
+                "descricao": "Trifásico"
+              }
+            ]
+          },
+          {
+            "codigo": "TENSAO",
+            "nome": "Tensão nominal em volts",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "FREQUENCIA",
+            "nome": "Frequência em hertz",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "POTENCIA",
+            "nome": "Potência nominal em watts",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "ROTACAO",
+            "nome": "Rotação em rpm",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "FASES": "MONO",
+        "TENSAO": 220,
+        "FREQUENCIA": 60,
+        "POTENCIA": 1500
+      },
+      "numericos": [
+        "TENSAO",
+        "FREQUENCIA",
+        "POTENCIA",
+        "ROTACAO"
+      ]
+    },
+    {
+      "id": "04",
+      "nome": "Parafuso inox",
+      "categoria": "tecnico",
+      "request": {
+        "descricao": "Parafuso de aço inoxidável AISI 304, rosca métrica M6, comprimento de 20 mm e cabeça sextavada.",
+        "atributos": [
+          {
+            "codigo": "MATERIAL",
+            "nome": "Material",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "INOX304",
+                "descricao": "Aço inoxidável AISI 304"
+              },
+              {
+                "codigo": "INOX316",
+                "descricao": "Aço inoxidável AISI 316"
+              },
+              {
+                "codigo": "AC",
+                "descricao": "Aço carbono"
+              }
+            ]
+          },
+          {
+            "codigo": "DIAMETRO",
+            "nome": "Diâmetro nominal da rosca em mm",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "COMPRIMENTO",
+            "nome": "Comprimento em mm",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "CABECA",
+            "nome": "Formato da cabeça",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "SEX",
+                "descricao": "Sextavada"
+              },
+              {
+                "codigo": "PAN",
+                "descricao": "Panela"
+              },
+              {
+                "codigo": "ESC",
+                "descricao": "Escareada"
+              }
+            ]
+          },
+          {
+            "codigo": "PASSO",
+            "nome": "Passo da rosca em mm",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "MATERIAL": "INOX304",
+        "DIAMETRO": 6,
+        "COMPRIMENTO": 20,
+        "CABECA": "SEX"
+      },
+      "numericos": [
+        "DIAMETRO",
+        "COMPRIMENTO",
+        "PASSO"
+      ]
+    },
+    {
+      "id": "05",
+      "nome": "Flange sem classe de pressão",
+      "categoria": "ausencia",
+      "request": {
+        "descricao": "Flange em aço carbono, diâmetro nominal DN 50. Classe de pressão e tipo de face não informados.",
+        "atributos": [
+          {
+            "codigo": "MATERIAL",
+            "nome": "Material",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "AC",
+                "descricao": "Aço carbono"
+              },
+              {
+                "codigo": "INOX",
+                "descricao": "Aço inoxidável"
+              }
+            ]
+          },
+          {
+            "codigo": "DN",
+            "nome": "Diâmetro nominal DN",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "CLASSE",
+            "nome": "Classe de pressão",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": true,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "C150",
+                "descricao": "Classe 150"
+              },
+              {
+                "codigo": "C300",
+                "descricao": "Classe 300"
+              },
+              {
+                "codigo": "C600",
+                "descricao": "Classe 600"
+              }
+            ]
+          },
+          {
+            "codigo": "FACE",
+            "nome": "Tipo de face",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "RF",
+                "descricao": "Ressalto (RF)"
+              },
+              {
+                "codigo": "FF",
+                "descricao": "Plana (FF)"
+              }
+            ]
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "MATERIAL": "AC",
+        "DN": 50
+      },
+      "numericos": [
+        "DN"
+      ]
+    },
+    {
+      "id": "06",
+      "nome": "Bomba com materiais por componente",
+      "categoria": "contexto",
+      "request": {
+        "descricao": "Bomba centrífuga com corpo em ferro fundido e rotor em bronze. Alimentação elétrica de 380 V.",
+        "atributos": [
+          {
+            "codigo": "CORPO",
+            "nome": "Corpo da bomba",
+            "tipo": "COMPOSTO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "subAtributos": [
+              {
+                "codigo": "MAT_CORPO",
+                "nome": "Material",
+                "tipo": "LISTA_ESTATICA",
+                "obrigatorio": false,
+                "multivalorado": false,
+                "validacoes": {},
+                "dominio": [
+                  {
+                    "codigo": "FF",
+                    "descricao": "Ferro fundido"
+                  },
+                  {
+                    "codigo": "BR",
+                    "descricao": "Bronze"
+                  },
+                  {
+                    "codigo": "INOX",
+                    "descricao": "Aço inoxidável"
+                  }
+                ],
+                "parentCodigo": "CORPO"
+              }
+            ]
+          },
+          {
+            "codigo": "ROTOR",
+            "nome": "Rotor da bomba",
+            "tipo": "COMPOSTO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "subAtributos": [
+              {
+                "codigo": "MAT_ROTOR",
+                "nome": "Material",
+                "tipo": "LISTA_ESTATICA",
+                "obrigatorio": false,
+                "multivalorado": false,
+                "validacoes": {},
+                "dominio": [
+                  {
+                    "codigo": "FF",
+                    "descricao": "Ferro fundido"
+                  },
+                  {
+                    "codigo": "BR",
+                    "descricao": "Bronze"
+                  },
+                  {
+                    "codigo": "INOX",
+                    "descricao": "Aço inoxidável"
+                  }
+                ],
+                "parentCodigo": "ROTOR"
+              }
+            ]
+          },
+          {
+            "codigo": "TENSAO",
+            "nome": "Tensão de alimentação em volts",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "MAT_CORPO": "FF",
+        "MAT_ROTOR": "BR",
+        "TENSAO": 380
+      },
+      "numericos": [
+        "TENSAO"
+      ]
+    },
+    {
+      "id": "07",
+      "nome": "Sensor PT100",
+      "categoria": "tecnico",
+      "request": {
+        "descricao": "Sensor de temperatura PT100, ligação a três fios, faixa de medição de -50 °C a +200 °C. Invólucro de aço inoxidável.",
+        "atributos": [
+          {
+            "codigo": "TIPO",
+            "nome": "Tipo de sensor",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "PT100",
+                "descricao": "Termorresistência PT100"
+              },
+              {
+                "codigo": "TCJ",
+                "descricao": "Termopar tipo J"
+              },
+              {
+                "codigo": "NTC",
+                "descricao": "Termistor NTC"
+              }
+            ]
+          },
+          {
+            "codigo": "FIOS",
+            "nome": "Número de fios",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "MIN",
+            "nome": "Temperatura mínima de medição em °C",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "MAX",
+            "nome": "Temperatura máxima de medição em °C",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "MATERIAL",
+            "nome": "Material do invólucro",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "INOX",
+                "descricao": "Aço inoxidável"
+              },
+              {
+                "codigo": "PL",
+                "descricao": "Plástico"
+              }
+            ]
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "TIPO": "PT100",
+        "FIOS": 3,
+        "MIN": -50,
+        "MAX": 200,
+        "MATERIAL": "INOX"
+      },
+      "numericos": [
+        "FIOS",
+        "MIN",
+        "MAX"
+      ]
+    },
+    {
+      "id": "08",
+      "nome": "Cabo de rede sem blindagem",
+      "categoria": "negacao",
+      "request": {
+        "descricao": "Cabo de rede categoria 6, quatro pares, condutores de cobre puro (não é CCA), sem blindagem. Comprimento de 2 metros.",
+        "atributos": [
+          {
+            "codigo": "CATEGORIA",
+            "nome": "Categoria",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "CAT5E",
+                "descricao": "Categoria 5e"
+              },
+              {
+                "codigo": "CAT6",
+                "descricao": "Categoria 6"
+              },
+              {
+                "codigo": "CAT6A",
+                "descricao": "Categoria 6A"
+              }
+            ]
+          },
+          {
+            "codigo": "CONDUTOR",
+            "nome": "Material do condutor",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "CU",
+                "descricao": "Cobre puro"
+              },
+              {
+                "codigo": "CCA",
+                "descricao": "Alumínio cobreado (CCA)"
+              }
+            ]
+          },
+          {
+            "codigo": "BLINDAGEM",
+            "nome": "Blindagem",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "UTP",
+                "descricao": "Sem blindagem (UTP)"
+              },
+              {
+                "codigo": "FTP",
+                "descricao": "Blindado com folha (FTP)"
+              }
+            ]
+          },
+          {
+            "codigo": "PARES",
+            "nome": "Quantidade de pares",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "COMPRIMENTO",
+            "nome": "Comprimento em centímetros",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "CATEGORIA": "CAT6",
+        "CONDUTOR": "CU",
+        "BLINDAGEM": "UTP",
+        "PARES": 4,
+        "COMPRIMENTO": 200
+      },
+      "numericos": [
+        "PARES",
+        "COMPRIMENTO"
+      ]
+    },
+    {
+      "id": "09",
+      "nome": "Brinquedo manual",
+      "categoria": "negacao",
+      "request": {
+        "descricao": "Carrinho de brinquedo de plástico, acionamento manual, sem motor e sem pilhas. Faixa etária e certificações não informadas.",
+        "atributos": [
+          {
+            "codigo": "MATERIAL",
+            "nome": "Material",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "PL",
+                "descricao": "Plástico"
+              },
+              {
+                "codigo": "MT",
+                "descricao": "Metal"
+              },
+              {
+                "codigo": "MD",
+                "descricao": "Madeira"
+              }
+            ]
+          },
+          {
+            "codigo": "ACIONAMENTO",
+            "nome": "Acionamento",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "MAN",
+                "descricao": "Manual"
+              },
+              {
+                "codigo": "ELE",
+                "descricao": "Elétrico"
+              }
+            ]
+          },
+          {
+            "codigo": "PILHAS",
+            "nome": "Utiliza pilhas",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "S",
+                "descricao": "Sim"
+              },
+              {
+                "codigo": "N",
+                "descricao": "Não"
+              }
+            ]
+          },
+          {
+            "codigo": "FAIXA",
+            "nome": "Faixa etária",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": true,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "A3",
+                "descricao": "Acima de 3 anos"
+              },
+              {
+                "codigo": "A6",
+                "descricao": "Acima de 6 anos"
+              }
+            ]
+          },
+          {
+            "codigo": "CERTIFICACAO",
+            "nome": "Certificação",
+            "tipo": "TEXTO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {}
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "MATERIAL": "PL",
+        "ACIONAMENTO": "MAN",
+        "PILHAS": "N"
+      },
+      "numericos": []
+    },
+    {
+      "id": "10",
+      "nome": "Modelo Azul de cor preta",
+      "categoria": "contexto",
+      "request": {
+        "descricao": "Camiseta da marca Horizonte, modelo Azul, na cor preta. A palavra Azul é o nome do modelo. Composição não informada.",
+        "atributos": [
+          {
+            "codigo": "MARCA",
+            "nome": "Marca",
+            "tipo": "TEXTO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {}
+          },
+          {
+            "codigo": "MODELO",
+            "nome": "Modelo",
+            "tipo": "TEXTO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {}
+          },
+          {
+            "codigo": "COR",
+            "nome": "Cor",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "AZ",
+                "descricao": "Azul"
+              },
+              {
+                "codigo": "PT",
+                "descricao": "Preto"
+              },
+              {
+                "codigo": "BR",
+                "descricao": "Branco"
+              }
+            ]
+          },
+          {
+            "codigo": "MATERIAL",
+            "nome": "Material",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "ALG",
+                "descricao": "Algodão"
+              },
+              {
+                "codigo": "POL",
+                "descricao": "Poliéster"
+              }
+            ]
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "MARCA": "Horizonte",
+        "MODELO": "Azul",
+        "COR": "PT"
+      },
+      "numericos": []
+    },
+    {
+      "id": "11",
+      "nome": "Óleo ISO VG 46",
+      "categoria": "tecnico",
+      "request": {
+        "descricao": "Óleo hidráulico de base mineral, classificação ISO VG 46. A viscosidade cinemática medida a 40 °C não foi informada.",
+        "atributos": [
+          {
+            "codigo": "BASE",
+            "nome": "Base do óleo",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "MIN",
+                "descricao": "Mineral"
+              },
+              {
+                "codigo": "SIN",
+                "descricao": "Sintética"
+              },
+              {
+                "codigo": "VEG",
+                "descricao": "Vegetal"
+              }
+            ]
+          },
+          {
+            "codigo": "GRAU",
+            "nome": "Grau de viscosidade ISO VG",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "VG32",
+                "descricao": "ISO VG 32"
+              },
+              {
+                "codigo": "VG46",
+                "descricao": "ISO VG 46"
+              },
+              {
+                "codigo": "VG68",
+                "descricao": "ISO VG 68"
+              }
+            ]
+          },
+          {
+            "codigo": "VISCOSIDADE",
+            "nome": "Viscosidade cinemática medida a 40 °C em mm²/s",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "BASE": "MIN",
+        "GRAU": "VG46"
+      },
+      "numericos": [
+        "VISCOSIDADE"
+      ]
+    },
+    {
+      "id": "12",
+      "nome": "Monitor sem tecnologia de painel informada",
+      "categoria": "ausencia",
+      "request": {
+        "descricao": "Monitor de 23,8 polegadas, resolução 1920 x 1080, retroiluminação LED, sem tela sensível ao toque. Tecnologia do painel não informada.",
+        "atributos": [
+          {
+            "codigo": "DIAGONAL",
+            "nome": "Diagonal em polegadas",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "RESOLUCAO",
+            "nome": "Resolução",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "FHD",
+                "descricao": "1920 x 1080 (Full HD)"
+              },
+              {
+                "codigo": "QHD",
+                "descricao": "2560 x 1440"
+              },
+              {
+                "codigo": "UHD",
+                "descricao": "3840 x 2160"
+              }
+            ]
+          },
+          {
+            "codigo": "LUZ",
+            "nome": "Retroiluminação",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "LED",
+                "descricao": "LED"
+              },
+              {
+                "codigo": "CCFL",
+                "descricao": "CCFL"
+              }
+            ]
+          },
+          {
+            "codigo": "TOQUE",
+            "nome": "Tela sensível ao toque",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "S",
+                "descricao": "Sim"
+              },
+              {
+                "codigo": "N",
+                "descricao": "Não"
+              }
+            ]
+          },
+          {
+            "codigo": "PAINEL",
+            "nome": "Tecnologia do painel",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "IPS",
+                "descricao": "IPS"
+              },
+              {
+                "codigo": "TN",
+                "descricao": "TN"
+              },
+              {
+                "codigo": "VA",
+                "descricao": "VA"
+              }
+            ]
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "DIAGONAL": 23.8,
+        "RESOLUCAO": "FHD",
+        "LUZ": "LED",
+        "TOQUE": "N"
+      },
+      "numericos": [
+        "DIAGONAL"
+      ]
+    },
+    {
+      "id": "13",
+      "nome": "Caneca com cor fora do domínio",
+      "categoria": "fora_dominio",
+      "request": {
+        "descricao": "Caneca de cerâmica com capacidade de 0,35 litro. Cor turquesa; não é azul, vermelha nem branca.",
+        "atributos": [
+          {
+            "codigo": "MATERIAL",
+            "nome": "Material",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "CER",
+                "descricao": "Cerâmica"
+              },
+              {
+                "codigo": "VID",
+                "descricao": "Vidro"
+              },
+              {
+                "codigo": "PL",
+                "descricao": "Plástico"
+              }
+            ]
+          },
+          {
+            "codigo": "CAPACIDADE",
+            "nome": "Capacidade em mililitros",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "COR",
+            "nome": "Cor",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": true,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "AZ",
+                "descricao": "Azul"
+              },
+              {
+                "codigo": "VM",
+                "descricao": "Vermelho"
+              },
+              {
+                "codigo": "BR",
+                "descricao": "Branco"
+              }
+            ]
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "MATERIAL": "CER",
+        "CAPACIDADE": 350
+      },
+      "numericos": [
+        "CAPACIDADE"
+      ]
+    },
+    {
+      "id": "14",
+      "nome": "Bateria LiFePO4",
+      "categoria": "tecnico",
+      "request": {
+        "descricao": "Bateria recarregável de fosfato de ferro-lítio (LiFePO4), tensão nominal de 12,8 V e capacidade de 100 Ah. Peso e quantidade de células não informados.",
+        "atributos": [
+          {
+            "codigo": "QUIMICA",
+            "nome": "Composição química",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "LFP",
+                "descricao": "Fosfato de ferro-lítio (LiFePO4)"
+              },
+              {
+                "codigo": "NMC",
+                "descricao": "Níquel-manganês-cobalto"
+              },
+              {
+                "codigo": "PB",
+                "descricao": "Chumbo-ácido"
+              }
+            ]
+          },
+          {
+            "codigo": "TENSAO",
+            "nome": "Tensão nominal em volts",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "CAPACIDADE",
+            "nome": "Capacidade em Ah",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "CELULAS",
+            "nome": "Quantidade de células",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "PESO",
+            "nome": "Peso em kg",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "QUIMICA": "LFP",
+        "TENSAO": 12.8,
+        "CAPACIDADE": 100
+      },
+      "numericos": [
+        "TENSAO",
+        "CAPACIDADE",
+        "CELULAS",
+        "PESO"
+      ]
+    },
+    {
+      "id": "15",
+      "nome": "Jogo de chaves",
+      "categoria": "multivalorado",
+      "request": {
+        "descricao": "Jogo com três chaves de boca de 8, 10 e 12 mm, fabricadas em aço cromo-vanádio e acabamento cromado. Não inclui chave de 13 mm.",
+        "atributos": [
+          {
+            "codigo": "MEDIDAS",
+            "nome": "Medidas das chaves em mm",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": true,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "M8",
+                "descricao": "8 mm"
+              },
+              {
+                "codigo": "M10",
+                "descricao": "10 mm"
+              },
+              {
+                "codigo": "M12",
+                "descricao": "12 mm"
+              },
+              {
+                "codigo": "M13",
+                "descricao": "13 mm"
+              }
+            ]
+          },
+          {
+            "codigo": "MATERIAL",
+            "nome": "Material",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "CRV",
+                "descricao": "Aço cromo-vanádio"
+              },
+              {
+                "codigo": "AC",
+                "descricao": "Aço carbono"
+              },
+              {
+                "codigo": "INOX",
+                "descricao": "Aço inoxidável"
+              }
+            ]
+          },
+          {
+            "codigo": "ACABAMENTO",
+            "nome": "Acabamento",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "CR",
+                "descricao": "Cromado"
+              },
+              {
+                "codigo": "OX",
+                "descricao": "Oxidado"
+              },
+              {
+                "codigo": "NAT",
+                "descricao": "Natural"
+              }
+            ]
+          },
+          {
+            "codigo": "QUANTIDADE",
+            "nome": "Quantidade de chaves no jogo",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "MEDIDAS": [
+          "M8",
+          "M10",
+          "M12"
+        ],
+        "MATERIAL": "CRV",
+        "ACABAMENTO": "CR",
+        "QUANTIDADE": 3
+      },
+      "numericos": [
+        "QUANTIDADE"
+      ]
+    },
+    {
+      "id": "16",
+      "nome": "Válvula: pressão de ensaio versus nominal",
+      "categoria": "contexto",
+      "request": {
+        "descricao": "Válvula de esfera em latão, acionamento manual, DN 25. Pressão de ensaio: 25 bar. A pressão nominal de trabalho não foi informada.",
+        "atributos": [
+          {
+            "codigo": "MATERIAL",
+            "nome": "Material",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "LT",
+                "descricao": "Latão"
+              },
+              {
+                "codigo": "INOX",
+                "descricao": "Aço inoxidável"
+              },
+              {
+                "codigo": "PVC",
+                "descricao": "PVC"
+              }
+            ]
+          },
+          {
+            "codigo": "ACIONAMENTO",
+            "nome": "Acionamento",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "MAN",
+                "descricao": "Manual"
+              },
+              {
+                "codigo": "ELE",
+                "descricao": "Elétrico"
+              },
+              {
+                "codigo": "PNE",
+                "descricao": "Pneumático"
+              }
+            ]
+          },
+          {
+            "codigo": "DN",
+            "nome": "Diâmetro nominal DN",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "ENSAIO",
+            "nome": "Pressão de ensaio em bar",
+            "tipo": "NUMERO",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {
+              "casas_decimais": 3
+            }
+          },
+          {
+            "codigo": "PN",
+            "nome": "Pressão nominal de trabalho",
+            "tipo": "LISTA_ESTATICA",
+            "obrigatorio": false,
+            "multivalorado": false,
+            "validacoes": {},
+            "dominio": [
+              {
+                "codigo": "PN10",
+                "descricao": "10 bar"
+              },
+              {
+                "codigo": "PN16",
+                "descricao": "16 bar"
+              },
+              {
+                "codigo": "PN25",
+                "descricao": "25 bar"
+              }
+            ]
+          }
+        ],
+        "modalidade": "IMPORTACAO",
+        "maxTokensResposta": 800
+      },
+      "esperado": {
+        "MATERIAL": "LT",
+        "ACIONAMENTO": "MAN",
+        "DN": 25,
+        "ENSAIO": 25
+      },
+      "numericos": [
+        "DN",
+        "ENSAIO"
+      ]
+    }
+  ]
+}

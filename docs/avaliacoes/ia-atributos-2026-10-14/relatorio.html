@@ -1,0 +1,225 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Comparativo de modelos — sugestão de atributos</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;color:#182633;background:#f5f7fa;margin:0}main{max-width:1100px;margin:auto;padding:32px}h1{font-size:30px;line-height:1.2}h2{margin-top:32px}p,li{max-width:95ch}table{border-collapse:collapse;width:100%;background:white;margin:20px 0;font-size:14px}th,td{padding:11px 14px;border:1px solid #dbe2ea;text-align:left}thead th{background:#19394c;color:white}tbody th{font-weight:500;width:48%}.box{border-left:4px solid #127f75;background:#e9f5f1;padding:14px 18px}details{background:white;border:1px solid #dbe2ea;border-radius:6px;padding:12px 16px;margin:10px 0}summary{cursor:pointer;font-weight:600}pre{white-space:pre-wrap;word-break:break-word;background:#f1f4f8;padding:12px;border-radius:4px;font-size:13px}a{color:#006e9e}.scroll{overflow-x:auto}.muted{color:#526475}code{font-size:14px}</style>
+<main><h1>GPT-6 Luna × GPT-5.4 Nano</h1><p class="muted">Sugestão de atributos · 14/10/2026, 14:27:01 a 14/10/2026, 14:29:28 · America/Sao_Paulo</p>
+<p class="box">16 produtos fictícios, 3 repetições por modelo, 96 chamadas reais à API. Gabarito definido e gravado antes da execução. Modelo configurado: <strong>gpt-6-luna</strong>. Arquivo .env preservado: <strong>sim</strong>; serviço preservado: <strong>sim</strong>; gabarito preservado: <strong>sim</strong>.</p>
+<h2>Resultados medidos</h2><div class="scroll"><table><thead><tr><th>Métrica</th><th>GPT-6 Luna</th><th>GPT-5.4 Nano</th></tr></thead><tbody><tr><th scope="row">Requisições concluídas</th><td>48/48</td><td>48/48</td></tr><tr><th scope="row">Precisão de conteúdo (análise secundária)</th><td>100,0% (159/159)</td><td>98,1% (159/162)</td></tr><tr><th scope="row">Produtos corretos em conteúdo (análise secundária)</th><td>48/48 (100,0%)</td><td>45/48 (93,8%)</td></tr><tr><th scope="row">Respostas inteiramente conformes ao gabarito bruto</th><td>48/48 (100,0%)</td><td>38/48 (79,2%)</td></tr><tr><th scope="row">Precisão de valor e formato (critério estrito)</th><td>100,0% (159/159)</td><td>92,3% (156/169)</td></tr><tr><th scope="row">Cobertura dos valores esperados</th><td>100,0% (159/159)</td><td>98,1% (156/159)</td></tr><tr><th scope="row">Decisões corretas de preencher ou omitir</th><td>210/210 (100,0%)</td><td>197/210 (93,8%)</td></tr><tr><th scope="row">Preenchimentos sem evidência</th><td>0</td><td>10</td></tr><tr><th scope="row">Atributos com valores fora do domínio</th><td>0</td><td>0</td></tr><tr><th scope="row">Tempo mediano</th><td>1,888 s</td><td>0,821 s</td></tr><tr><th scope="row">Tempo médio</th><td>2,175 s</td><td>0,883 s</td></tr><tr><th scope="row">Percentil 95 de tempo</th><td>3,551 s</td><td>1,351 s</td></tr><tr><th scope="row">Tokens de entrada / saída</th><td>22.635 / 1.296</td><td>22.635 / 1.359</td></tr><tr><th scope="row">Tokens de raciocínio / cache lido</th><td>0 / 0</td><td>0 / 0</td></tr><tr><th scope="row">Custo estimado desta execução</th><td>US$ 0,002912</td><td>US$ 0,006226</td></tr><tr><th scope="row">Projeção por 1.000 chamadas semelhantes</th><td>US$ 0,060656</td><td>US$ 0,129703</td></tr></tbody></table></div>
+<p>O Nano teve tempo mediano 56,5% menor nesta execução. O Luna teve custo estimado 53,2% menor. Esses percentuais descrevem esta amostra e este ambiente de rede.</p>
+<h2>Método e limites</h2><ul>
+<li>Mesmas descrições, domínios, instruções e formato JSON da aplicação. As funções de compactação e construção do prompt foram carregadas diretamente do serviço TypeScript atual. Igualdade dos prompts dos 48 pares confirmada por SHA-256.</li>
+<li>Chamadas sequenciais, sem retries; ordem dos casos embaralhada com semente fixa e ordem dos modelos alternada por par. Parâmetros iguais: temperature 0.2, reasoning_effort none, max_completion_tokens 800, response_format json_object, service_tier default e timeout 15000 ms. O modelo foi escolhido somente no payload do teste; não houve mudança de configuração.</li>
+<li>Precisão = sugestões de atributos corretas / sugestões emitidas. Cobertura = valores esperados recuperados / valores esperados. Produto correto exige todos os valores esperados e nenhuma sugestão extra. Arrays foram avaliados como conjuntos, sem aceitar duplicatas; números aceitam string ou número e vírgula decimal. Códigos de domínio são exatos.</li>
+<li>Análise secundária realizada após a execução, sem novas chamadas nem alteração do gabarito ou das respostas. Separa conteúdo de formato: ignora nós COMPOSTO (estruturais), trata null/undefined/string vazia como omissão e aceita array unitário em atributo de valor único. As duas últimas tolerâncias refletem normalizarValorSugerido/aplicarSugestoesIa da tela. Não é teste end-to-end do frontend. Mantidas em resultado.json as métricas estritas originais.</li>
+<li>O caso 06 envia a hierarquia diretamente ao compactador do serviço; a tela atual coleta somente atributos não compostos em lista plana. Esse caso é um teste adicional do serviço e não reproduz a coleta da tela.</li>
+<li>Tempo mede a chamada HTTP completa, incluindo rede, fila e geração. O p95 usa a posição de teto de 95% na lista ordenada. Não é medição isolada do tempo de processamento do modelo nem teste de concorrência.</li>
+<li>Os 16 produtos têm 53 valores esperados por rodada; repetições não equivalem a produtos independentes. Amostra pequena e fictícia, com códigos ilustrativos, sem NCM nem base oficial do SISCOMEX. Não demonstra precisão em catálogos reais, domínios extensos ou descrições longas/ruidosas.</li>
+<li>Custos são estimativas pelos tokens retornados e preços Standard consultados em 14/10/2026: Luna US$ 0,10/0,50 e Nano US$ 0,20/1,25 por milhão de tokens de entrada/saída. Cache lido: 0; cache escrito reportado: 0; raciocínio: 0. Sem conversão cambial ou tributos; não é leitura da fatura. <a href="https://developers.openai.com/api/docs/models/gpt-6-luna">Preço Luna</a> · <a href="https://developers.openai.com/api/docs/models/gpt-5.4-nano">Preço Nano</a>.</li>
+<li>Modelos retornados pela API: gpt-6-luna, gpt-5.4-nano-2026-03-17.</li>
+</ul><h2>Por produto</h2><p>Acertos completos / repetições; tempo mediano.</p><div class="scroll"><table><thead><tr><th>Produto</th><th>Luna</th><th>Nano</th></tr></thead><tbody><tr><th scope="row">01 — Camiseta de algodão</th><td>3/3; 1,986 s</td><td>3/3; 0,733 s</td></tr><tr><th scope="row">02 — Tecido misto</th><td>3/3; 2,589 s</td><td>3/3; 0,738 s</td></tr><tr><th scope="row">03 — Motor elétrico</th><td>3/3; 2,720 s</td><td>2/3; 0,823 s</td></tr><tr><th scope="row">04 — Parafuso inox</th><td>3/3; 2,916 s</td><td>3/3; 0,759 s</td></tr><tr><th scope="row">05 — Flange sem classe de pressão</th><td>3/3; 1,800 s</td><td>3/3; 0,821 s</td></tr><tr><th scope="row">06 — Bomba com materiais por componente</th><td>3/3; 1,471 s</td><td>0/3; 1,132 s</td></tr><tr><th scope="row">07 — Sensor PT100</th><td>3/3; 1,411 s</td><td>3/3; 0,956 s</td></tr><tr><th scope="row">08 — Cabo de rede sem blindagem</th><td>3/3; 2,329 s</td><td>3/3; 0,861 s</td></tr><tr><th scope="row">09 — Brinquedo manual</th><td>3/3; 1,590 s</td><td>3/3; 0,769 s</td></tr><tr><th scope="row">10 — Modelo Azul de cor preta</th><td>3/3; 1,628 s</td><td>3/3; 0,844 s</td></tr><tr><th scope="row">11 — Óleo ISO VG 46</th><td>3/3; 2,263 s</td><td>3/3; 1,018 s</td></tr><tr><th scope="row">12 — Monitor sem tecnologia de painel informada</th><td>3/3; 1,331 s</td><td>3/3; 0,821 s</td></tr><tr><th scope="row">13 — Caneca com cor fora do domínio</th><td>3/3; 1,639 s</td><td>0/3; 0,796 s</td></tr><tr><th scope="row">14 — Bateria LiFePO4</th><td>3/3; 2,310 s</td><td>0/3; 0,864 s</td></tr><tr><th scope="row">15 — Jogo de chaves</th><td>3/3; 2,423 s</td><td>3/3; 0,967 s</td></tr><tr><th scope="row">16 — Válvula: pressão de ensaio versus nominal</th><td>3/3; 2,230 s</td><td>3/3; 0,776 s</td></tr></tbody></table></div>
+<h2>Gabaritos e respostas integrais</h2><details><summary>01 — Camiseta de algodão</summary><p>Camiseta azul, composição 100% algodão. Tamanho M.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;MATERIAL&quot;: &quot;ALG&quot;,
+  &quot;COR&quot;: &quot;AZ&quot;,
+  &quot;TAMANHO&quot;: &quot;M&quot;
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 2,018 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;ALG&quot;,&quot;COR&quot;:&quot;AZ&quot;,&quot;TAMANHO&quot;:&quot;M&quot;}</pre><p>Repetição 2: 1,986 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;ALG&quot;,&quot;COR&quot;:&quot;AZ&quot;,&quot;TAMANHO&quot;:&quot;M&quot;}</pre><p>Repetição 3: 1,433 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;ALG&quot;,&quot;COR&quot;:&quot;AZ&quot;,&quot;TAMANHO&quot;:&quot;M&quot;}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 0,783 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;ALG&quot;,&quot;COR&quot;:&quot;AZ&quot;,&quot;TAMANHO&quot;:&quot;M&quot;}</pre><p>Repetição 2: 0,733 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;ALG&quot;,&quot;COR&quot;:&quot;AZ&quot;,&quot;TAMANHO&quot;:&quot;M&quot;}</pre><p>Repetição 3: 0,660 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;ALG&quot;,&quot;COR&quot;:&quot;AZ&quot;,&quot;TAMANHO&quot;:&quot;M&quot;}</pre></details><details><summary>02 — Tecido misto</summary><p>Tecido composto por 60% algodão e 40% poliéster, nas cores branca e azul. Não contém elastano.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;FIBRAS&quot;: [
+    &quot;ALG&quot;,
+    &quot;POL&quot;
+  ],
+  &quot;CORES&quot;: [
+    &quot;BR&quot;,
+    &quot;AZ&quot;
+  ]
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 2,589 s; correto</p><pre>{&quot;FIBRAS&quot;:[&quot;ALG&quot;,&quot;POL&quot;],&quot;CORES&quot;:[&quot;BR&quot;,&quot;AZ&quot;]}</pre><p>Repetição 2: 1,553 s; correto</p><pre>{&quot;FIBRAS&quot;:[&quot;ALG&quot;,&quot;POL&quot;],&quot;CORES&quot;:[&quot;BR&quot;,&quot;AZ&quot;]}</pre><p>Repetição 3: 2,680 s; correto</p><pre>{&quot;FIBRAS&quot;:[&quot;ALG&quot;,&quot;POL&quot;],&quot;CORES&quot;:[&quot;BR&quot;,&quot;AZ&quot;]}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 0,670 s; correto</p><pre>{&quot;FIBRAS&quot;:[&quot;ALG&quot;,&quot;POL&quot;],&quot;CORES&quot;:[&quot;BR&quot;,&quot;AZ&quot;]}</pre><p>Repetição 2: 0,738 s; correto</p><pre>{&quot;FIBRAS&quot;:[&quot;ALG&quot;,&quot;POL&quot;],&quot;CORES&quot;:[&quot;BR&quot;,&quot;AZ&quot;]}</pre><p>Repetição 3: 0,755 s; correto</p><pre>{&quot;FIBRAS&quot;:[&quot;ALG&quot;,&quot;POL&quot;],&quot;CORES&quot;:[&quot;BR&quot;,&quot;AZ&quot;]}</pre></details><details><summary>03 — Motor elétrico</summary><p>Motor elétrico monofásico, 220 V, 60 Hz e potência nominal de 1,5 kW. Rotação não informada.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;FASES&quot;: &quot;MONO&quot;,
+  &quot;TENSAO&quot;: 220,
+  &quot;FREQUENCIA&quot;: 60,
+  &quot;POTENCIA&quot;: 1500
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 8,519 s; correto</p><pre>{&quot;FASES&quot;:&quot;MONO&quot;,&quot;TENSAO&quot;:220,&quot;FREQUENCIA&quot;:60,&quot;POTENCIA&quot;:1500}</pre><p>Repetição 2: 1,698 s; correto</p><pre>{&quot;FASES&quot;:&quot;MONO&quot;,&quot;TENSAO&quot;:220,&quot;FREQUENCIA&quot;:60,&quot;POTENCIA&quot;:1500}</pre><p>Repetição 3: 2,720 s; correto</p><pre>{&quot;FASES&quot;:&quot;MONO&quot;,&quot;TENSAO&quot;:220,&quot;FREQUENCIA&quot;:60,&quot;POTENCIA&quot;:1500}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 0,823 s; correto</p><pre>{&quot;FASES&quot;:&quot;MONO&quot;,&quot;TENSAO&quot;:220,&quot;FREQUENCIA&quot;:60,&quot;POTENCIA&quot;:1500}</pre><p>Repetição 2: 1,325 s; divergente</p><pre>{&quot;FASES&quot;:&quot;MONO&quot;,&quot;TENSAO&quot;:220,&quot;FREQUENCIA&quot;:60,&quot;POTENCIA&quot;:1500,&quot;ROTACAO&quot;:null}</pre><pre>[
+  {
+    &quot;atributo&quot;: &quot;ROTACAO&quot;,
+    &quot;tipo&quot;: &quot;preenchimento_sem_evidencia&quot;,
+    &quot;esperado&quot;: &quot;omitir&quot;,
+    &quot;recebido&quot;: null
+  }
+]</pre><p>Repetição 3: 0,808 s; correto</p><pre>{&quot;FASES&quot;:&quot;MONO&quot;,&quot;TENSAO&quot;:220,&quot;FREQUENCIA&quot;:60,&quot;POTENCIA&quot;:1500}</pre></details><details><summary>04 — Parafuso inox</summary><p>Parafuso de aço inoxidável AISI 304, rosca métrica M6, comprimento de 20 mm e cabeça sextavada.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;MATERIAL&quot;: &quot;INOX304&quot;,
+  &quot;DIAMETRO&quot;: 6,
+  &quot;COMPRIMENTO&quot;: 20,
+  &quot;CABECA&quot;: &quot;SEX&quot;
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 2,916 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;INOX304&quot;,&quot;DIAMETRO&quot;:6,&quot;COMPRIMENTO&quot;:20,&quot;CABECA&quot;:&quot;SEX&quot;}</pre><p>Repetição 2: 2,531 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;INOX304&quot;,&quot;DIAMETRO&quot;:6,&quot;COMPRIMENTO&quot;:20,&quot;CABECA&quot;:&quot;SEX&quot;}</pre><p>Repetição 3: 3,235 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;INOX304&quot;,&quot;DIAMETRO&quot;:6,&quot;COMPRIMENTO&quot;:20,&quot;CABECA&quot;:&quot;SEX&quot;}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 0,734 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;INOX304&quot;,&quot;DIAMETRO&quot;:6,&quot;COMPRIMENTO&quot;:20,&quot;CABECA&quot;:&quot;SEX&quot;}</pre><p>Repetição 2: 0,759 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;INOX304&quot;,&quot;DIAMETRO&quot;:6,&quot;COMPRIMENTO&quot;:20,&quot;CABECA&quot;:&quot;SEX&quot;}</pre><p>Repetição 3: 0,811 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;INOX304&quot;,&quot;DIAMETRO&quot;:6,&quot;COMPRIMENTO&quot;:20,&quot;CABECA&quot;:&quot;SEX&quot;}</pre></details><details><summary>05 — Flange sem classe de pressão</summary><p>Flange em aço carbono, diâmetro nominal DN 50. Classe de pressão e tipo de face não informados.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;MATERIAL&quot;: &quot;AC&quot;,
+  &quot;DN&quot;: 50
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 3,551 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;AC&quot;,&quot;DN&quot;:50}</pre><p>Repetição 2: 1,800 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;AC&quot;,&quot;DN&quot;:50}</pre><p>Repetição 3: 1,440 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;AC&quot;,&quot;DN&quot;:50}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 1,289 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;AC&quot;,&quot;DN&quot;:50}</pre><p>Repetição 2: 0,821 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;AC&quot;,&quot;DN&quot;:50}</pre><p>Repetição 3: 0,643 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;AC&quot;,&quot;DN&quot;:50}</pre></details><details><summary>06 — Bomba com materiais por componente</summary><p>Bomba centrífuga com corpo em ferro fundido e rotor em bronze. Alimentação elétrica de 380 V.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;MAT_CORPO&quot;: &quot;FF&quot;,
+  &quot;MAT_ROTOR&quot;: &quot;BR&quot;,
+  &quot;TENSAO&quot;: 380
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 1,603 s; correto</p><pre>{&quot;MAT_CORPO&quot;:&quot;FF&quot;,&quot;MAT_ROTOR&quot;:&quot;BR&quot;,&quot;TENSAO&quot;:380}</pre><p>Repetição 2: 1,471 s; correto</p><pre>{&quot;MAT_CORPO&quot;:&quot;FF&quot;,&quot;MAT_ROTOR&quot;:&quot;BR&quot;,&quot;TENSAO&quot;:380}</pre><p>Repetição 3: 1,355 s; correto</p><pre>{&quot;MAT_CORPO&quot;:&quot;FF&quot;,&quot;MAT_ROTOR&quot;:&quot;BR&quot;,&quot;TENSAO&quot;:380}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 1,357 s; divergente</p><pre>{&quot;CORPO&quot;:&quot;ferro fundido&quot;,&quot;MAT_CORPO&quot;:&quot;FF&quot;,&quot;ROTOR&quot;:&quot;bronze&quot;,&quot;MAT_ROTOR&quot;:&quot;BR&quot;,&quot;TENSAO&quot;:380}</pre><pre>[
+  {
+    &quot;atributo&quot;: &quot;CORPO&quot;,
+    &quot;tipo&quot;: &quot;preenchimento_sem_evidencia&quot;,
+    &quot;esperado&quot;: &quot;omitir&quot;,
+    &quot;recebido&quot;: &quot;ferro fundido&quot;
+  },
+  {
+    &quot;atributo&quot;: &quot;ROTOR&quot;,
+    &quot;tipo&quot;: &quot;preenchimento_sem_evidencia&quot;,
+    &quot;esperado&quot;: &quot;omitir&quot;,
+    &quot;recebido&quot;: &quot;bronze&quot;
+  }
+]</pre><p>Repetição 2: 0,748 s; divergente</p><pre>{&quot;CORPO&quot;:&quot;Ferro fundido&quot;,&quot;MAT_CORPO&quot;:&quot;FF&quot;,&quot;ROTOR&quot;:&quot;Bronze&quot;,&quot;MAT_ROTOR&quot;:&quot;BR&quot;,&quot;TENSAO&quot;:380}</pre><pre>[
+  {
+    &quot;atributo&quot;: &quot;CORPO&quot;,
+    &quot;tipo&quot;: &quot;preenchimento_sem_evidencia&quot;,
+    &quot;esperado&quot;: &quot;omitir&quot;,
+    &quot;recebido&quot;: &quot;Ferro fundido&quot;
+  },
+  {
+    &quot;atributo&quot;: &quot;ROTOR&quot;,
+    &quot;tipo&quot;: &quot;preenchimento_sem_evidencia&quot;,
+    &quot;esperado&quot;: &quot;omitir&quot;,
+    &quot;recebido&quot;: &quot;Bronze&quot;
+  }
+]</pre><p>Repetição 3: 1,132 s; divergente</p><pre>{&quot;CORPO&quot;:&quot;ferro fundido&quot;,&quot;MAT_CORPO&quot;:&quot;FF&quot;,&quot;ROTOR&quot;:&quot;bronze&quot;,&quot;MAT_ROTOR&quot;:&quot;BR&quot;,&quot;TENSAO&quot;:380}</pre><pre>[
+  {
+    &quot;atributo&quot;: &quot;CORPO&quot;,
+    &quot;tipo&quot;: &quot;preenchimento_sem_evidencia&quot;,
+    &quot;esperado&quot;: &quot;omitir&quot;,
+    &quot;recebido&quot;: &quot;ferro fundido&quot;
+  },
+  {
+    &quot;atributo&quot;: &quot;ROTOR&quot;,
+    &quot;tipo&quot;: &quot;preenchimento_sem_evidencia&quot;,
+    &quot;esperado&quot;: &quot;omitir&quot;,
+    &quot;recebido&quot;: &quot;bronze&quot;
+  }
+]</pre></details><details><summary>07 — Sensor PT100</summary><p>Sensor de temperatura PT100, ligação a três fios, faixa de medição de -50 °C a +200 °C. Invólucro de aço inoxidável.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;TIPO&quot;: &quot;PT100&quot;,
+  &quot;FIOS&quot;: 3,
+  &quot;MIN&quot;: -50,
+  &quot;MAX&quot;: 200,
+  &quot;MATERIAL&quot;: &quot;INOX&quot;
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 1,458 s; correto</p><pre>{&quot;TIPO&quot;:&quot;PT100&quot;,&quot;FIOS&quot;:3,&quot;MIN&quot;:-50,&quot;MAX&quot;:200,&quot;MATERIAL&quot;:&quot;INOX&quot;}</pre><p>Repetição 2: 1,411 s; correto</p><pre>{&quot;TIPO&quot;:&quot;PT100&quot;,&quot;FIOS&quot;:3,&quot;MIN&quot;:-50,&quot;MAX&quot;:200,&quot;MATERIAL&quot;:&quot;INOX&quot;}</pre><p>Repetição 3: 1,344 s; correto</p><pre>{&quot;TIPO&quot;:&quot;PT100&quot;,&quot;FIOS&quot;:3,&quot;MIN&quot;:-50,&quot;MAX&quot;:200,&quot;MATERIAL&quot;:&quot;INOX&quot;}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 0,956 s; correto</p><pre>{&quot;TIPO&quot;:&quot;PT100&quot;,&quot;FIOS&quot;:3,&quot;MIN&quot;:-50,&quot;MAX&quot;:200,&quot;MATERIAL&quot;:&quot;INOX&quot;}</pre><p>Repetição 2: 0,961 s; correto</p><pre>{&quot;TIPO&quot;:&quot;PT100&quot;,&quot;FIOS&quot;:3,&quot;MIN&quot;:-50,&quot;MAX&quot;:200,&quot;MATERIAL&quot;:&quot;INOX&quot;}</pre><p>Repetição 3: 0,933 s; correto</p><pre>{&quot;TIPO&quot;:&quot;PT100&quot;,&quot;FIOS&quot;:3,&quot;MIN&quot;:-50,&quot;MAX&quot;:200,&quot;MATERIAL&quot;:&quot;INOX&quot;}</pre></details><details><summary>08 — Cabo de rede sem blindagem</summary><p>Cabo de rede categoria 6, quatro pares, condutores de cobre puro (não é CCA), sem blindagem. Comprimento de 2 metros.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;CATEGORIA&quot;: &quot;CAT6&quot;,
+  &quot;CONDUTOR&quot;: &quot;CU&quot;,
+  &quot;BLINDAGEM&quot;: &quot;UTP&quot;,
+  &quot;PARES&quot;: 4,
+  &quot;COMPRIMENTO&quot;: 200
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 2,329 s; correto</p><pre>{&quot;CATEGORIA&quot;:&quot;CAT6&quot;,&quot;CONDUTOR&quot;:&quot;CU&quot;,&quot;BLINDAGEM&quot;:&quot;UTP&quot;,&quot;PARES&quot;:4,&quot;COMPRIMENTO&quot;:200}</pre><p>Repetição 2: 1,323 s; correto</p><pre>{&quot;CATEGORIA&quot;:&quot;CAT6&quot;,&quot;CONDUTOR&quot;:&quot;CU&quot;,&quot;BLINDAGEM&quot;:&quot;UTP&quot;,&quot;PARES&quot;:4,&quot;COMPRIMENTO&quot;:200}</pre><p>Repetição 3: 3,001 s; correto</p><pre>{&quot;CATEGORIA&quot;:&quot;CAT6&quot;,&quot;CONDUTOR&quot;:&quot;CU&quot;,&quot;BLINDAGEM&quot;:&quot;UTP&quot;,&quot;PARES&quot;:4,&quot;COMPRIMENTO&quot;:200}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 1,386 s; correto</p><pre>{&quot;CATEGORIA&quot;:&quot;CAT6&quot;,&quot;CONDUTOR&quot;:&quot;CU&quot;,&quot;BLINDAGEM&quot;:&quot;UTP&quot;,&quot;PARES&quot;:4,&quot;COMPRIMENTO&quot;:200}</pre><p>Repetição 2: 0,861 s; correto</p><pre>{&quot;CATEGORIA&quot;:&quot;CAT6&quot;,&quot;CONDUTOR&quot;:&quot;CU&quot;,&quot;BLINDAGEM&quot;:&quot;UTP&quot;,&quot;PARES&quot;:4,&quot;COMPRIMENTO&quot;:200}</pre><p>Repetição 3: 0,751 s; correto</p><pre>{&quot;CATEGORIA&quot;:&quot;CAT6&quot;,&quot;CONDUTOR&quot;:&quot;CU&quot;,&quot;BLINDAGEM&quot;:&quot;UTP&quot;,&quot;PARES&quot;:4,&quot;COMPRIMENTO&quot;:200}</pre></details><details><summary>09 — Brinquedo manual</summary><p>Carrinho de brinquedo de plástico, acionamento manual, sem motor e sem pilhas. Faixa etária e certificações não informadas.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;MATERIAL&quot;: &quot;PL&quot;,
+  &quot;ACIONAMENTO&quot;: &quot;MAN&quot;,
+  &quot;PILHAS&quot;: &quot;N&quot;
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 2,266 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;PL&quot;,&quot;ACIONAMENTO&quot;:&quot;MAN&quot;,&quot;PILHAS&quot;:&quot;N&quot;}</pre><p>Repetição 2: 1,590 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;PL&quot;,&quot;ACIONAMENTO&quot;:&quot;MAN&quot;,&quot;PILHAS&quot;:&quot;N&quot;}</pre><p>Repetição 3: 1,452 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;PL&quot;,&quot;ACIONAMENTO&quot;:&quot;MAN&quot;,&quot;PILHAS&quot;:&quot;N&quot;}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 0,879 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;PL&quot;,&quot;ACIONAMENTO&quot;:&quot;MAN&quot;,&quot;PILHAS&quot;:&quot;N&quot;}</pre><p>Repetição 2: 0,769 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;PL&quot;,&quot;ACIONAMENTO&quot;:&quot;MAN&quot;,&quot;PILHAS&quot;:&quot;N&quot;}</pre><p>Repetição 3: 0,738 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;PL&quot;,&quot;ACIONAMENTO&quot;:&quot;MAN&quot;,&quot;PILHAS&quot;:&quot;N&quot;}</pre></details><details><summary>10 — Modelo Azul de cor preta</summary><p>Camiseta da marca Horizonte, modelo Azul, na cor preta. A palavra Azul é o nome do modelo. Composição não informada.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;MARCA&quot;: &quot;Horizonte&quot;,
+  &quot;MODELO&quot;: &quot;Azul&quot;,
+  &quot;COR&quot;: &quot;PT&quot;
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 1,628 s; correto</p><pre>{&quot;MARCA&quot;:&quot;Horizonte&quot;,&quot;MODELO&quot;:&quot;Azul&quot;,&quot;COR&quot;:&quot;PT&quot;}</pre><p>Repetição 2: 1,360 s; correto</p><pre>{&quot;MARCA&quot;:&quot;Horizonte&quot;,&quot;MODELO&quot;:&quot;Azul&quot;,&quot;COR&quot;:&quot;PT&quot;}</pre><p>Repetição 3: 1,649 s; correto</p><pre>{&quot;MARCA&quot;:&quot;Horizonte&quot;,&quot;MODELO&quot;:&quot;Azul&quot;,&quot;COR&quot;:&quot;PT&quot;}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 0,844 s; correto</p><pre>{&quot;MARCA&quot;:&quot;Horizonte&quot;,&quot;MODELO&quot;:&quot;Azul&quot;,&quot;COR&quot;:&quot;PT&quot;}</pre><p>Repetição 2: 0,758 s; correto</p><pre>{&quot;MARCA&quot;:&quot;Horizonte&quot;,&quot;MODELO&quot;:&quot;Azul&quot;,&quot;COR&quot;:&quot;PT&quot;}</pre><p>Repetição 3: 0,908 s; correto</p><pre>{&quot;MARCA&quot;:&quot;Horizonte&quot;,&quot;MODELO&quot;:&quot;Azul&quot;,&quot;COR&quot;:&quot;PT&quot;}</pre></details><details><summary>11 — Óleo ISO VG 46</summary><p>Óleo hidráulico de base mineral, classificação ISO VG 46. A viscosidade cinemática medida a 40 °C não foi informada.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;BASE&quot;: &quot;MIN&quot;,
+  &quot;GRAU&quot;: &quot;VG46&quot;
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 2,263 s; correto</p><pre>{&quot;BASE&quot;:&quot;MIN&quot;,&quot;GRAU&quot;:&quot;VG46&quot;}</pre><p>Repetição 2: 1,761 s; correto</p><pre>{&quot;BASE&quot;:&quot;MIN&quot;,&quot;GRAU&quot;:&quot;VG46&quot;}</pre><p>Repetição 3: 4,234 s; correto</p><pre>{&quot;BASE&quot;:&quot;MIN&quot;,&quot;GRAU&quot;:&quot;VG46&quot;}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 1,202 s; correto</p><pre>{&quot;BASE&quot;:&quot;MIN&quot;,&quot;GRAU&quot;:&quot;VG46&quot;}</pre><p>Repetição 2: 0,639 s; correto</p><pre>{&quot;BASE&quot;:&quot;MIN&quot;,&quot;GRAU&quot;:&quot;VG46&quot;}</pre><p>Repetição 3: 1,018 s; correto</p><pre>{&quot;BASE&quot;:&quot;MIN&quot;,&quot;GRAU&quot;:&quot;VG46&quot;}</pre></details><details><summary>12 — Monitor sem tecnologia de painel informada</summary><p>Monitor de 23,8 polegadas, resolução 1920 x 1080, retroiluminação LED, sem tela sensível ao toque. Tecnologia do painel não informada.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;DIAGONAL&quot;: 23.8,
+  &quot;RESOLUCAO&quot;: &quot;FHD&quot;,
+  &quot;LUZ&quot;: &quot;LED&quot;,
+  &quot;TOQUE&quot;: &quot;N&quot;
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 1,319 s; correto</p><pre>{&quot;DIAGONAL&quot;:23.8,&quot;RESOLUCAO&quot;:&quot;FHD&quot;,&quot;LUZ&quot;:&quot;LED&quot;,&quot;TOQUE&quot;:&quot;N&quot;}</pre><p>Repetição 2: 1,674 s; correto</p><pre>{&quot;DIAGONAL&quot;:23.8,&quot;RESOLUCAO&quot;:&quot;FHD&quot;,&quot;LUZ&quot;:&quot;LED&quot;,&quot;TOQUE&quot;:&quot;N&quot;}</pre><p>Repetição 3: 1,331 s; correto</p><pre>{&quot;DIAGONAL&quot;:23.8,&quot;RESOLUCAO&quot;:&quot;FHD&quot;,&quot;LUZ&quot;:&quot;LED&quot;,&quot;TOQUE&quot;:&quot;N&quot;}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 0,893 s; correto</p><pre>{&quot;DIAGONAL&quot;:23.8,&quot;RESOLUCAO&quot;:&quot;FHD&quot;,&quot;LUZ&quot;:&quot;LED&quot;,&quot;TOQUE&quot;:&quot;N&quot;}</pre><p>Repetição 2: 0,792 s; correto</p><pre>{&quot;DIAGONAL&quot;:23.8,&quot;RESOLUCAO&quot;:&quot;FHD&quot;,&quot;LUZ&quot;:&quot;LED&quot;,&quot;TOQUE&quot;:&quot;N&quot;}</pre><p>Repetição 3: 0,821 s; correto</p><pre>{&quot;DIAGONAL&quot;:23.8,&quot;RESOLUCAO&quot;:&quot;FHD&quot;,&quot;LUZ&quot;:&quot;LED&quot;,&quot;TOQUE&quot;:&quot;N&quot;}</pre></details><details><summary>13 — Caneca com cor fora do domínio</summary><p>Caneca de cerâmica com capacidade de 0,35 litro. Cor turquesa; não é azul, vermelha nem branca.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;MATERIAL&quot;: &quot;CER&quot;,
+  &quot;CAPACIDADE&quot;: 350
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 1,523 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;CER&quot;,&quot;CAPACIDADE&quot;:350}</pre><p>Repetição 2: 2,167 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;CER&quot;,&quot;CAPACIDADE&quot;:350}</pre><p>Repetição 3: 1,639 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;CER&quot;,&quot;CAPACIDADE&quot;:350}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 0,833 s; divergente</p><pre>{&quot;MATERIAL&quot;:&quot;CER&quot;,&quot;CAPACIDADE&quot;:350,&quot;COR&quot;:&quot;AZ&quot;}</pre><pre>[
+  {
+    &quot;atributo&quot;: &quot;COR&quot;,
+    &quot;tipo&quot;: &quot;preenchimento_sem_evidencia&quot;,
+    &quot;esperado&quot;: &quot;omitir&quot;,
+    &quot;recebido&quot;: &quot;AZ&quot;
+  }
+]</pre><p>Repetição 2: 0,723 s; divergente</p><pre>{&quot;MATERIAL&quot;:&quot;CER&quot;,&quot;CAPACIDADE&quot;:350,&quot;COR&quot;:&quot;AZ&quot;}</pre><pre>[
+  {
+    &quot;atributo&quot;: &quot;COR&quot;,
+    &quot;tipo&quot;: &quot;preenchimento_sem_evidencia&quot;,
+    &quot;esperado&quot;: &quot;omitir&quot;,
+    &quot;recebido&quot;: &quot;AZ&quot;
+  }
+]</pre><p>Repetição 3: 0,796 s; divergente</p><pre>{&quot;MATERIAL&quot;:&quot;CER&quot;,&quot;CAPACIDADE&quot;:350,&quot;COR&quot;:&quot;AZ&quot;}</pre><pre>[
+  {
+    &quot;atributo&quot;: &quot;COR&quot;,
+    &quot;tipo&quot;: &quot;preenchimento_sem_evidencia&quot;,
+    &quot;esperado&quot;: &quot;omitir&quot;,
+    &quot;recebido&quot;: &quot;AZ&quot;
+  }
+]</pre></details><details><summary>14 — Bateria LiFePO4</summary><p>Bateria recarregável de fosfato de ferro-lítio (LiFePO4), tensão nominal de 12,8 V e capacidade de 100 Ah. Peso e quantidade de células não informados.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;QUIMICA&quot;: &quot;LFP&quot;,
+  &quot;TENSAO&quot;: 12.8,
+  &quot;CAPACIDADE&quot;: 100
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 2,489 s; correto</p><pre>{&quot;QUIMICA&quot;:&quot;LFP&quot;,&quot;TENSAO&quot;:12.8,&quot;CAPACIDADE&quot;:100}</pre><p>Repetição 2: 2,310 s; correto</p><pre>{&quot;QUIMICA&quot;:&quot;LFP&quot;,&quot;TENSAO&quot;:12.8,&quot;CAPACIDADE&quot;:100}</pre><p>Repetição 3: 1,410 s; correto</p><pre>{&quot;QUIMICA&quot;:&quot;LFP&quot;,&quot;TENSAO&quot;:12.8,&quot;CAPACIDADE&quot;:100}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 0,864 s; divergente</p><pre>{&quot;QUIMICA&quot;:[&quot;LFP&quot;],&quot;TENSAO&quot;:12.8,&quot;CAPACIDADE&quot;:100}</pre><pre>[
+  {
+    &quot;atributo&quot;: &quot;QUIMICA&quot;,
+    &quot;tipo&quot;: &quot;valor_incorreto&quot;,
+    &quot;esperado&quot;: &quot;LFP&quot;,
+    &quot;recebido&quot;: [
+      &quot;LFP&quot;
+    ]
+  }
+]</pre><p>Repetição 2: 0,681 s; divergente</p><pre>{&quot;QUIMICA&quot;:[&quot;LFP&quot;],&quot;TENSAO&quot;:12.8,&quot;CAPACIDADE&quot;:100}</pre><pre>[
+  {
+    &quot;atributo&quot;: &quot;QUIMICA&quot;,
+    &quot;tipo&quot;: &quot;valor_incorreto&quot;,
+    &quot;esperado&quot;: &quot;LFP&quot;,
+    &quot;recebido&quot;: [
+      &quot;LFP&quot;
+    ]
+  }
+]</pre><p>Repetição 3: 1,351 s; divergente</p><pre>{&quot;QUIMICA&quot;:[&quot;LFP&quot;],&quot;TENSAO&quot;:12.8,&quot;CAPACIDADE&quot;:100}</pre><pre>[
+  {
+    &quot;atributo&quot;: &quot;QUIMICA&quot;,
+    &quot;tipo&quot;: &quot;valor_incorreto&quot;,
+    &quot;esperado&quot;: &quot;LFP&quot;,
+    &quot;recebido&quot;: [
+      &quot;LFP&quot;
+    ]
+  }
+]</pre></details><details><summary>15 — Jogo de chaves</summary><p>Jogo com três chaves de boca de 8, 10 e 12 mm, fabricadas em aço cromo-vanádio e acabamento cromado. Não inclui chave de 13 mm.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;MEDIDAS&quot;: [
+    &quot;M8&quot;,
+    &quot;M10&quot;,
+    &quot;M12&quot;
+  ],
+  &quot;MATERIAL&quot;: &quot;CRV&quot;,
+  &quot;ACABAMENTO&quot;: &quot;CR&quot;,
+  &quot;QUANTIDADE&quot;: 3
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 2,423 s; correto</p><pre>{&quot;MEDIDAS&quot;:[&quot;M8&quot;,&quot;M10&quot;,&quot;M12&quot;],&quot;MATERIAL&quot;:&quot;CRV&quot;,&quot;ACABAMENTO&quot;:&quot;CR&quot;,&quot;QUANTIDADE&quot;:3}</pre><p>Repetição 2: 2,657 s; correto</p><pre>{&quot;MEDIDAS&quot;:[&quot;M8&quot;,&quot;M10&quot;,&quot;M12&quot;],&quot;MATERIAL&quot;:&quot;CRV&quot;,&quot;ACABAMENTO&quot;:&quot;CR&quot;,&quot;QUANTIDADE&quot;:3}</pre><p>Repetição 3: 1,976 s; correto</p><pre>{&quot;MEDIDAS&quot;:[&quot;M8&quot;,&quot;M10&quot;,&quot;M12&quot;],&quot;MATERIAL&quot;:&quot;CRV&quot;,&quot;ACABAMENTO&quot;:&quot;CR&quot;,&quot;QUANTIDADE&quot;:3}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 0,864 s; correto</p><pre>{&quot;MEDIDAS&quot;:[&quot;M8&quot;,&quot;M10&quot;,&quot;M12&quot;],&quot;MATERIAL&quot;:&quot;CRV&quot;,&quot;ACABAMENTO&quot;:&quot;CR&quot;,&quot;QUANTIDADE&quot;:3}</pre><p>Repetição 2: 1,266 s; correto</p><pre>{&quot;MEDIDAS&quot;:[&quot;M8&quot;,&quot;M10&quot;,&quot;M12&quot;],&quot;MATERIAL&quot;:&quot;CRV&quot;,&quot;ACABAMENTO&quot;:&quot;CR&quot;,&quot;QUANTIDADE&quot;:3}</pre><p>Repetição 3: 0,967 s; correto</p><pre>{&quot;MEDIDAS&quot;:[&quot;M8&quot;,&quot;M10&quot;,&quot;M12&quot;],&quot;MATERIAL&quot;:&quot;CRV&quot;,&quot;ACABAMENTO&quot;:&quot;CR&quot;,&quot;QUANTIDADE&quot;:3}</pre></details><details><summary>16 — Válvula: pressão de ensaio versus nominal</summary><p>Válvula de esfera em latão, acionamento manual, DN 25. Pressão de ensaio: 25 bar. A pressão nominal de trabalho não foi informada.</p>
+<p><strong>Gabarito (demais atributos devem ser omitidos)</strong></p><pre>{
+  &quot;MATERIAL&quot;: &quot;LT&quot;,
+  &quot;ACIONAMENTO&quot;: &quot;MAN&quot;,
+  &quot;DN&quot;: 25,
+  &quot;ENSAIO&quot;: 25
+}</pre>
+<h3>gpt-6-luna</h3><p>Repetição 1: 3,038 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;LT&quot;,&quot;ACIONAMENTO&quot;:&quot;MAN&quot;,&quot;DN&quot;:25,&quot;ENSAIO&quot;:25}</pre><p>Repetição 2: 2,069 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;LT&quot;,&quot;ACIONAMENTO&quot;:&quot;MAN&quot;,&quot;DN&quot;:25,&quot;ENSAIO&quot;:25}</pre><p>Repetição 3: 2,230 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;LT&quot;,&quot;ACIONAMENTO&quot;:&quot;MAN&quot;,&quot;DN&quot;:25,&quot;ENSAIO&quot;:25}</pre><h3>gpt-5.4-nano</h3><p>Repetição 1: 0,840 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;LT&quot;,&quot;ACIONAMENTO&quot;:&quot;MAN&quot;,&quot;DN&quot;:25,&quot;ENSAIO&quot;:25}</pre><p>Repetição 2: 0,776 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;LT&quot;,&quot;ACIONAMENTO&quot;:&quot;MAN&quot;,&quot;DN&quot;:25,&quot;ENSAIO&quot;:25}</pre><p>Repetição 3: 0,713 s; correto</p><pre>{&quot;MATERIAL&quot;:&quot;LT&quot;,&quot;ACIONAMENTO&quot;:&quot;MAN&quot;,&quot;DN&quot;:25,&quot;ENSAIO&quot;:25}</pre></details>
+<h2>Arquivos de evidência</h2><p><a href="casos.json">Casos e gabaritos</a> · <a href="manifesto.json">Manifesto e parâmetros</a> · <a href="respostas.jsonl">Respostas e tokens</a> · <a href="resultado.json">Métricas estritas</a> · <a href="auditoria.json">Análise secundária de conteúdo</a> · <a href="executar.cjs">Executor</a></p>
+<p class="muted">SHA-256 do serviço: 63f2c0d697072a8a0665d29a14ccc6e3d402818885d7130b44afe7ab45651599<br>SHA-256 do gabarito: 3a9b61c7b5b628606163a7ba277b05046202e129fb5d0c03d14066b8c20e2f48</p></main></html>

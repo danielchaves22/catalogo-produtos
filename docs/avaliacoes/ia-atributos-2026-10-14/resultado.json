@@ -1,0 +1,544 @@
+{
+  "startedAt": "2026-10-14T17:27:01.991Z",
+  "timezone": "America/Sao_Paulo",
+  "configuredModel": "gpt-6-luna",
+  "sourceSha256": "63f2c0d697072a8a0665d29a14ccc6e3d402818885d7130b44afe7ab45651599",
+  "fixturesSha256": "3a9b61c7b5b628606163a7ba277b05046202e129fb5d0c03d14066b8c20e2f48",
+  "cases": 16,
+  "repetitions": 3,
+  "expectedCalls": 96,
+  "models": [
+    {
+      "model": "gpt-6-luna",
+      "calls": 48,
+      "successful": 48,
+      "failures": [],
+      "exactProducts": 48,
+      "exactProductRate": 1,
+      "tp": 159,
+      "fp": 0,
+      "fn": 0,
+      "correctFields": 210,
+      "totalFields": 210,
+      "expectedFields": 159,
+      "unnecessary": 0,
+      "invalidDomains": 0,
+      "precision": 1,
+      "recall": 1,
+      "fieldAccuracy": 1,
+      "latency": {
+        "meanMs": 2175.4583333333335,
+        "medianMs": 1888,
+        "p95Ms": 3551,
+        "minMs": 1319,
+        "maxMs": 8519
+      },
+      "tokens": {
+        "input": 22635,
+        "output": 1296,
+        "cached": 0,
+        "reasoning": 0
+      },
+      "estimatedCostUsdNoCache": 0.0029115,
+      "estimatedCostUsdCacheReads": 0.0029115,
+      "cases": [
+        {
+          "id": "01",
+          "nome": "Camiseta de algodão",
+          "categoria": "direto",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 1986,
+          "issues": []
+        },
+        {
+          "id": "02",
+          "nome": "Tecido misto",
+          "categoria": "multivalorado",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 2589,
+          "issues": []
+        },
+        {
+          "id": "03",
+          "nome": "Motor elétrico",
+          "categoria": "unidades",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 2720,
+          "issues": []
+        },
+        {
+          "id": "04",
+          "nome": "Parafuso inox",
+          "categoria": "tecnico",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 2916,
+          "issues": []
+        },
+        {
+          "id": "05",
+          "nome": "Flange sem classe de pressão",
+          "categoria": "ausencia",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 1800,
+          "issues": []
+        },
+        {
+          "id": "06",
+          "nome": "Bomba com materiais por componente",
+          "categoria": "contexto",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 1471,
+          "issues": []
+        },
+        {
+          "id": "07",
+          "nome": "Sensor PT100",
+          "categoria": "tecnico",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 1411,
+          "issues": []
+        },
+        {
+          "id": "08",
+          "nome": "Cabo de rede sem blindagem",
+          "categoria": "negacao",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 2329,
+          "issues": []
+        },
+        {
+          "id": "09",
+          "nome": "Brinquedo manual",
+          "categoria": "negacao",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 1590,
+          "issues": []
+        },
+        {
+          "id": "10",
+          "nome": "Modelo Azul de cor preta",
+          "categoria": "contexto",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 1628,
+          "issues": []
+        },
+        {
+          "id": "11",
+          "nome": "Óleo ISO VG 46",
+          "categoria": "tecnico",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 2263,
+          "issues": []
+        },
+        {
+          "id": "12",
+          "nome": "Monitor sem tecnologia de painel informada",
+          "categoria": "ausencia",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 1331,
+          "issues": []
+        },
+        {
+          "id": "13",
+          "nome": "Caneca com cor fora do domínio",
+          "categoria": "fora_dominio",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 1639,
+          "issues": []
+        },
+        {
+          "id": "14",
+          "nome": "Bateria LiFePO4",
+          "categoria": "tecnico",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 2310,
+          "issues": []
+        },
+        {
+          "id": "15",
+          "nome": "Jogo de chaves",
+          "categoria": "multivalorado",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 2423,
+          "issues": []
+        },
+        {
+          "id": "16",
+          "nome": "Válvula: pressão de ensaio versus nominal",
+          "categoria": "contexto",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 2230,
+          "issues": []
+        }
+      ]
+    },
+    {
+      "model": "gpt-5.4-nano",
+      "calls": 48,
+      "successful": 48,
+      "failures": [],
+      "exactProducts": 38,
+      "exactProductRate": 0.7916666666666666,
+      "tp": 156,
+      "fp": 13,
+      "fn": 3,
+      "correctFields": 197,
+      "totalFields": 210,
+      "expectedFields": 159,
+      "unnecessary": 10,
+      "invalidDomains": 0,
+      "precision": 0.9230769230769231,
+      "recall": 0.9811320754716981,
+      "fieldAccuracy": 0.9380952380952381,
+      "latency": {
+        "meanMs": 882.75,
+        "medianMs": 821,
+        "p95Ms": 1351,
+        "minMs": 639,
+        "maxMs": 1386
+      },
+      "tokens": {
+        "input": 22635,
+        "output": 1359,
+        "cached": 0,
+        "reasoning": 0
+      },
+      "estimatedCostUsdNoCache": 0.0062257499999999995,
+      "estimatedCostUsdCacheReads": 0.0062257499999999995,
+      "cases": [
+        {
+          "id": "01",
+          "nome": "Camiseta de algodão",
+          "categoria": "direto",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 733,
+          "issues": []
+        },
+        {
+          "id": "02",
+          "nome": "Tecido misto",
+          "categoria": "multivalorado",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 738,
+          "issues": []
+        },
+        {
+          "id": "03",
+          "nome": "Motor elétrico",
+          "categoria": "unidades",
+          "calls": 3,
+          "exact": 2,
+          "medianMs": 823,
+          "issues": [
+            {
+              "repetition": 2,
+              "details": [
+                {
+                  "atributo": "ROTACAO",
+                  "tipo": "preenchimento_sem_evidencia",
+                  "esperado": "omitir",
+                  "recebido": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "04",
+          "nome": "Parafuso inox",
+          "categoria": "tecnico",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 759,
+          "issues": []
+        },
+        {
+          "id": "05",
+          "nome": "Flange sem classe de pressão",
+          "categoria": "ausencia",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 821,
+          "issues": []
+        },
+        {
+          "id": "06",
+          "nome": "Bomba com materiais por componente",
+          "categoria": "contexto",
+          "calls": 3,
+          "exact": 0,
+          "medianMs": 1132,
+          "issues": [
+            {
+              "repetition": 1,
+              "details": [
+                {
+                  "atributo": "CORPO",
+                  "tipo": "preenchimento_sem_evidencia",
+                  "esperado": "omitir",
+                  "recebido": "ferro fundido"
+                },
+                {
+                  "atributo": "ROTOR",
+                  "tipo": "preenchimento_sem_evidencia",
+                  "esperado": "omitir",
+                  "recebido": "bronze"
+                }
+              ]
+            },
+            {
+              "repetition": 2,
+              "details": [
+                {
+                  "atributo": "CORPO",
+                  "tipo": "preenchimento_sem_evidencia",
+                  "esperado": "omitir",
+                  "recebido": "Ferro fundido"
+                },
+                {
+                  "atributo": "ROTOR",
+                  "tipo": "preenchimento_sem_evidencia",
+                  "esperado": "omitir",
+                  "recebido": "Bronze"
+                }
+              ]
+            },
+            {
+              "repetition": 3,
+              "details": [
+                {
+                  "atributo": "CORPO",
+                  "tipo": "preenchimento_sem_evidencia",
+                  "esperado": "omitir",
+                  "recebido": "ferro fundido"
+                },
+                {
+                  "atributo": "ROTOR",
+                  "tipo": "preenchimento_sem_evidencia",
+                  "esperado": "omitir",
+                  "recebido": "bronze"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "07",
+          "nome": "Sensor PT100",
+          "categoria": "tecnico",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 956,
+          "issues": []
+        },
+        {
+          "id": "08",
+          "nome": "Cabo de rede sem blindagem",
+          "categoria": "negacao",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 861,
+          "issues": []
+        },
+        {
+          "id": "09",
+          "nome": "Brinquedo manual",
+          "categoria": "negacao",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 769,
+          "issues": []
+        },
+        {
+          "id": "10",
+          "nome": "Modelo Azul de cor preta",
+          "categoria": "contexto",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 844,
+          "issues": []
+        },
+        {
+          "id": "11",
+          "nome": "Óleo ISO VG 46",
+          "categoria": "tecnico",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 1018,
+          "issues": []
+        },
+        {
+          "id": "12",
+          "nome": "Monitor sem tecnologia de painel informada",
+          "categoria": "ausencia",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 821,
+          "issues": []
+        },
+        {
+          "id": "13",
+          "nome": "Caneca com cor fora do domínio",
+          "categoria": "fora_dominio",
+          "calls": 3,
+          "exact": 0,
+          "medianMs": 796,
+          "issues": [
+            {
+              "repetition": 1,
+              "details": [
+                {
+                  "atributo": "COR",
+                  "tipo": "preenchimento_sem_evidencia",
+                  "esperado": "omitir",
+                  "recebido": "AZ"
+                }
+              ]
+            },
+            {
+              "repetition": 2,
+              "details": [
+                {
+                  "atributo": "COR",
+                  "tipo": "preenchimento_sem_evidencia",
+                  "esperado": "omitir",
+                  "recebido": "AZ"
+                }
+              ]
+            },
+            {
+              "repetition": 3,
+              "details": [
+                {
+                  "atributo": "COR",
+                  "tipo": "preenchimento_sem_evidencia",
+                  "esperado": "omitir",
+                  "recebido": "AZ"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "14",
+          "nome": "Bateria LiFePO4",
+          "categoria": "tecnico",
+          "calls": 3,
+          "exact": 0,
+          "medianMs": 864,
+          "issues": [
+            {
+              "repetition": 1,
+              "details": [
+                {
+                  "atributo": "QUIMICA",
+                  "tipo": "valor_incorreto",
+                  "esperado": "LFP",
+                  "recebido": [
+                    "LFP"
+                  ]
+                }
+              ]
+            },
+            {
+              "repetition": 2,
+              "details": [
+                {
+                  "atributo": "QUIMICA",
+                  "tipo": "valor_incorreto",
+                  "esperado": "LFP",
+                  "recebido": [
+                    "LFP"
+                  ]
+                }
+              ]
+            },
+            {
+              "repetition": 3,
+              "details": [
+                {
+                  "atributo": "QUIMICA",
+                  "tipo": "valor_incorreto",
+                  "esperado": "LFP",
+                  "recebido": [
+                    "LFP"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "15",
+          "nome": "Jogo de chaves",
+          "categoria": "multivalorado",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 967,
+          "issues": []
+        },
+        {
+          "id": "16",
+          "nome": "Válvula: pressão de ensaio versus nominal",
+          "categoria": "contexto",
+          "calls": 3,
+          "exact": 3,
+          "medianMs": 776,
+          "issues": []
+        }
+      ]
+    }
+  ],
+  "pricesPerMillion": {
+    "gpt-6-luna": {
+      "input": 0.1,
+      "cachedInput": 0.01,
+      "output": 0.5
+    },
+    "gpt-5.4-nano": {
+      "input": 0.2,
+      "cachedInput": 0.02,
+      "output": 1.25
+    }
+  },
+  "sources": [
+    "https://developers.openai.com/api/docs/models/gpt-6-luna",
+    "https://developers.openai.com/api/docs/models/gpt-5.4-nano"
+  ],
+  "method": "Mesmo prompt gerado pelas funções do serviço atual, mesmas descrições/domínios e parâmetros. Gabarito não enviado à API. Chamadas sequenciais sem retries; ordem dos casos embaralhada com semente fixa e ordem dos modelos alternada por par. Modelo informado apenas no payload de cada requisição.",
+  "parameters": {
+    "temperature": 0.2,
+    "reasoning_effort": "none",
+    "max_completion_tokens": 800,
+    "response_format": {
+      "type": "json_object"
+    },
+    "service_tier": "default",
+    "timeoutMs": 15000
+  },
+  "costMethod": "Estimativas pelos tokens reportados e tarifas Standard: custo sem cache e custo com desconto de leituras de cache. Não é leitura de fatura; eventual escrita de cache não discriminada não está incluída.",
+  "finishedAt": "2026-10-14T17:29:28.947Z",
+  "completed": true,
+  "envUnchanged": true,
+  "sourceUnchanged": true,
+  "fixturesUnchanged": true,
+  "latencyMethod": "Mediana aritmética dos dois elementos centrais para amostras pares; p95 pelo método nearest rank. Consolidação offline, sem repetir chamadas."
+}

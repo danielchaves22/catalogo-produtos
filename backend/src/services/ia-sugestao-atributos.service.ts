@@ -78,10 +78,16 @@ export class IaSugestaoAtributosService {
       modalidade
     });
 
+    const limiteTokens = maxTokensResposta ?? 800;
+    // O Luna precisa de esforço explícito para aceitar temperature; modelos legados não recebem esse parâmetro.
+    const parametrosModelo = this.modelo === 'gpt-6-luna'
+      ? { reasoning_effort: 'none', max_completion_tokens: limiteTokens }
+      : { max_tokens: limiteTokens };
+
     const payloadRequisicao = {
       model: this.modelo,
       temperature: 0.2,
-      max_tokens: maxTokensResposta ?? 800,
+      ...parametrosModelo,
       response_format: { type: 'json_object' },
       messages: prompt
     };
@@ -108,7 +114,7 @@ export class IaSugestaoAtributosService {
       logger.warn('Resposta da IA foi cortada por limite de tokens; considere aumentar maxTokensResposta', {
         evento: 'ia.sugestao.atributos.resposta.incompleta',
         payload: {
-          maxTokensUtilizado: payloadRequisicao.max_tokens,
+          maxTokensUtilizado: limiteTokens,
           modelo: resposta.data?.model ?? this.modelo
         }
       });
